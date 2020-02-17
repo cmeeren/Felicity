@@ -387,6 +387,8 @@ module Comment =
       .GetCollection(fun ctx parser ->
         parser.For(CommentSearchArgs.empty)
           .Add(CommentSearchArgs.setAuthorId, Filter.Field(author))
+          // This will parse a query parameter named filter[author.firstName], using the
+          // information in Person.firstName for parsing the value.
           .Add(CommentSearchArgs.setAuthorFirstName, Filter.Field(author, Person.firstName))
           .Add(CommentSearchArgs.setSort, Sort.Enum(CommentSort.fromStringMap))
           .Add(CommentSearchArgs.setOffset, Page.Offset)

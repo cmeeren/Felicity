@@ -35,6 +35,8 @@ TODO
 
 TODO
 
+* Logging, suppressing
+
 Attributes
 ----------
 
@@ -56,7 +58,33 @@ Relationships
 
 TODO
 
+* Setter: ID vs. related, must check for existence self if using ID setter
+
 ### Skippable relationships
+
+TODO
+
+### PATCH/POST/DELETE relationship self
+
+TODO
+
+#### Modifying the response
+
+TODO
+
+#### Returning 202 Accepted
+
+TODO
+
+#### BeforeUpdateModifySelf
+
+TODO
+
+#### HTTP preconditions
+
+TODO refer to separate section
+
+#### Execution order
 
 TODO
 
@@ -74,6 +102,17 @@ TODO
 * Simple use of GetRequired/GetOptional
 * Prohibit
 * Context-dependent parsing
+* Relationships
+* Filter parameters
+* Attributes vs. strings
+* Query parameters
+  * Filter
+  * Single vs. List
+  * Sort
+  * Page
+  * Custom
+  * Parsed vs. enum
+* Headers
 
 GET collection operation
 ------------------------
@@ -81,6 +120,14 @@ GET collection operation
 TODO
 
 ### Parsing parameters
+
+TODO
+
+### Modifying the response
+
+TODO
+
+### Execution order
 
 TODO
 
@@ -101,6 +148,26 @@ TODO
 
 TODO
 
+### Modifying the response
+
+TODO
+
+### Returning 202 Accepted
+
+TODO
+
+### BeforeCreate
+
+TODO
+
+### Execution order
+
+TODO
+
+### HTTP preconditions
+
+TODO refer to separate section
+
 ID lookup operation
 -------------------
 
@@ -111,8 +178,36 @@ GET resource operation
 
 TODO
 
+### Modifying the response
+
+TODO
+
+### Execution order
+
+TODO
+
 PATCH resource operation
 ------------------------
+
+TODO
+
+### Modifying the response
+
+TODO
+
+### Returning 202 Accepted
+
+TODO
+
+### BeforeUpdate
+
+TODO
+
+### HTTP preconditions
+
+TODO refer to separate section
+
+### Execution order
 
 TODO
 
@@ -121,10 +216,55 @@ DELETE resource operation
 
 TODO
 
+### Modifying the response
+
+TODO
+
+### Returning 202 Accepted
+
+TODO
+
+### BeforeDelete
+
+TODO
+
+### HTTP preconditions
+
+TODO refer to separate section
+
+### Execution order
+
+TODO
+
 Custom operations/links
 -----------------------
 
 TODO
+
+### Conditions
+
+TODO
+
+### Meta
+
+TODO
+
+### Preconditions
+
+TODO
+
+* POST, PATCH, DELETE
+
+### Execution order
+
+TODO
+
+Operation-specific authorization
+--------------------------------
+
+TODO
+
+* Context mapping
 
 ETag
 ----
@@ -145,3 +285,16 @@ Polymorphism
 
 TODO
 
+Current limitations
+-------------------
+
+TODO
+
+* Included resources in relationship self requests
+
+FAQ
+---
+
+TODO
+
+* Why `Func`
