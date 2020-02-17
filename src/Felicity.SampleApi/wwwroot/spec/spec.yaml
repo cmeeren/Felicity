@@ -1,0 +1,1501 @@
+﻿openapi: 3.0.2
+info:
+  version: 1.0.0
+  title: Sample API
+  description: |
+    
+    # Introduction
+    
+    This API and specification is a demo for showing how to create (and
+    document) an API using [Felicity](https://github.com/cmeeren/Felicity/).
+    
+    
+    
+    ## Contact
+    
+    *You might want to have contact details for API clients.*
+      
+    
+    
+    ## Definitions
+    
+    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+    "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+    "OPTIONAL" in this document are to be interpreted as described in [BCP
+    14](https://tools.ietf.org/html/bcp14)
+    [[RFC2119](https://tools.ietf.org/html/rfc2119)]
+    [[RFC8174](https://tools.ietf.org/html/rfc8174)] when, and only when, they
+    appear in all capitals, as shown here.
+    
+    
+    
+    ## Versioning
+    
+    This API specification follows [Semantic Versioning
+    v2.0.0](https://semver.org/spec/v2.0.0.html). In particular:
+    
+    * The **major** version is incremented for backwards incompatible changes
+      (e.g. removing deprecated interfaces).
+    * The **minor** version is incremented when new functionality is added in a
+      backwards compatible manner.
+    * The **patch** version is optionally incremented for backwards compatible
+      changes that do not add new functionality, such as bug fixes or editorial
+      changes not affecting the functionality.
+    
+    
+    ### Version history
+    
+    #### 1.0.0 (YYYY-MM-DD)
+    
+    * Initial release
+    
+    
+    ## On the format of this specification
+    
+    This API conforms to the [JSON:API](http://jsonapi.org) standard.
+    Familiarity with the [JSON:API v1.0 specification](https://jsonapi.org/format/1.0/)
+    is assumed throughout this documentation.
+    
+    The central part of this documentation is the definition of the JSON:API
+    resources provided by the API, together with the endpoints and operations by
+    which these resources may be queried and manipulated. The technicalities of
+    the JSON:API response format and its semantics, as well as some runtime
+    behavior (such as guaranteed status codes for some specific error
+    conditions), are handled by the JSON:API specification.
+    
+    You can use the download button at the top of this page to download the raw
+    OpenAPI YAML file used to generate this page, with all model definitions,
+    operations, etc. Note however that the sole purpose of the YAML file is to
+    render this document, and no guarantees can be made about the stability of
+    exactly how the YAML file defines and composes models, paths, etc. JSON:API
+    is a complex and rich specification that does not mesh perfectly with
+    OpenAPI, so API clients might be better off using an existing JSON:API
+    client library rather than using the YAML file to generate client code.
+    
+    To facilitate simpler testing and integration, this is not a purely
+    link-driven hypermedia API. In particular, this specification guarantees a
+    static URL structure that may be safely hardcoded. (However, clients are of
+    course free to use any documented links provided in the responses if
+    desired).
+    
+    *Note: OpenAPI is path-focused, but if you wish not to document a static URL
+    structure, you can work around it by for example replacing paths such as
+    `/persons/{id}` with `{person.links.self}` and `/persons/{id}/articles` with
+    `{person.relationships.articles.links.related}`. This is by no means a
+    standard, but is hopefully understandable to human readers.*
+    
+    
+    ### Conventions
+    
+    * Unless otherwise specified, all operations support `fields` and `include`.
+      By default, all fields are included, and no related resources are
+      included.
+      
+    * All resource relationship endpoints work according to the JSON:API
+      specification and will not be listed here unless they provide additional
+      non-standard functionality.
+    
+    * The response formats and examples only specify the most important data.
+      Responses may contain additional data such as included resources and
+      relationship linkage as per the JSON:API specification.
+    
+    * The stand-alone resource definitions are provided from a response
+      perspective (e.g. whether properties are marked as "required", see the
+      section below on optional vs. required parameters).
+    
+    * As per the JSON:API specification, links may be simple strings or objects with
+      `href` and/or `meta` properties. For simplicity, links without any current
+      meta may be documented as simple strings. However, any link may be
+      extended with meta in the future without this being considered a breaking
+      change. Therefore, as per the JSON:API specification, clients MUST be able
+      to parse links as both simple strings and as objects with `href` and/or
+      `meta` properties.
+    
+    
+    ## Technical requirements and recommendations
+    
+    
+    ### Comply with the JSON:API specification
+    
+    Clients and servers MUST comply with the JSON:API specification unless
+    otherwise noted. Any parts of this specification that does not comply with
+    the JSON:API specification MUST explicitly state that it deviates from the
+    JSON:API specification.
+    
+    If this specification deviates from the JSON:API specification without
+    explicitly stating so, this should be considered a bug in the specification
+    and the documented behavior is undefined. Please contact us to report bugs
+    in the API or its specification.
+    
+    
+    ### Don't depend on unspecified runtime behaviour
+    
+    Clients MUST NOT depend on observed runtime behavior not recognized by this
+    specification or the JSON:API specification. This includes, but is not
+    limited to, HTTP status codes. Behaviour that is not guaranteed by this
+    specification or the JSON:API specification may change at any time. This
+    specification is the sole contract by which clients and servers should
+    communicate.
+    
+    If the server implementation violates this specification, that must be
+    considered a bug in either the specification or the server implementation.
+    Please contact us to report bugs in the API or its specification.
+    
+    
+    ### Resource IDs have no semantic meaning or implicit structure
+    
+    Clients MUST NOT parse or construct resource IDs based on assumed semantic
+    meaning.
+    
+    If clients need to act on semantic information that only seems to be present
+    in a resource identifier, please contact us to have the specification
+    extended with the necessary semantic information/functionality.
+    
+    Furthermore, resource IDs are strings without any implicit structure. For
+    example, even if a resource ID looks like a valid GUID, that may not be the
+    case for all resources of that type, or it may not be the case in the
+    future. Unless documented otherwise, resource IDs must be treated as strings
+    with an undefined length. If you need to know the maximum length of an ID
+    with unspecified length, e.g. in order to store the ID in a database, please
+    contact us to have the specifiation extended with the necessary guarantees.
+    
+    
+    ### Ignore unrecognized members
+    
+    Clients and servers MUST ignore members, headers, and parameters not
+    recognized by this specification or the JSON:API specification.
+    
+    
+    ### Parameters are non-null by default
+    
+    Clients and servers MUST NOT use `null` as a value for any parameter unless
+    the parameter is explicitly specified as nullable. Note that nullability of
+    globally defined parameters (e.g. resource fields) may be explicitly
+    overridden (by this specification) for specific requests/responses.
+    
+    
+    ### Parameters are optional by default
+    
+    Clients MAY omit any request parameter (in query, header, or body) and
+    servers MAY omit any response parameter (in header or body) unless
+    explicitly required by this specification or the JSON:API specification.
+    Note that whether a globally defined parameter (e.g. a resource field) is
+    required may be overridden for specific requests/responses.
+    
+      * Exception: Resource fields (attributes and relationships) marked as
+        required may still be excluded from responses according to
+        client-supplied sparse fieldsets.
+      * Exception: If all attributes or relationships are excluded using sparse
+        fieldsets, the `attributes` and `relationships` objects may be omitted
+        even if marked as required
+    
+    
+    ### Consider using sparse fieldsets
+    
+    Clients SHOULD use sparse fieldsets to specify the desired attributes and
+    relationships.
+    
+    Using sparse fieldsets to exclude unneeded attributes and relationships may
+    have a notable impact on performance for large responses. This particularly
+    goes for relationships due to the overhead of the relationship links.
+    
+    Even if a client needs all currently defined fields for a resource, using
+    sparse fieldsets means that the addition of new fields won't slow down
+    existing requests.
+    
+    Furthermore, always using sparse fieldsets makes it easier for the API
+    developers to monitor which fields are used. This makes it easier to tune
+    performance and safer to remove deprecated fields.
+    
+    
+    ### Deprecation
+    
+    Responses to any request using deprecated interfaces (such as deprecated
+    request parameters) SHOULD contain a `Deprecated` header describing which
+    deprecated interfaces were used. Clients SHOULD monitor this header.
+    
+    Deprecated interfaces SHOULD specify a time of removal in this specification
+    and in the `Deprecated` header, and MAY be removed earlier than the
+    pre-determined time if the interface is unused.
+    
+    Clients MUST NOT use deprecated interfaces they previously did not use.
+    
+    
+    ### Error responses
+    
+    The returned JSON:API error objects SHOULD contain an error code that
+    unambiguously specifies the error condition.
+    
+    Servers MAY return other error codes than those recognized by this
+    specification. For example, endpoints may return unspecified error codes
+    related to contract violations (e.g. invalid syntax, missing required
+    parameters), which are expected to be caught in development/testing and are
+    not useful to govern client runtime behavior.
+   
+    The following error codes may occur for any operation:
+    
+    | Code               | Description |
+    |--------------------|-------------|
+    | `UnknownError`     | An unknown error occurred.
+    | `Unauthorized`     | The authorization was missing or invalid for this operation.
+    | `ResourceNotFound` | The operation refers to a resource that does not exist.
+    
+    
+    ## API implementation notes
+   
+    The following points are intended as helpful notes regarding our API
+    implementation. They are not part of the specification.
+   
+    * Some database queries have long cache times under the assumption that the
+      data changes very infrequently and that when they do change, API clients
+      do not need 100% up-to-date data. Please contact us if you find stale API
+      data to be a problem.
+    
+    * Since pagination is implemented using offset/limit, the pagination windows
+      are unstable (i.e., new data may be added or deleted at any time,
+      potentially causing missed or duplicated results when switching pages).
+
+
+servers:
+  - url: http://localhost:5000
+    description: Local testing server
+
+
+tags:
+  - name: Person
+    description: |
+      Represents a single physical person that may be an author of an article or
+      a comment.
+      
+      <SchemaDefinition schemaRef="#/components/schemas/personResponse" />
+
+  - name: Article
+    description: |
+      Represents a piece of writing.
+      
+      <SchemaDefinition schemaRef="#/components/schemas/articleResponse" />
+
+  - name: Comment
+    description: |
+      Represents a comment to an article.
+      
+      <SchemaDefinition schemaRef="#/components/schemas/commentResponse" />
+    
+
+paths:
+
+
+  /persons:
+
+    get:
+      summary: Search persons
+      description: Returns all persons.
+      tags:
+        - Person
+      parameters:
+        - in: query
+          name: "filter[firstName]"
+          description: Only return persons with this specific first name.
+          schema:
+            type: string
+          example: John
+        - in: query
+          name: "filter[lastName]"
+          description: Only return persons with this specific last name.
+          schema:
+            type: string
+          example: Doe
+        - in: query
+          name: "filter[twitter]"
+          description: Only return persons with this specific Twitter handle.
+          schema:
+            type: string
+          example: "@johndoe"
+        - in: query
+          name: "filter[gender]"
+          description: Only return persons with one of these genders.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/gender'
+            example:
+              - male
+              - female
+        - in: query
+          name: sort
+          description: >
+            As per the JSON:API specification. Supports a single value, which
+            may be ascending or descending.
+          schema:
+            type: string
+            enum:
+              - firstName
+              - lastName
+            default: firstName
+            example: -firstName
+        - in: query
+          name: "page[offset]"
+          description: Skip this many results.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 10
+        - in: query
+          name: "page[limit]"
+          description: Return at most this many results.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+            example: 20
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/personResponseCollectionDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    post:
+      summary: Create person
+      description: Creates a new person.
+      tags:
+        - Person
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/personPostDocument'
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/personResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+
+  /persons/{id}:
+
+    get:
+      summary: Get person
+      description: Returns the person with the specified ID. This is identical to the person's `self` link.
+      tags:
+        - Person
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The person's `id`.
+          schema:
+            type: string
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/personResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    patch:
+      summary: Update person
+      description: Updates a person.
+      tags:
+        - Person
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The person's `id`.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/personPatchDocument'
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/personResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    delete:
+      summary: Delete person
+      description: Deletes a person.
+      tags:
+        - Person
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The person's `id`.
+          schema:
+            type: string
+      responses:
+        "2XX":
+          description: OK
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+
+  /articles:
+
+    get:
+      summary: Search articles
+      description: Returns all articles.
+      tags:
+        - Article
+      parameters:
+        - in: query
+          name: "filter[title]"
+          description: Only return articles with this specific title.
+          schema:
+            type: string
+          example: Moon
+        - in: query
+          name: "filter[type]"
+          description: Only return articles with one of these types.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/articleType'
+            example:
+              - personal
+              - commercial
+        - in: query
+          name: "filter[created][ge]"
+          description: Only return articles created on or after this time.
+          schema:
+            type: string
+            format: date-time
+          example: "2019-09-06T19:43:45Z"
+        - in: query
+          name: "filter[created][le]"
+          description: Only return articles created on or before this time.
+          schema:
+            type: string
+            format: date-time
+          example: "2019-09-06T19:43:45Z"
+        - in: query
+          name: sort
+          description: >
+            As per the JSON:API specification. Supports a single value, which
+            may be ascending or descending.
+          schema:
+            type: string
+            enum:
+              - title
+              - created
+            default: -created
+            example: title
+        - in: query
+          name: "page[offset]"
+          description: Skip this many results.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 10
+        - in: query
+          name: "page[limit]"
+          description: Return at most this many results.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+            example: 20
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/articleResponseCollectionDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    post:
+      summary: Create article
+      description: Creates a new article.
+      tags:
+        - Article
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/articlePostDocument'
+                              
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/articleResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+
+  /article/{id}:
+
+    get:
+      summary: Get article
+      description: Returns the article with the specified ID. This is identical to the article's `self` link.
+      tags:
+        - Article
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The article's `id`.
+          schema:
+            type: string
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/articleResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    patch:
+      summary: Update article
+      description: Updates an article.
+      tags:
+        - Article
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The article's `id`.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/articlePatchDocument'
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/articleResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    delete:
+      summary: Delete article
+      description: Deletes an article.
+      tags:
+        - Article
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The article's `id`.
+          schema:
+            type: string
+      responses:
+        "2XX":
+          description: OK
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+
+  /comments:
+
+    get:
+      summary: Search comments
+      description: Returns all comments.
+      tags:
+        - Comment
+      parameters:
+        - in: query
+          name: "filter[author]"
+          description: Only return comments authored by the `person` with the specified `id`.
+          schema:
+            type: string
+          example: ff011ab753e44d46
+        - in: query
+          name: "filter[author.firstName]"
+          description: Only return comments whose author has the specified `firstName`.
+          schema:
+            type: string
+          example: John
+        - in: query
+          name: sort
+          description: >
+            As per the JSON:API specification. Supports a single value, which
+            may be ascending or descending.
+          schema:
+            type: string
+            enum:
+              - created
+            default: -created
+            example: created
+        - in: query
+          name: "page[offset]"
+          description: Skip this many results.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 10
+        - in: query
+          name: "page[limit]"
+          description: Return at most this many results.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+            example: 20
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/commentResponseCollectionDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    post:
+      summary: Create comment
+      description: Creates a new comment.
+      tags:
+        - Comment
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/commentPostDocument'
+                              
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/commentResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+
+  /comment/{id}:
+
+    get:
+      summary: Get comment
+      description: Returns the comment with the specified ID. This is identical to the comment's `self` link.
+      tags:
+        - Comment
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The comment's `id`.
+          schema:
+            type: string
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/commentResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    patch:
+      summary: Update comment
+      description: Updates an comment.
+      tags:
+        - Comment
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The comment's `id`.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/commentPatchDocument'
+      responses:
+        "2XX":
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/commentResponseDocument'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+    delete:
+      summary: Delete comment
+      description: Deletes an comment.
+      tags:
+        - Comment
+      parameters:
+        - in: path
+          required: true
+          name: "id"
+          description: The comment's `id`.
+          schema:
+            type: string
+      responses:
+        "2XX":
+          description: OK
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorDocument'
+
+
+
+components:
+
+
+  schemas:
+
+
+    gender:
+      type: string
+      enum:
+        - male
+        - female
+        - other
+
+
+    articleType:
+      type: string
+      enum:
+        - personal
+        - commercial
+
+
+    error:
+      properties:
+        id:
+          description: >
+            A unique string intended to help find this specific
+            occurrence in debug logs. Can be communicated to API developers
+            to help investigate the events leading up to this particular error.
+          type: string
+          example: e47f2b5615204d5e8217d5061f0511ee
+        code:
+          type: string
+          description: >
+            Identifies a specific error condition. Intended for programmatic parsing
+            and will not change for a given error condition.
+          example: SomeErrorCode
+        title:
+          type: string
+          description: >
+            A short description of the problem. Intended as a helpful message to developers.
+            The message may change without notice for any given error condition.
+          example: Some Error
+        detail:
+          description: >
+            A more detailed description of the problem. Intended as a helpful message
+            to developers. The message may change without notice for any given error condition.
+          type: string
+          example: A helpful description for the developer
+
+    errorDocument:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/error"
+
+
+    selfLink:
+      type: object
+      readOnly: true
+      required:
+        - self
+      properties:
+        self:
+          type: string
+          format: uri
+          example: https://api.example.com/foo/1
+          description: As per the JSON:API specification.
+
+    relatedLink:
+      type: object
+      readOnly: true
+      required:
+        - related
+      properties:
+        related:
+          type: string
+          format: uri
+          example: https://api.example.com/foo/1/bar
+          description: As per the JSON:API specification.
+
+
+    resourceIdentifier:
+      type: object
+      description: A resource identifier.
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          example: foobar
+          description: As per the JSON:API specification.
+        id:
+          type: string
+          example: ff011ab753e44d46
+          description: As per the JSON:API specification.
+
+
+    relationshipLinkRelated:
+      type: object
+      required:
+        - links
+      properties:
+        links:
+          allOf:
+            - $ref: '#/components/schemas/relatedLink'
+
+
+    relationshipDataToMany:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/resourceIdentifier'
+
+
+    relationshipDataToOneNullable:
+      type: object
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/resourceIdentifier'
+            - nullable: true
+
+
+    relationshipDataToOneNonNullable:
+      type: object
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/resourceIdentifier'
+
+
+    personAttributes:
+      type: object
+      properties:
+        firstName:
+          type: string
+          example: John
+          description: The person's first name.
+        lastName:
+          type: string
+          example: Doe
+          description: The person's last name
+        twitter:
+          type: string
+          nullable: true
+          example: "@johndoe"
+          description: The person's Twitter handle.
+        gender:
+          allOf:
+            - $ref: '#/components/schemas/gender'
+            - nullable: true
+              description: The person's gender.
+
+    personAttributesResponseRequired:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - twitter
+        - gender
+
+    personAttributesPostRequired:
+      type: object
+      required:
+        - firstName
+        - lastName
+
+    personRelationships:
+      type: object
+      properties:
+        articles:
+          allOf:
+            - $ref: '#/components/schemas/relationshipLinkRelated'
+            - $ref: '#/components/schemas/relationshipDataToMany'
+            - type: object
+              description: To-many `article`. All articles this person is an author of.
+              readOnly: true
+              properties:
+                data:
+                  type: array
+                  items:
+                    properties:
+                      type:
+                        enum: ["article"]
+
+    personRelationshipsResponseRequired:
+      type: object
+      required:
+        - articles
+
+    personResponse:
+      type: object
+      required:
+        - type
+        - id
+        - attributes
+        - relationships
+        - links
+      properties:
+        type:
+          type: string
+          enum:
+            - person
+          description: The resource type.
+        id:
+          type: string
+          example: ff011ab753e44d46
+          description: The resource ID.
+        attributes:
+          allOf:
+            - $ref: '#/components/schemas/personAttributes'
+            - $ref: '#/components/schemas/personAttributesResponseRequired'
+        relationships:
+          allOf:
+            - $ref: '#/components/schemas/personRelationships'
+            - $ref: '#/components/schemas/personRelationshipsResponseRequired'
+        links:
+          allOf:
+            - $ref: '#/components/schemas/selfLink'
+
+    personResponseDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          allOf:
+            - $ref: "#/components/schemas/personResponse"
+
+    personResponseCollectionDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/personResponse"
+
+    personPostDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - type
+            - attributes
+          properties:
+            type:
+              type: string
+              enum:
+                - person
+              description: The resource type.
+            attributes:
+              allOf:
+                - $ref: '#/components/schemas/personAttributes'
+                - $ref: '#/components/schemas/personAttributesPostRequired'
+
+    personPatchDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - type
+            - id
+          properties:
+            type:
+              type: string
+              enum:
+                - person
+              description: The resource type.
+            id:
+              type: string
+              example: ff011ab753e44d46
+              description: The resource ID.
+            attributes:
+              allOf:
+                - $ref: '#/components/schemas/personAttributes'
+
+
+    articleAttributes:
+      type: object
+      properties:
+        title:
+          type: string
+          example: On the Moon
+          description: The article's title.
+        body:
+          type: string
+          example: "One small step for a man, one giant leap for mankind"
+          description: The article's body.
+        type:
+          allOf:
+            - $ref: '#/components/schemas/articleType'
+            - description: The article's type.
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The time the article was created.
+        updated:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: >
+            The time the article was last updated. `null` if the article has not
+            been updated.
+
+    articleAttributesResponseRequired:
+      type: object
+      required:
+        - title
+        - body
+        - type
+        - created
+        - updated
+
+    articleAttributesPostRequired:
+      type: object
+      required:
+        - title
+        - body
+
+    articleRelationships:
+      type: object
+      properties:
+        author:
+          allOf:
+            - $ref: '#/components/schemas/relationshipLinkRelated'
+            - $ref: '#/components/schemas/relationshipDataToOneNonNullable'
+            - type: object
+              description: To-one `person`. The article's author.
+              properties:
+                data:
+                  properties:
+                    type:
+                      enum: ["person"]
+        comments:
+          allOf:
+            - $ref: '#/components/schemas/relationshipLinkRelated'
+            - $ref: '#/components/schemas/relationshipDataToMany'
+            - type: object
+              description: To-many `comment`. The article's comments.
+              readOnly: true
+              properties:
+                data:
+                  type: array
+                  items:
+                    properties:
+                      type:
+                        enum: ["comment"]
+
+    articleRelationshipsResponseRequired:
+      type: object
+      required:
+        - author
+        - comments
+
+    articleRelationshipsPostRequired:
+      type: object
+      required:
+        - author
+
+    articleResponse:
+      type: object
+      required:
+        - type
+        - id
+        - attributes
+        - relationships
+        - links
+      properties:
+        type:
+          type: string
+          enum:
+            - article
+          description: The resource type.
+        id:
+          type: string
+          example: ff011ab753e44d46
+          description: The resource ID.
+        attributes:
+          allOf:
+            - $ref: '#/components/schemas/articleAttributes'
+            - $ref: '#/components/schemas/articleAttributesResponseRequired'
+        relationships:
+          allOf:
+            - $ref: '#/components/schemas/articleRelationships'
+            - $ref: '#/components/schemas/articleRelationshipsResponseRequired'
+        links:
+          allOf:
+            - $ref: '#/components/schemas/selfLink'
+
+    articleResponseDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          allOf:
+            - $ref: "#/components/schemas/articleResponse"
+
+    articleResponseCollectionDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/articleResponse"
+
+    articlePostDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - type
+            - attributes
+            - relationships
+          properties:
+            type:
+              type: string
+              enum:
+                - article
+              description: The resource type.
+            attributes:
+              allOf:
+                - $ref: '#/components/schemas/articleAttributes'
+                - $ref: '#/components/schemas/articleAttributesPostRequired'
+            relationships:
+              allOf:
+                - $ref: '#/components/schemas/articleRelationships'
+                - $ref: '#/components/schemas/articleRelationshipsPostRequired'
+                - properties:
+                    author:
+                      required:
+                        - data
+
+    articlePatchDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - type
+            - id
+          properties:
+            type:
+              type: string
+              enum:
+                - article
+              description: The resource type.
+            id:
+              type: string
+              example: ff011ab753e44d46
+              description: The resource ID.
+            attributes:
+              allOf:
+                - $ref: '#/components/schemas/articleAttributes'
+            relationships:
+              allOf:
+                - $ref: '#/components/schemas/articleRelationships'
+                - properties:
+                    author:
+                      required:
+                        - data
+
+
+    commentAttributes:
+      type: object
+      properties:
+        body:
+          type: string
+          example: First!
+          description: The comment's body.
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The time the comment was created.
+        updated:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: >
+            The time the comment was last updated. `null` if the comment has not
+            been updated.
+
+    commentAttributesResponseRequired:
+      type: object
+      required:
+        - body
+        - created
+        - updated
+
+    commentAttributesPostRequired:
+      type: object
+      required:
+        - body
+
+    commentRelationships:
+      type: object
+      properties:
+        author:
+          allOf:
+            - $ref: '#/components/schemas/relationshipLinkRelated'
+            - $ref: '#/components/schemas/relationshipDataToOneNonNullable'
+            - type: object
+              description: To-one `person`. The comment's author.
+              properties:
+                data:
+                  properties:
+                    type:
+                      enum: ["person"]
+        article:
+          allOf:
+            - $ref: '#/components/schemas/relationshipLinkRelated'
+            - $ref: '#/components/schemas/relationshipDataToOneNonNullable'
+            - type: object
+              description: To-one `article`. The article this is a comment on.
+              properties:
+                data:
+                  properties:
+                    type:
+                      enum: ["article"]
+
+    commentRelationshipsResponseRequired:
+      type: object
+      required:
+        - author
+        - article
+
+    commentRelationshipsPostRequired:
+      type: object
+      required:
+        - author
+        - article
+
+    commentResponse:
+      type: object
+      required:
+        - type
+        - id
+        - attributes
+        - relationships
+        - links
+      properties:
+        type:
+          type: string
+          enum:
+            - comment
+          description: The resource type.
+        id:
+          type: string
+          example: ff011ab753e44d46
+          description: The resource ID.
+        attributes:
+          allOf:
+            - $ref: '#/components/schemas/commentAttributes'
+            - $ref: '#/components/schemas/commentAttributesResponseRequired'
+        relationships:
+          allOf:
+            - $ref: '#/components/schemas/commentRelationships'
+            - $ref: '#/components/schemas/commentRelationshipsResponseRequired'
+        links:
+          allOf:
+            - $ref: '#/components/schemas/selfLink'
+
+    commentResponseDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          allOf:
+            - $ref: "#/components/schemas/commentResponse"
+
+    commentResponseCollectionDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/commentResponse"
+
+    commentPostDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - type
+            - attributes
+            - relationships
+          properties:
+            type:
+              type: string
+              enum:
+                - comment
+              description: The resource type.
+            attributes:
+              allOf:
+                - $ref: '#/components/schemas/commentAttributes'
+                - $ref: '#/components/schemas/commentAttributesPostRequired'
+            relationships:
+              allOf:
+                - $ref: '#/components/schemas/commentRelationships'
+                - $ref: '#/components/schemas/commentRelationshipsPostRequired'
+                - properties:
+                    author:
+                      required:
+                        - data
+                    article:
+                      required:
+                        - data
+
+    commentPatchDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - type
+            - id
+          properties:
+            type:
+              type: string
+              enum:
+                - comment
+              description: The resource type.
+            id:
+              type: string
+              example: ff011ab753e44d46
+              description: The resource ID.
+            attributes:
+              allOf:
+                - $ref: '#/components/schemas/commentAttributes'

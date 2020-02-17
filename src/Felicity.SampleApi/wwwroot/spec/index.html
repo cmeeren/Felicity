@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <title>ChkBox API specification</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    table code {
+      word-break: keep-all !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="redoc-container"></div>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js?cachebusterversion=1"></script>
+  <script>
+    Redoc.init(
+      "spec.yaml",
+      {
+        pathInMiddlePanel: true
+      },
+      document.getElementById("redoc-container"),
+      function () {
+        var els = document.querySelectorAll('td');
+        for (el of els) {
+          el.click();
+        }
+        setTimeout(function () { window.location.hash = window.location.hash; })
+      })
+  </script>
+</body>
+</html>

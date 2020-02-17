@@ -1,0 +1,62 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;netcoreapp3.0</TargetFrameworks>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <DebugType>Embedded</DebugType>
+    <EmbedAllSources>True</EmbedAllSources>
+    <Description>Boilerplate-free, idiomatic JSON:API for your beautiful, idiomatic F# domain model. Optimized for developer happiness.</Description>
+    <PackageProjectUrl>https://github.com/cmeeren/Felicity</PackageProjectUrl>
+    <Authors>Christer van der Meeren</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
+    <Version>0.1.0</Version>
+    <PackageReleaseNotes>Initial release</PackageReleaseNotes>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Include="Skippable.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Aliases.fs" />
+    <Compile Include="DocumentModel.fs" />
+    <Compile Include="Misc.fs" />
+    <Compile Include="Errors.fs" />
+    <Compile Include="Serializer.fs" />
+    <Compile Include="MemberNameValidation.fs" />
+    <Compile Include="QueryParamNameValidation.fs" />
+    <Compile Include="RequestValidation.fs" />
+    <Compile Include="Id.fs" />
+    <Compile Include="RequestParser.fs" />
+    <Compile Include="ResourceDefinition.fs" />
+    <Compile Include="Attribute.fs" />
+    <Compile Include="ResponseBuilder.fs" />
+    <Compile Include="HttpHandlers.fs" />
+    <Compile Include="Responder.fs" />
+    <Compile Include="Operations.fs" />
+    <Compile Include="Relationships.fs" />
+    <Compile Include="Query.fs" />
+    <Compile Include="Define.fs" />
+    <Compile Include="ResourceModule.fs" />
+    <Compile Include="ResourceBuilder.fs" />
+    <Compile Include="RoutingOperations.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="IServiceCollectionExtensions.fs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Text.Json" Version="4.7.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="FSharp.SystemTextJson" Version="0.8.24" />
+    <PackageReference Include="Giraffe" Version="4.0.1" />
+  </ItemGroup>
+  
+</Project>

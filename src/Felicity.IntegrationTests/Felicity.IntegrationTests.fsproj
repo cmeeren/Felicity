@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Include="Utils.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="Validation.fs" />
+    <Compile Include="ResourceLinks.fs" />
+    <Compile Include="NameOverrides.fs" />
+    <Compile Include="BasicFieldsetsAndIncludes.fs" />
+    <Compile Include="RoundtripIncludes.fs" />
+    <Compile Include="Constraints.fs" />
+    <Compile Include="GetCollection.fs" />
+    <Compile Include="GetCollectionPolymorphic.fs" />
+    <Compile Include="PostCollection.fs" />
+    <Compile Include="GetResource.fs" />
+    <Compile Include="GetResourcePolymorphic.fs" />
+    <Compile Include="PatchResource.fs" />
+    <Compile Include="DeleteResource.fs" />
+    <Compile Include="ToOneRelationshipGetRelatedAndSelf.fs" />
+    <Compile Include="ToOneRelationshipPatchResourceAndSelf.fs" />
+    <Compile Include="ToOneNullableRelationshipGetRelatedAndSelf.fs" />
+    <Compile Include="ToOneNullableRelationshipPatchResourceAndSelf.fs" />
+    <Compile Include="ToManyRelationshipGetRelatedAndSelf.fs" />
+    <Compile Include="ToManyRelationshipPatchResourceAndSelf.fs" />
+    <Compile Include="ToManyRelationshipPostSelf.fs" />
+    <Compile Include="ToManyRelationshipDeleteSelf.fs" />
+    <Compile Include="CustomLinks.fs" />
+    <Compile Include="RequestParser.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Expecto" Version="8.13.1" />
+    <PackageReference Include="Expecto.Hopac" Version="8.13.1" />
+    <PackageReference Include="Http.fs" Version="5.4.0" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="Unquote" Version="5.0.0" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Felicity\Felicity.fsproj" />
+  </ItemGroup>
+  
+</Project>

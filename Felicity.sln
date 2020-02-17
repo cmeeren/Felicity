@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29215.179
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity", "src\Felicity\Felicity.fsproj", "{FC53EE4D-7B77-4AF0-A089-D322AA9438DC}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity.IntegrationTests", "src\Felicity.IntegrationTests\Felicity.IntegrationTests.fsproj", "{2BE81693-5656-4AFA-B680-673E22F2E67E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3684145D-FA7E-47E5-BE3A-1A3B90EB7CE0}"
+	ProjectSection(SolutionItems) = preProject
+		appveyor.yml = appveyor.yml
+		.github\CONTRIBUTING.md = .github\CONTRIBUTING.md
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity.SampleApi", "src\Felicity.SampleApi\Felicity.SampleApi.fsproj", "{4CD905E1-369E-46F1-8266-040EBBE7328A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{5BC571A2-6E6B-40F4-AF0A-D6724A51D392}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FC53EE4D-7B77-4AF0-A089-D322AA9438DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC53EE4D-7B77-4AF0-A089-D322AA9438DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC53EE4D-7B77-4AF0-A089-D322AA9438DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC53EE4D-7B77-4AF0-A089-D322AA9438DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2BE81693-5656-4AFA-B680-673E22F2E67E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2BE81693-5656-4AFA-B680-673E22F2E67E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2BE81693-5656-4AFA-B680-673E22F2E67E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2BE81693-5656-4AFA-B680-673E22F2E67E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2BE81693-5656-4AFA-B680-673E22F2E67E} = {5BC571A2-6E6B-40F4-AF0A-D6724A51D392}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A1769E92-7930-4E06-9315-CAF809996945}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,20 @@
+image: Visual Studio 2019
+
+build:
+  verbosity: detailed
+
+artifacts:
+  - path: /src/**/*.nupkg
+
+build_script:
+  - cmd: dotnet build -c Release
+
+test_script:
+  - cmd: dotnet test -c Release
+
+deploy:
+  - provider: NuGet
+    api_key:
+      secure: kCtvgP/Py6r3vhzYHgz/ZAyXvdSCSt/MMmOhM+A/kn80v7h6l/cgc3dM+qwrMH0x
+    on:
+      appveyor_repo_tag: true
