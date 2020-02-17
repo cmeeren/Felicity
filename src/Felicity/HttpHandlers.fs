@@ -45,7 +45,7 @@ module HttpHandlers =
           // Then validate preconditions, which sets ETag
           && ctx.ValidatePreconditions (Some eTag) None = ResourceNotModified
           // Method is checked last since ETag should be set regardless of method
-          && ctx.Request.Method = "GET"
+          && (ctx.Request.Method = "GET" || ctx.Request.Method = "HEAD")
 
         if returnNotModified then return ctx.NotModifiedResponse ()
         else

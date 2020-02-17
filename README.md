@@ -273,6 +273,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
-### 0.1.0
+### 0.1.1 (2020-02-17)
+
+* Return ETag for HEAD requests
+
+### 0.1.0 (2020-02-17)
 
 * Initial release
