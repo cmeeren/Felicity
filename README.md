@@ -1,9 +1,9 @@
+<img src="https://raw.githubusercontent.com/cmeeren/Felicity/master/felicity-logo.png" width="300" align="right"/>
+
 Felicity
 ==============
 
 **Boilerplate-free, idiomatic JSON:API for your beautiful, idiomatic F# domain model. Optimized for developer happiness.**
-
-<img src="https://raw.githubusercontent.com/cmeeren/Felicity/master/felicity-logo.png" width="300" align="right"/>
 
 ### Elevator pitch
 
