@@ -41,8 +41,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
     { this with configureSerializerOptions = Some configure }
 
   member this.Add() =
-    let baseUrl = this.baseUrl |> Option.defaultWith (fun () -> failwith "Must specify a base URL using JsonApiConfigBuilder")
-    let getCtx = this.getCtx |> Option.defaultWith (fun () -> failwith "Must specify a context getter using JsonApiConfigBuilder")
+    let baseUrl = this.baseUrl |> Option.defaultWith (fun () -> failwith "Must specify a base URL")
+    let getCtx = this.getCtx |> Option.defaultWith (fun () -> failwith "Must specify a context getter")
     let configureSerializerOptions = this.configureSerializerOptions |> Option.defaultValue ignore
     
     let resourceModules = ResourceModule.all<'ctx>

@@ -95,7 +95,7 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
                   this.toDomain ctx attr
                   |> AsyncResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
                   |> AsyncResult.map Some
-              | true, x -> failwithf "Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
+              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
           | _ -> None |> Ok |> async.Return
     }
@@ -268,7 +268,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
                   this.toDomain ctx attr
                   |> AsyncResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
                   |> AsyncResult.map Some
-              | true, x -> failwithf "Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
+              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
           | _ -> None |> Ok |> async.Return
     }

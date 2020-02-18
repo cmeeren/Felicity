@@ -216,7 +216,7 @@ module internal Relationship =
     | :? ToOne as r -> r.data.isSkip && r.links.isSkip && r.meta.isSkip
     | :? ToOneNullable as r -> r.data.isSkip && r.links.isSkip && r.meta.isSkip
     | :? ToMany as r -> r.data.isSkip && r.links.isSkip && r.meta.isSkip
-    | _ -> failwithf "Library bug: Attempted to check emptiness of unknown relationship type %s" (rel.GetType().FullName)
+    | _ -> failwithf "Framework bug: Attempted to check emptiness of unknown relationship type %s" (rel.GetType().FullName)
 
 
 
