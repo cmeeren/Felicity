@@ -7,7 +7,7 @@ Felicity
 
 ### Elevator pitch
 
-Felicity is a framework that allows you to expose your functional F# domain logic as an API following the JSON:API specification, with no boilerplate.
+Felicity is a framework that allows you to expose your functional F# domain logic as an API following [the JSON:API specification](https://jsonapi.org/), with no boilerplate.
 
 Core features:
 
