@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.1.2 (2020-02-18)
+
+* Improve some exception messages
+
 ### 0.1.1 (2020-02-17)
 
 * Return ETag for HEAD requests
