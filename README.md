@@ -45,7 +45,7 @@ Quick start
 
 ### Assumptions about your domain logic
 
-Your core logic must be implemented immutably. In other words, field “setters” should have signatures like `'arg -> 'entity -> 'entity`, returning a new entity (typically an updated record). This is a requirement because any setter may potentially return an error, which in which case an error response should be returned, which means that no observable state changes must have taken place while executing the setters.
+Your core logic must be “pure” in the sense that it must not cause observable state changes (such as mutate objects or persist changes to a database). In other words, field “setters” should have signatures like `'arg -> 'entity -> 'entity`, returning a new entity (typically an updated record). This is a requirement because any setter may potentially return an error, in which case an error response should be returned, which means that no observable state changes must have taken place while executing the setters.
 
 Any part of your domain logic may be asynchronous and/or return `Result`, and may accept an API-specific context type you define (that may, for example, contain an authenticated user object). For example, the general signature for a “setter” is
 
