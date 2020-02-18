@@ -7,6 +7,8 @@ Felicity documentation
 
 ---
 
+<img src="https://raw.githubusercontent.com/cmeeren/Felicity/master/felicity-logo.png" width="300" align="right"/>
+
 The aim of this document is to explain how to use Felicity. For a complete, working example of a simple API, check out the [sample API](https://github.com/cmeeren/Felicity/tree/master/src/Felicity.SampleApi) in this repo. For a very brief overview, check out the [Quick Start section](https://github.com/cmeeren/Felicity/blob/master/README.md#quick-start) of the readme.
 
 This documentation assumes working F# knowledge. If you’re new to F#, Scott Wlaschin’s blog [F# for fun and profit](https://fsharpforfunandprofit.com/) is a great place to start (and continue) learning the ins and outs of F# and functional programming. His book [Domain Modeling Made Functional](https://pragprog.com/book/swdddf/domain-modeling-made-functional) is also a great resource for learning F# (and in particular how it can  be used for domain modeling). You can find many more excellent resources at [fsharp.org](https://fsharp.org).
