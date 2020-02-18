@@ -12,6 +12,7 @@
     <Authors>Christer van der Meeren</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
+    <PackageIcon>felicity-logo-128x128.png</PackageIcon>
     <Version>0.1.1</Version>
     <PackageReleaseNotes>Initial release</PackageReleaseNotes>
   </PropertyGroup>
@@ -22,6 +23,10 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <None Include="felicity-logo-128x128.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <Compile Include="Skippable.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Aliases.fs" />

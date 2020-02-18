@@ -3,6 +3,8 @@ Felicity
 
 **Boilerplate-free, idiomatic JSON:API for your beautiful, idiomatic F# domain model. Optimized for developer happiness.**
 
+<img src="https://raw.githubusercontent.com/cmeeren/Felicity/master/felicity-logo.png" width="300" align="right"/>
+
 ### Elevator pitch
 
 Felicity is a framework that allows you to expose your functional F# domain logic as an API following the JSON:API specification, with no boilerplate.
