@@ -72,7 +72,8 @@
     Error.create 412
     |> Error.setTitle "Precondition failed"
     |> Error.setDetail msg
-    // TODO: test errors, and test returned ETag/Last-Modified
+
+
   (*
    * Any request: Deserialization and document validation
   *)
@@ -307,6 +308,11 @@
     |> Error.setDetailf "Attribute '%s' is read-only" attrName
     |> Error.setSourcePointer pointer
 
+  let setAttrNullNotAllowed attrName =
+    Error.create 403
+    |> Error.setTitle "Null not allowed"
+    |> Error.setDetailf "Attribute '%s' may not be set to null" attrName
+
   let setRelReadOnly relName pointer =
     // "A server MUST return 403 Forbidden in response to an unsupported request to
     // update a resource or relationship."
@@ -314,6 +320,11 @@
     |> Error.setTitle "Relationship read-only"
     |> Error.setDetailf "Relationship '%s' is read-only" relName
     |> Error.setSourcePointer pointer
+
+  let setRelNullNotAllowed relName =
+    Error.create 403
+    |> Error.setTitle "Null not allowed"
+    |> Error.setDetailf "Relationship '%s' may not be set to null" relName
 
   let setToManyRelReplacementNotSupported relName resType pointer supportsPost supportsDelete =
     let extraMessage =

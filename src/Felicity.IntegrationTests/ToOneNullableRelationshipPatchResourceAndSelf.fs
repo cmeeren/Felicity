@@ -24,6 +24,7 @@ type Parent1 = {
   Id: string
   Child: Child option
   OtherChildId: string option
+  NullableNotNullWhenSet: Child option
 }
 
 type Parent2 = {
@@ -45,7 +46,7 @@ type Parent = P1 of Parent1 | P2 of Parent2 | P3 of Parent3 | P4 of Parent4
 type Db () =
   let mutable parents : Map<string, Parent> =
     Map.empty
-    |> Map.add "p1" (P1 { Id = "p1"; Child = Some (C1 { Id = "c1" }); OtherChildId = Some "c2" })
+    |> Map.add "p1" (P1 { Id = "p1"; Child = Some (C1 { Id = "c1" }); OtherChildId = Some "c2"; NullableNotNullWhenSet = None })
     |> Map.add "p2" (P2 { Id = "p2"; Child = Some (C2 { Id = "c2" }) })
     |> Map.add "p3" (P3 { Id = "p3" })
     |> Map.add "p4" (P4 { Id = "p4" })
@@ -162,6 +163,20 @@ module Parent1 =  // set and get - PATCH resource/self OK
       .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
       .PatchSelfReturn202Accepted()
       .ModifyPatchSelfAcceptedResponse(fun ctx -> ctx.ModifyPatchSelfAcceptedResponse)
+
+  let nullableNotNullWhenSet =
+    define.Relationship
+      .Polymorphic()
+      .AddIdParser(Child1.resDef, id)
+      .AddIdParser(Child2.resDef, id)
+      .ResolveEntity(function
+        | C1 c -> Child1.resDef.PolymorphicFor c
+        | C2 c -> Child2.resDef.PolymorphicFor c
+      )
+      .ToOneNullable()
+      .Get(fun p -> p.NullableNotNullWhenSet)
+      .SetNonNull(Child.lookup, fun c p -> { p with NullableNotNullWhenSet = Some c })
+      .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
 
   let patch =
     define.Operation
@@ -317,7 +332,7 @@ let tests1 =
     testJob "Get/set non-null: Returns 200, saves, and returns correct data if successful" {
       let db = Db ()
       let! response =
-        Request.patch (Ctx.WithDb db) "/parents/p1?include=child,otherChild"
+        Request.patch (Ctx.WithDb db) "/parents/p1?include=child,otherChild,nullableNotNullWhenSet"
         |> Request.bodySerialized
             {|data =
                 {|``type`` = "parent1"
@@ -326,6 +341,8 @@ let tests1 =
                     {|child =
                         {| data = {| ``type`` = "child2"; id = "c2" |} |}
                       otherChild =
+                        {| data = {| ``type`` = "child1"; id = "c1" |} |}
+                      nullableNotNullWhenSet =
                         {| data = {| ``type`` = "child1"; id = "c1" |} |}
                     |}
                 |}
@@ -339,6 +356,8 @@ let tests1 =
       test <@ json |> getPath "data.relationships.child.data.id" = "c2" @>
       test <@ json |> getPath "data.relationships.otherChild.data.type" = "child1" @>
       test <@ json |> getPath "data.relationships.otherChild.data.id" = "c1" @>
+      test <@ json |> getPath "data.relationships.nullableNotNullWhenSet.data.type" = "child1" @>
+      test <@ json |> getPath "data.relationships.nullableNotNullWhenSet.data.id" = "c1" @>
 
       let p = 
         match db.TryGetParent "p1" with
@@ -347,6 +366,7 @@ let tests1 =
       test <@ p.Id = "p1" @>
       test <@ p.Child = Some (C2 { Id = "c2" }) @>
       test <@ p.OtherChildId = Some "c1" @>
+      test <@ p.NullableNotNullWhenSet = Some (C1 { Id = "c1" }) @>
     }
 
     testJob "Get/set null: Returns 200, saves, and returns correct data if successful" {
@@ -573,6 +593,27 @@ let tests1 =
       test <@ json |> getPath "errors[0].status" = "403" @>
       test <@ json |> getPath "errors[0].detail" = "Relationship 'child' is read-only" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/relationships/child" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns 403 if set to null when not supported" {
+      let db = Db ()
+      let! response =
+        Request.patch (Ctx.WithDb db) "/parents/p1"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "parent1"
+                  id = "p1"
+                  relationships =
+                    {| nullableNotNullWhenSet = {| data = null |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Relationship 'nullableNotNullWhenSet' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/relationships/nullableNotNullWhenSet/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -809,6 +850,47 @@ let tests2 =
       test <@ p.OtherChildId = None @>
     }
 
+    testJob "Parent1.nullableNotNullWhenSet non-null: Returns 200 and returns correct data" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with ModifyPatchSelfOkResponse = fun _ _ -> setHttpHeader "Foo" "Bar" }
+      let! response =
+        Request.patch ctx "/parents/p1/relationships/nullableNotNullWhenSet"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child2"
+                  id = "c2"
+                |}
+            |}
+        |> getResponse
+
+      response |> testStatusCode 200
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.type" = "child2" @>
+      test <@ json |> getPath "data.id" = "c2" @>
+
+      let p = 
+        match db.TryGetParent "p1" with
+        | Some (P1 p) -> p
+        | _ -> failwith "not found"
+      test <@ p.Id = "p1" @>
+      test <@ p.NullableNotNullWhenSet = Some (C2 { Id = "c2" }) @>
+    }
+
+    testJob "Parent1.nullableNotNullWhenSet null: Returns 403" {
+      let db = Db ()
+      let! response =
+        Request.patch (Ctx.WithDb db) "/parents/p1/relationships/nullableNotNullWhenSet"
+        |> Request.bodySerialized {| data = null |}
+        |> getResponse
+
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Relationship 'nullableNotNullWhenSet' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
     testJob "Calls AfterModifySelf with the initial and new entity" {
       let db = Db ()
       let pOrig =
@@ -816,7 +898,7 @@ let tests2 =
         | Some (P1 p) -> p
         | _ -> failwith "not found"
 
-      let pExpected = { Id = "p1"; Child = Some (C2 { Id = "c2" }); OtherChildId = Some "c2" }
+      let pExpected = { Id = "p1"; Child = Some (C2 { Id = "c2" }); OtherChildId = Some "c2"; NullableNotNullWhenSet = None }
 
       let mutable called = false
       let afterUpdate before after =

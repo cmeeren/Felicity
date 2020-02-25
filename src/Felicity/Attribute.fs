@@ -349,6 +349,36 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.Set (set: 'attr option -> 'entity -> 'entity) =
     this.SetAsyncRes (fun _ x e -> set x e |> Ok |> async.Return)
 
+  member this.SetNonNullAsyncRes (set: 'ctx -> 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
+    { this with
+        set = Some (fun ctx attr e ->
+          attr
+          |> Result.requireSome [setAttrNullNotAllowed this.name]
+          |> async.Return
+          |> AsyncResult.bind (fun a -> set ctx a e))
+    }
+
+  member this.SetNonNullAsyncRes (set: 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
+    this.SetNonNullAsyncRes (fun _ x e -> set x e)
+
+  member this.SetNonNullAsync (set: 'ctx -> 'attr -> 'entity -> Async<'entity>) =
+    this.SetNonNullAsyncRes (fun ctx x e -> set ctx x e |> Async.map Ok)
+
+  member this.SetNonNullAsync (set: 'attr -> 'entity -> Async<'entity>) =
+    this.SetNonNullAsyncRes (fun _ x e -> set x e |> Async.map Ok)
+
+  member this.SetNonNullRes (set: 'ctx -> 'attr -> 'entity -> Result<'entity, Error list>) =
+    this.SetNonNullAsyncRes (fun ctx x e -> set ctx x e |> async.Return)
+
+  member this.SetNonNullRes (set: 'attr -> 'entity -> Result<'entity, Error list>) =
+    this.SetNonNullAsyncRes (fun _ x e -> set x e |> async.Return)
+
+  member this.SetNonNull (set: 'ctx -> 'attr -> 'entity -> 'entity) =
+    this.SetNonNullAsyncRes (fun ctx x e -> set ctx x e |> Ok |> async.Return)
+
+  member this.SetNonNull (set: 'attr -> 'entity -> 'entity) =
+    this.SetNonNullAsyncRes (fun _ x e -> set x e |> Ok |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
     let f ctx entity = name, box (getValue ctx entity)
     { this with getConstraints = this.getConstraints @ [f] }

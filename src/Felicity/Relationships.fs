@@ -1100,6 +1100,64 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.Set (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, 'entity>) =
     this.SetAsyncRes(getRelated, fun _ related entity -> set.Invoke(related, entity) |> Ok |> async.Return)
 
+  member this.SetNonNullAsyncRes (set: Func<'ctx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
+    this.SetAsyncRes(fun ctx relId e ->
+      relId
+      |> Result.requireSome [setRelNullNotAllowed this.name]
+      |> async.Return
+      |> AsyncResult.bind (fun relId -> set.Invoke(ctx, relId, e))
+    )
+
+  member this.SetNonNullAsyncRes (set: Func<'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
+    this.SetNonNullAsyncRes(fun _ id e -> set.Invoke(id, e))
+
+  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Async<Result<'entity, Error list>>>) =
+    this.SetAsyncRes(getRelated, (fun ctx rel e ->
+      rel
+      |> Result.requireSome [setRelNullNotAllowed this.name]
+      |> async.Return
+      |> AsyncResult.bind (fun rel -> set.Invoke(ctx, rel, e))
+    ))
+
+  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Async<Result<'entity, Error list>>>) =
+    this.SetNonNullAsyncRes(getRelated, (fun _ id e -> set.Invoke(id, e)))
+
+  member this.SetNonNullAsync (set: Func<'ctx, 'relatedId, 'entity, Async<'entity>>) =
+    this.SetNonNullAsyncRes(fun ctx related entity -> set.Invoke(ctx, related, entity) |> Async.map Ok)
+
+  member this.SetNonNullAsync (set: Func<'relatedId, 'entity, Async<'entity>>) =
+    this.SetNonNullAsyncRes(fun _ related entity -> set.Invoke(related, entity) |> Async.map Ok)
+
+  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Async<'entity>>) =
+    this.SetNonNullAsyncRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Async.map Ok))
+
+  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Async<'entity>>) =
+    this.SetNonNullAsyncRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Async.map Ok))
+
+  member this.SetNonNullRes (set: Func<'ctx, 'relatedId, 'entity, Result<'entity, Error list>>) =
+    this.SetNonNullAsyncRes(fun ctx related entity -> set.Invoke(ctx, related, entity) |> async.Return)
+
+  member this.SetNonNullRes (set: Func<'relatedId, 'entity, Result<'entity, Error list>>) =
+    this.SetNonNullAsyncRes(fun _ related entity -> set.Invoke(related, entity) |> async.Return)
+
+  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Result<'entity, Error list>>) =
+    this.SetNonNullAsyncRes(getRelated, fun ctx related entity -> set.Invoke(ctx, related, entity) |> async.Return)
+
+  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Result<'entity, Error list>>) =
+    this.SetNonNullAsyncRes(getRelated, fun _ related entity -> set.Invoke(related, entity) |> async.Return)
+
+  member this.SetNonNull (set: Func<'ctx, 'relatedId, 'entity, 'entity>) =
+    this.SetNonNullAsyncRes(fun ctx related entity -> set.Invoke(ctx, related, entity) |> Ok |> async.Return)
+
+  member this.SetNonNull (set: Func<'relatedId, 'entity, 'entity>) =
+    this.SetNonNullAsyncRes(fun _ related entity -> set.Invoke(related, entity) |> Ok |> async.Return)
+
+  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, 'entity>) =
+    this.SetNonNullAsyncRes(getRelated, fun ctx related entity -> set.Invoke(ctx, related, entity) |> Ok |> async.Return)
+
+  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, 'entity>) =
+    this.SetNonNullAsyncRes(getRelated, fun _ related entity -> set.Invoke(related, entity) |> Ok |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
     let f ctx entity = name, box (getValue ctx entity)
     { this with getConstraints = this.getConstraints @ [f] }

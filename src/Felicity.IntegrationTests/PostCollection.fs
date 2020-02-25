@@ -12,6 +12,7 @@ type A = {
   A: bool
   X: string
   Nullable: string option
+  NullableNotNullWhenSet: string option
 }
 
 type B = {
@@ -30,6 +31,7 @@ module ADomain =
       A = a
       X = ""
       Nullable = None
+      NullableNotNullWhenSet = None
     }
 
   let setA x a : A =
@@ -40,6 +42,9 @@ module ADomain =
 
   let setNullable x a =
     { a with Nullable = x }
+
+  let setNullableNotNullWhenSet x a =
+    { a with NullableNotNullWhenSet = Some x }
 
 module BDomain =
 
@@ -110,6 +115,13 @@ module A =
       .Simple()
       .Get(fun a -> a.Nullable)
       .Set(ADomain.setNullable)
+
+  let nullableNotNullWhenSet =
+    define.Attribute
+      .Nullable
+      .Simple()
+      .Get(fun a -> a.NullableNotNullWhenSet)
+      .SetNonNull(ADomain.setNullableNotNullWhenSet)
 
   let readonly =
     define.Attribute
@@ -200,6 +212,7 @@ let tests =
                     {|a = true
                       x = "abc"
                       nullable = "foo"
+                      nullableNotNullWhenSet = "bar"
                     |}
                 |}
             |}
@@ -211,6 +224,7 @@ let tests =
       test <@ json |> getPath "data.attributes.a" = true @>
       test <@ json |> getPath "data.attributes.x" = "abc" @>
       test <@ json |> getPath "data.attributes.nullable" = "foo" @>
+      test <@ json |> getPath "data.attributes.nullableNotNullWhenSet" = "bar" @>
 
       test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
       test <@ response.headers.[Location] = "http://example.com/abs/1" @>
@@ -220,6 +234,7 @@ let tests =
       test <@ a.A = true @>
       test <@ a.X = "abc" @>
       test <@ a.Nullable = Some "foo" @>
+      test <@ a.NullableNotNullWhenSet = Some "bar" @>
     }
 
     testJob "Create B: Returns 202, runs setters and returns correct data if successful" {
@@ -294,6 +309,28 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "403" @>
       test <@ json |> getPath "errors[0].detail" = "Attribute 'readonly' is read-only" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/readonly" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns 403 if nullable attribute is set to null when not supported" {
+      let db = Db ()
+      let! response =
+        Request.post (Ctx.WithDb db) "/abs"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  attributes =
+                    {|a = true
+                      nullableNotNullWhenSet = null |}
+                |}
+            |}
+        |> getResponse
+
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableNotNullWhenSet' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableNotNullWhenSet" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 

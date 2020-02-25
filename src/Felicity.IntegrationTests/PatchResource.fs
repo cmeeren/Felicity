@@ -14,6 +14,8 @@ type A = {
   ReadOnly: string
   A: bool
   X: string
+  Nullable: string option
+  NullableNotNullWhenSet: string option
 }
 
 type B = {
@@ -30,6 +32,12 @@ module ADomain =
   let setX x a =
     { a with X = x }
 
+  let setNullable x a =
+    { a with Nullable = x }
+
+  let setNullableNotNullWhenSet x a =
+    { a with NullableNotNullWhenSet = Some x }
+
 
 module BDomain =
 
@@ -43,9 +51,9 @@ module BDomain =
 type Db () =
   let mutable ABs : Map<string, ABC> =
     Map.empty
-    |> Map.add "a1" (A { Id = "a1"; ReadOnly = "qwerty"; A = false; X = "" })
+    |> Map.add "a1" (A { Id = "a1"; ReadOnly = "qwerty"; A = false; X = ""; Nullable = Some "foo"; NullableNotNullWhenSet = None })
     |> Map.add "b2" (B { Id = "b2"; ReadOnly = "qwerty"; B = 1; Y = "" })
-    |> Map.add "c0" (C { Id = "c0"; ReadOnly = "qwerty"; A = false; X = "" })
+    |> Map.add "c0" (C { Id = "c0"; ReadOnly = "qwerty"; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
 
   member _.SaveA (a: A) =
     ABs <- ABs.Add (a.Id, A a)
@@ -119,6 +127,20 @@ module A =
       .Simple()
       .Get(fun a -> a.X)
       .Set(ADomain.setX)
+  
+  let nullable =
+    define.Attribute
+      .Nullable
+      .Simple()
+      .Get(fun a -> a.Nullable)
+      .Set(ADomain.setNullable)
+  
+  let nullableNotNullWhenSet =
+    define.Attribute
+      .Nullable
+      .Simple()
+      .Get(fun a -> a.NullableNotNullWhenSet)
+      .SetNonNull(ADomain.setNullableNotNullWhenSet)
 
   let get = define.Operation.GetResource()
 
@@ -204,7 +226,7 @@ module A2 =
   let define = Define<Ctx2, A, string>()
   let resId = define.Id.Simple(function a -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("abs")
-  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = "" })
+  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
 
 
 
@@ -224,7 +246,7 @@ module A4 =
   let define = Define<Ctx4, A, string>()
   let resId = define.Id.Simple(fun a -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("as")
-  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = "" })
+  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
   let get = define.Operation.GetResource()
   let patch = define.Operation.Patch()
   let preconditions = define.Preconditions.ETag(fun _ -> EntityTagHeaderValue.FromString false "valid-etag")
@@ -237,7 +259,7 @@ module A5 =
   let define = Define<Ctx5, A, string>()
   let resId = define.Id.Simple(fun a -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("as")
-  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = "" })
+  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
   let get = define.Operation.GetResource()
   let patch = define.Operation.Patch()
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
@@ -259,6 +281,8 @@ let tests =
                   attributes =
                     {|a = true
                       x = "abc"
+                      nullable = null
+                      nullableNotNullWhenSet = "bar"
                     |}
                 |}
             |}
@@ -270,6 +294,8 @@ let tests =
       test <@ json |> getPath "data.attributes.readonly" = "qwerty" @>
       test <@ json |> getPath "data.attributes.a" = true @>
       test <@ json |> getPath "data.attributes.x" = "abc" @>
+      test <@ json |> getPath "data.attributes.nullable" = null @>
+      test <@ json |> getPath "data.attributes.nullableNotNullWhenSet" = "bar" @>
       test <@ json |> getPath "data.links.self" = "http://example.com/abs/a1" @>
 
       test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
@@ -282,6 +308,8 @@ let tests =
       test <@ a.ReadOnly = "qwerty" @>
       test <@ a.A = true @>
       test <@ a.X = "abc" @>
+      test <@ a.Nullable = None @>
+      test <@ a.NullableNotNullWhenSet = Some "bar" @>
     }
 
     testJob "Update B: Returns 202, runs setters and returns correct data if successful" {
@@ -345,13 +373,13 @@ let tests =
         | A a -> a
         | _ -> failwith "Invalid type"
 
-      let aExpected = { Id = "a1"; ReadOnly = "qwerty"; A = true; X = "abc" }
+      let aExpected = { Id = "a1"; ReadOnly = "qwerty"; A = true; X = "abc"; Nullable = None; NullableNotNullWhenSet = Some "bar" }
 
       let mutable called = false
       let afterUpdate before after =
         called <- true
         test <@ before = aOrig @>
-        test <@after = aExpected @>
+        test <@ after = aExpected @>
 
       let ctx = { Ctx.WithDb db with AfterUpdateA = afterUpdate }
       let! response =
@@ -363,6 +391,8 @@ let tests =
                   attributes =
                     {|a = true
                       x = "abc"
+                      nullable = null
+                      nullableNotNullWhenSet = "bar"
                     |}
                 |}
             |}
@@ -526,6 +556,28 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "403" @>
       test <@ json |> getPath "errors[0].detail" = "Attribute 'readonly' is read-only" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/readonly" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns 403 if nullable attribute is set to null when not supported" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "a1"
+                  attributes = {| nullableNotNullWhenSet = null |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableNotNullWhenSet' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableNotNullWhenSet" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "Returns 400 when missing body" {

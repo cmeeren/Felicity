@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.1.3 (2020-02-25)
+
+* Added `SetNonNull` for nullable attributes and relationships that may return null, but not be set to null
+
 ### 0.1.2 (2020-02-18)
 
 * Improve some exception messages

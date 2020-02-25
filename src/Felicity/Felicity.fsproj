@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.1.2</Version>
-    <PackageReleaseNotes>Improve some exception messages</PackageReleaseNotes>
+    <Version>0.1.3</Version>
+    <PackageReleaseNotes>Added SetNonNull for nullable attributes and relationships that may return null, but not be set to null</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>
