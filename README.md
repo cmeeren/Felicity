@@ -275,6 +275,12 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.2.0 (2020-02-28)
+
+* Added entity-returning overloads for PATCH's `BeforeUpdate`, DELETE's `BeforeDelete`, and relationships' `BeforeModifySelf`
+
+- Breaking: Made `BeforeModifySelf` use `Func`
+
 ### 0.1.3 (2020-02-25)
 
 * Added `SetNonNull` for nullable attributes and relationships that may return null, but not be set to null

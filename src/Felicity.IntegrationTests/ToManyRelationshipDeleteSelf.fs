@@ -135,7 +135,7 @@ module Parent1 =  // remove and get - DELETE self OK
       .ToMany()
       .GetSkip(fun ctx p -> ctx.GetParent1Children p)
       .RemoveRes(Child.lookup, fun ctx -> ctx.DeleteChildren1)
-      .BeforeModifySelfRes(fun ctx -> ctx.BeforeModifySelf1)
+      .BeforeModifySelfRes(fun ctx p -> ctx.BeforeModifySelf1 p)
       .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
       .ModifyDeleteSelfOkResponse(fun ctx -> ctx.ModifyDeleteSelfOkResponse)
 

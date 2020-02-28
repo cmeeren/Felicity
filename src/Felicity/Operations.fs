@@ -418,7 +418,7 @@ type internal PatchOperation<'ctx> =
 
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
-  beforeUpdate: 'ctx -> 'entity -> Async<Result<unit, Error list>>
+  beforeUpdate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterUpdate: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyOkResponse: 'ctx -> 'entity -> HttpHandler
   modifyAcceptedResponse: 'ctx -> 'entity -> HttpHandler
@@ -428,7 +428,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   static member internal Create (mapCtx) : PatchOperation<'originalCtx, 'ctx, 'entity> =
     {
       mapCtx = mapCtx
-      beforeUpdate = fun _ _ -> Ok () |> async.Return
+      beforeUpdate = fun _ x -> Ok x |> async.Return
       afterUpdate = fun _ _ x -> Ok x |> async.Return
       modifyOkResponse = fun _ _ -> fun next ctx -> next ctx
       modifyAcceptedResponse = fun _ _ -> fun next ctx -> next ctx
@@ -467,39 +467,75 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                   | Ok () ->
                       match! this.beforeUpdate mappedCtx (unbox<'entity> entity0) with
                       | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok () ->
-                          match! patch ctx req Set.empty entity0 with
+                      | Ok entity1 ->
+                          match! patch ctx req Set.empty entity1 with
                           | Error errors -> return! handleErrors errors next httpCtx
-                          | Ok entity1 ->
-                              match! this.afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity1) with
+                          | Ok entity2 ->
+                              match! this.afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                               | Error errors -> return! handleErrors errors next httpCtx
-                              | Ok entity2 ->
+                              | Ok entity3 ->
                                   if this.return202Accepted then
                                     let handler =
                                       setStatusCode 202
-                                      >=> this.modifyAcceptedResponse mappedCtx (unbox<'entity> entity2)
+                                      >=> this.modifyAcceptedResponse mappedCtx (unbox<'entity> entity3)
                                     return! handler next httpCtx
                                   else
-                                    let! doc = resp.Write ctx req (rDef, entity2)
+                                    let! doc = resp.Write ctx req (rDef, entity3)
                                     let handler =
                                       setStatusCode 200
-                                      >=> this.modifyOkResponse mappedCtx entity2
+                                      >=> this.modifyOkResponse mappedCtx entity3
                                       >=> jsonApiWithETag doc
                                     return! handler next httpCtx
         }
 
 
-  member this.BeforeUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+  member this.BeforeUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
     { this with beforeUpdate = (fun ctx e -> f.Invoke(ctx, e)) }
+
+  member this.BeforeUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
+
+  member this.BeforeUpdateAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
+    this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e)
 
   member this.BeforeUpdateAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
     this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e)
 
+  member this.BeforeUpdateAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+    this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeUpdateAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+    this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeUpdateAsync(f: Func<'entity, Async<'entity>>) =
+    this.BeforeUpdateAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeUpdateAsync(f: Func<'entity, Async<unit>>) =
+    this.BeforeUpdateAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeUpdateRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+    this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
   member this.BeforeUpdateRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
     this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
 
+  member this.BeforeUpdateRes(f: Func<'entity, Result<'entity, Error list>>) =
+    this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
   member this.BeforeUpdateRes(f: Func<'entity, Result<unit, Error list>>) =
     this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeUpdate(f: Func<'ctx, 'entity, 'entity>) =
+    this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeUpdate(f: Func<'ctx, 'entity, unit>) =
+    this.BeforeUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeUpdate(f: Func<'entity, 'entity>) =
+    this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
+
+  member this.BeforeUpdate(f: Func<'entity, unit>) =
+    this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<'entity, Error list>>>) =
     { this with afterUpdate = fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) }
@@ -604,7 +640,7 @@ type internal DeleteOperation<'ctx> =
 
 type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
-  beforeDelete: 'ctx -> 'entity -> Async<Result<unit, Error list>>
+  beforeDelete: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   delete: 'ctx -> Request -> 'entity -> Async<Result<unit, Error list>>
   modifyNoContentResponse: 'ctx -> HttpHandler
   modifyAcceptedResponse: 'ctx -> HttpHandler
@@ -614,7 +650,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   static member internal Create(mapCtx, delete) : DeleteOperation<'originalCtx, 'ctx, 'entity> =
     {
       mapCtx = mapCtx
-      beforeDelete = fun _ _ -> Ok () |> async.Return
+      beforeDelete = fun _ x -> Ok x |> async.Return
       delete = delete
       modifyNoContentResponse = fun _ -> fun next ctx -> next ctx
       modifyAcceptedResponse = fun _ -> fun next ctx -> next ctx
@@ -623,19 +659,19 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
 
   interface DeleteOperation<'originalCtx> with
-    member this.Run resDef ctx req preconditions entity resp =
+    member this.Run resDef ctx req preconditions entity0 resp =
       fun next httpCtx ->
         task {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              match preconditions.Validate httpCtx ctx entity with
+              match preconditions.Validate httpCtx ctx entity0 with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok () ->
-                  match! this.beforeDelete mappedCtx (unbox<'entity> entity) with
+                  match! this.beforeDelete mappedCtx (unbox<'entity> entity0) with
                   | Error errors -> return! handleErrors errors next httpCtx
-                  | Ok () ->
-                      match! this.delete mappedCtx req (unbox<'entity> entity) with
+                  | Ok entity1 ->
+                      match! this.delete mappedCtx req (unbox<'entity> entity1) with
                       | Error errors -> return! handleErrors errors next httpCtx
                       | Ok () ->
                           if this.return202Accepted then
@@ -651,18 +687,53 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
         }
 
 
-  member this.BeforeDeleteAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+  member this.BeforeDeleteAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
     { this with beforeDelete = (fun ctx e -> f.Invoke(ctx, e)) }
+
+  member this.BeforeDeleteAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
+
+  member this.BeforeDeleteAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
+    this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e)
 
   member this.BeforeDeleteAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
     this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e)
 
+  member this.BeforeDeleteAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+    this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeDeleteAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+    this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeDeleteAsync(f: Func<'entity, Async<'entity>>) =
+    this.BeforeDeleteAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeDeleteAsync(f: Func<'entity, Async<unit>>) =
+    this.BeforeDeleteAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeDeleteRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+    this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
   member this.BeforeDeleteRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
     this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeDeleteRes(f: Func<'entity, Result<'entity, Error list>>) =
+    this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e |> async.Return)
 
   member this.BeforeDeleteRes(f: Func<'entity, Result<unit, Error list>>) =
     this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e |> async.Return)
 
+  member this.BeforeDelete(f: Func<'ctx, 'entity, 'entity>) =
+    this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeDelete(f: Func<'ctx, 'entity, unit>) =
+    this.BeforeDeleteAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeDelete(f: Func<'entity, 'entity>) =
+    this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
+
+  member this.BeforeDelete(f: Func<'entity, unit>) =
+    this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.ModifyNoContentResponse(getHandler: 'ctx -> HttpHandler) =
     { this with modifyNoContentResponse = fun ctx -> getHandler ctx }

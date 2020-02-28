@@ -135,7 +135,7 @@ module Parent1 =  // add and get - POST self OK
       .ToMany()
       .GetSkip(fun ctx p -> ctx.GetParent1Children p)
       .AddRes(Child.lookup, fun ctx -> ctx.AddChildren1)
-      .BeforeModifySelfRes(fun ctx -> ctx.BeforeModifySelf1)
+      .BeforeModifySelfRes(fun ctx p -> ctx.BeforeModifySelf1 p)
       .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
       .ModifyPostSelfOkResponse(fun ctx -> ctx.ModifyPostSelfOkResponse)
 

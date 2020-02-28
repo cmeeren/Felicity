@@ -37,7 +37,7 @@ type Db () =
 type MappedCtx = {
   ModifyAResponse: HttpHandler
   ModifyBResponse: HttpHandler
-  BeforeDeleteA: A -> Result<unit, Error list>
+  BeforeDeleteA: A -> Result<A, Error list>
   DeleteA: A -> Result<unit, Error list>
   DeleteB: B -> unit
   Db: Db
@@ -48,7 +48,7 @@ type Ctx = {
   ModifyAResponse: HttpHandler
   ModifyBResponse: HttpHandler
   Db: Db
-  BeforeDeleteA: A -> Result<unit, Error list>
+  BeforeDeleteA: A -> Result<A, Error list>
   DeleteA: A -> Result<unit, Error list>
   DeleteB: B -> unit
   MapCtx: Ctx -> Result<MappedCtx, Error list>
@@ -57,7 +57,7 @@ type Ctx = {
     ModifyAResponse = fun next ctx -> next ctx
     ModifyBResponse = fun next ctx -> next ctx
     Db = db
-    BeforeDeleteA = fun _ -> Ok ()
+    BeforeDeleteA = fun a -> Ok a
     DeleteA = fun a -> db.Remove a.Id |> Ok
     DeleteB = fun b -> db.Remove b.Id
     MapCtx = fun ctx -> Ok {
@@ -269,6 +269,21 @@ let tests =
         |> getResponse
       test <@ response.headers.ContainsKey LastModified = false @>
       response |> testStatusCode 204
+    }
+
+    testJob "Calls delete with entity returned by BeforeDelete" {
+      let db = Db ()
+      let mutable calledWith = None
+      let ctx = {
+        Ctx.WithDb db with
+          BeforeDeleteA = fun a -> Ok { a with Id = "foobar" }
+          DeleteA = fun a -> calledWith <- Some a; Ok ()
+      }
+      let! response = Request.delete ctx "/abs/a1" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some { Id = "foobar" } @>
     }
 
     testJob "Returns errors and does not call delete if BeforeDelete returns an error" {

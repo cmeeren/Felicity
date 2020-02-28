@@ -73,7 +73,7 @@ type MappedCtx = {
   ModifyBResponse: B -> HttpHandler
   Db: Db
   SetA: bool -> A -> Result<A, Error list>
-  BeforeUpdateA: A -> Result<unit, Error list>
+  BeforeUpdateA: A -> Result<A, Error list>
   AfterUpdateA: A -> A -> unit
 }
 
@@ -83,7 +83,7 @@ type Ctx = {
   ModifyBResponse: B -> HttpHandler
   Db: Db
   SetA: bool -> A -> Result<A, Error list>
-  BeforeUpdateA: A -> Result<unit, Error list>
+  BeforeUpdateA: A -> Result<A, Error list>
   AfterUpdateA: A -> A -> unit
   MapCtx: Ctx -> Result<MappedCtx, Error list>
 } with
@@ -92,7 +92,7 @@ type Ctx = {
     ModifyBResponse = fun _ -> fun next ctx -> next ctx
     Db = db
     SetA = fun x a -> Ok { a with A = x }
-    BeforeUpdateA = fun _ -> Ok ()
+    BeforeUpdateA = fun x -> Ok x
     AfterUpdateA = fun _ a -> db.SaveA a
     MapCtx = fun ctx -> Ok {
       ModifyAResponse = ctx.ModifyAResponse
@@ -471,6 +471,30 @@ let tests =
         |> getResponse
       test <@ response.headers.ContainsKey LastModified = false @>
       response |> testStatusCode 200
+    }
+
+    testJob "Uses entity returned by BeforeUpdate" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with BeforeUpdateA = fun a -> Ok { a with Nullable = Some "lorem ipsum" } }
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "a1"
+                  attributes = {| x = "abc" |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 200
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.attributes.nullable" = "lorem ipsum" @>
+
+      let a = 
+        match db.GetAOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+      test <@ a.Nullable = Some "lorem ipsum" @>
     }
 
     testJob "Returns errors and does not call AfterUpdate if BeforeUpdate returns an error" {

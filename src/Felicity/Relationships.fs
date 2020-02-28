@@ -90,7 +90,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   get: ('ctx -> 'entity -> Async<'relatedEntity Skippable>) option
   set: ('ctx -> Pointer -> 'relatedId -> 'entity -> Async<Result<'entity, Error list>>) option
   getConstraints: ('ctx -> 'entity -> string * obj) list
-  beforeModifySelf: 'ctx -> 'entity -> Async<Result<unit, Error list>>
+  beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
@@ -107,7 +107,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       get = None
       set = None
       getConstraints = []
-      beforeModifySelf = fun _ _ -> Ok () |> async.Return
+      beforeModifySelf = fun _ e -> Ok e |> async.Return
       afterModifySelf = fun _ _ eNew -> Ok eNew |> async.Return
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyGetSelfResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -367,33 +367,33 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                     | Ok () ->
                         match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
                         | Error errors -> return! handleErrors errors next httpCtx
-                        | Ok () ->
+                        | Ok entity1 ->
                             match idParsers.TryGetValue id.``type`` with
                             | false, _ ->
                                 let allowedTypes = idParsers |> Map.toList |> List.map fst
                                 return! handleErrors [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] next httpCtx
                             | true, parseId ->
-                                let! entity1Res =
+                                let! entity2Res =
                                   parseId ctx id.id
                                   // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                   // this just means that the resource does not exist, which is a more helpful result.
                                   |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
                                   |> AsyncResult.bind (fun domain ->
-                                      set ctx "/data" domain (unbox<'entity> entity0)
+                                      set ctx "/data" domain (unbox<'entity> entity1)
                                   )
-                                match entity1Res with
+                                match entity2Res with
                                 | Error errs -> return! handleErrors errs next httpCtx
-                                | Ok entity1 ->
-                                    match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity1) with
+                                | Ok entity2 ->
+                                    match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                                     | Error errors -> return! handleErrors errors next httpCtx
-                                    | Ok entity2 ->
+                                    | Ok entity3 ->
                                         if this.patchSelfReturn202Accepted then
                                           let handler =
                                             setStatusCode 202
-                                            >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity1)
+                                            >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity2)
                                           return! handler next httpCtx
                                         else
-                                          match! getRelated ctx (unbox<'entity> entity2) with
+                                          match! getRelated ctx (unbox<'entity> entity3) with
                                           | Skip ->
                                               let logger = httpCtx.GetLogger("Felicity.Relationships")
                                               logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
@@ -408,7 +408,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                               }
                                               let handler =
                                                 setStatusCode 200
-                                                >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity2) relatedEntity
+                                                >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
                                                 >=> jsonApiWithETag doc
                                               return! handler next httpCtx
             }
@@ -502,17 +502,53 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddConstraint (name: string, value: 'a) =
     this.AddConstraint(name, fun _ e -> value)
 
-  member this.BeforeModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
-    { this with beforeModifySelf = f }
+  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
+    { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeModifySelfAsyncRes(f: 'entity -> Async<Result<unit, Error list>>) =
-    this.BeforeModifySelfAsyncRes(fun _ e -> f e)
+  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
 
-  member this.BeforeModifySelfRes(f: 'ctx -> 'entity -> Result<unit, Error list>) =
-    this.BeforeModifySelfAsyncRes(fun ctx e -> f ctx e |> async.Return)
+  member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeModifySelfRes(f: 'entity -> Result<unit, Error list>) =
-    this.BeforeModifySelfAsyncRes(fun _ e -> f e |> async.Return)
+  member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e)
+
+  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'entity, Async<'entity>>) =
+    this.BeforeModifySelfAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'entity, Async<unit>>) =
+    this.BeforeModifySelfAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'entity, Result<'entity, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'entity, Result<unit, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'ctx, 'entity, 'entity>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'ctx, 'entity, unit>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'entity, 'entity>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'entity, unit>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew }
@@ -694,7 +730,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   get: ('ctx -> 'entity -> Async<'relatedEntity option Skippable>) option
   set: ('ctx -> Pointer -> 'relatedId option -> 'entity -> Async<Result<'entity, Error list>>) option
   getConstraints: ('ctx -> 'entity -> string * obj) list
-  beforeModifySelf: 'ctx -> 'entity -> Async<Result<unit, Error list>>
+  beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
@@ -711,7 +747,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
       get = None
       set = None
       getConstraints = []
-      beforeModifySelf = fun _ _ -> Ok () |> async.Return
+      beforeModifySelf = fun _ e -> Ok e |> async.Return
       afterModifySelf = fun _ _ eNew -> eNew |> Ok |> async.Return
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyGetSelfResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -971,8 +1007,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                     | Ok () ->
                         match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
                         | Error errors -> return! handleErrors errors next httpCtx
-                        | Ok () ->
-                            let! entity1Res =
+                        | Ok entity1 ->
+                            let! entity2Res =
                               identifier
                               |> Option.traverseAsyncResult (fun id ->
                                   match idParsers.TryGetValue id.``type`` with
@@ -985,20 +1021,20 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                                       // this just means that the resource does not exist, which is a more helpful result.
                                       |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
                               )
-                              |> AsyncResult.bind (fun domain -> set ctx "/data" domain (unbox<'entity> entity0))
-                            match entity1Res with
+                              |> AsyncResult.bind (fun domain -> set ctx "/data" domain (unbox<'entity> entity1))
+                            match entity2Res with
                             | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok entity1 ->
-                                match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity1) with
+                            | Ok entity2 ->
+                                match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                                 | Error errors -> return! handleErrors errors next httpCtx
-                                | Ok entity2 ->
+                                | Ok entity3 ->
                                     if this.patchSelfReturn202Accepted then
                                       let handler =
                                         setStatusCode 202
-                                        >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity2)
+                                        >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity3)
                                       return! handler next httpCtx
                                     else
-                                      match! getRelated ctx (unbox<'entity> entity2) with
+                                      match! getRelated ctx (unbox<'entity> entity3) with
                                       | Skip ->
                                           let logger = httpCtx.GetLogger("Felicity.Relationships")
                                           logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
@@ -1016,7 +1052,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                                           }
                                           let handler =
                                             setStatusCode 200
-                                            >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity2) relatedEntity
+                                            >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
                                             >=> jsonApiWithETag doc
                                           return! handler next httpCtx
             }
@@ -1168,17 +1204,53 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AddConstraint (name: string, value: 'a) =
     this.AddConstraint(name, fun _ e -> value)
 
-  member this.BeforeModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
-    { this with beforeModifySelf = f }
+  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
+    { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeModifySelfAsyncRes(f: 'entity -> Async<Result<unit, Error list>>) =
-    this.BeforeModifySelfAsyncRes(fun _ e -> f e)
+  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
 
-  member this.BeforeModifySelfRes(f: 'ctx -> 'entity -> Result<unit, Error list>) =
-    this.BeforeModifySelfAsyncRes(fun ctx e -> f ctx e |> async.Return)
+  member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeModifySelfRes(f: 'entity -> Result<unit, Error list>) =
-    this.BeforeModifySelfAsyncRes(fun _ e -> f e |> async.Return)
+  member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e)
+
+  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'entity, Async<'entity>>) =
+    this.BeforeModifySelfAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'entity, Async<unit>>) =
+    this.BeforeModifySelfAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'entity, Result<'entity, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'entity, Result<unit, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'ctx, 'entity, 'entity>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'ctx, 'entity, unit>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'entity, 'entity>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'entity, unit>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew }
@@ -1360,7 +1432,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   add: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Async<Result<'entity, Error list>>) option
   remove: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Async<Result<'entity, Error list>>) option
   getConstraints: ('ctx -> 'entity -> string * obj) list
-  beforeModifySelf: 'ctx -> 'entity -> Async<Result<unit, Error list>>
+  beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
@@ -1383,7 +1455,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       add = None
       remove = None
       getConstraints = []
-      beforeModifySelf = fun _ _ -> Ok () |> async.Return
+      beforeModifySelf = fun _ e -> Ok e |> async.Return
       afterModifySelf = fun _ _ eNew -> eNew |> Ok |> async.Return
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyGetSelfResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -1593,8 +1665,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                   | Ok () ->
                       match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
                       | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok () ->
-                          let! entity1Res =
+                      | Ok entity1 ->
+                          let! entity2Res =
                             ids
                             |> List.indexed
                             |> List.traverseAsyncResultA (fun (i, id) ->
@@ -1609,20 +1681,20 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                     // this just means that the resource does not exist, which is a more helpful result.
                                     |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
                             )
-                            |> AsyncResult.bind (fun domain -> f ctx "/data" domain (unbox<'entity> entity0))
-                          match entity1Res with
+                            |> AsyncResult.bind (fun domain -> f ctx "/data" domain (unbox<'entity> entity1))
+                          match entity2Res with
                           | Error errs -> return! handleErrors errs next httpCtx
-                          | Ok entity1 ->
-                              match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity1) with
+                          | Ok entity2 ->
+                              match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                               | Error errors -> return! handleErrors errors next httpCtx
-                              | Ok entity2 ->
+                              | Ok entity3 ->
                                   if this.modifySelfReturn202Accepted then
                                     let handler =
                                       setStatusCode 202
-                                      >=> modifyAcceptedResponse ctx (unbox<'entity> entity2)
+                                      >=> modifyAcceptedResponse ctx (unbox<'entity> entity3)
                                     return! handler next httpCtx
                                   else
-                                    match! getRelated ctx (unbox<'entity> entity2) with
+                                    match! getRelated ctx (unbox<'entity> entity3) with
                                     | Skip ->
                                         let logger = httpCtx.GetLogger("Felicity.Relationships")
                                         logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
@@ -1639,7 +1711,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                         }
                                         let handler =
                                           setStatusCode 200
-                                          >=> modifyOkResponse ctx (unbox<'entity> entity2) relatedEntities
+                                          >=> modifyOkResponse ctx (unbox<'entity> entity3) relatedEntities
                                           >=> jsonApiWithETag doc
                                         return! handler next httpCtx
           }
@@ -1993,17 +2065,53 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.ModifyDeleteSelfAcceptedResponse(handler: HttpHandler) =
     this.ModifyDeleteSelfAcceptedResponse(fun _ _ -> handler)
 
-  member this.BeforeModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
-    { this with beforeModifySelf = f }
+  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
+    { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeModifySelfAsyncRes(f: 'entity -> Async<Result<unit, Error list>>) =
-    this.BeforeModifySelfAsyncRes(fun _ e -> f e)
+  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
 
-  member this.BeforeModifySelfRes(f: 'ctx -> 'entity -> Result<unit, Error list>) =
-    this.BeforeModifySelfAsyncRes(fun ctx e -> f ctx e |> async.Return)
+  member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeModifySelfRes(f: 'entity -> Result<unit, Error list>) =
-    this.BeforeModifySelfAsyncRes(fun _ e -> f e |> async.Return)
+  member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e)
+
+  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'entity, Async<'entity>>) =
+    this.BeforeModifySelfAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeModifySelfAsync(f: Func<'entity, Async<unit>>) =
+    this.BeforeModifySelfAsyncRes(fun e -> f.Invoke e |> Async.map Ok)
+
+  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'entity, Result<'entity, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeModifySelfRes(f: Func<'entity, Result<unit, Error list>>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'ctx, 'entity, 'entity>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'ctx, 'entity, unit>) =
+    this.BeforeModifySelfAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'entity, 'entity>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
+
+  member this.BeforeModifySelf(f: Func<'entity, unit>) =
+    this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew }

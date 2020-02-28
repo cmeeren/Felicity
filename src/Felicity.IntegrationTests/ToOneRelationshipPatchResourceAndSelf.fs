@@ -143,7 +143,7 @@ module Parent1 =  // set and get - PATCH resource/self OK
       .ToOne()
       .GetSkip(fun ctx p -> ctx.GetParent1Child p)
       .SetRes(Child.lookup, fun ctx -> ctx.SetChild1)
-      .BeforeModifySelfRes(fun ctx -> ctx.BeforeModifySelf1)
+      .BeforeModifySelfRes(fun ctx p -> ctx.BeforeModifySelf1 p)
       .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
       .ModifyPatchSelfOkResponse(fun ctx -> ctx.ModifyPatchSelfOkResponse)
 
