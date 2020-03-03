@@ -150,7 +150,7 @@ module A =
       .Patch()
       .BeforeUpdateRes(fun (ctx: MappedCtx) a -> ctx.BeforeUpdateA a)
       .AfterUpdate(fun (ctx: MappedCtx) a -> ctx.AfterUpdateA a)
-      .ModifyOkResponse(fun (ctx: MappedCtx) -> ctx.ModifyAResponse)
+      .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyAResponse)
 
 
 
@@ -185,7 +185,7 @@ module B =
       .Patch()
       .AfterUpdate(fun (ctx: MappedCtx) b -> ctx.Db.SaveB b)
       .Return202Accepted()
-      .ModifyAcceptedResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
+      .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
 
 
 module C =

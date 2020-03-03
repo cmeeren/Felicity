@@ -134,7 +134,7 @@ module A =
         parser.ForRes(ADomain.create, a)
       )
       .AfterCreate(fun (ctx: Ctx) a -> ctx.Db.SaveA a)
-      .ModifyCreatedResponse(fun (ctx: Ctx) -> ctx.ModifyAResponse)
+      .ModifyResponse(fun (ctx: Ctx) -> ctx.ModifyAResponse)
 
 
 
@@ -163,7 +163,7 @@ module B =
       )
       .AfterCreate(fun (ctx: Ctx) b -> ctx.Db.SaveB b)
       .Return202Accepted()
-      .ModifyAcceptedResponse(fun (ctx: Ctx) -> ctx.ModifyBResponse)
+      .ModifyResponse(fun (ctx: Ctx) -> ctx.ModifyBResponse)
 
 
 module NotSupported =

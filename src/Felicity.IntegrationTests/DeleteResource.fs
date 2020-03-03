@@ -84,7 +84,7 @@ module A =
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .DeleteRes(fun (ctx: MappedCtx) a -> ctx.DeleteA a)
       .BeforeDeleteRes(fun (ctx: MappedCtx) a -> ctx.BeforeDeleteA a)
-      .ModifyNoContentResponse(fun (ctx: MappedCtx) -> ctx.ModifyAResponse)
+      .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyAResponse)
 
 
 
@@ -101,7 +101,7 @@ module B =
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .Delete(fun (ctx: MappedCtx) b -> ctx.DeleteB b)
       .Return202Accepted()
-      .ModifyAcceptedResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
+      .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
 
 
 module C =

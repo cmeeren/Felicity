@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### vNext
+
+* **Breaking:** POST, PATCH, and DELETE operations now have a single `ModifyResponse` member instead of separate members for 202 Accepted and normal responses
+
 ### 0.2.0 (2020-02-28)
 
 * Added entity-returning overloads for PATCH's `BeforeUpdate`, DELETE's `BeforeDelete`, and relationships' `BeforeModifySelf`

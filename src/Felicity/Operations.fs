@@ -288,8 +288,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
   create: 'ctx -> Request -> Async<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
   afterCreate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
-  modifyCreatedResponse: 'ctx -> 'entity -> HttpHandler
-  modifyAcceptedResponse: 'ctx -> 'entity -> HttpHandler
+  modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
 } with
 
@@ -298,8 +297,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
       mapCtx = mapCtx
       create = create
       afterCreate = fun _ e -> e |> Ok |> async.Return
-      modifyCreatedResponse = fun _ _ -> fun next ctx -> next ctx
-      modifyAcceptedResponse = fun _ _ -> fun next ctx -> next ctx
+      modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
     }
 
@@ -323,7 +321,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                           if this.return202Accepted then
                             let handler =
                               setStatusCode 202
-                              >=> this.modifyAcceptedResponse mappedCtx (unbox<'entity> entity1)
+                              >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
                             return! handler next httpCtx
                           else
                             let! doc = resp.Write ctx req (rDef, entity1)
@@ -337,7 +335,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                             let handler =
                               setStatusCode 201
                               >=> setLocationHeader
-                              >=> this.modifyCreatedResponse mappedCtx entity1
+                              >=> this.modifyResponse mappedCtx entity1
                               >=> jsonApiWithETag doc
                             return! handler next httpCtx
         }
@@ -393,23 +391,14 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.Return202Accepted () =
     { this with return202Accepted = true }
 
-  member this.ModifyCreatedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
-    { this with modifyCreatedResponse = fun ctx entity -> getHandler ctx entity }
+  member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+    { this with modifyResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyCreatedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
-    this.ModifyCreatedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
+  member this.ModifyResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+    this.ModifyResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
-  member this.ModifyCreatedResponse(handler: HttpHandler) =
-    this.ModifyCreatedResponse(fun _ _ -> handler)
-
-  member this.ModifyAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
-    { this with modifyAcceptedResponse = fun ctx entity -> getHandler ctx entity }
-
-  member this.ModifyAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
-    this.ModifyAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
-
-  member this.ModifyAcceptedResponse(handler: HttpHandler) =
-    this.ModifyAcceptedResponse(fun _ _ -> handler)
+  member this.ModifyResponse(handler: HttpHandler) =
+    this.ModifyResponse(fun _ _ -> handler)
 
 
 type internal PatchOperation<'ctx> =
@@ -420,8 +409,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
   beforeUpdate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterUpdate: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
-  modifyOkResponse: 'ctx -> 'entity -> HttpHandler
-  modifyAcceptedResponse: 'ctx -> 'entity -> HttpHandler
+  modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
 } with
 
@@ -430,8 +418,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
       mapCtx = mapCtx
       beforeUpdate = fun _ x -> Ok x |> async.Return
       afterUpdate = fun _ _ x -> Ok x |> async.Return
-      modifyOkResponse = fun _ _ -> fun next ctx -> next ctx
-      modifyAcceptedResponse = fun _ _ -> fun next ctx -> next ctx
+      modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
     }
 
@@ -477,13 +464,13 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                                   if this.return202Accepted then
                                     let handler =
                                       setStatusCode 202
-                                      >=> this.modifyAcceptedResponse mappedCtx (unbox<'entity> entity3)
+                                      >=> this.modifyResponse mappedCtx (unbox<'entity> entity3)
                                     return! handler next httpCtx
                                   else
                                     let! doc = resp.Write ctx req (rDef, entity3)
                                     let handler =
                                       setStatusCode 200
-                                      >=> this.modifyOkResponse mappedCtx entity3
+                                      >=> this.modifyResponse mappedCtx entity3
                                       >=> jsonApiWithETag doc
                                     return! handler next httpCtx
         }
@@ -612,23 +599,14 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.Return202Accepted () =
     { this with return202Accepted = true }
 
-  member this.ModifyOkResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
-    { this with modifyOkResponse = getHandler }
+  member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+    { this with modifyResponse = getHandler }
 
-  member this.ModifyOkResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
-    this.ModifyOkResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
+  member this.ModifyResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+    this.ModifyResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
-  member this.ModifyOkResponse(handler: HttpHandler) =
-    this.ModifyOkResponse(fun _ _ -> handler)
-
-  member this.ModifyAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
-    { this with modifyAcceptedResponse = getHandler }
-
-  member this.ModifyAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
-    this.ModifyAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
-
-  member this.ModifyAcceptedResponse(handler: HttpHandler) =
-    this.ModifyAcceptedResponse(fun _ _ -> handler)
+  member this.ModifyResponse(handler: HttpHandler) =
+    this.ModifyResponse(fun _ _ -> handler)
 
 
 
@@ -642,8 +620,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
   beforeDelete: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   delete: 'ctx -> Request -> 'entity -> Async<Result<unit, Error list>>
-  modifyNoContentResponse: 'ctx -> HttpHandler
-  modifyAcceptedResponse: 'ctx -> HttpHandler
+  modifyResponse: 'ctx -> HttpHandler
   return202Accepted: bool
 } with
 
@@ -652,8 +629,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
       mapCtx = mapCtx
       beforeDelete = fun _ x -> Ok x |> async.Return
       delete = delete
-      modifyNoContentResponse = fun _ -> fun next ctx -> next ctx
-      modifyAcceptedResponse = fun _ -> fun next ctx -> next ctx
+      modifyResponse = fun _ -> fun next ctx -> next ctx
       return202Accepted = false
     }
 
@@ -677,12 +653,12 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
                           if this.return202Accepted then
                             let handler =
                               setStatusCode 202
-                              >=> this.modifyAcceptedResponse mappedCtx
+                              >=> this.modifyResponse mappedCtx
                             return! handler next httpCtx
                           else
                             let handler =
                               setStatusCode 204
-                              >=> this.modifyNoContentResponse mappedCtx
+                              >=> this.modifyResponse mappedCtx
                             return! handler next httpCtx
         }
 
@@ -735,23 +711,14 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.BeforeDelete(f: Func<'entity, unit>) =
     this.BeforeDeleteAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
-  member this.ModifyNoContentResponse(getHandler: 'ctx -> HttpHandler) =
-    { this with modifyNoContentResponse = fun ctx -> getHandler ctx }
+  member this.ModifyResponse(getHandler: 'ctx -> HttpHandler) =
+    { this with modifyResponse = fun ctx -> getHandler ctx }
 
-  member this.ModifyNoContentResponse(f: 'ctx -> HttpContext -> unit) =
-    this.ModifyNoContentResponse(fun ctx -> (fun next httpCtx -> f ctx httpCtx; next httpCtx))
+  member this.ModifyResponse(f: 'ctx -> HttpContext -> unit) =
+    this.ModifyResponse(fun ctx -> (fun next httpCtx -> f ctx httpCtx; next httpCtx))
 
-  member this.ModifyNoContentResponse(handler: HttpHandler) =
-    this.ModifyNoContentResponse(fun _ -> handler)
-
-  member this.ModifyAcceptedResponse(getHandler: 'ctx -> HttpHandler) =
-    { this with modifyAcceptedResponse = fun ctx -> getHandler ctx }
-
-  member this.ModifyAcceptedResponse(f: 'ctx -> HttpContext -> unit) =
-    this.ModifyAcceptedResponse(fun ctx -> (fun next httpCtx -> f ctx httpCtx; next httpCtx))
-
-  member this.ModifyAcceptedResponse(handler: HttpHandler) =
-    this.ModifyAcceptedResponse(fun _ -> handler)
+  member this.ModifyResponse(handler: HttpHandler) =
+    this.ModifyResponse(fun _ -> handler)
 
   member this.Return202Accepted () =
     { this with return202Accepted = true }
