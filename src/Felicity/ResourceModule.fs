@@ -349,7 +349,7 @@ let private ensureNoRelLinkNameCollisions<'ctx> m =
 let private ensureNoConstraintsAttrIfAnyFieldHasConstraints<'ctx> m =
   let fieldWithConstraints =
     constrainedFields<'ctx> m
-    |> Array.tryPick (fun f -> if f.BoxedGetConstraints.IsEmpty then None else Some f.Name)
+    |> Array.tryPick (fun f -> if f.HasConstraints then Some f.Name else None)
   let hasConstraintsField = fields<'ctx> m |> Array.exists(fun f -> f.Name = "constraints")
   match fieldWithConstraints, hasConstraintsField with
   | Some fieldName, true -> failwithf "Resource module '%s' contains both a field '%s' with constraints and a separate field called 'constraints'; either rename the 'constraints' field or remove all constraints from all fields" m.Name fieldName

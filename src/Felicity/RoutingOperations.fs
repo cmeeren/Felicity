@@ -101,7 +101,7 @@ module internal RoutingOperations =
     let constraintsField =
       resourceModule.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
       |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<ConstrainedField<'ctx>>)
-      |> Array.exists (fun f -> not f.BoxedGetConstraints.IsEmpty)
+      |> Array.exists (fun f -> f.HasConstraints)
       |> function
          | false -> None
          | true ->

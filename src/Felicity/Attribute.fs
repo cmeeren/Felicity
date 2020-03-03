@@ -13,7 +13,8 @@ type internal Attribute<'ctx> =
 
 type internal ConstrainedField<'ctx> =
   abstract Name: FieldName
-  abstract BoxedGetConstraints: ('ctx -> BoxedEntity -> string * obj) list
+  abstract HasConstraints: bool
+  abstract BoxedGetConstraints: 'ctx -> BoxedEntity -> Async<(string * obj) list>
 
 
 type internal FieldSetter<'ctx> =
@@ -27,7 +28,8 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Async<'attr Skippable>) option
   set: ('ctx -> 'attr -> 'entity -> Async<Result<'entity, Error list>>) option
-  getConstraints: ('ctx -> 'entity -> string * obj) list
+  hasConstraints: bool
+  getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
 } with
 
   static member internal Create(name: string, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> =
@@ -37,7 +39,8 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
       toDomain = toDomain
       get = None
       set = None
-      getConstraints = []
+      hasConstraints = false
+      getConstraints = fun _ _ -> async.Return []
     }
 
   interface FieldSetter<'ctx> with
@@ -77,9 +80,9 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
   interface ConstrainedField<'ctx> with
     member this.Name = this.name
-    member this.BoxedGetConstraints =
-      this.getConstraints
-      |> List.map (fun f -> fun ctx e -> f ctx (unbox<'entity> e))
+    member this.HasConstraints = this.hasConstraints
+    member this.BoxedGetConstraints ctx e =
+      this.getConstraints ctx (unbox<'entity> e)
 
 
   member this.Optional =
@@ -176,15 +179,29 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.Set (set: 'attr -> 'entity -> 'entity) =
     this.SetAsyncRes (fun _ x e -> set x e |> Ok |> async.Return)
 
+  member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
+    { this with
+        hasConstraints = true
+        getConstraints =
+          fun ctx e ->
+            async {
+              let! currentCs = this.getConstraints ctx e
+              let! newCs = getConstraints ctx e
+              return currentCs @ newCs
+            }
+    }
+
+  member this.AddConstraints(getConstraints: 'ctx -> 'entity -> (string * obj) list) =
+    this.AddConstraintsAsync(fun ctx e -> getConstraints ctx e |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
-    let f ctx entity = name, box (getValue ctx entity)
-    { this with getConstraints = this.getConstraints @ [f] }
+    this.AddConstraintsAsync(fun ctx e -> [name, box (getValue ctx e)] |> async.Return)
 
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
   member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ e -> value)
+    this.AddConstraint(name, fun _ -> value)
 
 
 
@@ -194,7 +211,8 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Async<'attr option Skippable>) option
   set: ('ctx -> 'attr option -> 'entity -> Async<Result<'entity, Error list>>) option
-  getConstraints: ('ctx -> 'entity -> string * obj) list
+  hasConstraints: bool
+  getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
 } with
 
   static member internal Create(name: string, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'entity, 'attr, 'serialized> =
@@ -204,7 +222,8 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
       toDomain = toDomain
       get = None
       set = None
-      getConstraints = []
+      hasConstraints = false
+      getConstraints = fun _ _ -> async.Return []
     }
 
   member internal this.nullableFromDomain =
@@ -250,9 +269,9 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
   interface ConstrainedField<'ctx> with
     member this.Name = this.name
-    member this.BoxedGetConstraints =
-      this.getConstraints
-      |> List.map (fun f -> fun ctx e -> f ctx (unbox<'entity> e))
+    member this.HasConstraints = this.hasConstraints
+    member this.BoxedGetConstraints ctx e =
+      this.getConstraints ctx (unbox<'entity> e)
 
 
   member this.Optional =
@@ -379,15 +398,29 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.SetNonNull (set: 'attr -> 'entity -> 'entity) =
     this.SetNonNullAsyncRes (fun _ x e -> set x e |> Ok |> async.Return)
 
+  member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
+    { this with
+        hasConstraints = true
+        getConstraints =
+          fun ctx e ->
+            async {
+              let! currentCs = this.getConstraints ctx e
+              let! newCs = getConstraints ctx e
+              return currentCs @ newCs
+            }
+    }
+
+  member this.AddConstraints(getConstraints: 'ctx -> 'entity -> (string * obj) list) =
+    this.AddConstraintsAsync(fun ctx e -> getConstraints ctx e |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
-    let f ctx entity = name, box (getValue ctx entity)
-    { this with getConstraints = this.getConstraints @ [f] }
+    this.AddConstraintsAsync(fun ctx e -> [name, box (getValue ctx e)] |> async.Return)
 
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
   member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ e -> value)
+    this.AddConstraint(name, fun _ -> value)
 
 
 

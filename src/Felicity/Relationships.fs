@@ -89,7 +89,8 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Async<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Async<'relatedEntity Skippable>) option
   set: ('ctx -> Pointer -> 'relatedId -> 'entity -> Async<Result<'entity, Error list>>) option
-  getConstraints: ('ctx -> 'entity -> string * obj) list
+  hasConstraints: bool
+  getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
@@ -106,7 +107,8 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       idParsers = idParsers
       get = None
       set = None
-      getConstraints = []
+      hasConstraints = false
+      getConstraints = fun _ _ -> async.Return []
       beforeModifySelf = fun _ e -> Ok e |> async.Return
       afterModifySelf = fun _ _ eNew -> Ok eNew |> async.Return
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -263,9 +265,9 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   interface ConstrainedField<'ctx> with
     member this.Name = this.name
-    member this.BoxedGetConstraints =
-      this.getConstraints
-      |> List.map (fun f -> fun ctx e -> f ctx (unbox<'entity> e))
+    member this.HasConstraints = this.hasConstraints
+    member this.BoxedGetConstraints ctx e =
+      this.getConstraints ctx (unbox<'entity> e)
 
 
   interface RelationshipHandlers<'ctx> with
@@ -492,15 +494,29 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.Set (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, 'entity>) =
     this.SetAsyncRes(getRelated, fun _ related entity -> set.Invoke(related, entity) |> Ok |> async.Return)
 
+  member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
+    { this with
+        hasConstraints = true
+        getConstraints =
+          fun ctx e ->
+            async {
+              let! currentCs = this.getConstraints ctx e
+              let! newCs = getConstraints ctx e
+              return currentCs @ newCs
+            }
+    }
+
+  member this.AddConstraints(getConstraints: 'ctx -> 'entity -> (string * obj) list) =
+    this.AddConstraintsAsync(fun ctx e -> getConstraints ctx e |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
-    let f ctx entity = name, box (getValue ctx entity)
-    { this with getConstraints = this.getConstraints @ [f] }
+    this.AddConstraintsAsync(fun ctx e -> [name, box (getValue ctx e)] |> async.Return)
 
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
   member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ e -> value)
+    this.AddConstraint(name, fun _ -> value)
 
   member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
@@ -729,7 +745,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Async<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Async<'relatedEntity option Skippable>) option
   set: ('ctx -> Pointer -> 'relatedId option -> 'entity -> Async<Result<'entity, Error list>>) option
-  getConstraints: ('ctx -> 'entity -> string * obj) list
+  hasConstraints: bool
+  getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
@@ -746,7 +763,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
       idParsers = idParsers
       get = None
       set = None
-      getConstraints = []
+      hasConstraints = false
+      getConstraints = fun _ _ -> async.Return []
       beforeModifySelf = fun _ e -> Ok e |> async.Return
       afterModifySelf = fun _ _ eNew -> eNew |> Ok |> async.Return
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -912,9 +930,9 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
   interface ConstrainedField<'ctx> with
     member this.Name = this.name
-    member this.BoxedGetConstraints =
-      this.getConstraints
-      |> List.map (fun f -> fun ctx e -> f ctx (unbox<'entity> e))
+    member this.HasConstraints = this.hasConstraints
+    member this.BoxedGetConstraints ctx e =
+      this.getConstraints ctx (unbox<'entity> e)
 
 
   interface RelationshipHandlers<'ctx> with
@@ -1194,15 +1212,29 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, 'entity>) =
     this.SetNonNullAsyncRes(getRelated, fun _ related entity -> set.Invoke(related, entity) |> Ok |> async.Return)
 
+  member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
+    { this with
+        hasConstraints = true
+        getConstraints =
+          fun ctx e ->
+            async {
+              let! currentCs = this.getConstraints ctx e
+              let! newCs = getConstraints ctx e
+              return currentCs @ newCs
+            }
+    }
+
+  member this.AddConstraints(getConstraints: 'ctx -> 'entity -> (string * obj) list) =
+    this.AddConstraintsAsync(fun ctx e -> getConstraints ctx e |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
-    let f ctx entity = name, box (getValue ctx entity)
-    { this with getConstraints = this.getConstraints @ [f] }
+    this.AddConstraintsAsync(fun ctx e -> [name, box (getValue ctx e)] |> async.Return)
 
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
   member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ e -> value)
+    this.AddConstraint(name, fun _ -> value)
 
   member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
@@ -1431,7 +1463,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   setAll: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Async<Result<'entity, Error list>>) option
   add: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Async<Result<'entity, Error list>>) option
   remove: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Async<Result<'entity, Error list>>) option
-  getConstraints: ('ctx -> 'entity -> string * obj) list
+  hasConstraints: bool
+  getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
@@ -1454,7 +1487,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       setAll = None
       add = None
       remove = None
-      getConstraints = []
+      hasConstraints = false
+      getConstraints = fun _ _ -> async.Return []
       beforeModifySelf = fun _ e -> Ok e |> async.Return
       afterModifySelf = fun _ _ eNew -> eNew |> Ok |> async.Return
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -1637,9 +1671,9 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   interface ConstrainedField<'ctx> with
     member this.Name = this.name
-    member this.BoxedGetConstraints =
-      this.getConstraints
-      |> List.map (fun f -> fun ctx e -> f ctx (unbox<'entity> e))
+    member this.HasConstraints = this.hasConstraints
+    member this.BoxedGetConstraints ctx e =
+      this.getConstraints ctx (unbox<'entity> e)
 
 
   member private this.ModifySelfHandler f modifyOkResponse modifyAcceptedResponse =
@@ -1983,15 +2017,29 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.Remove (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, 'entity>) =
     this.RemoveAsyncRes(getRelated, fun _ related entity -> remove.Invoke(related, entity) |> Ok |> async.Return)
 
+  member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
+    { this with
+        hasConstraints = true
+        getConstraints =
+          fun ctx e ->
+            async {
+              let! currentCs = this.getConstraints ctx e
+              let! newCs = getConstraints ctx e
+              return currentCs @ newCs
+            }
+    }
+
+  member this.AddConstraints(getConstraints: 'ctx -> 'entity -> (string * obj) list) =
+    this.AddConstraintsAsync(fun ctx e -> getConstraints ctx e |> async.Return)
+
   member this.AddConstraint (name: string, getValue: 'ctx -> 'entity -> 'a) =
-    let f ctx entity = name, box (getValue ctx entity)
-    { this with getConstraints = this.getConstraints @ [f] }
+    this.AddConstraintsAsync(fun ctx e -> [name, box (getValue ctx e)] |> async.Return)
 
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
   member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ e -> value)
+    this.AddConstraint(name, fun _ -> value)
 
   member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
     { this with modifyGetRelatedResponse = fun ctx entity -> getHandler ctx entity }

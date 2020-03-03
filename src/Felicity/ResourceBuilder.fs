@@ -27,21 +27,32 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
   let constrainedFields = ResourceModule.constrainedFields<'ctx> resourceModule
 
   let constraintsAttr =
-    if constrainedFields |> Array.forall (fun f -> f.BoxedGetConstraints.IsEmpty) then None
+    if constrainedFields |> Array.forall (fun f -> not f.HasConstraints) then None
     else
       Some <|
         { new Attribute<'ctx> with
             member _.Name = "constraints"
             member _.BoxedGetSerialized =
-              Some <|
-                fun ctx boxedEntity ->
-                  constrainedFields
-                  |> Array.filter (fun f -> shouldUseField f.Name && not f.BoxedGetConstraints.IsEmpty)
-                  |> Array.map (fun f -> f.Name, f.BoxedGetConstraints |> List.map (fun f -> f ctx boxedEntity) |> Map.ofList)
-                  |> Include
-                  |> Skippable.filter (not << Array.isEmpty)
-                  |> Skippable.map (Map.ofArray >> box)
-                  |> async.Return
+              Some <| fun ctx boxedEntity ->
+                async {
+                  let! constraints =
+                    constrainedFields
+                    |> Array.filter (fun f -> shouldUseField f.Name)
+                    |> Array.map (fun f ->
+                        async {
+                          let! constraints = f.BoxedGetConstraints ctx boxedEntity
+                          return f.Name, constraints |> Map.ofList
+                        }
+                    )
+                    |> Async.Parallel
+
+                  return
+                    constraints
+                    |> Array.filter (fun (_, cs) -> not cs.IsEmpty)
+                    |> Include
+                    |> Skippable.filter (not << Array.isEmpty)
+                    |> Skippable.map (Map.ofArray >> box)
+                }
         }
 
   member _.Identifier = identifier

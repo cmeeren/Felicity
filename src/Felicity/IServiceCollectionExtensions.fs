@@ -82,7 +82,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
             let constraintsFieldByName =
               let hasConstrainedFields =
                 ResourceModule.constrainedFields<'ctx> m
-                |> Array.exists (fun f -> not f.BoxedGetConstraints.IsEmpty)
+                |> Array.exists (fun f -> f.HasConstraints)
               if hasConstrainedFields then [| "constraints", typeof<obj> |] else [||]
             Array.concat [
               nonNullableAttrTypesByName

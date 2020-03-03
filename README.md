@@ -275,9 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
-### vNext
+### 0.3.0 (2020-03-03)
 
 * **Breaking:** POST, PATCH, and DELETE operations now have a single `ModifyResponse` member instead of separate members for 202 Accepted and normal responses
+* Allow specifying `Async` constraints and constraint lists
 
 ### 0.2.0 (2020-02-28)
 
