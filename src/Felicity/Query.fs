@@ -361,6 +361,9 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Asy
 
 type Filter =
 
+  static member Field(id: Id<'ctx, 'entity, 'id>) =
+    SingleFilter<'ctx, 'id>("id", fun ctx str -> id.toDomain ctx str)
+
   static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> async.Return |> AsyncResult.bind (attribute.toDomain ctx))
 

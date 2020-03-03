@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.3.1 (2020-03-03)
+
+* Allow filtering on the resource ID
+
 ### 0.3.0 (2020-03-03)
 
 * **Breaking:** POST, PATCH, and DELETE operations now have a single `ModifyResponse` member instead of separate members for 202 Accepted and normal responses

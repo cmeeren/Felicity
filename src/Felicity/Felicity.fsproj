@@ -13,9 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.3.0</Version>
-    <PackageReleaseNotes>- Breaking: POST, PATCH, and DELETE operations now have a single ModifyResponse member instead of separate members for 202 Accepted and normal responses
-- Allow specifying Async constraints and constraint lists</PackageReleaseNotes>
+    <Version>0.3.1</Version>
+    <PackageReleaseNotes>Allow filtering on the resource ID</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>
