@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.3.2 (2020-03-04)
+
+* Added some missing attribute overloads
+
 ### 0.3.1 (2020-03-03)
 
 * Allow filtering on the resource ID

@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.3.1</Version>
-    <PackageReleaseNotes>Allow filtering on the resource ID</PackageReleaseNotes>
+    <Version>0.3.2</Version>
+    <PackageReleaseNotes>Added some missing attribute overloads</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>

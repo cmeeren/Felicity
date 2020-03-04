@@ -430,53 +430,68 @@ type NullableAttributeHelper<'ctx, 'entity> internal () =
     NullableAttribute<'ctx, 'entity, 'serialized, 'serialized>.Create(
       name, id, fun _ -> Ok >> async.Return)
 
-  member _.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member private _.ParsedAsyncRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create(name, fromDomain, toDomain)
 
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, toDomain, name)
+
   member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> AsyncResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> AsyncResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> AsyncResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> AsyncResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
 
   member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
 
   member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
 
   member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Async.map Ok), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Async.map Ok), name)
 
   member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Async.map Ok), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Async.map Ok), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
 
   member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
 
   member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
 
   member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Ok >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Ok >> async.Return), name)
 
   member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Ok >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Ok >> async.Return), name)
 
   member _.Enum(fromDomain: 'attr -> string, toDomainMap: (string * 'attr) list, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let d = dict toDomainMap
@@ -501,53 +516,68 @@ type AttributeHelper<'ctx, 'entity> internal () =
     NonNullableAttribute<'ctx, 'entity, 'serialized, 'serialized>.Create(
       name, id, fun _ -> Ok >> async.Return)
 
-  member _.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create (name, fromDomain, toDomain)
+  member private _.ParsedAsyncRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create(name, fromDomain, toDomain)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, toDomain, name)
 
   member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> AsyncResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> AsyncResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> AsyncResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
+
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> AsyncResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
 
   member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
 
   member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Async.map (Result.requireSome [attrInvalidParsedNone name])), name)
 
   member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Async.map Ok), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Async.map Ok), name)
 
   member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Async.map Ok), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Async.map Ok), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
 
   member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> async.Return), name)
 
   member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
 
   member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Result.requireSome [attrInvalidParsedNone name] >> async.Return), name)
 
   member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun ctx -> toDomain ctx >> Ok >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun ctx -> toDomain ctx >> Ok >> async.Return), name)
 
   member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedAsyncRes(fromDomain, (fun _ -> toDomain >> Ok >> async.Return), name)
+    this.ParsedAsyncRes'(fromDomain, (fun _ -> toDomain >> Ok >> async.Return), name)
 
   member _.Enum(fromDomain: 'attr -> string, toDomainMap: (string * 'attr) list, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let d = dict toDomainMap
