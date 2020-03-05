@@ -576,6 +576,15 @@ Polymorphism
 
 TODO
 
+Tips for use with “dependent” entities that are not DDD aggregate roots
+-----------------------------------------------------------------------
+
+TODO
+
+* In `Define` (and everywhere else), make `'entity` be a tuple containing both the parent and sub-entity
+* Have a domain function `Parent.withChild: 'childId -> 'parent -> 'parent * 'child` that looks up a known child in the parent (throws if not found)
+* If needed, use `define.Operation.PostBackRef` instead of `Post` to get access to the (pre-create) parent entity in `AfterCreate`
+
 Current limitations
 -------------------
 

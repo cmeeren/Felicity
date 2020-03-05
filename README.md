@@ -27,7 +27,7 @@ Core features:
 
 ### Production readiness
 
-This framework contains ~500 end-to-end tests checking success-path and error-path functionality of all operations, and will soon be used in several mission-critical production APIs at our company. I’m not claiming it’s perfect, or even bug-free, but it’s well tested, and I have a vested interest in keeping this framework working properly.
+This framework contains over 500 end-to-end tests checking success-path and error-path functionality of all operations, and will soon be used in several mission-critical production APIs at our company. I’m not claiming it’s perfect, or even bug-free, but it’s well tested, and I have a vested interest in keeping this framework working properly.
 
 Since the framework is brand new, I am initially releasing it as 0.x and reserve the right to make breaking changes as I start using the framework for real-world APIs and discover possibilities for improvement. However, do not take 0.x to mean that it’s a buggy mess, or that the API will radically change every other week.
 
@@ -274,6 +274,10 @@ Feel free to open an issue if you have questions.
 
 Release notes
 -------------
+
+### 0.3.3 (2020-03-05)
+
+* Added `define.Operation.PostBackRef` to provide access to a pre-create "parent entity" in `AfterCreate` (using a relationship back-reference in the POST request)
 
 ### 0.3.2 (2020-03-04)
 

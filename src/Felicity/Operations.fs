@@ -285,7 +285,7 @@ type internal PostOperation<'ctx> =
 
 
 type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> Request -> Async<Result<'ctx, Error list>>
   create: 'ctx -> Request -> Async<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
   afterCreate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
   modifyResponse: 'ctx -> 'entity -> HttpHandler
@@ -305,7 +305,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
     member this.Run collName rDef ctx req patch resp =
       fun next httpCtx ->
         task {
-          match! this.mapCtx ctx with
+          match! this.mapCtx ctx req with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
               match! this.create mappedCtx req |> AsyncResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> AsyncResult.map (fun e -> fieldNames, e)) with
@@ -1024,14 +1024,14 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     this.GetCollectionAsyncRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Ok |> async.Return)
 
   member _.PostAsyncRes (createEntity: Func<'ctx, Async<Result<'entity, Error list>>>) =
-    PostOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun ctx res -> createEntity.Invoke ctx |> AsyncResult.map (fun e -> Set.empty, Set.empty, e))
+    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx res -> mapCtx ctx), fun ctx res -> createEntity.Invoke ctx |> AsyncResult.map (fun e -> Set.empty, Set.empty, e))
 
   member this.PostAsyncRes (createEntity: Func<unit, Async<Result<'entity, Error list>>>) =
     this.PostAsyncRes(fun (ctx: 'ctx) -> createEntity.Invoke ())
 
   member _.PostAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
     PostOperation<'originalCtx, 'ctx, 'entity>.Create(
-      mapCtx,
+      (fun ctx _ -> mapCtx ctx),
       fun ctx req ->
         getRequestParser.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req))
         |> AsyncResult.bind (fun p -> p.ParseWithConsumed ())
@@ -1063,6 +1063,62 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
   member this.Post (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
     this.PostAsyncRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Ok |> async.Return)
+
+  member _.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Async<Result<'entity, Error list>>>) =
+    let mapCtxWithBackRef ctx req =
+      mapCtx ctx
+      |> AsyncResult.bind (fun mappedCtx ->
+          backRef.Get(ctx, req)
+          |> AsyncResult.map (fun e -> mappedCtx, e)
+      )
+    let consumedFieldNames = match backRef.FieldName with None -> Set.empty | Some fn -> Set.empty.Add fn
+    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun ctx res -> createEntity.Invoke ctx |> AsyncResult.map (fun e -> consumedFieldNames, Set.empty, e))
+
+  member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<Result<'entity, Error list>>>) =
+    this.PostBackRefAsyncRes(backRef, fun (ctx: 'ctx, br: 'backRefEntity) -> createEntity.Invoke ())
+
+  member _.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+    let mapCtxWithBackRef ctx req =
+      mapCtx ctx
+      |> AsyncResult.bind (fun mappedCtx ->
+          backRef.Get(ctx, req)
+          |> AsyncResult.map (fun e -> mappedCtx, e)
+      )
+    let addBackRefFieldName = match backRef.FieldName with None -> id | Some fn -> Set.add fn
+    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(
+      mapCtxWithBackRef,
+      fun ctx req ->
+        getRequestParser.Invoke(ctx, RequestParserHelper<'ctx>(fst ctx, req))
+        |> AsyncResult.bind (fun p -> p.ParseWithConsumed ())
+        |> AsyncResult.map (fun (fns, qns, e) -> addBackRefFieldName fns, qns, e)
+    )
+
+  member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Async<'entity>>) =
+    this.PostBackRefAsyncRes(backRef, createEntity.Invoke >> Async.map Ok)
+
+  member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<'entity>>) =
+    this.PostBackRefAsyncRes(backRef, createEntity.Invoke >> Async.map Ok)
+
+  member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity>>>) =
+    this.PostBackRefAsyncRes(backRef, fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Async.map Ok)
+
+  member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Result<'entity, Error list>>) =
+    this.PostBackRefAsyncRes(backRef, createEntity.Invoke >> async.Return)
+
+  member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Result<'entity, Error list>>) =
+    this.PostBackRefAsyncRes(backRef, createEntity.Invoke >> async.Return)
+
+  member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity>, Error list>>) =
+    this.PostBackRefAsyncRes(backRef, fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> async.Return)
+
+  member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, 'entity>) =
+    this.PostBackRefAsyncRes(backRef, createEntity.Invoke >> Ok >> async.Return)
+
+  member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, 'entity>) =
+    this.PostBackRefAsyncRes(backRef, createEntity.Invoke >> Ok >> async.Return)
+
+  member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
+    this.PostBackRefAsyncRes(backRef, fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Ok |> async.Return)
 
   member _.Patch() =
     PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
