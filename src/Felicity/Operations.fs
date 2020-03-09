@@ -290,12 +290,13 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
 
 type internal PostOperation<'ctx> =
   abstract Run: CollectionName -> ResourceDefinition<'ctx> -> 'ctx -> Request -> BoxedPatcher<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler
+  abstract HasPersist: bool
 
 
 type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Request -> Async<Result<'ctx, Error list>>
   create: 'ctx -> Request -> Async<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
-  afterCreate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
+  afterCreate: ('ctx -> 'entity -> Async<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
 } with
@@ -304,14 +305,18 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
     {
       mapCtx = mapCtx
       create = create
-      afterCreate = fun _ e -> e |> Ok |> async.Return
+      afterCreate = None
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
     }
 
   interface PostOperation<'originalCtx> with
+    member this.HasPersist = this.afterCreate.IsSome
     member this.Run collName rDef ctx req patch resp =
       fun next httpCtx ->
+        let afterCreate =
+          this.afterCreate
+          |> Option.defaultWith (fun () -> failwithf "Framework bug: POST operation defined without AfterCreate. This should be caught at startup.")
         task {
           match! this.mapCtx ctx req with
           | Error errors -> return! handleErrors errors next httpCtx
@@ -323,7 +328,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                   | Ok (Some { data = Some { id = Include _ } }) when not <| ns.Contains "id" ->
                       return! handleErrors [collPostClientIdNotAllowed collName rDef.TypeName] next httpCtx
                   | _ ->
-                      match! this.afterCreate mappedCtx (unbox<'entity> entity0) with
+                      match! afterCreate mappedCtx (unbox<'entity> entity0) with
                       | Error errors -> return! handleErrors errors next httpCtx
                       | Ok entity1 ->
                           if this.return202Accepted then
@@ -349,7 +354,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
         }
 
   member this.AfterCreateAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
-    { this with afterCreate = fun ctx e -> f.Invoke(ctx, e) }
+    { this with afterCreate = Some (fun ctx e -> f.Invoke(ctx, e)) }
 
   member this.AfterCreateAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
     this.AfterCreateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
@@ -410,13 +415,14 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
 
 
 type internal PatchOperation<'ctx> =
+  abstract HasPersist: bool
   abstract Run: ResourceDefinition<'ctx> -> 'ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> BoxedPatcher<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler
 
 
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
   beforeUpdate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
-  afterUpdate: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
+  afterUpdate: ('ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
 } with
@@ -425,14 +431,18 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     {
       mapCtx = mapCtx
       beforeUpdate = fun _ x -> Ok x |> async.Return
-      afterUpdate = fun _ _ x -> Ok x |> async.Return
+      afterUpdate = None
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
     }
 
 
   interface PatchOperation<'originalCtx> with
+    member this.HasPersist = this.afterUpdate.IsSome
     member this.Run rDef ctx req preconditions entity0 patch resp =
+      let afterUpdate =
+        this.afterUpdate
+          |> Option.defaultWith (fun () -> failwithf "Framework bug: PATCH operation defined without AfterUpdate. This should be caught at startup.")
       fun next httpCtx ->
         task {
           let errs = [
@@ -466,7 +476,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                           match! patch ctx req Set.empty entity1 with
                           | Error errors -> return! handleErrors errors next httpCtx
                           | Ok entity2 ->
-                              match! this.afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                              match! afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                               | Error errors -> return! handleErrors errors next httpCtx
                               | Ok entity3 ->
                                   if this.return202Accepted then
@@ -533,7 +543,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<'entity, Error list>>>) =
-    { this with afterUpdate = fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) }
+    { this with afterUpdate = Some (fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew)) }
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<unit, Error list>>>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> AsyncResult.map (fun () -> eNew))

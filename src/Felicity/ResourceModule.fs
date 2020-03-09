@@ -280,6 +280,20 @@ let private ensureHasGetResourceOpIfNeeded<'ctx> (m: Type) =
     )
 
 
+let private ensureHasPersistFunction<'ctx> (m: Type) =
+  m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
+  |> Array.iter (fun x ->
+      match x.GetValue(null) with
+      | :? PostOperation<'ctx> as op when not op.HasPersist ->
+          failwithf "Resource module '%s' has a POST operation with no AfterCreate, which is required" m.Name
+      | :? PatchOperation<'ctx> as op when not op.HasPersist ->
+          failwithf "Resource module '%s' has a PATCH operation with no AfterUpdate, which is required" m.Name
+      | :? RelationshipHandlers<'ctx> as op when op.IsSettableWithoutPersist ->
+          failwithf "Resource module '%s' has a settable relationship '%s' with no AfterModifySelf, which is required" m.Name op.Name
+      | _ -> ()
+  )
+
+
 let private ensureHasLookupIfNeeded<'ctx> ms =
   ms
   |> Array.groupBy collectionName<'ctx>
@@ -425,5 +439,6 @@ let validateAll<'ctx> ms =
   ms |> Array.iter ensurePolymorphicModuleHasOnlyPolymorphicOperations<'ctx>
   ms |> Array.iter ensureTypeNameIsValid<'ctx>
   ms |> Array.iter ensureHasModifyingOperationsIfPreconditionsDefined<'ctx>
+  ms |> Array.iter ensureHasPersistFunction<'ctx>
   ms |> ensureNoDuplicateTypeNames<'ctx>
   ms |> ensureHasLookupIfNeeded<'ctx>

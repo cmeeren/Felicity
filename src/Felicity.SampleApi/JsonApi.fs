@@ -157,11 +157,14 @@ module Article =
       .ToOne(Person.resourceDef)
       .GetAsync(Db.Person.authorForArticle)
       .Set(Article.setAuthor)
+      .AfterModifySelfAsync(Db.Article.save)
+
 
   let comments =
     define.Relationship
       .ToMany(Comment.resourceDef)
       .GetAsync(Db.Comment.allForArticle)
+      .AfterModifySelfAsync(Db.Article.save)
 
   // In its most simple form, the GET collection operation just needs a list of entities.
   // However, you'll often want to allow clients to filter the results. Relevant query

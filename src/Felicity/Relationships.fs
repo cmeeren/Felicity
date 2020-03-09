@@ -20,6 +20,7 @@ type internal RelationshipHandlers<'ctx> =
   abstract Name: string
   abstract IsToMany: bool
   abstract IsSettableButNotGettable: bool
+  abstract IsSettableWithoutPersist: bool
   abstract GetRelated: ('ctx -> Request -> BoxedEntity -> ResponseBuilder<'ctx> -> HttpHandler) option
   abstract GetSelf: ('ctx -> Request -> BoxedEntity -> HttpHandler) option
   abstract PostSelf: ('ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
@@ -92,7 +93,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
-  afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
+  afterModifySelf: ('ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) option
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
   modifyPatchSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
@@ -110,7 +111,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       hasConstraints = false
       getConstraints = fun _ _ -> async.Return []
       beforeModifySelf = fun _ e -> Ok e |> async.Return
-      afterModifySelf = fun _ _ eNew -> Ok eNew |> async.Return
+      afterModifySelf = None
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyGetSelfResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyPatchSelfOkResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -278,6 +279,8 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
     member this.IsSettableButNotGettable = this.set.IsSome && this.get.IsNone
 
+    member this.IsSettableWithoutPersist = this.set.IsSome && this.afterModifySelf.IsNone
+
     member this.GetRelated =
       this.get |> Option.map (fun getRelated ->
         let resolveEntity =
@@ -353,6 +356,9 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+        let afterModifySelf =
+          this.afterModifySelf
+          |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
         fun ctx req parentTypeName preconditions entity0 ->
           fun next httpCtx ->
             task {
@@ -386,7 +392,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                 match entity2Res with
                                 | Error errs -> return! handleErrors errs next httpCtx
                                 | Ok entity2 ->
-                                    match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                                    match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                                     | Error errors -> return! handleErrors errors next httpCtx
                                     | Ok entity3 ->
                                         if this.patchSelfReturn202Accepted then
@@ -567,13 +573,13 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
-    { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew }
+    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
-    { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew |> AsyncResult.map (fun () -> eNew) }
+    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> AsyncResult.map (fun () -> eNew)) }
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
-    { this with afterModifySelf = fun ctx _ e -> f ctx e }
+    { this with afterModifySelf = Some (fun ctx _ e -> f ctx e) }
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfAsyncRes(fun ctx e -> f ctx e |> AsyncResult.map (fun () -> e))
@@ -748,7 +754,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
-  afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
+  afterModifySelf: ('ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) option
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
   modifyPatchSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
@@ -766,7 +772,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
       hasConstraints = false
       getConstraints = fun _ _ -> async.Return []
       beforeModifySelf = fun _ e -> Ok e |> async.Return
-      afterModifySelf = fun _ _ eNew -> eNew |> Ok |> async.Return
+      afterModifySelf = None
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyGetSelfResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyPatchSelfOkResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -943,6 +949,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     
     member this.IsSettableButNotGettable = this.set.IsSome && this.get.IsNone
 
+    member this.IsSettableWithoutPersist = this.set.IsSome && this.afterModifySelf.IsNone
+
     member this.GetRelated =
       this.get |> Option.map (fun getRelated ->
         let resolveEntity =
@@ -1010,6 +1018,9 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+        let afterModifySelf =
+          this.afterModifySelf
+          |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
         fun ctx req parentTypeName preconditions entity0 ->
           fun next httpCtx ->
             task {
@@ -1043,7 +1054,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                             match entity2Res with
                             | Error errs -> return! handleErrors errs next httpCtx
                             | Ok entity2 ->
-                                match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                                match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                                 | Error errors -> return! handleErrors errors next httpCtx
                                 | Ok entity3 ->
                                     if this.patchSelfReturn202Accepted then
@@ -1285,7 +1296,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
-    { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew }
+    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfAsyncRes(fun ctx eOld eNew -> f ctx eOld eNew |> AsyncResult.map (fun () -> eNew))
@@ -1466,7 +1477,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
-  afterModifySelf: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>
+  afterModifySelf: ('ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) option
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
   modifyPostSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
@@ -1490,7 +1501,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       hasConstraints = false
       getConstraints = fun _ _ -> async.Return []
       beforeModifySelf = fun _ e -> Ok e |> async.Return
-      afterModifySelf = fun _ _ eNew -> eNew |> Ok |> async.Return
+      afterModifySelf = None
       modifyGetRelatedResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyGetSelfResponse = fun _ _ _ -> fun next ctx -> next ctx
       modifyPostSelfOkResponse = fun _ _ _ -> fun next ctx -> next ctx
@@ -1684,6 +1695,9 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       let resolveEntity =
         this.resolveEntity
         |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+      let afterModifySelf =
+        this.afterModifySelf
+        |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
       fun ctx req (preconditions: Preconditions<'ctx>) entity0 ->
         fun next httpCtx ->
           task {
@@ -1719,7 +1733,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                           match entity2Res with
                           | Error errs -> return! handleErrors errs next httpCtx
                           | Ok entity2 ->
-                              match! this.afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                              match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
                               | Error errors -> return! handleErrors errors next httpCtx
                               | Ok entity3 ->
                                   if this.modifySelfReturn202Accepted then
@@ -1759,6 +1773,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     member _.IsToMany = true
 
     member this.IsSettableButNotGettable = this.setAll.IsSome && this.get.IsNone
+
+    member this.IsSettableWithoutPersist = (this.setAll.IsSome || this.add.IsSome || this.remove.IsSome) && this.afterModifySelf.IsNone
 
     member this.GetRelated =
       this.get |> Option.map (fun getRelated ->
@@ -2162,7 +2178,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     this.BeforeModifySelfAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
-    { this with afterModifySelf = fun ctx eOld eNew -> f ctx eOld eNew }
+    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfAsyncRes(fun ctx eOld eNew -> f ctx eOld eNew |> AsyncResult.map (fun () -> eNew))

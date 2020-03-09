@@ -277,6 +277,7 @@ Release notes
 
 ### vNext
 
+* Fail on startup if operations are missing required persistence functions
 * Added support for optional precondition validation
 
 ### 0.3.3 (2020-03-05)
