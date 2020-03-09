@@ -497,14 +497,14 @@ paths:
               - personal
               - commercial
         - in: query
-          name: "filter[created][ge]"
+          name: "filter[createdAt][ge]"
           description: Only return articles created on or after this time.
           schema:
             type: string
             format: date-time
           example: "2019-09-06T19:43:45Z"
         - in: query
-          name: "filter[created][le]"
+          name: "filter[createdAt][le]"
           description: Only return articles created on or before this time.
           schema:
             type: string
@@ -519,8 +519,8 @@ paths:
             type: string
             enum:
               - title
-              - created
-            default: -created
+              - createdAt
+            default: -createdAt
             example: title
         - in: query
           name: "page[offset]"
@@ -690,9 +690,9 @@ paths:
           schema:
             type: string
             enum:
-              - created
-            default: -created
-            example: created
+              - createdAt
+            default: -createdAt
+            example: createdAt
         - in: query
           name: "page[offset]"
           description: Skip this many results.
@@ -1141,12 +1141,12 @@ components:
           allOf:
             - $ref: '#/components/schemas/articleType'
             - description: The article's type.
-        created:
+        createdAt:
           type: string
           format: date-time
           readOnly: true
           description: The time the article was created.
-        updated:
+        updatedAt:
           type: string
           format: date-time
           nullable: true
@@ -1161,8 +1161,8 @@ components:
         - title
         - body
         - type
-        - created
-        - updated
+        - createdAt
+        - updatedAt
 
     articleAttributesPostRequired:
       type: object
@@ -1329,12 +1329,12 @@ components:
           type: string
           example: First!
           description: The comment's body.
-        created:
+        createdAt:
           type: string
           format: date-time
           readOnly: true
           description: The time the comment was created.
-        updated:
+        updatedAt:
           type: string
           format: date-time
           nullable: true
@@ -1347,8 +1347,8 @@ components:
       type: object
       required:
         - body
-        - created
-        - updated
+        - createdAt
+        - updatedAt
 
     commentAttributesPostRequired:
       type: object

@@ -50,9 +50,9 @@ module Article =
 
   let define = Define<Context, Article, ArticleId>()
 
-  let id = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
+  let resId = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
 
-  let resourceDef = define.Resource("article", id).CollectionName("articles")
+  let resourceDef = define.Resource("article", resId).CollectionName("articles")
 
   let title =
     define.Attribute
@@ -72,16 +72,16 @@ module Article =
       .Get(fun a -> a.Type)
       .Set(Article.setType)
 
-  let created =
+  let createdAt =
     define.Attribute
       .Simple()
-      .Get(fun a -> a.Created)
+      .Get(fun a -> a.CreatedAt)
 
-  let updated =
+  let updatedAt =
     define.Attribute
       .Nullable
       .Simple()
-      .Get(fun a -> a.Updated)
+      .Get(fun a -> a.UpdatedAt)
 
   let author =
     define.Relationship
@@ -314,26 +314,126 @@ Felicity automatically supports sparse fieldsets and includes for all operations
 
 Included resources are fetched asynchronously and on-demand. If your related resources are fetched from the database when needed, you may encounter the “N+1 problem”; for example fetching a list of 1000 resources with an included relationship will cause 1000 queries to the database to fetch the related resource(s) for each of the main data resources. The problem gets even worse for multi-level includes. There are no trivial solutions, but it might be fairly simple to write (more complicated) batched SQL queries and use e.g. [BatchIt](https://github.com/cmeeren/BatchIt) to abstract away the batching in code.
 
-Resource ID and definition
+Resource ID and resource definition
 --------------------------
 
-TODO
+The very first thing you should define in a resource module is a “definition helper” that fixes the types of the context, entity, and ID, and is used to define everything else in the module:
+
+```f#
+let define = Define<Context, Article, ArticleId>()
+```
+
+You should then define the how the resource ID is converted to/from a string, and how it is obtained from the entity:
+
+```f#
+let resId = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
+```
+
+Above, we use `ParsedOpt` because (implied in this example) `ArticleId.fromString` returns `ArticleId option`. There are `Parsed*` methods that allow you to use a function that returns  a raw string, async, result, option, or a combination of these. In the event that your ID type is a simple `string`, you can use `define.Id.Simple`.
+
+The final core definition is called the “resource definition”, and it is where you specify the resource type name and, optionally, a collection name:
+
+```f#
+let resourceDef = define.Resource("article", resId).CollectionName("articles")
+```
+
+Above, we define a resource with type name `article` where the ID is parsed/obtained as specified in `resId`, and we further specify that this resource has a `self` URL using the collection name `articles`. In other words, its self URL is `https://base.url/articles/{id}`.
+
+### When is a collection name required?
+
+You may define resources without collection names. These resources will not have `self` links, and may only be included as related resources in compound documents.
+
+For example, if
+
+* `article` is defined with collection name `articles`,
+* `person` is defined without a collection name, and
+* `article` has a relationship `author` to `person`,
+
+then you can `GET /articles/{id}?include=author` to get the article with its author, but you can not fetch any persons directly using `GET /persons`, because there is no such collection.
+
+The following table describes the definitions supported and not supported for modules without a collection name:
+
+|      | Definition                                          | Supported |
+| ---- | --------------------------------------------------- | --------- |
+| ❌    | GET collection                                      | No        |
+| ❌    | POST collection                                     | No        |
+| ❌    | GET resource                                        | No        |
+| ❌    | PATCH resource                                      | No        |
+| ❌    | DELETE resource                                     | No        |
+| ❌    | Custom links                                        | No        |
+| ✅    | Relationship getters                                | Yes       |
+| ❌    | Relationship setters (including to-many add/remove) | No        |
 
 Attributes
 ----------
 
-TODO
+### Domain vs. serialized types
 
-* Non-nullable
-* Nullable
-* Domain vs. serialized
-* Simple
-* Parsed
-* Enum
+There are two important type when defining attributes: The domain type, e.g. a DU wrapper, and the “raw” type that is used for serializing and deserializing, for example primitives like `string` and `int`, or non-JSON types like `DateTimeOffset` if you’re happy with the default serialization of these or are otherwise willing to configure it. Remember that you can always explicitly convert e.g. a `DateTimeOffset` to and from `string` manually to have full control over the serialized representation.
+
+### A basic attribute definition
+
+You define attributes using `define.Attribute`:
+
+```f#
+let title =
+  define.Attribute
+    .Parsed(ArticleTitle.toString, ArticleTitle.fromString)
+    .Get(fun a -> a.Title)
+    .Set(Article.setTitle)
+```
+
+Here, we have defined an attribute with the domain type `ArticleTitle` which uses the functions `ArticleTitle.toString : ArticleTitle -> string` and `ArticleTitle.fromString : string -> ArticleTitle` to convert between `ArticleTitle` and `string`.
+
+The attribute above is defined with a getter of type `Article -> ArticleTitle`, and a setter `Article.setTitle : ArticleTitle -> Article -> Article`.
+
+`Parsed` and `Set` has overloads accepting the context and returning `Async` and/or `Result`.
+
+`Get` has `Async` overloads but not `Result`, because an attribute getter must never fail – if that was the case, you could end up in a situation where you perform and persist changes, but no success response can be returned to the client because a getter fails.
+
+### Simple attributes
+
+If the domain type can be serialized and deserialized directly (e.g. in the case of an unwrapped `DateTimeOffset`), you can use `Simple` instead of `Parsed`.
+
+### Enum attributes
+
+If the attribute value can only accept a limited set of string values (e.g. if the backing domain type is a field-less DU), and you want these values automatically mentioned in the error message if they try to set it to an invalid value, you can use `Enum` instead of `Parsed`.
+
+`Enum` works like `Parsed`, but instead of the second parameter being `string -> DomainType option` (or `Result`) you supply a `(string * DomainType) list`. Felicity will map the input values to your `DomainType` according to this list, and will mention all possible values in the error message returned to the client if an invalid value is encountered.
+
+Note that the automatic error message is the only benefit of `Enum` over `Parsed`.
+
+Note also that the first parameter to `Enum` is the same as with `Parsed`, namely `DomainType -> string`. While Felicity could swap the mapping and use it to also transform the other way, that would fail if the domain type had an invalid value, and you’d have no compile-time guarantees that the mapping contained all values. Furthermore, you might want to restrict the settable values to a subset of the possible values.
 
 ### Skippable attributes
 
-TODO
+`Get` has overloads allowing you to return a value wrapped in `Skippable<_>`. This type is similar to `Option<_>` and has the cases `Skip` and `Include of 'a`, but where `Option` indicates `null` (more on nullable attributes below), `Skippable` indicates that a value should not be present at all in the response.
+
+One use-case for this is if the requesting user has partial access to a resource, in the sense that the user has access to only some of a resource’s fields. Then you can have the getter return `Skip` if the user does not have access to the field, and the field will not appear in the response.
+
+Note however that clients may be surprised to only get some of the fields they expect. Document well and use with care.
+
+### Nullable attributes
+
+To define a nullable attribute, it must be wrapped in `option` on the domain side. Then, simply insert `.Nullable` after `define.Attribute`:
+
+```f#
+let updatedAt =
+  define.Attribute
+    .Nullable
+    .Simple()
+    .Get(fun a -> a.UpdatedAt)
+```
+
+Here, the getter returns the field `Article.UpdatedAt : DateTimeOffset option`.
+
+### Read-only/write-only attributes
+
+To define a read-only attribute, simply define an attribute without a setter. Errors will be returned if the client supplies the field in a request. The `updatedAt` attribute shown above is a read-only attribute.
+
+You may still use read-only fields when parsing responses for e.g. POST requests, as described in section TODO. That means you can have a read-only attribute that may not be set in PATCH requests, but which you can still use as a parameter in POST requests when creating new resources.
+
+To define a write-only attribute (e.g. a user’s password, or Base64-encoded file contents for upload), simply define an attribute without a getter.
 
 Relationships
 -------------

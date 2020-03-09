@@ -176,19 +176,19 @@ type Article = {
   Title: ArticleTitle
   Body: ArticleBody
   Type: ArticleType
-  Created: DateTimeOffset
-  Updated: DateTimeOffset option
+  CreatedAt: DateTimeOffset
+  UpdatedAt: DateTimeOffset option
 }
 
 
 [<RequireQualifiedAccess>]
 type ArticleSort =
   | Title
-  | Created
+  | CreatedAt
 
   static member fromStringMap = [
     "title", Title
-    "created", Created
+    "createdAt", CreatedAt
   ]
 
 
@@ -213,8 +213,8 @@ module Article =
     Title = title
     Body = body
     Type = Personal
-    Created = DateTimeOffset.Now
-    Updated = None
+    CreatedAt = DateTimeOffset.Now
+    UpdatedAt = None
   }
 
   let setAuthor authorId (article: Article) =
@@ -230,7 +230,7 @@ module Article =
     { article with Type = articleType }
 
   let setUpdated updatedAt (article: Article) =
-    { article with Updated = updatedAt }
+    { article with UpdatedAt = updatedAt }
 
 
 module ArticleSearchArgs =
@@ -240,7 +240,7 @@ module ArticleSearchArgs =
     Types = None
     CreatedAfter = None
     CreatedBefore = None
-    SortBy = ArticleSort.Created
+    SortBy = ArticleSort.CreatedAt
     SortDescending = true
     Offset = 0
     Limit = 10
@@ -282,17 +282,17 @@ type Comment = {
   AuthorId: PersonId
   ArticleId: ArticleId
   Body: CommentBody
-  Created: DateTimeOffset
-  Updated: DateTimeOffset option
+  CreatedAt: DateTimeOffset
+  UpdatedAt: DateTimeOffset option
 }
 
 
 [<RequireQualifiedAccess>]
 type CommentSort =
-  | Created
+  | CreatedAt
 
   static member fromStringMap = [
-    "created", Created
+    "createdAt", CreatedAt
   ]
 
 
@@ -317,15 +317,15 @@ module Comment =
     AuthorId = authorId
     ArticleId = article.Id
     Body = body
-    Created = DateTimeOffset.Now
-    Updated = None
+    CreatedAt = DateTimeOffset.Now
+    UpdatedAt = None
   }
 
   let setBody body (comment: Comment) =
     { comment with Body = body }
 
   let setUpdated updatedAt (comment: Comment) =
-    { comment with Updated = updatedAt }
+    { comment with UpdatedAt = updatedAt }
 
 
 module CommentSearchArgs =
@@ -333,7 +333,7 @@ module CommentSearchArgs =
   let empty = {
     Author = None
     AuthorFirstName = None
-    SortBy = CommentSort.Created
+    SortBy = CommentSort.CreatedAt
     SortDescending = true
     Offset = 0
     Limit = 10

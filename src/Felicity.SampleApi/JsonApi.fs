@@ -129,20 +129,20 @@ module Article =
   // DateTimeOffset), use .Simple(). (If we wanted more control over the date-time
   // format, we could use .Parsed as above.)
 
-  let created =
+  let createdAt =
     define.Attribute
       .Simple()
-      .Get(fun a -> a.Created)
+      .Get(fun a -> a.CreatedAt)
 
   // Nullable attributes are defined using define.Attribute.Nullable. The only difference
   // between nullable and non-nullable attributes is that nullable attributes require
   // Option<_>-wrapping on the domain side.
 
-  let updated =
+  let updatedAt =
     define.Attribute
       .Nullable
       .Simple()
-      .Get(fun a -> a.Updated)
+      .Get(fun a -> a.UpdatedAt)
 
   // Relationships are defined using a similar syntax. You use either ToOne,
   // ToOneNullable, and ToMany, and specify the resource definition of the related
@@ -189,9 +189,9 @@ module Article =
           // and serialized the attribute to/from a string, this extra step would not be
           // needed here.) Secondly, we add an operator "ge" (greater-equals) to the
           // query parameter name. This means the query parameter will be called
-          // filter[created][ge]. The operator only affects the name of the parameter.
-          .Add(ArticleSearchArgs.setCreatedAfter, Filter.Field(created, parseDateTimeOffset).Operator("ge"))
-          .Add(ArticleSearchArgs.setCreatedBefore, Filter.Field(created, parseDateTimeOffset).Operator("le"))
+          // filter[createdAt][ge]. The operator only affects the name of the parameter.
+          .Add(ArticleSearchArgs.setCreatedAfter, Filter.Field(createdAt, parseDateTimeOffset).Operator("ge"))
+          .Add(ArticleSearchArgs.setCreatedBefore, Filter.Field(createdAt, parseDateTimeOffset).Operator("le"))
           // The Sort class is used to parse the 'sort' query parameter. For example, it
           // can be parsed to a DU representing the fields available for sorting. It is
           // parsed to 'a * bool where 'a is the domain type and the bool indicates
@@ -361,16 +361,16 @@ module Comment =
       .Get(fun c -> c.Body)
       .Set(Comment.setBody)
 
-  let created =
+  let createdAt =
     define.Attribute
       .Simple()
-      .Get(fun c -> c.Created)
+      .Get(fun c -> c.CreatedAt)
 
-  let updated =
+  let updatedAt =
     define.Attribute
       .Nullable
       .Simple()
-      .Get(fun c -> c.Updated)
+      .Get(fun c -> c.UpdatedAt)
 
   let author =
     define.Relationship

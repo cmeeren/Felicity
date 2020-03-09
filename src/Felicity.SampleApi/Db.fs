@@ -127,14 +127,14 @@ module Article =
       let sort (xs: Article seq) =
         match searchArgs.SortBy with
         | ArticleSort.Title -> xs  |> sortF (fun a -> a.Title)
-        | ArticleSort.Created -> xs  |> sortF (fun a -> a.Created)
+        | ArticleSort.CreatedAt -> xs  |> sortF (fun a -> a.CreatedAt)
       return
         articles.Values
         |> Seq.filter (fun a ->
             searchArgs.Title |> Option.map ((=) a.Title) |> Option.defaultValue true
             && searchArgs.Types |> Option.map (List.contains a.Type) |> Option.defaultValue true
-            && searchArgs.CreatedAfter |> Option.map ((<=) a.Created) |> Option.defaultValue true
-            && searchArgs.CreatedBefore |> Option.map ((>=) a.Created) |> Option.defaultValue true
+            && searchArgs.CreatedAfter |> Option.map ((<=) a.CreatedAt) |> Option.defaultValue true
+            && searchArgs.CreatedBefore |> Option.map ((>=) a.CreatedAt) |> Option.defaultValue true
         )
         |> sort
         |> Seq.safeSkip searchArgs.Offset
@@ -158,7 +158,7 @@ module Article =
       return
         articles.Values
         |> Seq.filter (fun a -> a.AuthorId = p.Id)
-        |> Seq.sortByDescending (fun a -> a.Created)
+        |> Seq.sortByDescending (fun a -> a.CreatedAt)
         |> Seq.toList
     }
 
@@ -177,7 +177,7 @@ module Comment =
         if searchArgs.SortDescending then Seq.sortByDescending f xs else Seq.sortBy f xs
       let sort (xs: Comment seq) =
         match searchArgs.SortBy with
-        | CommentSort.Created -> xs |> sortF (fun c -> c.Created)
+        | CommentSort.CreatedAt -> xs |> sortF (fun c -> c.CreatedAt)
       return
         comments.Values
         |> Seq.filter (fun c ->
@@ -200,7 +200,7 @@ module Comment =
       return
         comments.Values
         |> Seq.filter (fun c -> c.ArticleId = a.Id)
-        |> Seq.sortByDescending (fun c -> c.Created)
+        |> Seq.sortByDescending (fun c -> c.CreatedAt)
         |> Seq.toList
     }
 

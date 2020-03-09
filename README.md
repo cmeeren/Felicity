@@ -148,9 +148,9 @@ module Article =
 
   let define = Define<Context, Article, ArticleId>()
 
-  let id = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
+  let resId = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
 
-  let resourceDef = define.Resource("article", id).CollectionName("articles")
+  let resourceDef = define.Resource("article", resId).CollectionName("articles")
 
   let title =
     define.Attribute
@@ -170,16 +170,16 @@ module Article =
       .Get(fun a -> a.Type)
       .Set(Article.setType)
 
-  let created =
+  let createdAt =
     define.Attribute
       .Simple()
-      .Get(fun a -> a.Created)
+      .Get(fun a -> a.CreatedAt)
 
-  let updated =
+  let updatedAt =
     define.Attribute
       .Nullable
       .Simple()
-      .Get(fun a -> a.Updated)
+      .Get(fun a -> a.UpdatedAt)
 
   let author =
     define.Relationship
