@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### vNext
+
+* Added support for optional precondition validation
+
 ### 0.3.3 (2020-03-05)
 
 * Added `define.Operation.PostBackRef` to provide access to a pre-create "parent entity" in `AfterCreate` (using a relationship back-reference in the POST request)

@@ -265,6 +265,19 @@ module A5 =
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
 
 
+type Ctx6 = Ctx6
+
+module A6 =
+
+  let define = Define<Ctx6, A, string>()
+  let resId = define.Id.Simple(fun a -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("as")
+  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
+  let get = define.Operation.GetResource()
+  let patch = define.Operation.Patch()
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+
+
 [<Tests>]
 let tests =
   testList "PATCH resource" [
@@ -466,6 +479,35 @@ let tests =
 
       let! response =
         Request.patch Ctx5 "/as/a1"
+        |> Request.bodySerialized {| data = {|``type`` = "a"; id = "a1" |} |}
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testStatusCode 200
+    }
+
+    testJob "Correctly handles optional precondition validation" {
+      let! response =
+        Request.patch Ctx6 "/as/a1"
+        |> Request.bodySerialized {| data = {|``type`` = "a"; id = "a1" |} |}
+        |> getResponse
+      response |> testStatusCode 200
+
+      let! response =
+        Request.patch Ctx6 "/as/a1"
+        |> Request.bodySerialized {| data = {|``type`` = "a"; id = "a1" |} |}
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.patch Ctx6 "/as/a1"
         |> Request.bodySerialized {| data = {|``type`` = "a"; id = "a1" |} |}
         |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
         |> getResponse

@@ -309,6 +309,24 @@ module Parent8 =  // LastModified precondition
       .Set(fun ctx e -> e)
 
 
+type Ctx6 = Ctx6
+
+module Parent9 =  // LastModified optional precondition
+
+  let define = Define<Ctx6, Parent3, string>()
+  let resId = define.Id.Simple(fun (p: Parent3) -> p.Id)
+  let resDef = define.Resource("parent", resId).CollectionName("parents")
+  let lookup = define.Operation.Lookup(fun _ -> Some { Parent3.Id = "someId" })
+  let get = define.Operation.GetResource()
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+
+  let child =
+    define.Relationship
+      .ToOne(resDef)
+      .Get(fun ctx -> { Parent3.Id = "someId" })
+      .Set(fun ctx e -> e)
+
+
 [<Tests>]
 let tests1 =
   testList "To-one relationship PATCH resource" [
@@ -857,6 +875,35 @@ let tests2 =
 
       let! response =
         Request.patch Ctx5 "/parents/p1/relationships/child"
+        |> Request.bodySerialized {| data = {| ``type`` = "parent"; id = "ignoredId" |} |}
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testStatusCode 200
+    }
+
+    testJob "Correctly handles optional precondition validation" {
+      let! response =
+        Request.patch Ctx6 "/parents/p1/relationships/child"
+        |> Request.bodySerialized {| data = {| ``type`` = "parent"; id = "ignoredId" |} |}
+        |> getResponse
+      response |> testStatusCode 200
+
+      let! response =
+        Request.patch Ctx6 "/parents/p1/relationships/child"
+        |> Request.bodySerialized {| data = {| ``type`` = "parent"; id = "ignoredId" |} |}
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.patch Ctx6 "/parents/p1/relationships/child"
         |> Request.bodySerialized {| data = {| ``type`` = "parent"; id = "ignoredId" |} |}
         |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
         |> getResponse

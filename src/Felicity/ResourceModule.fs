@@ -189,6 +189,10 @@ let preconditions<'ctx> (m: Type) =
       | xs -> failwithf "Resource module '%s' contains %i public precondition definitions; only one is allowed" m.Name xs.Length
 
 
+let hasPreconditions<'ctx> m =
+  preconditions<'ctx> m |> Option.isSome
+
+
 let private getResourceOperationDict = ConcurrentDictionary<Type * Type, obj>()
 let getResourceOperation<'ctx> (m: Type) =
   getResourceOperationDict.GetOrAdd(
@@ -310,6 +314,22 @@ let private ensureHasLookupIfNeeded<'ctx> ms =
   )
 
 
+let private ensureHasModifyingOperationsIfPreconditionsDefined<'ctx> (m: Type) =
+  if hasPreconditions<'ctx> m then
+    m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
+    |> Array.exists (fun x ->
+        match x.GetValue(null) with
+        | :? PatchOperation<'ctx> -> true
+        | :? DeleteOperation<'ctx> -> true
+        | :? CustomOperation<'ctx> as op -> op.Post.IsSome || op.Patch.IsSome || op.Delete.IsSome
+        | :? RelationshipHandlers<'ctx> as op -> op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome
+        | _ -> false
+    )
+    |> function
+        | true -> ()
+        | false -> failwithf "Resource module '%s' contains a precondition definition that is unused because the module contains no resource setters" m.Name
+
+
 let private ensureNoRelLinkNameCollisions<'ctx> m =
   let ops = customOps<'ctx> m |> Array.map (fun op -> op.Name)
   let rels =
@@ -404,5 +424,6 @@ let validateAll<'ctx> ms =
   ms |> Array.iter ensureNoConstraintsAttrIfAnyFieldHasConstraints<'ctx>
   ms |> Array.iter ensurePolymorphicModuleHasOnlyPolymorphicOperations<'ctx>
   ms |> Array.iter ensureTypeNameIsValid<'ctx>
+  ms |> Array.iter ensureHasModifyingOperationsIfPreconditionsDefined<'ctx>
   ms |> ensureNoDuplicateTypeNames<'ctx>
   ms |> ensureHasLookupIfNeeded<'ctx>

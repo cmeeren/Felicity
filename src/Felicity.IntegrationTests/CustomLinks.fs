@@ -245,6 +245,26 @@ module A6 =
       .Delete(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 
 
+type Ctx7 = Ctx7
+
+module A7 =
+
+  let define = Define<Ctx7, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("entities")
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+  let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" } )
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .Post(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .Patch(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .Delete(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
 [<Tests>]
 let tests =
   testList "Custom links" [
@@ -438,6 +458,30 @@ let tests =
       response |> testStatusCode 200
     }
 
+    testJob "POST correctly handles optional precondition validation" {
+      let! response = Request.post Ctx7 "/entities/a1/customOp" |> getResponse
+      response |> testStatusCode 200
+
+      let! response =
+        Request.post Ctx7 "/entities/a1/customOp"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx7 "/entities/a1/customOp"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testStatusCode 200
+    }
+
     testJob "PATCH correctly handles precondition validation using ETag" {
       let! response = Request.patch Ctx5 "/entities/a1/customOp" |> getResponse
       response |> testStatusCode 428
@@ -496,6 +540,30 @@ let tests =
       response |> testStatusCode 200
     }
 
+    testJob "PATCH correctly handles optional precondition validation" {
+      let! response = Request.patch Ctx7 "/entities/a1/customOp" |> getResponse
+      response |> testStatusCode 200
+
+      let! response =
+        Request.patch Ctx7 "/entities/a1/customOp"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.patch Ctx7 "/entities/a1/customOp"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testStatusCode 200
+    }
+
     testJob "DELETE correctly handles precondition validation using ETag" {
       let! response = Request.delete Ctx5 "/entities/a1/customOp" |> getResponse
       response |> testStatusCode 428
@@ -548,6 +616,30 @@ let tests =
 
       let! response =
         Request.delete Ctx6 "/entities/a1/customOp"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testStatusCode 200
+    }
+
+    testJob "DELETE correctly handles optional precondition validation" {
+      let! response = Request.delete Ctx7 "/entities/a1/customOp" |> getResponse
+      response |> testStatusCode 200
+
+      let! response =
+        Request.delete Ctx7 "/entities/a1/customOp"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.delete Ctx7 "/entities/a1/customOp"
         |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
         |> getResponse
       test <@ response.headers.ContainsKey LastModified = false @>

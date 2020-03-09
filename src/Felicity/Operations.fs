@@ -17,11 +17,13 @@ type internal Preconditions<'ctx> =
 type Preconditions<'ctx, 'entity> = internal {
   getETag: 'ctx -> 'entity -> EntityTagHeaderValue option
   getLastModified: 'ctx -> 'entity -> DateTimeOffset option
+  isOptional: bool
 } with
 
   static member internal Create () : Preconditions<'ctx, 'entity> = {
     getETag = fun _ _ -> None
     getLastModified = fun _ _ -> None
+    isOptional = false
   }
 
 
@@ -32,8 +34,11 @@ type Preconditions<'ctx, 'entity> = internal {
 
       // TODO: Simplify after https://github.com/giraffe-fsharp/Giraffe/issues/402 is fixed
       let preconditionsDefined = eTag.IsSome || lastModified.IsSome
-      let preconditionsSupplied = httpCtx.TryGetRequestHeader "If-Match" |> Option.isSome || httpCtx.TryGetRequestHeader "If-Unmodified-Since" |> Option.isSome
+      let preconditionsSupplied =
+        httpCtx.TryGetRequestHeader "If-Match" |> Option.isSome
+        || httpCtx.TryGetRequestHeader "If-Unmodified-Since" |> Option.isSome
       if not preconditionsDefined then Ok ()
+      elif not preconditionsSupplied && this.isOptional then Ok ()
       elif not preconditionsSupplied then Error [preconditionRequired eTag.IsSome lastModified.IsSome]
       else
         let res = httpCtx.ValidatePreconditions eTag lastModified
@@ -56,6 +61,9 @@ type Preconditions<'ctx, 'entity> = internal {
 
   member this.LastModified(getLastModified: Func<'entity, DateTimeOffset>) =
     this.LastModified(fun _ e -> getLastModified.Invoke e)
+
+  member this.Optional =
+    { this with isOptional = true }
 
 
 type internal ResSpecificResourceLookup<'ctx> =
