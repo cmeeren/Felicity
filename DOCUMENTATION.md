@@ -367,12 +367,6 @@ The following table describes the definitions supported and not supported for mo
 Attributes
 ----------
 
-### Domain vs. serialized types
-
-There are two important type when defining attributes: The domain type, e.g. a DU wrapper, and the “raw” type that is used for serializing and deserializing, for example primitives like `string` and `int`, or non-JSON types like `DateTimeOffset` if you’re happy with the default serialization of these or are otherwise willing to configure it. Remember that you can always explicitly convert e.g. a `DateTimeOffset` to and from `string` manually to have full control over the serialized representation.
-
-### A basic attribute definition
-
 You define attributes using `define.Attribute`:
 
 ```f#
@@ -387,9 +381,13 @@ Here, we have defined an attribute with the domain type `ArticleTitle` which use
 
 The attribute above is defined with a getter of type `Article -> ArticleTitle`, and a setter `Article.setTitle : ArticleTitle -> Article -> Article`.
 
-`Parsed` and `Set` has overloads accepting the context and returning `Async` and/or `Result`.
+`Parsed` and `Set` has overloads accepting returning `Async` and/or `Result`.
 
-`Get` has `Async` overloads but not `Result`, because an attribute getter must never fail – if that was the case, you could end up in a situation where you perform and persist changes, but no success response can be returned to the client because a getter fails.
+`Get` has `Async` overloads, but not `Result`, because an attribute getter must never fail – if that was the case, you could end up in a situation where you perform and persist changes, but no success response can be returned to the client because a getter fails.
+
+### Domain vs. serialized types
+
+There are two important type when defining attributes: The domain type, e.g. a DU wrapper, and the “raw” type that is used for serializing and deserializing, for example primitives like `string` and `int`, or non-JSON types like `DateTimeOffset` if you’re happy with the default serialization of these or are otherwise willing to configure it. Remember that you can always explicitly convert e.g. a `DateTimeOffset` to and from `string` manually to have full control over the serialized representation.
 
 ### Simple attributes
 
@@ -413,6 +411,8 @@ One use-case for this is if the requesting user has partial access to a resource
 
 Note however that clients may be surprised to only get some of the fields they expect. Document well and use with care.
 
+The `Skippable` code in Felicity is pretty much the same as in [FSharp.JsonSkippable](https://github.com/cmeeren/FSharp.JsonSkippable/), but is defined separately in order to avoid a dependency on Newtonsoft.Json.
+
 ### Nullable attributes
 
 To define a nullable attribute, it must be wrapped in `option` on the domain side. Then, simply insert `.Nullable` after `define.Attribute`:
@@ -435,185 +435,367 @@ You may still use read-only fields when parsing responses for e.g. POST requests
 
 To define a write-only attribute (e.g. a user’s password, or Base64-encoded file contents for upload), simply define an attribute without a getter.
 
+You can even define an attribute with neither a getter nor a setter. This attribute may then only be used when parsing, and will never be returned to the client.
+
 Relationships
 -------------
 
-TODO
+Much of what is said above for attributes is relevant for relationships, too, and won’t be repeated here. Additionally, relationships add further levels of complexity in several ways. Thankfully, Felicity makes it almost as simple to define relationships as it does attributes.
 
-* Setter: ID vs. related, must check for existence self if using ID setter and return a suitable error
-* To-many vs. complete replacement
+A basic relationship definition looks like this:
+
+```f#
+let author =
+  define.Relationship
+    .ToOne(Person.resourceDef)
+    .GetAsync(Db.Person.authorForArticle)
+    .Set(Article.setAuthor)
+```
+
+You start with `define.Relationship` and can choose between `ToOne`, `ToOneNullable`, or `ToMany`. Each of these accepts the resource definition for the related resource.
+
+The relationship above automatically supports `include` (all gettable relationships do), GET for its `related` and `self` links, and `PATCH` to the relationship’s `self` link (as well as `PATCH` to the resource’s `self` link, of course).
+
+The getter above is asynchronous and loads the related resource from DB whenever it’s included. See section TODO for notes about the N+1 problem and possible solutions.
+
+### ID setters vs. related resource setters
+
+The setter above has signature `AuthorId -> Article -> Article`. However, the safest and most convenient option is using a setter accepting the full entity:
+
+```f#
+.Set(Article.lookup, Article.setAuthor)
+```
+
+The setter above accepts a lookup operation (see section TODO) and a setter with signature `Author -> Article -> Article`. Even if you don’t need more than the ID, using this variant provides the benefit that Felicity will return a suitable error if the resource is not found.
+
+If you instead use an ID setter as shown first, you yourself have to ensure that `Article.setAuthor` checks if the ID actually corresponds to an existing resource (including, if relevant, whether the requesting user has access to it, which is assumedly built into `Article.lookup` above) and return a suitable 404 error. Furthermore, you can‘t easily add a pointer to that error, because the setter may be run as part of either a PATCH resource request or a PATCH relationship `self` link request, and you don’t know which (and therefore the pointer to use).
+
+### Modifying to-many relationships
+
+To-many relationships does not have `Set`. They instead have the following:
+
+* `SetAll`, which is just `Set` by another name, and completely replaces the relationship members
+* `Add`, which adds support for POST to the relationship’s `self` link to add members
+* `Remove`, which adds support for DELETE to the relationship’s `self` link to remove members
+
+As always, simply define what you want to be available, and Felicity will take care of returning suitable errors for invalid requests.
 
 ### Skippable relationships
 
-TODO
+As with attributes, relationships getters may return `Skippable`-wrapped values. However, an important caveat is that **you must never return Skip after a relationship has been updated**. If you do, and if the update happened via the relationship’s `self` link, no success response can be returned to the client, as required by JSON:API. Instead an error will be logged and an embarrassing 500 error will be returned to the client.
 
-### PATCH/POST/DELETE relationship self
+### GET/PATCH/POST/DELETE relationship self
 
-TODO
+Relationships have `self` links which support GET, PATCH, POST, and DELETE operations. As with other operations (detailed later), you can configure how these work.
 
-#### Modifying the response
+#### Persisting changes
 
-TODO
+Use `AfterModifySelf` to persist the changes. You can normally pass the same function here as you pass to `AfterCreate` and `AfterUpdate` for POST and PATCH, respectively.
+
+`AfterModifySelf` is the only function that may cause observable state change.
+
+An exception will be thrown at startup if you don’t specify `AfterModifySelf`.
 
 #### Returning 202 Accepted
 
-TODO
+If you need PATCH/POST/DELETE to return `202 Accepted`, simply add `ModifySelfReturn202Accepted()` to the relationship definition. This makes all of these three operations return `202 Accepted` instead of `200 OK`.
 
-#### BeforeUpdateModifySelf
+#### Modifying the response
 
-TODO
+If you need to modify the response, e.g. to add cache headers, specify one or more of these functions:
+
+* `ModifyPatchSelfOkResponse`
+* `ModifyPatchSelfAcceptedResponse`
+* `ModifyPostSelfOkResponse`
+* `ModifyPostSelfAcceptedResponse`
+* `ModifyDeleteSelfOkResponse`
+* `ModifyDeleteSelfAcceptedResponse`
+
+All of them allow you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
+
+#### Performing pre-update work
+
+Use `BeforeModifySelf` to perform (potentially failing and/or asynchronous) work before modifying the relationship. Note that this work must not cause observable state changes; the request may still fail after this stage.
 
 #### HTTP preconditions
 
-TODO refer to separate section
+See section TODO for how to do precondition validation (using `ETag`/`Last-Modified` and `If-Match`/`If-Unmodified-Since`) for these requests.
 
 #### Execution order
 
-TODO
+1. Get the context
+2. Validate preconditions
+3. `BeforeModifySelf`
+4. Parse ID(s) of relationship data
+5. Related resource lookup (if using related setter and not ID setter)
+6. `Set`/`SetAll`/`Add`/`Remove`
+7. `AfterModifySelf`
+8. `Modify*Response`
 
 Attribute/relationship constraints
 ----------------------------------
 
-TODO
+Felicity supports informational field constraints as described in [this post](https://discuss.jsonapi.org/t/dynamic-constraints-a-proposal-for-a-general-specification/1744). In an attribute or relationship definition, use `AddConstraints` or its alternatives to add constraints to the field. If you use this feature, you may not define a separate field called `constraints`.
 
 GET collection operation
 ------------------------
 
-TODO
+At its simplest, a GET collection operation just needs to get a list of entities to return:
+
+```f#
+let getCollection = define.Operation.GetCollectionAsync(Db.Article.getAll)
+```
 
 ### Parsing parameters
 
-TODO
+It may be useful to allow the client to filter the collection. For this, you use the request parser overload. You can read more about request parsing in section TODO, but for parsing filters with GET collection operations, it can look like this:
+
+```f#
+let getCollection =
+  define.Operation
+    .GetCollection(fun ctx parser ->
+      parser.For(ArticleSearchArgs.empty)
+        .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+        .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
+        .Add(ArticleSearchArgs.setOffset, Page.Offset)
+        .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
+        .BindAsync(Db.Article.search)
+    )
+```
 
 ### Modifying the response
 
-TODO
+If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
 ### Execution order
 
-TODO
+1. Get the context
+2. Transform the context if specified (see section TODO)
+3. Get the collection (including any request parsing)
+4. `ModifyResponse`
 
 POST collection operation
 -------------------------
 
-TODO
+At its simplest, a POST operation simply requires a function that creates an entity, and a function to persist the changes:
 
-* Will patch optional settable fields
+```f#
+let post =
+  define.Operation
+    .Post(fun _ -> Article.defaultArticle)
+    .AfterCreateAsync(Db.Article.save)
+```
 
-### Parsing parameters and fields
+### Parsing fields and parameters
 
-TODO
+It is likely that some fields are required when creating a resource.  For this, use the request parser overload. You can read more about request parsing in section TODO, but for creating resources where some attributes and relationships are required, it can look like this:
 
-* Parsed fields will not be used in patcher
+```f#
+let post =
+  define.Operation
+    .Post(fun ctx parser -> parser.For(Article.create, author, title, body))
+    .AfterCreateAsync(Db.Article.save)
+```
 
-### Client-supplied ID
+Above, `author`, `title`, and `body` are attributes and relationships in the `Article` resource module.
 
-TODO
+### Additional settable fields
+
+After creating the resource, the POST operation will mimic the PATCH operation by running the setters for any extra fields present in the request. Fields which have been parsed as shown above will be ignored.
+
+### Client-generated ID
+
+To support client-generated IDs, simply parse the resource ID. If you do not parse the resource ID, Felicity returns a suitable error to the client if an ID is supplied.
 
 ### Modifying the response
 
-TODO
+If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
 ### Returning 202 Accepted
 
-TODO
-
-### BeforeCreate
-
-TODO
+If you need the operation to return `202 Accepted`, simply add `Return202Accepted()` to the operation definition.
 
 ### Execution order
 
-TODO
-
-### HTTP preconditions
-
-TODO refer to separate section
+1. Get the context
+2. Transform the context if specified (see section TODO)
+3. Create the entity (including any request parsing)
+4. `AfterCreate`
+5. `ModifyResponse`
 
 ID lookup operation
 -------------------
 
-TODO
+This is not a HTTP operation; the lookup operation simply tells Felicity how to find a resource with a given ID. For example, in the request `GET /articles/123`, the lookup operation tells Felicity how to get the article with ID `123`.
+
+The lookup operation simply needs a function `'id -> 'entity` (which may return `Async` and/or `Result`):
+
+```f#
+let lookup = define.Operation.LookupAsync(Db.Article.byId)
+```
+
+A lookup operation is required for any operations against the resource’s `self` link or its relationships’ `self` links.
+
+The following table describes the definitions supported and not supported for modules without a lookup operation:
+
+|      | Definition                                          | Supported |
+| ---- | --------------------------------------------------- | --------- |
+| ✅    | GET collection                                      | Yes       |
+| ✅    | POST collection                                     | Yes       |
+| ❌    | GET resource                                        | No        |
+| ❌    | PATCH resource                                      | No        |
+| ❌    | DELETE resource                                     | No        |
+| ❌    | Custom links                                        | No        |
+| ✅    | Relationship getters                                | Yes       |
+| ❌    | Relationship setters (including to-many add/remove) | No        |
 
 GET resource operation
 ----------------------
 
-TODO
+The GET resource operation does not accept any parameters:
+
+```f#
+let get = define.Operation.GetResource()
+```
+
+Like the lookup operation, a GET resource operation is a fundamental operation that is required for any all other operations against the resource’s `self` link or its relationships’ `self` links.
+
+The following table describes the definitions supported and not supported for modules without a GET resource operation:
+
+|      | Definition                                          | Supported |
+| ---- | --------------------------------------------------- | --------- |
+| ✅    | GET collection                                      | Yes       |
+| ✅    | POST collection                                     | Yes       |
+| ❌    | PATCH resource                                      | No        |
+| ❌    | DELETE resource                                     | No        |
+| ❌    | Custom links                                        | No        |
+| ✅    | Relationship getters                                | Yes       |
+| ❌    | Relationship setters (including to-many add/remove) | No        |
 
 ### Modifying the response
 
-TODO
+If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
 ### Execution order
 
-TODO
+1. Get the context
+2. Resource lookup
+3. Transform the context if specified (see section TODO)
+4. `ModifyResponse`
 
 PATCH resource operation
 ------------------------
 
-TODO
+The PATCH operation automatically runs all field setters, and returns suitable errors for failing setters. It simply requires a function to persist the changes:
+
+```f#
+let patch = define.Operation.Patch().AfterUpdateAsync(Db.Article.save)
+```
 
 ### Modifying the response
 
-TODO
+If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
 ### Returning 202 Accepted
 
-TODO
+If you need the operation to return `202 Accepted`, simply add `Return202Accepted()` to the operation definition.
 
-### BeforeUpdate
+### Performing pre-update work
 
-TODO
+Use `BeforeUpdate` to perform (potentially failing and/or asynchronous) work before modifying the resource. Note that this work must not cause observable state changes; the request may still fail after this stage.
 
 ### HTTP preconditions
 
-TODO refer to separate section
+See section TODO for how to do precondition validation (using `ETag`/`Last-Modified` and `If-Match`/`If-Unmodified-Since`) for PATCH requests.
 
 ### Execution order
 
-TODO
+1. Get the context
+2. Resource lookup
+3. Transform the context if specified (see section TODO)
+4. Validate preconditions
+5. `BeforeUpdate`
+6. Run setters
+7. `AfterUpdate`
+8. `ModifyResponse`
 
 DELETE resource operation
 -------------------------
 
-TODO
+The DELETE operation simply needs the function that performs the deletion:
+
+```f#
+let delete = define.Operation.DeleteAsync(Db.Article.delete)
+```
+
+Note that if you use a `Result` returning variant and you return `Error`, no observable state changes must have taken place.
 
 ### Modifying the response
 
-TODO
+If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
 ### Returning 202 Accepted
 
-TODO
+If you need the operation to return `202 Accepted`, simply add `Return202Accepted()` to the operation definition.
 
-### BeforeDelete
+### Performing pre-update work
 
-TODO
+Use `BeforeDelete` to perform (potentially failing and/or asynchronous) work before modifying the resource. Note that this work must not cause observable state changes; the request may still fail after this stage.
 
 ### HTTP preconditions
 
-TODO refer to separate section
+See section TODO for how to do precondition validation (using `ETag`/`Last-Modified` and `If-Match`/`If-Unmodified-Since`) for PATCH requests.
 
 ### Execution order
 
-TODO
+1. Get the context
+2. Resource lookup
+3. Transform the context if specified (see section TODO)
+4. Validate preconditions
+5. `BeforeDelete`
+6. Delete
+7. `ModifyResponse`
 
 Custom operations/links
 -----------------------
 
-TODO
+Custom resource operations/links allow you to do more or less anything you want, and may be useful for operations which do not easily map to a CRUD model. You have access to the same request parser as in several other requests (see section TODO), as well as a helper that writes a JSON:API document based on a resource (automatically supporting includes and sparse fieldsets as normal). This helper returns a Giraffe `HttpHandler`, making it easy to combine with other handlers. Your operation returns `Async<Result<HttpHandler, Error list>>`, meaning that you don’t have to think about how to format a proper error response; Felicity does that for you.
+
+```f#
+let linkName =
+  define.Operation
+    .CustomLink()
+    .Post(fun ctx parser respond entity ->
+      async {
+        let! someParam = parser.GetRequired(Query.Bool("someQueryParam"))
+        let! updatedEntity = doSomeUpdate someParam entity
+        let handler =
+          respond.WithEntity updatedEntity
+          >=> setHttpHeader "foo" "bar"
+        return Ok handler
+      }
+    )
+```
+
+As defined above, the resource will have a link named `linkName`, and the URL will be the resource’s self URL plus `/linkName`.
 
 ### Conditions
 
-TODO
+Using `Condition`, you can specify a condition for when the operation is available. You can return either `bool` (causing Felicity to return a generic error message) or a custom `Error list`.
 
 ### Meta
 
-TODO
+You can add link meta by using `AddMeta` and `AddMetaOpt`. The former allows you to specify the meta key, value, and an optional condition for when to add it, and the latter allows you to return an `option`-wrapped value where the meta item will only be added if it is `Some`.
 
-### When is the link present?
+If links have meta, they use the `href/meta` object form; otherwise they are simple strings.
 
-* TODO: If mapCtx succeeds, and either condition is true, or condition is false and has meta (then href is null). If condition is false and has no meta, no link
+### When is the link present on the resource?
+
+If the context is successfully transformed (if applicable; see section TODO) and the condition is `true`/`Ok`, then the link is present.
+
+If the context is successfully transformed and the condition is `false`/`Error`, then the link is present with `"href": null` and the specified meta.
+
+Otherwise, the link is not present on the resource.
 
 ### HTTP preconditions
 
