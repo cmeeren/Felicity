@@ -37,7 +37,7 @@ type Preconditions<'ctx, 'entity> = internal {
       elif not preconditionsSupplied then Error [preconditionRequired eTag.IsSome lastModified.IsSome]
       else
         let res = httpCtx.ValidatePreconditions eTag lastModified
-        // Clear headers because resource-level ETag/Last-Modified headers don't
+        // Clear headers because response-level ETag/Last-Modified headers don't
         // necessarily make sense in JSON:API due to compound documents; these values
         // should be communicated as attributes or meta.
         httpCtx.Response.Headers.Remove "ETag" |> ignore
