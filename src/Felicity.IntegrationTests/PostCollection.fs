@@ -187,6 +187,7 @@ module C =
     define.Operation
       .ForContextRes(fun _ -> Error [Error.create 422 |> Error.setCode "custom"])
       .Post(fun (_: Ctx3) -> failwith<A> "not used")
+      .AfterCreate(ignore)
 
 
 module A2 =

@@ -53,9 +53,9 @@ module X =
   let lookup = define.Operation.Lookup(fun _ -> Some X)
 
   let getColl = define.Operation.GetCollection(fun () -> [X])
-  let post = define.Operation.Post(fun () -> X)
+  let post = define.Operation.Post(fun () -> X).AfterCreate(ignore)
   let get = define.Operation.GetResource()
-  let patch = define.Operation.Patch()
+  let patch = define.Operation.Patch().AfterUpdate(ignore)
 
 
 module Y =
@@ -72,7 +72,7 @@ module Y =
 
   let lookup = define.Operation.Lookup(fun _ -> Some (Y false))
   let get = define.Operation.GetResource()
-  let patch = define.Operation.Patch()
+  let patch = define.Operation.Patch().AfterUpdate(ignore)
 
 
 [<Tests>]

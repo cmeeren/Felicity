@@ -217,6 +217,7 @@ module Parent3 =  // no set - PATCH resource/self error
   let patch =
     define.Operation
       .Patch()
+      .AfterUpdate(ignore)
 
 
 module Parent4 =  // no relationship at all
@@ -289,6 +290,8 @@ module Parent7 =  // ETag precondition
       .ToOne(resDef)
       .Get(fun ctx -> { Parent3.Id = "someId" })
       .Set(fun ctx e -> e)
+      .AfterModifySelf(ignore)
+
 
 
 type Ctx5 = Ctx5
@@ -307,6 +310,7 @@ module Parent8 =  // LastModified precondition
       .ToOne(resDef)
       .Get(fun ctx -> { Parent3.Id = "someId" })
       .Set(fun ctx e -> e)
+      .AfterModifySelf(ignore)
 
 
 type Ctx6 = Ctx6
@@ -325,6 +329,7 @@ module Parent9 =  // LastModified optional precondition
       .ToOne(resDef)
       .Get(fun ctx -> { Parent3.Id = "someId" })
       .Set(fun ctx e -> e)
+      .AfterModifySelf(ignore)
 
 
 [<Tests>]

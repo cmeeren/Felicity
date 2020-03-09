@@ -165,7 +165,7 @@ module A4 =
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "a1" })
   let get = define.Operation.GetResource()
-  let delete = define.Operation.Delete(fun _ -> ())
+  let delete = define.Operation.Delete(ignore)
   let preconditions = define.Preconditions.ETag(fun _ -> EntityTagHeaderValue.FromString false "valid-etag")
 
 
@@ -178,7 +178,7 @@ module A5 =
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "a1" })
   let get = define.Operation.GetResource()
-  let delete = define.Operation.Delete(fun _ -> ())
+  let delete = define.Operation.Delete(ignore)
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
 
 
@@ -191,7 +191,7 @@ module A6 =
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "a1" })
   let get = define.Operation.GetResource()
-  let delete = define.Operation.Delete(fun _ -> ())
+  let delete = define.Operation.Delete(ignore)
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
 

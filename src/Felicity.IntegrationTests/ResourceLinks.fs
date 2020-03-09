@@ -56,20 +56,20 @@ module X =
 
   let relToOneNoGetSet = define.Relationship.ToOne(A.resDef)
   let relToOneGet = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> A)
-  let relToOneSet = define.Relationship.ToOne(A.resDef).Set(fun _ _ _ -> failwith "not used")
-  let relToOneGetSet = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> failwith "not used").Set(fun _ _ _ -> failwith "not used")
+  let relToOneSet = define.Relationship.ToOne(A.resDef).Set(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
+  let relToOneGetSet = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> failwith "not used").Set(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
   let relToOneNullableNoGetSet = define.Relationship.ToOneNullable(A.resDef)
   let relToOneNullableGet = define.Relationship.ToOneNullable(A.resDef).Get(fun _ _ -> failwith "not used")
-  let relToOneNullableSet = define.Relationship.ToOneNullable(A.resDef).Set(fun _ _ _ -> failwith "not used")
-  let relToOneNullableGetSet = define.Relationship.ToOneNullable(A.resDef).Get(fun _ _ -> failwith "not used").Set(fun _ _ _ -> failwith "not used")
+  let relToOneNullableSet = define.Relationship.ToOneNullable(A.resDef).Set(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
+  let relToOneNullableGetSet = define.Relationship.ToOneNullable(A.resDef).Get(fun _ _ -> failwith "not used").Set(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
   let relToManyNoGetSetAddRemove = define.Relationship.ToMany(A.resDef)
   let relToManyGet = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used")
-  let relToManySet = define.Relationship.ToMany(A.resDef).SetAll(fun _ _ _ -> failwith "not used")
-  let relToManyGetSet = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").SetAll(fun _ _ _ -> failwith "not used")
-  let relToManyGetAdd = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").Add(fun _ _ _ -> failwith "not used")
-  let relToManyGetRemove = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").Remove(fun _ _ _ -> failwith "not used")
+  let relToManySet = define.Relationship.ToMany(A.resDef).SetAll(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
+  let relToManyGetSet = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").SetAll(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
+  let relToManyGetAdd = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").Add(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
+  let relToManyGetRemove = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").Remove(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
 
 

@@ -16,7 +16,7 @@ module A =
   let resId = define.Id.Simple(fun _-> "1")
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some A)
-  let post = define.Operation.Post(fun () -> A)
+  let post = define.Operation.Post(fun () -> A).AfterCreate(ignore)
 
 [<Tests>]
 let tests =

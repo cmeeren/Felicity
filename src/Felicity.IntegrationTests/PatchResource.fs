@@ -248,7 +248,7 @@ module A4 =
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
   let get = define.Operation.GetResource()
-  let patch = define.Operation.Patch()
+  let patch = define.Operation.Patch().AfterUpdate(ignore)
   let preconditions = define.Preconditions.ETag(fun _ -> EntityTagHeaderValue.FromString false "valid-etag")
 
 
@@ -261,7 +261,7 @@ module A5 =
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
   let get = define.Operation.GetResource()
-  let patch = define.Operation.Patch()
+  let patch = define.Operation.Patch().AfterUpdate(ignore)
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
 
 
@@ -274,7 +274,7 @@ module A6 =
   let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
   let get = define.Operation.GetResource()
-  let patch = define.Operation.Patch()
+  let patch = define.Operation.Patch().AfterUpdate(ignore)
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
 

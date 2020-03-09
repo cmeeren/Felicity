@@ -119,6 +119,7 @@ module rec ResourceModules2 =
       define.Relationship
         .ToOne(Parent2.resDef)
         .Set(fun _ _ _ -> failwith "Should never be called")
+        .AfterModifySelf(ignore)
 
     let post =
       define.Operation

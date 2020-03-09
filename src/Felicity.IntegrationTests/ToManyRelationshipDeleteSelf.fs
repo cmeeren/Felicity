@@ -161,6 +161,7 @@ module Parent1 =  // remove and get - DELETE self OK
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
       .Remove(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPost : ToManyRelationship<Ctx, Parent1, Child1, string> =
     define.Relationship
@@ -168,6 +169,7 @@ module Parent1 =  // remove and get - DELETE self OK
       .Get(fun _ _ -> failwith "not used")
       .Add(fun (_: string list) _ -> failwith "not used")
       .Remove(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPatchAndPost : ToManyRelationship<Ctx, Parent1, Child1, string> =
     define.Relationship
@@ -176,6 +178,7 @@ module Parent1 =  // remove and get - DELETE self OK
       .SetAll(fun (_: string list) _ -> failwith "not used")
       .Add(fun (_: string list) _ -> failwith "not used")
       .Remove(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
 
 module Parent3 =  // no remove - DELETE self error
@@ -202,12 +205,14 @@ module Parent3 =  // no remove - DELETE self error
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPost : ToManyRelationship<Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .Add(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPatchAndPost : ToManyRelationship<Ctx, Parent3, Child1, string> =
     define.Relationship
@@ -215,18 +220,21 @@ module Parent3 =  // no remove - DELETE self error
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
       .Add(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPatchUnique : ToManyRelationship<Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPostUnique : ToManyRelationship<Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .Add(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
   let supportsPatchAndPostUnique : ToManyRelationship<Ctx, Parent3, Child1, string> =
     define.Relationship
@@ -234,6 +242,7 @@ module Parent3 =  // no remove - DELETE self error
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
       .Add(fun (_: string list) _ -> failwith "not used")
+      .AfterModifySelf(ignore)
 
 
 module Parent4 =  // no relationship at all
@@ -305,6 +314,7 @@ module Parent7 =  // ETag precondition
       .ToMany(resDef)
       .Get(fun ctx -> [])
       .Remove(fun ctx e -> e)
+      .AfterModifySelf(ignore)
 
 
 type Ctx5 = Ctx5
@@ -323,6 +333,7 @@ module Parent8 =  // LastModified precondition
       .ToMany(resDef)
       .Get(fun ctx -> [])
       .Remove(fun ctx e -> e)
+      .AfterModifySelf(ignore)
 
 
 [<Tests>]

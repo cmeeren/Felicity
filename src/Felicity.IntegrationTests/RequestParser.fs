@@ -109,7 +109,7 @@ module X =
   let a = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> A)
 
   let getColl = define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
-  let post = define.Operation.Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X))
+  let post = define.Operation.Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X)).AfterCreate(ignore)
 
 
 type XSearchArgs =
