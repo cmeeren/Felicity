@@ -1074,21 +1074,64 @@ In the example above, if authenticated as a normal user and they include the `fi
 Conditional GET/HEAD (`ETag`/`If-None-Match`)
 ---------------------------------------------
 
-TODO
+Felicity automatically hashes all success responses and sets an `ETag` header accordingly. This means that clients may use `If-None-Match` to potentially get a `304 Not Modified` response if they already have an up-to-date version of the response to that particular request.
 
-* hashes response body
-* success responses
-* 304 not modified
+Note that this is not related to JSON:API resources; the ETag works on the HTTP level. It can therefore not be used for verifying preconditions before updating a particular resource (see below for more on that). It is only a way to avoid transferring (potentially large) response bodies the client has already seen.
 
 Conditional POST/PATCH/DELETE (`If-Match`/`If-Unmodified-Since`)
 ------------------------------------------------
 
-TODO
+You can define HTTP preconditions in a resource module:
+
+```F#
+let preconditions =
+  define.Preconditions
+    .ETag(fun entity -> EntityTagHeaderValue.FromString false entity.ETag)
+    .LastModified(fun entity -> entity.LastModified)   
+```
+
+You can supply either one or both.
+
+Clients must then supply either the `If-Match` or the `If-Unmodified-Since` header in the request in order to perform requests that modify the resource.
+
+These values **must be communicated to the client as resource attributes** (or meta). They will not be set as HTTP headers, because headers apply to the whole response, and preconditions as shown above are resource-specific.
+
+You can also append `.Optional` in order to make the precondition validation optional. If so, clients may perform request without the precondition headers, but if present, they will be validated.
 
 Polymorphism
 ------------
 
-TODO
+You may encounter the need to have collections or resources that contain several resource types.
+
+First, I would urge you to consider changing your resource model to avoid it. Polymorphic collections/relationships is a complication both in implementation and conceptually.
+
+If you do need to use it though, Felicity has you covered. This is an advanced use-case, though, and while I have tried to make the API both as simple and flexible as I can, compile-time safety can not be guaranteed in all cases.
+
+### Some fundamental notes
+
+Up until now, we have considered the resource module as the fundamental unit of Felicity. We have considered each resource module  in isolation, and an underlying assumption has been that each resource module has a unique collection name.
+
+This need not be the case. There are good reasons (namely, simplicity) for making the public API of Felicity resource-centered, but in the Felicity internals *collections* is the fundamental unit. This is needed since, generally, a collection may contain one or more resources.
+
+There are three places where polymorphism enters the picture in Felicity.
+
+* **Polymorphic GET collection operations.** For example, consider a collection `/vehicles` with types `truck` and `car`, represented by correspondingly named domain types and with a common `Vehicle` discriminated union that wraps them. For `GET /vehicles`, Felicity must know how to “unwrap” each `Vehicle` returned by the search to `Truck` or `Car`, and whether to use the `Truck` or `Car` resource module for that unwrapped resource.
+
+* **Polymorphic resource lookup for a collection.** For `GET /vehicles/123`, Felicity must know how to parse `123` to  `VehicleId` it can use in the lookup. Once it obtains the `Vehicle` with that ID, the same as above applies, too (i.e., how to unwrap it and use the correct resource module).
+
+* **Polymorphic relationships.** This is kind of a combination of the points above. If the relationship is gettable, Felicity must know how to unwrap and select the correct resource module. If the relationship is settable, Felicity must know how to parse the IDs given the relationship data item’s `type`.
+
+### Polymorphic collections
+
+
+
+### Polymorphic resource lookup
+
+
+
+### Polymorphic relationships
+
+
 
 Tips for use with “dependent” entities that are not DDD aggregate roots
 -----------------------------------------------------------------------
