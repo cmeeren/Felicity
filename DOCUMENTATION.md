@@ -779,7 +779,7 @@ let linkName =
 
 As defined above, the resource will have a link named `linkName`, and the URL will be the resource’s self URL plus `/linkName`.
 
-### Conditions
+### Conditional availability
 
 Using `Condition`, you can specify a condition for when the operation is available. You can return either `bool` (causing Felicity to return a generic error message) or a custom `Error list`.
 
@@ -793,51 +793,283 @@ If links have meta, they use the `href/meta` object form; otherwise they are sim
 
 If the context is successfully transformed (if applicable; see section TODO) and the condition is `true`/`Ok`, then the link is present.
 
-If the context is successfully transformed and the condition is `false`/`Error`, then the link is present with `"href": null` and the specified meta.
+If the context is successfully transformed, the condition is `false`/`Error`, and the link has meta, then the link is present with `"href": null` and the specified meta.
 
-Otherwise, the link is not present on the resource.
+If the context is not successfully transformed, or if the condition is `false`/`Error` and the link does not have any meta, the resource’s `links` member does not contain the link at all.
 
 ### HTTP preconditions
 
-TODO
-
-* POST, PATCH, DELETE
+See section TODO for how to do precondition validation (using `ETag`/`Last-Modified` and `If-Match`/`If-Unmodified-Since`). This applies to POST/PATCH/DELETE requests (not GET).
 
 ### Execution order
 
-TODO
+1. Get the context
+2. Resource lookup
+3. Transform the context if specified (see section TODO)
+4. `Condition`
+5. Validate preconditions
+6. Your custom operation
 
 Operation-specific authorization
 --------------------------------
 
-TODO
+As mentioned previously, the context is a good place to put your authenticated user data. However, you may have different types of authentication, e.g. anonymous (no user), normal users, and administrators.
 
-* Context mapping
+One solution is to access control using Felicity is to design two different context types – in this case, one for all users, and one for administrators:
+
+```f#
+type Principal =
+  | Anonymous
+  | Normal of User
+  | Admin of Administrator
+  
+type Context = { Principal: Principal }
+
+type AdminContext = { Admin: Administrator }
+```
+
+If you have resources/collections that are in their entirety only accessible by administrators, you can simply use `AdminContext` as the context for these resources (remember to separately register it in `Startup.cs` and insert it in your routes, as mentioned previously).
+
+However, you may have a resource that is available to all users of your API, but where some operations, say PATCH, are only available to administrators.
+
+Felicity allows you to transform the context for arbitrary operations, and specify an error to be returned if the transformation fails. For example:
+
+```f#
+let unauthorized =
+  Error.create 403
+  |> Error.setTitle "Unauthorized"
+  |> Error.setDetail "You do not have access to this operation"
+
+let toAdminCtx = function
+  | { Principal = Admin a } -> Ok { Admin = a }
+  | _ -> Error [unauthorized]
+```
+
+Using this, you can define operations like this:
+
+```f#
+let patch =
+  define.Operation
+    .ForContextRes(toAdminCtx)
+    .Patch()
+    .AfterCreateAsync(fun ctx a -> Db.Article.saveForAdmin ctx.Admin a)
+```
+
+`ForContext` has several variants, including one allowing you to return an `Option`-wrapped value, where Felicity will return a generic “operation not available” error message if it returns None.
 
 Request parser
 --------------
 
-TODO
+Felicity provides a request parser that allows you to parse query parameters, headers, and response body attributes/relationships in a declarative way, and which automatically handles and combines any errors for the parsed values.
 
-* Parse vs. map/bind
-* Simple use of GetRequired/GetOptional
-* Prohibit
-* Context-dependent parsing
-* Relationships
-* Filter parameters
-* Attributes vs. strings
-* Nullable attributes
-* Bool override filter
-* Query parameters
-  * Filter
-  * Single vs. List
-  * Sort
-  * Page
-  * Custom
-    * Show how to use .Name for fields
-  * Parsed vs. enum
-* Headers
-* Using optional getters as required option-wrapped params
+The request parser is supported by the following operations:
+
+* GET collection
+* POST collection
+* DELETE resource
+* Custom operations
+
+The operations above have overloads that provide you access to the request parser.
+
+For example, here is the GET collection operation from earlier that parses several optional filter parameters:
+
+```f#
+let getCollection =
+  define.Operation
+    .GetCollection(fun ctx parser ->
+      parser.For(ArticleSearchArgs.empty)
+        .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+        .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
+        .Add(ArticleSearchArgs.setOffset, Page.Offset)
+        .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
+        .BindAsync(Db.Article.search)
+    )
+```
+
+And here is the POST collection operation from earlier that parses several required resource fields in the response body:
+
+```f#
+let post =
+  define.Operation
+    .Post(fun ctx parser -> parser.For(Article.create, author, title, body))
+    .AfterCreateAsync(Db.Article.save)
+```
+
+### The underlying concept
+
+In the general case, the parser is used to build up an object of your choice that represents the parsed arguments. You can have required parameters (passed to the function that creates the object) and optional parameters (represented as “immutable setters” for the object, just like attribute/relationship setters).
+
+You use `parser.For` to specify either an empty object or a function that creates an object and accepts some required parameters that you then also supply in the call to `For`.
+
+In the GET collection example above, we specify `ArticleSearchArgs.empty`, which does not require any parameters. We then add a series of optional parameters using “immutable setters” for the values parsed on the right. Finally, because `GetCollection ` requires us to supply a request parser for `Article list` and not for `ArticleSearchArgs`, we transform using `.BindAsync(Db.Article.search)`, where `Db.Article.search` has signature `ArticleSearchArgs -> Article list`.
+
+In the POST collection example, we create a parser for the function `Article.create`, which has signature `PersonId -> ArticleTitle -> ArticleBody -> Article`. We then supply parsers for the three required arguments: The `author` relationship parses the corresponding relationship ID (a `PersonId`), `title` is an attribute that parses to `ArticleTitle`, and `body` is an attribute that parses to `ArticleBody`. In the POST request, we must return a parse for `Author`, and since `Article.create` returns `Author`, we don’t need to transform the returned value as we did with the GET collection example.
+
+### Parsing in custom operations
+
+For standard operations as shown above, you have to return a request parser for the needed type, and not the needed type itself. This is because the request parser contains important runtime information about which parameters/fields have been parsed, which Felicity needs in order to determine e.g. if an operation supports sorting or client-generated IDs (JSON:API mandates that errors be returned if these are supplied but not supported).
+
+However, for custom operations, you should have more freedom, and the Felicity API may not be as restrictive.
+
+As we saw earlier, a custom operation can look like this:
+
+```f#
+let linkName =
+  define.Operation
+    .CustomLink()
+    .Post(fun ctx parser respond entity ->
+      async {
+        let! someParam = parser.GetRequired(Query.Bool("someQueryParam"))
+        let! updatedEntity = doSomeUpdate someParam entity
+        let handler =
+          respond.WithEntity updatedEntity
+          >=> setHttpHeader "foo" "bar"
+        return Ok handler
+      }
+    )
+```
+
+This demonstrates one possible way of using the parser in custom operations: `GetRequired` simply parses a single required parameter. There is also `GetOptional` that returns an `Option`-wrapped value which is `None` if the parameter was not present.
+
+The other possible way to use the parser in custom operation is to use it exactly like in the standard operations, i.e. `parser.For(…).Add(…)`, but end with `.Parse()`. This returns `Async<Result<'a, Error list>>`, meaning you can bind it using `let!` in a custom operation. For example:
+
+```f#
+let linkName =
+  define.Operation
+    .CustomLink()
+    .Post(fun ctx parser respond entity ->
+      asyncResult {  // asyncResult CE from e.g. FsToolkit.ErrorHandling
+        let! myArgs =
+          parser.For(MyArgs.create, someAttr)
+            .Add(MyArgs.setFoo, Query.Int("foo"))
+            .Add(...)
+            .Parse()
+        ...
+      }
+    )
+```
+
+### Parsing response body attributes and relationships
+
+You parse attributes and relationships from the response body simply by using the attribute and relationship directly in the parser. Below, `author` is a relationship that will be parsed to `PersonId` (which is the ID type of the related resource), and `title` and `body` are attributes that will be parsed to `ArticleTitle` and `ArticleBody` (since they are the domain types of the two attributes).
+
+```f#
+let post =
+  define.Operation
+    .Post(fun ctx parser -> parser.For(Article.create, author, title, body))
+    .AfterCreateAsync(Db.Article.save)
+```
+
+You may append `.Optional` to an attribute or relationship if you want an optional parser that returns `None` when the field is not present, though it may be clearer to use the parser’s `.Add` methods to add optional parameters using “immutable setters” as shown previously. You can, for example, use this to add optional, read-only fields that may be used in POST requests but not in PATCH requests.
+
+For relationships, you may also append e.g. `.Related(Person.lookup)` to get a parser that returns the actual entity, and not just its ID. See the previous section TODO for notes on this.
+
+### Parsing filter query parameters
+
+The static class `Filter` is the entry point for parsing filter query parameters.
+
+The previously shown GET collection example shows several filter parameters:
+
+```f#
+let getCollection =
+  define.Operation
+    .GetCollection(fun ctx parser ->
+      parser.For(ArticleSearchArgs.empty)
+        .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+        .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
+        .Add(ArticleSearchArgs.setOffset, Page.Offset)
+        .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
+        .BindAsync(Db.Article.search)
+    )
+```
+
+To filter on a resource field, use `Filter.Field` with a resource field, as shown above. The query parameter will automatically be named correctly, e.g. `filter[title]` and `filter[articleType]` for the filters shown above.
+
+Query parameters are always strings. This means that, in general, when you use `Filter.Field` with attributes, you need to supply a function that transforms from `string` to the attribute’s serialized type (from that point, Felicity can do the rest of the parsing). For convenience, Felicity can perform transformations from `string` if this transformation is fairly standard, i.e. if the serialized field value is `string`, `bool`, `int`, or `float`.
+
+This is not relevant for relationships, since relationship IDs are always serialized as `string`.
+
+To filter on a related field, simply include the relationship path and the actual field to filter on:
+
+``` f#
+Filter.Field(author, Person.firstName)
+```
+
+The query parameter will be named `filter[author.firstName]`.
+
+#### Lists
+
+By default, `Filter.Field()` will parse a single value which may not contain commas. To parse a list of comma-separated values, simply append `.List` as shown in the example above.
+
+#### Optional
+
+As with parsing optional resource fields, you may append `.Optional`, but as mentioned previously, it may be clearer to instead use the parser’s `.Add` methods to add optional parameters using “immutable setters”.
+
+#### Operators
+
+If you want to add an “operator” to the filter parameter name, e.g. `filter[firstName][contains]`, you can use `.Operator(contains)`. This is just a parameter name change; it has no effect on the parsing.
+
+If you use an operator that indicates the query parameter should accept a boolean value, you can append `.Bool` and the parser will be replaced with a `bool` parser. In other words, the field(s) you specify in `Filter.Field()` are then only used to construct the filter parameter’s name, not for parsing. For example, the following will parse a query parameter `filter[firstName][isNull]` which may be `true` or `false`.
+
+```f#
+Filter.Field(firstName).Operator("isNull").Bool
+```
+
+#### Filtering on nullable attributes
+
+Query strings have no standard representation of `null` which can be used unambiguously. Therefore, Felicity only allows you to filter on non-`null` values of nullable attributes using `Filter.FieldAsNonNullable(...)`. As with `Filter.Field()`, this creates a parser for the specified field type, but it is not `Option`-wrapped.
+
+#### Custom filter parameters
+
+You can use `Filter.Parsed(...)` to specify fully custom names and parsing behavior. You may find it useful to use the `.Name` property of the resource fields to create the filter parameter name.
+
+### Parsing other query parameters
+
+Much of what is said above about filter parameters are relevant here, too,m and won’t be repeated.,
+
+#### Sort
+
+The static `Sort` class is the entry point for parsing the JSON:API `sort` parameter.
+
+Usually there would be a limited set of sorting options available. Use `Sort.Enum` for this. Section TODO contains relevant notes about enum parsing. You can also use `Sort.Parsed` to specify custom parsing behavior.
+
+#### Page
+
+The static `Page` class is the entry point for parsing the JSON:API `page[]` parameter family.
+
+There are predefined parsers for `page[offset]`, `page[limit]`, `page[number]`, and `page[size]`. They are set up as `int` parsers with sensible limits, e.g. `offset` must be non-negative, `limit` must be positive, etc. To override the limits, append e.g. `.Min(10)` and `.Max(20)`.
+
+#### Custom query parameters
+
+The static `Query` class is the entry point for parsing arbitrary query parameters. `Query.Parsed` is the general method, and there are convenience methods for parsing `string`, `int`, `bool`, `float`, and string enums.
+
+### Parsing headers
+
+The static `Header` class is the entry point for parsing HTTP request headers. It works the same way as `Query`, described above.
+
+### Prohibiting parameters
+
+You can also use the request parser to disallow certain parameters, i.e. return a generic “parameter not allowed” error if they are included in the request. For example, to allow normal users to list only their own articles, and admins to list all, you can do this:
+
+```f#
+let getCollection =
+  define.Operation
+    .GetCollection(fun ctx parser ->
+      match ctx with
+      | { Principal = User u } ->
+          parser.For(ArticleSearchArgs.createForUser u.AuthorId)
+            .Prohibit(Filter.Field(author))
+            .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+            ...
+      | { Principal = Administrator a } ->
+          parser.For(ArticleSearchArgs.empty)
+          	.Add(ArticleSearchArgs.setAuthorId, Filter.Field(author))
+            .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+            ...
+    )
+```
+
+In the example above, if authenticated as a normal user and they include the `filter[author]` query parameter, they will get an error.
 
 Conditional GET/HEAD (`ETag`/`If-None-Match`)
 ---------------------------------------------
