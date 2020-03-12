@@ -13,8 +13,11 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.3.3</Version>
-    <PackageReleaseNotes>Added define.Operation.PostBackRef to provide access to a pre-create "parent entity" in AfterCreate (using a relationship back-reference in the POST request)</PackageReleaseNotes>
+    <Version>0.4.0</Version>
+    <PackageReleaseNotes>- Updated dependency FSharp.SystemTextJson
+- Removed own Skippable implementation in favor of the one from FSharp.SystemTextJson (in namespace System.Text.Json.Serialization)
+- Fail on startup if operations are missing required persistence functions
+- Added support for optional precondition validation</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -27,7 +30,6 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-    <Compile Include="Skippable.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Aliases.fs" />
     <Compile Include="DocumentModel.fs" />
@@ -56,11 +58,11 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="System.Text.Json" Version="4.7.0" />
+    <PackageReference Include="System.Text.Json" Version="4.7.1" />
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="FSharp.SystemTextJson" Version="0.8.24" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="0.10.25" />
     <PackageReference Include="Giraffe" Version="4.0.1" />
   </ItemGroup>
   

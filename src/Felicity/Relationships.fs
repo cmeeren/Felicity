@@ -3,6 +3,7 @@
 open System
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
+open System.Text.Json.Serialization
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 open FSharp.Control.Tasks.V2.ContextInsensitive

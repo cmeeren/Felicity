@@ -275,8 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
-### vNext
+### 0.4.0 (2020-03-12)
 
+* Updated dependency FSharp.SystemTextJson
+* Removed own `Skippable` implementation in favor of the one from FSharp.SystemTextJson (in namespace `System.Text.Json.Serialization`)
 * Fail on startup if operations are missing required persistence functions
 * Added support for optional precondition validation
 

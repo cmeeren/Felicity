@@ -3,6 +3,7 @@
 open System
 open System.Security.Cryptography
 open System.Text
+open System.Text.Json.Serialization
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Primitives

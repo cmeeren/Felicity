@@ -1,6 +1,7 @@
 ﻿module ``To-one nullable relationship PATCH resource and self``
 
 open System
+open System.Text.Json.Serialization
 open Microsoft.Net.Http.Headers
 open Expecto
 open HttpFs.Client

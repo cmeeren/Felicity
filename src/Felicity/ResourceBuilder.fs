@@ -1,6 +1,7 @@
 ﻿module internal Felicity.ResourceBuilder
 
 open System
+open System.Text.Json.Serialization
 
 
 type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: Uri, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =

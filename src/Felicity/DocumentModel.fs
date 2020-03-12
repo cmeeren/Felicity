@@ -2,6 +2,7 @@
 
 open System
 open System.ComponentModel
+open System.Text.Json.Serialization
 
 
 [<EditorBrowsable(EditorBrowsableState.Never)>]

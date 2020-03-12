@@ -2,7 +2,7 @@
 module internal Utils
 
 open System
-open Felicity
+open System.Text.Json.Serialization
 
 
 // TODO: Further optimization of reflection etc.?

@@ -3,6 +3,7 @@
 open System
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
+open System.Text.Json.Serialization
 open Errors
 
 

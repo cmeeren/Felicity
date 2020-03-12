@@ -1,6 +1,7 @@
 ﻿namespace Felicity
 
 open Errors
+open System.Text.Json.Serialization
 
 
 type Id<'ctx, 'entity, 'id> = internal {

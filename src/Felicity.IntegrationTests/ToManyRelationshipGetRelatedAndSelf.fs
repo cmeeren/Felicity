@@ -1,5 +1,6 @@
 ﻿module ``To-many relationship GET related and self``
 
+open System.Text.Json.Serialization
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote

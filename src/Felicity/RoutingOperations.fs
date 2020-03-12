@@ -2,6 +2,7 @@
 
 open System
 open System.Reflection
+open System.Text.Json.Serialization
 open Giraffe
 open FSharp.Control.Tasks.V2.ContextInsensitive
 open Errors

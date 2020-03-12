@@ -405,13 +405,11 @@ Note also that the first parameter to `Enum` is the same as with `Parsed`, namel
 
 ### Skippable attributes
 
-`Get` has overloads allowing you to return a value wrapped in `Skippable<_>`. This type is similar to `Option<_>` and has the cases `Skip` and `Include of 'a`, but where `Option` indicates `null` (more on nullable attributes below), `Skippable` indicates that a value should not be present at all in the response.
+`Get` has overloads allowing you to return a value wrapped in `Skippable<_>`, defined by FSharp.SystemTextJson in namesapce `System.Text.Json.Serialization`. This type is similar to `Option<_>` and has the cases `Skip` and `Include of 'a`, but whereas `Option` indicates `null` (more on nullable attributes below), `Skippable` indicates that a value should not be present at all in the response.
 
 One use-case for this is if the requesting user has partial access to a resource, in the sense that the user has access to only some of a resource’s fields. Then you can have the getter return `Skip` if the user does not have access to the field, and the field will not appear in the response.
 
 Note however that clients may be surprised to only get some of the fields they expect. Document well and use with care.
-
-The `Skippable` code in Felicity is pretty much the same as in [FSharp.JsonSkippable](https://github.com/cmeeren/FSharp.JsonSkippable/), but is defined separately in order to avoid a dependency on Newtonsoft.Json.
 
 ### Nullable attributes
 
@@ -1160,4 +1158,4 @@ FAQ
 
 TODO
 
-* Why `Func`
+* Why `Func`sk
