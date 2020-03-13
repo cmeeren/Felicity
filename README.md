@@ -275,6 +275,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.4.1 (2020-03-13)
+
+* Added additional context-less `AfterUpdate` overloads to PATCH operation
+
 ### 0.4.0 (2020-03-12)
 
 * Updated dependency FSharp.SystemTextJson

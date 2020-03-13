@@ -13,11 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.4.0</Version>
-    <PackageReleaseNotes>- Updated dependency FSharp.SystemTextJson
-- Removed own Skippable implementation in favor of the one from FSharp.SystemTextJson (in namespace System.Text.Json.Serialization)
-- Fail on startup if operations are missing required persistence functions
-- Added support for optional precondition validation</PackageReleaseNotes>
+    <Version>0.4.1</Version>
+    <PackageReleaseNotes>Added additional context-less AfterUpdate overloads to PATCH operation</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>

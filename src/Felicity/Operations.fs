@@ -546,8 +546,14 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<'entity, Error list>>>) =
     { this with afterUpdate = Some (fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew)) }
 
+  member this.AfterUpdateAsyncRes(f: Func<'entity, 'entity, Async<Result<'entity, Error list>>>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew))
+
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<unit, Error list>>>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> AsyncResult.map (fun () -> eNew))
+
+  member this.AfterUpdateAsyncRes(f: Func<'entity, 'entity, Async<Result<unit, Error list>>>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> AsyncResult.map (fun () -> eNew))
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
     this.AfterUpdateAsyncRes(fun ctx _ eNew -> f.Invoke(ctx, eNew))
@@ -556,16 +562,22 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     this.AfterUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> AsyncResult.map (fun () -> e))
 
   member this.AfterUpdateAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterUpdateAsyncRes(fun _ e -> f.Invoke e)
+    this.AfterUpdateAsyncRes(fun _ _ e -> f.Invoke e)
 
   member this.AfterUpdateAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.AfterUpdateAsyncRes(fun _ e -> f.Invoke e |> AsyncResult.map (fun () -> e))
+    this.AfterUpdateAsyncRes(fun _ _ e -> f.Invoke e |> AsyncResult.map (fun () -> e))
 
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, 'entity, Async<'entity>>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Async.map Ok)
 
+  member this.AfterUpdateAsync(f: Func<'entity, 'entity, Async<'entity>>) =
+    this.AfterUpdateAsyncRes(fun eOld eNew -> f.Invoke(eOld, eNew) |> Async.map Ok)
+
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, 'entity, Async<unit>>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Async.map Ok)
+
+  member this.AfterUpdateAsync(f: Func<'entity, 'entity, Async<unit>>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> Async.map Ok)
 
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
     this.AfterUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Async.map Ok)
@@ -582,8 +594,14 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, 'entity, Result<'entity, Error list>>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> async.Return)
 
+  member this.AfterUpdateRes(f: Func<'entity, 'entity, Result<'entity, Error list>>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> async.Return)
+
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, 'entity, Result<unit, Error list>>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> async.Return)
+
+  member this.AfterUpdateRes(f: Func<'entity, 'entity, Result<unit, Error list>>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> async.Return)
 
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
     this.AfterUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> async.Return)
@@ -600,8 +618,14 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.AfterUpdate(f: Func<'ctx, 'entity, 'entity, 'entity>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Ok |> async.Return)
 
+  member this.AfterUpdate(f: Func<'entity, 'entity, 'entity>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> Ok |> async.Return)
+
   member this.AfterUpdate(f: Func<'ctx, 'entity, 'entity, unit>) =
     this.AfterUpdateAsyncRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Ok |> async.Return)
+
+  member this.AfterUpdate(f: Func<'entity, 'entity, unit>) =
+    this.AfterUpdateAsyncRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> Ok |> async.Return)
 
   member this.AfterUpdate(f: Func<'ctx, 'entity, 'entity>) =
     this.AfterUpdateAsyncRes(fun ctx e -> f.Invoke(ctx, e) |> Ok |> async.Return)
