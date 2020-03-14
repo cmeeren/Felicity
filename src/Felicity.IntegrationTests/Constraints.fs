@@ -32,7 +32,8 @@ module X =
       .AddConstraint("foo2", 2)
       .AddConstraint("bar2", false)
       .AddConstraint("baz2", ["foo"; "bar"])
-      .Get(fun _ _ -> failwith "not used")
+      // No getter so that we test that constraints are also visible for fields without
+      // getter
 
   let toOneNullable =
     define.Relationship
