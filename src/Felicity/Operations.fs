@@ -423,6 +423,7 @@ type internal PatchOperation<'ctx> =
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Async<Result<'ctx, Error list>>
   beforeUpdate: 'ctx -> 'entity -> Async<Result<'entity, Error list>>
+  customSetter: 'ctx -> Request -> 'entity -> Async<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
   afterUpdate: ('ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
@@ -432,6 +433,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     {
       mapCtx = mapCtx
       beforeUpdate = fun _ x -> Ok x |> async.Return
+      customSetter = fun _ _ e -> Ok (Set.empty, Set.empty, e) |> async.Return
       afterUpdate = None
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
@@ -474,24 +476,27 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                       match! this.beforeUpdate mappedCtx (unbox<'entity> entity0) with
                       | Error errors -> return! handleErrors errors next httpCtx
                       | Ok entity1 ->
-                          match! patch ctx req Set.empty entity1 with
+                          match! this.customSetter mappedCtx req entity1 with
                           | Error errors -> return! handleErrors errors next httpCtx
-                          | Ok entity2 ->
-                              match! afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                          | Ok (fns, _, entity2) ->
+                              match! patch ctx req fns entity2 with
                               | Error errors -> return! handleErrors errors next httpCtx
                               | Ok entity3 ->
-                                  if this.return202Accepted then
-                                    let handler =
-                                      setStatusCode 202
-                                      >=> this.modifyResponse mappedCtx (unbox<'entity> entity3)
-                                    return! handler next httpCtx
-                                  else
-                                    let! doc = resp.Write ctx req (rDef, entity3)
-                                    let handler =
-                                      setStatusCode 200
-                                      >=> this.modifyResponse mappedCtx entity3
-                                      >=> jsonApiWithETag doc
-                                    return! handler next httpCtx
+                                  match! afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity3) with
+                                  | Error errors -> return! handleErrors errors next httpCtx
+                                  | Ok entity4 ->
+                                      if this.return202Accepted then
+                                        let handler =
+                                          setStatusCode 202
+                                          >=> this.modifyResponse mappedCtx (unbox<'entity> entity4)
+                                        return! handler next httpCtx
+                                      else
+                                        let! doc = resp.Write ctx req (rDef, entity4)
+                                        let handler =
+                                          setStatusCode 200
+                                          >=> this.modifyResponse mappedCtx entity4
+                                          >=> jsonApiWithETag doc
+                                        return! handler next httpCtx
         }
 
 
@@ -542,6 +547,27 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
   member this.BeforeUpdate(f: Func<'entity, unit>) =
     this.BeforeUpdateAsyncRes(fun _ e -> f.Invoke e |> Ok |> async.Return)
+
+  member this.AddCustomSetterAsyncRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+    { this with
+        customSetter =
+          fun ctx req e ->
+            this.customSetter ctx req e
+            |> AsyncResult.bind (fun (fns, qns, e) ->
+                getRequestParser.Invoke(ctx, e, RequestParserHelper<'ctx>(ctx, req))
+                |> AsyncResult.bind (fun p -> p.ParseWithConsumed ())
+                |> AsyncResult.map (fun (fns', qns', e) -> Set.union fns fns', Set.union qns qns', e)
+            )
+    }
+
+  member this.AddCustomSetterAsync (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity>>>) =
+    this.AddCustomSetterAsyncRes(fun ctx e parser -> getRequestParser.Invoke(ctx, e, parser) |> Async.map Ok)
+
+  member this.AddCustomSetterRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity>, Error list>>) =
+    this.AddCustomSetterAsyncRes(fun ctx e parser -> getRequestParser.Invoke(ctx, e, parser) |> async.Return)
+
+  member this.AddCustomSetter (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
+    this.AddCustomSetterAsyncRes(fun ctx e parser -> getRequestParser.Invoke(ctx, e, parser) |> Ok |> async.Return)
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<'entity, Error list>>>) =
     { this with afterUpdate = Some (fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew)) }

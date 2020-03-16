@@ -13,8 +13,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.4.1</Version>
-    <PackageReleaseNotes>Added additional context-less AfterUpdate overloads to PATCH operation</PackageReleaseNotes>
+    <Version>0.4.2</Version>
+    <PackageReleaseNotes>- Added ability to create custom setters in PATCH operation
+- Added higher-arity Add overloads to request parser for functions that require more than one value parameter</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>

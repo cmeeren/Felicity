@@ -48,7 +48,25 @@ type RequestParser<'ctx, 'a> = internal {
   member this.Parse () : Async<Result<'a, Error list>> =
     this.ParseWithConsumed () |> AsyncResult.map (fun (_, _, x) -> x)
 
-  member this.AddAsyncRes (set: 'b -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
+  member private this.MarkAsConsumed(getter: RequestGetter<'ctx, 'b>) =
+    { this with
+        consumedFields = match getter.FieldName with None -> this.consumedFields | Some n -> this.consumedFields.Add n
+        consumedQueryParams = match getter.QueryParamName with None -> this.consumedQueryParams | Some n -> this.consumedQueryParams.Add n
+    }
+
+  member private this.MarkAsConsumed(getter: OptionalRequestGetter<'ctx, 'b>) =
+    { this with
+        consumedFields = match getter.FieldName with None -> this.consumedFields | Some n -> this.consumedFields.Add n
+        consumedQueryParams = match getter.QueryParamName with None -> this.consumedQueryParams | Some n -> this.consumedQueryParams.Add n
+    }
+
+  member private this.MarkAsConsumed(getter: ProhibitedRequestGetter) =
+    { this with
+        consumedFields = match getter.FieldName with None -> this.consumedFields | Some n -> this.consumedFields.Add n
+        consumedQueryParams = match getter.QueryParamName with None -> this.consumedQueryParams | Some n -> this.consumedQueryParams.Add n
+    }
+
+  member private this.AddAsyncRes (set: 'ctx -> Request -> 'b -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
     { this with
         parse =
           fun ctx req ->
@@ -62,20 +80,40 @@ type RequestParser<'ctx, 'a> = internal {
               | Ok existing, Ok newOpt ->
                   match newOpt with
                   | None -> return Ok existing
-                  | Some new' -> return! set new' existing
+                  | Some new' -> return! set ctx req new' existing
             }
-        consumedFields = match getter.FieldName with None -> this.consumedFields | Some n -> this.consumedFields.Add n
-        consumedQueryParams = match getter.QueryParamName with None -> this.consumedQueryParams | Some n -> this.consumedQueryParams.Add n
-    }
+    }.MarkAsConsumed(getter)
+
+  member this.AddAsyncRes (set: 'b -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
+    this.AddAsyncRes((fun _ _ b a -> set b a), getter)
+
+  member this.AddAsyncRes (set: 'b -> 'c -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
+    this
+      .AddAsyncRes((fun ctx req b a -> async {
+          match! getC.Get(ctx, req) with
+          | Error errs -> return Error errs
+          | Ok c -> return! set b c a
+        }),
+        getter)
+      .MarkAsConsumed(getC)
 
   member this.AddAsync (set: 'b -> 'a -> Async<'a>, getter: OptionalRequestGetter<'ctx, 'b>) =
     this.AddAsyncRes ((fun b a -> set b a |> Async.map Ok), getter)
+
+  member this.AddAsync (set: 'b -> 'c -> 'a -> Async<'a>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
+    this.AddAsyncRes ((fun b c a -> set b c a |> Async.map Ok), getter, getC)
+
+  member this.AddRes (set: 'b -> 'c -> 'a -> Result<'a, Error list>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
+    this.AddAsyncRes ((fun b c a -> set b c a |> async.Return), getter, getC)
 
   member this.AddRes (set: 'b -> 'a -> Result<'a, Error list>, getter: OptionalRequestGetter<'ctx, 'b>) =
     this.AddAsyncRes ((fun b a -> set b a |> async.Return), getter)
 
   member this.Add (set: 'b -> 'a -> 'a, getter: OptionalRequestGetter<'ctx, 'b>) =
     this.AddAsyncRes ((fun b a -> set b a |> Ok |> async.Return), getter)
+
+  member this.Add (set: 'b -> 'c -> 'a -> 'a, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
+    this.AddAsyncRes ((fun b c a -> set b c a |> Ok |> async.Return), getter, getC)
 
   member this.RequireType(typeName: string) =
     { this with
@@ -91,8 +129,7 @@ type RequestParser<'ctx, 'a> = internal {
   member this.Prohibit (getter: ProhibitedRequestGetter) =
     { this with
         prohibited = getter :: this.prohibited
-        consumedFields = match getter.FieldName with None -> this.consumedFields | Some n -> this.consumedFields.Add n
-    }
+    }.MarkAsConsumed(getter)
 
   member this.Map (f: 'a -> 'b) : RequestParser<'ctx, 'b> =
     {

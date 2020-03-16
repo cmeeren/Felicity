@@ -275,6 +275,11 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.4.2 (2020-03-16)
+
+* Added ability to create custom setters in PATCH operation
+* Added higher-arity `Add` overloads to request parser for functions that require more than one value parameter
+
 ### 0.4.1 (2020-03-13)
 
 * Added additional context-less `AfterUpdate` overloads to PATCH operation

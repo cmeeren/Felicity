@@ -690,6 +690,32 @@ The PATCH operation automatically runs all field setters, and returns suitable e
 let patch = define.Operation.Patch().AfterUpdateAsync(Db.Article.save)
 ```
 
+### Custom setters
+
+You may come across the need for PATCH requests that can not be cleanly described using separate field setters. For example, a set operation may require two fields simultaneously. There are several ways to accommodate this by adapting or wrapping your domain code, but the point of Felicity is to allow you to write write idiomatic, functional F# domain code and use that directly.
+
+You can use `AddCustomSetter` to create a custom setter where you can parse anything from the request (see section TODO for details about the request parser and its capabilities). For example, let’s say you have a resource with two attributes, `protectedValue` and `authorizationCode`, and if you want to set `protectedValue`, you have to supply `authorizationCode`, too. You could add a custom setter like this:
+
+```f#
+let patch =
+  define.Operation
+    .Patch()
+    .AddCustomSetter(fun ctx entity parser ->
+      parser
+        .For(entity)
+        .Add(Entity.setProtected, protectedValue, authorizationCode)
+    )
+    .AfterUpdate(...)
+```
+
+Here, `setProtected` has signature `ProtectedValue -> AuthCode -> Entity -> Entity`, i.e. an “immutable setter” that takes not one, but two “value arguments”. The setter is only run if `protectedValue` is present in the request, and will fail if `protectedValue` is present but `authorizationCode` is not.
+
+If you want to make the additional argument(s) optional, simply append `.Optional` (to `authorizationCode` above) and you’ll get an `Option`-wrapped value instead. If you need higher-arity `Add` variants than what is available, please open an issue.
+
+The fields you parse in the manner shown above do not need their own setters. Any such setters, if defined, will be skipped if they are used in the custom setter.
+
+You can add as many custom setters as you want in a PATCH request.
+
 ### Modifying the response
 
 If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
@@ -713,9 +739,10 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 3. Transform the context if specified (see section TODO)
 4. Validate preconditions
 5. `BeforeUpdate`
-6. Run setters
-7. `AfterUpdate`
-8. `ModifyResponse`
+6. Custom setters
+7. Normal field setters (only those not already used in custom setters)
+8. `AfterUpdate`
+9. `ModifyResponse`
 
 DELETE resource operation
 -------------------------
@@ -902,6 +929,18 @@ You use `parser.For` to specify either an empty object or a function that create
 In the GET collection example above, we specify `ArticleSearchArgs.empty`, which does not require any parameters. We then add a series of optional parameters using “immutable setters” for the values parsed on the right. Finally, because `GetCollection ` requires us to supply a request parser for `Article list` and not for `ArticleSearchArgs`, we transform using `.BindAsync(Db.Article.search)`, where `Db.Article.search` has signature `ArticleSearchArgs -> Article list`.
 
 In the POST collection example, we create a parser for the function `Article.create`, which has signature `PersonId -> ArticleTitle -> ArticleBody -> Article`. We then supply parsers for the three required arguments: The `author` relationship parses the corresponding relationship ID (a `PersonId`), `title` is an attribute that parses to `ArticleTitle`, and `body` is an attribute that parses to `ArticleBody`. In the POST request, we must return a parse for `Author`, and since `Article.create` returns `Author`, we don’t need to transform the returned value as we did with the GET collection example.
+
+### Parsing higher-arity immutable setters
+
+The `.Add` methods have higher-arity overloads that accept secondary parameters. An example of this was shown in the PATCH section (TODO link):
+
+```f#
+parser
+  .For(entity)
+  .Add(Entity.setProtected, protectedValue, authorizationCode)
+```
+
+ When the primary parameter is included (`protectedValue` above), the secondary parameters are parsed, too, and passed to the immutable setter. If the primary parameter exists but the secondary parameters do not, an error will be returned. You may append `.Optional` to the secondary parameters to make then optional and `Option`-wrapped. 
 
 ### Parsing in custom operations
 

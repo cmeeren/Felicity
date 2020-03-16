@@ -278,6 +278,59 @@ module A6 =
   let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
 
+type Ctx7 = Ctx7 of Db
+
+module A7 =
+
+  let define = Define<Ctx7, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("as")
+
+  let readonly =
+    define.Attribute
+      .Simple()
+      .Get(fun (a: A) -> a.ReadOnly)
+
+  let x =
+    define.Attribute
+      .Simple()
+      .Get(fun a -> a.X)
+      .Set(fun _ _ -> failwith<A> "not used")
+
+  let y =
+    define.Attribute
+      .Simple()
+      .Get(fun _ -> "test")
+
+  let lookup =
+    define.Operation
+      .Lookup((fun (Ctx7 db) id -> match db.TryGet id with Some (A a) -> Some a | _ -> None))
+  
+  let get = define.Operation.GetResource()
+
+  let patch =
+    define.Operation
+      .Patch()
+      .AddCustomSetter(fun ctx a parser ->
+        parser
+          .For(a)
+          .Add((fun x readonly a -> { a with X = defaultArg readonly "DEFAULT" + x }), x, readonly.Optional)
+      )
+      .AddCustomSetter(fun ctx a parser ->
+        parser
+          .For(a)
+          .Add((fun readonly a -> { a with ReadOnly = readonly + readonly }), readonly)
+      )
+      .AddCustomSetter(fun ctx a parser ->
+        parser
+          .For(a)
+          .Add((fun _ _ a -> a), y, x)
+      )
+      .AfterUpdate(fun _ -> ())
+
+  // TODO: If a required field is missing, returns correct error
+
+
 [<Tests>]
 let tests =
   testList "PATCH resource" [
@@ -355,6 +408,92 @@ let tests =
       test <@ b.ReadOnly = "qwerty" @>
       test <@ b.B = 2 @>
       test <@ b.Y = "abc" @>
+    }
+
+    testJob "Runs custom setter and does not run normal setters for consumed fields" {
+      let db = Db ()
+      let ctx = Ctx7 db
+      let! response =
+        Request.patch ctx "/as/a1"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "a1"
+                  attributes =
+                    {|readonly = "foo"
+                      x = "bar"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 200
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.type" = "a" @>
+      test <@ json |> getPath "data.id" = "a1" @>
+      test <@ json |> getPath "data.attributes.readonly" = "foofoo" @>
+      test <@ json |> getPath "data.attributes.x" = "foobar" @>
+
+      let a =
+        match db.GetAOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+      test <@ a.Id = "a1" @>
+      test <@ a.ReadOnly = "foofoo" @>
+      test <@ a.X = "foobar" @>
+    }
+
+    testJob "Correctly handles optional values in custom setter" {
+      let db = Db ()
+      let ctx = Ctx7 db
+      let! response =
+        Request.patch ctx "/as/a1"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "a1"
+                  attributes =
+                    {|x = "bar"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 200
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.type" = "a" @>
+      test <@ json |> getPath "data.id" = "a1" @>
+      test <@ json |> getPath "data.attributes.readonly" = "qwerty" @>
+      test <@ json |> getPath "data.attributes.x" = "DEFAULTbar" @>
+
+      let a =
+        match db.GetAOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+      test <@ a.Id = "a1" @>
+      test <@ a.ReadOnly = "qwerty" @>
+      test <@ a.X = "DEFAULTbar" @>
+    }
+
+    testJob "Returns 400 if required parameter is missing from custom setter" {
+      let db = Db ()
+      let ctx = Ctx7 db
+      let! response =
+        Request.patch ctx "/as/a1"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "a1"
+                  attributes =
+                    {|y = "foo"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'x' is required for this operation" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "Returns 400 when using stringified numbers" {
