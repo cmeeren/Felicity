@@ -326,9 +326,7 @@ module A7 =
           .For(a)
           .Add((fun _ _ a -> a), y, x)
       )
-      .AfterUpdate(fun _ -> ())
-
-  // TODO: If a required field is missing, returns correct error
+      .AfterUpdate(fun (Ctx7 db) a -> db.SaveA a)
 
 
 [<Tests>]
