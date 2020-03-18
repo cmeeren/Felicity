@@ -137,6 +137,7 @@ module private ToDocumentModel =
                     let dRel = JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options)
                     let rel =
                       match dRel with
+                      | null -> Error [invalidNull relName (ptr + "/relationships/" + relName)]
                       | :? DToOneRelationship as r ->
                           toOneRelationship d.``type`` relName (ptr + "/relationships/" + relName) r
                           |> Result.map (fun r -> r :> IRelationship)
