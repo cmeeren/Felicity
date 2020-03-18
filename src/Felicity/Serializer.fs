@@ -175,15 +175,28 @@ module private ToDocumentModel =
       if LanguagePrimitives.PhysicalEquality d.data skippedResource then Error [requiredMemberMissing "data" ""]
       elif isNull d.data then Ok None
       else resource getFieldType options "/data" d.data |> Result.map Some
-    data |> Result.map (fun d ->
-      {
-        jsonapi = Skip
-        links = Skip
-        meta = Skip
-        data = d
-        included = Skip
-      }
-    )
+    let included =
+      if LanguagePrimitives.PhysicalEquality d.included skippedResourceArray then Ok Skip
+      elif isNull d.included then Error [invalidNull "included" "/included"]
+      else
+        d.included
+        |> Array.indexed
+        |> Array.toList
+        |> List.traverseResultA (fun (i, r) ->
+            resource getFieldType options ("/included/" + string i) r
+        )
+        |> Result.map Include
+    match data, included with
+    | Error errs1, Error errs2 -> Error (errs1 @ errs2)
+    | Error errs, Ok _ | Ok _, Error errs -> Error errs
+    | Ok d, Ok i ->
+        Ok {
+          jsonapi = Skip
+          links = Skip
+          meta = Skip
+          data = d
+          included = i
+        }
 
 
   let resourceIdentifierDocument (d: DResourceIdentifierDocument) : Result<ResourceIdentifierDocument, Error list> =

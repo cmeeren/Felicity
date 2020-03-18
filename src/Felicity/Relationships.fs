@@ -53,8 +53,8 @@ type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     { new RequestGetter<'ctx, 'relatedEntity option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
-          this.idGetter.Get(ctx, req)
+        member _.Get(ctx, req, includedTypeAndId) =
+          this.idGetter.Get(ctx, req, includedTypeAndId)
           |> AsyncResult.bind (
               Option.traverseAsyncResult (
                 this.getRelated.GetById ctx
@@ -67,21 +67,69 @@ type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
   interface OptionalRequestGetter<'ctx, 'relatedEntity> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'relatedEntity> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { relationships = Skip } }) -> "/data"
-        | Ok (Some { data = Some { relationships = Include _ } }) -> "/data/relationships"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
+      |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
+
+
+type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
+  name: string
+  getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
+  allowedTypes: ResourceTypeName list
+} with
+
+  static member internal Create(name, getParser, allowedTypes) : ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> =
+    {
+      name = name
+      getParser = getParser
+      allowedTypes = allowedTypes
+    }
+
+  member this.Optional =
+    { new RequestGetter<'ctx, 'relatedEntity option> with
+        member _.FieldName = Some this.name
+        member _.QueryParamName = None
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getRelsAndPointer includedTypeAndId req with
+          | Error errs -> Error errs |> async.Return
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (rels, relsPointer)) ->
+              match rels.TryGetValue this.name with
+              | true, (:? ToOne as rel) ->
+                  match rel with
+                  | { data = Skip } -> Error [relMissingData this.name (relsPointer + "/" + this.name)] |> async.Return
+                  | { data = Include identifier } when not (this.allowedTypes |> List.contains identifier.``type``) ->
+                      let pointer = relsPointer + "/" + this.name + "/data/type"
+                      Error [relInvalidType this.name identifier.``type`` this.allowedTypes pointer] |> async.Return
+                  | { data = Include identifier } ->
+                      RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
+                      |> this.getParser
+                      |> fun p -> p.Parse()
+                      |> AsyncResult.map Some
+              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (x.GetType().FullName)
+              | false, _ -> None |> Ok |> async.Return
+
+    }
+
+  interface OptionalRequestGetter<'ctx, 'relatedEntity> with
+    member this.FieldName = Some this.name
+    member this.QueryParamName = None
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
+
+  interface RequestGetter<'ctx, 'relatedEntity> with
+    member this.FieldName = Some this.name
+    member this.QueryParamName = None
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
 
@@ -135,63 +183,58 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     { new RequestGetter<'ctx, 'relatedId option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, includedTypeAndId) =
           let idParsers =
             this.idParsers
             |> Option.defaultWith (fun () -> failwithf "Attempted to parse resource ID for polymorphic relationship '%s', but no ID parsers have been specified." this.name)
-          match req.Document.Value with
+          match Request.getRelsAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> async.Return
-          | Ok (Some { data = Some { relationships = Include rels } }) ->
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (rels, relsPointer)) ->
               match rels.TryGetValue this.name with
               | true, (:? ToOne as rel) ->
                   match rel with
-                  | { data = Skip } -> Error [relMissingData this.name ("/data/relationships/" + this.name)] |> async.Return
+                  | { data = Skip } -> Error [relMissingData this.name (relsPointer + "/" + this.name)] |> async.Return
                   | { data = Include identifier } ->
                       match idParsers.TryGetValue identifier.``type`` with
                       | false, _ ->
                           let allowedTypes = idParsers |> Map.toList |> List.map fst
-                          let pointer = "/data/relationships/" + this.name + "/data/type"
+                          let pointer = relsPointer + "/" + this.name + "/data/type"
                           Error [relInvalidType this.name identifier.``type`` allowedTypes pointer] |> async.Return
                       | true, parseId ->
                           parseId ctx identifier.id
                           // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                           // this just means that the resource does not exist, which is a more helpful result.
-                          |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
+                          |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + "/" + this.name + "/data")])
                           |> AsyncResult.map Some
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
-          | _ -> None |> Ok |> async.Return
     }
 
 
   interface OptionalRequestGetter<'ctx, 'relatedId> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'relatedId> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { relationships = Skip } }) -> "/data"
-        | Ok (Some { data = Some { relationships = Include _ } }) -> "/data/relationships"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
   interface ProhibitedRequestGetter with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.GetErrors req =
+    member this.GetErrors(req, includedTypeAndId) =
       match req.Document.Value with
       | Error errs -> errs
       | Ok (Some { data = Some { relationships = Include rels } }) when rels.ContainsKey this.name ->
-          [reqParserProhibitedRel this.name ("/data/relationships/" + this.name)]
+          let pointer = Request.pointerForMissingRel includedTypeAndId req + "/" + this.name
+          [reqParserProhibitedRel this.name pointer]
       | _ -> []
 
 
@@ -227,7 +270,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                               set ctx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
                           |> AsyncResult.map box<'entity>
             | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (rel.GetType().FullName)
-        | _ -> return Ok entity  // no attributes provided
+        | _ -> return Ok entity  // no relationships provided
       }
 
 
@@ -250,6 +293,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) =
     ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(this.name, this.Optional, getRelated)
+
+
+  member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
+    ToOneRelationshipIncludedGetter.Create(this.name, getParser, this.idParsers |> Option.map (Map.toList >> List.map fst) |> Option.defaultValue [])
 
 
   interface RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> with
@@ -711,8 +758,8 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
     { new RequestGetter<'ctx, 'relatedEntity option option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
-          this.idGetter.Get(ctx, req)
+        member _.Get(ctx, req, includedTypeAndId) =
+          this.idGetter.Get(ctx, req, includedTypeAndId)
           |> AsyncResult.bind (  // ID did not fail parsing, but may be missing or null
               Option.traverseAsyncResult (  // ID was present, but may be null
                 Option.traverseAsyncResult (  // ID was not null
@@ -727,21 +774,74 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
   interface OptionalRequestGetter<'ctx, 'relatedEntity option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'relatedEntity option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { relationships = Skip } }) -> "/data"
-        | Ok (Some { data = Some { relationships = Include _ } }) -> "/data/relationships"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
+      |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
+
+
+
+type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
+  name: string
+  getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
+  allowedTypes: ResourceTypeName list
+} with
+
+  static member internal Create(name, getParser, allowedTypes) : ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
+    {
+      name = name
+      getParser = getParser
+      allowedTypes = allowedTypes
+    }
+
+  member this.Optional =
+    { new RequestGetter<'ctx, 'relatedEntity option option> with
+        member _.FieldName = Some this.name
+        member _.QueryParamName = None
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getRelsAndPointer includedTypeAndId req with
+          | Error errs -> Error errs |> async.Return
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (rels, relsPointer)) ->
+              match rels.TryGetValue this.name with
+              | true, (:? ToOneNullable as rel) ->
+                  match rel with
+                  | { data = Skip } -> Error [relMissingData this.name (relsPointer + "/" + this.name)] |> async.Return
+                  | { data = Include identifier } ->
+                      identifier
+                      |> Option.traverseAsyncResult (fun id ->
+                          if not (this.allowedTypes |> List.contains id.``type``) then
+                            let pointer = relsPointer + "/" + this.name + "/data/type"
+                            Error [relInvalidType this.name id.``type`` this.allowedTypes pointer] |> async.Return
+                          else
+                            RequestParserHelper<'ctx>(ctx, req, (id.``type``, id.id))
+                            |> this.getParser
+                            |> fun p -> p.Parse()
+                      )
+                      |> AsyncResult.map Some
+              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (x.GetType().FullName)
+              | false, _ -> None |> Ok |> async.Return
+
+    }
+
+  interface OptionalRequestGetter<'ctx, 'relatedEntity option> with
+    member this.FieldName = Some this.name
+    member this.QueryParamName = None
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
+
+  interface RequestGetter<'ctx, 'relatedEntity option> with
+    member this.FieldName = Some this.name
+    member this.QueryParamName = None
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
 
@@ -799,66 +899,61 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     { new RequestGetter<'ctx, 'relatedId option option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, includedTypeAndId) =
           let idParsers =
             this.idParsers
             |> Option.defaultWith (fun () -> failwithf "Attempted to parse resource ID for polymorphic relationship '%s', but no ID parsers have been specified." this.name)
-          match req.Document.Value with
+          match Request.getRelsAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> async.Return
-          | Ok (Some { data = Some { relationships = Include rels } }) ->
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (rels, relsPointer)) ->
               match rels.TryGetValue this.name with
               | true, (:? ToOneNullable as rel) ->
                   match rel with
-                  | { data = Skip } -> Error [relMissingData this.name ("/data/relationships/" + this.name)] |> async.Return
+                  | { data = Skip } -> Error [relMissingData this.name (relsPointer + this.name)] |> async.Return
                   | { data = Include identifier } ->
                       identifier
                       |> Option.traverseAsyncResult (fun id ->
                           match idParsers.TryGetValue id.``type`` with
                           | false, _ ->
                               let allowedTypes = idParsers |> Map.toList |> List.map fst
-                              let pointer = "/data/relationships/" + this.name + "/data/type"
+                              let pointer = relsPointer + this.name + "/data/type"
                               Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> async.Return
                           | true, parseId ->
                               parseId ctx id.id
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
-                              |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
+                              |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data")])
                               |> AsyncResult.map Some
                       )
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
-          | _ -> None |> Ok |> async.Return
     }
 
 
   interface OptionalRequestGetter<'ctx, 'relatedId option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'relatedId option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { relationships = Skip } }) -> "/data"
-        | Ok (Some { data = Some { relationships = Include _ } }) -> "/data/relationships"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
   interface ProhibitedRequestGetter with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.GetErrors req =
+    member this.GetErrors(req, includedTypeAndId) =
       match req.Document.Value with
       | Error errs -> errs
       | Ok (Some { data = Some { relationships = Include rels } }) when rels.ContainsKey this.name ->
-          [reqParserProhibitedRel this.name ("/data/relationships/" + this.name)]
+          let pointer = Request.pointerForMissingRel includedTypeAndId req + "/" + this.name
+          [reqParserProhibitedRel this.name pointer]
       | _ -> []
 
 
@@ -897,7 +992,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                           set ctx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
                       |> AsyncResult.map box<'entity>
             | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (rel.GetType().FullName)
-        | _ -> return Ok entity  // no attributes provided
+        | _ -> return Ok entity  // no relationships provided
       }
 
 
@@ -920,6 +1015,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) =
     ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(this.name, this.Optional, getRelated)
+
+
+  member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
+    ToOneNullableRelationshipIncludedGetter.Create(this.name, getParser, this.idParsers |> Option.map (Map.toList >> List.map fst) |> Option.defaultValue [])
 
 
   interface RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> with
@@ -1432,8 +1531,8 @@ type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> 
     { new RequestGetter<'ctx, 'relatedEntity list option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
-          this.idGetter.Get(ctx, req)
+        member _.Get(ctx, req, includedTypeAndId) =
+          this.idGetter.Get(ctx, req, includedTypeAndId)
           |> AsyncResult.bind (
               Option.traverseAsyncResult (
                 List.indexed
@@ -1449,22 +1548,77 @@ type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> 
   interface OptionalRequestGetter<'ctx, 'relatedEntity list> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'relatedEntity list> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { relationships = Skip } }) -> "/data"
-        | Ok (Some { data = Some { relationships = Include _ } }) -> "/data/relationships"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
+
+
+
+type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
+  name: string
+  getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
+  allowedTypes: ResourceTypeName list
+} with
+
+  static member internal Create(name, getParser, allowedTypes) : ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> =
+    {
+      name = name
+      getParser = getParser
+      allowedTypes = allowedTypes
+    }
+
+  member this.Optional =
+    { new RequestGetter<'ctx, 'relatedEntity list option> with
+        member _.FieldName = Some this.name
+        member _.QueryParamName = None
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getRelsAndPointer includedTypeAndId req with
+          | Error errs -> Error errs |> async.Return
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (rels, relsPointer)) ->
+              match rels.TryGetValue this.name with
+              | true, (:? ToMany as rel) ->
+                  match rel with
+                  | { data = Skip } -> Error [relMissingData this.name (relsPointer + "/" + this.name)] |> async.Return
+                  | { data = Include list } ->
+                      list
+                      |> List.indexed
+                      |> List.traverseAsyncResultA (fun (i, identifier) ->
+                          if not (this.allowedTypes |> List.contains identifier.``type``) then
+                            let pointer = relsPointer + "/" + this.name + "/data/" + string i + "/type"
+                            Error [relInvalidType this.name identifier.``type`` this.allowedTypes pointer] |> async.Return
+                          else
+                            RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
+                            |> this.getParser
+                            |> fun p -> p.Parse()
+                      )
+                      |> AsyncResult.map Some
+              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (x.GetType().FullName)
+              | false, _ -> None |> Ok |> async.Return
+
+    }
+
+  interface OptionalRequestGetter<'ctx, 'relatedEntity list> with
+    member this.FieldName = Some this.name
+    member this.QueryParamName = None
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
+
+  interface RequestGetter<'ctx, 'relatedEntity list> with
+    member this.FieldName = Some this.name
+    member this.QueryParamName = None
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
+      |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
+
 
 
 type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -1538,17 +1692,18 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     { new RequestGetter<'ctx, 'relatedId list option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, includedTypeAndId) =
           let idParsers =
             this.idParsers
             |> Option.defaultWith (fun () -> failwithf "Attempted to parse resource ID for polymorphic relationship '%s', but no ID parsers have been specified." this.name)
-          match req.Document.Value with
+          match Request.getRelsAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> async.Return
-          | Ok (Some { data = Some { relationships = Include rels } }) ->
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (rels, relsPointer)) ->
               match rels.TryGetValue this.name with
               | true, (:? ToMany as rel) ->
                   match rel with
-                  | { data = Skip } -> Error [relMissingData this.name ("/data/relationships/" + this.name)] |> async.Return
+                  | { data = Skip } -> Error [relMissingData this.name (relsPointer + this.name)] |> async.Return
                   | { data = Include list } ->
                       list
                       |> List.indexed
@@ -1556,49 +1711,43 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                           match idParsers.TryGetValue identifier.``type`` with
                           | false, _ ->
                               let allowedTypes = idParsers |> Map.toList |> List.map fst
-                              let pointer = "/data/relationships/" + this.name + "/data/" + string i + "/type"
+                              let pointer = relsPointer + this.name + "/data/" + string i + "/type"
                               Error [relInvalidType this.name identifier.``type`` allowedTypes pointer] |> async.Return
                           | true, parseId ->
                               parseId ctx identifier.id
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
-                              |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data/" + string i)])
+                              |> AsyncResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data/" + string i)])
                       )
                       |> AsyncResult.map Some
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
-          | _ -> None |> Ok |> async.Return
     }
 
   interface OptionalRequestGetter<'ctx, 'relatedId list> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
 
   interface RequestGetter<'ctx, 'relatedId list> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { relationships = Skip } }) -> "/data"
-        | Ok (Some { data = Some { relationships = Include _ } }) -> "/data/relationships"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingRel includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
   interface ProhibitedRequestGetter with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.GetErrors req =
+    member this.GetErrors(req, includedTypeAndId) =
       match req.Document.Value with
       | Error errs -> errs
       | Ok (Some { data = Some { relationships = Include rels } }) when rels.ContainsKey this.name ->
-          [reqParserProhibitedRel this.name ("/data/relationships/" + this.name)]
+          let pointer = Request.pointerForMissingRel includedTypeAndId req + "/" + this.name
+          [reqParserProhibitedRel this.name pointer]
       | _ -> []
 
 
@@ -1643,7 +1792,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                       )
                       |> AsyncResult.map box<'entity>
             | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (rel.GetType().FullName)
-        | _ -> return Ok entity  // no attributes provided
+        | _ -> return Ok entity  // no relationships provided
       }
 
 
@@ -1666,6 +1815,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.Related (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) =
     ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(this.name, this.Optional, getRelated)
+
+
+  member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
+    ToManyRelationshipIncludedGetter.Create(this.name, getParser, this.idParsers |> Option.map (Map.toList >> List.map fst) |> Option.defaultValue [])
 
 
   interface RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> with

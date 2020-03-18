@@ -21,34 +21,28 @@ type Id<'ctx, 'entity, 'id> = internal {
     { new RequestGetter<'ctx, 'id option> with
         member _.FieldName = Some "id"
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
-          match req.Document.Value with
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getIdAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> async.Return
-          | Ok (Some { data = Some { id = Include id } }) ->
-              this.toDomain ctx id
-              |> AsyncResult.mapError (List.map (Error.setSourcePointer "/data/id"))
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (resId, pointer)) ->
+              this.toDomain ctx resId
+              |> AsyncResult.mapError (List.map (Error.setSourcePointer pointer))
               |> AsyncResult.map Some
-          | _ -> None |> Ok |> async.Return
     }
 
   interface OptionalRequestGetter<'ctx, 'id> with
     member _.FieldName = Some "id"
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'id> with
     member _.FieldName = Some "id"
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { id = Skip } }) -> "/data"
-        | Ok (Some { data = Some { id = Include _ } }) -> ""  // Won't be used
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingId includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredId pointer]
 
       

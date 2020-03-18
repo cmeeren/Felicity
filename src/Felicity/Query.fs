@@ -37,7 +37,7 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> 
     { new RequestGetter<'ctx, 'a list option> with
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> async.Return
           | true, "" ->  Ok (Some []) |> async.Return
@@ -54,20 +54,20 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> 
   interface OptionalRequestGetter<'ctx, 'a list> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'a list> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Query.TryGetValue queryParamName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
@@ -94,7 +94,7 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
     { new RequestGetter<'ctx, 'a option> with
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> async.Return
           | true, str ->
@@ -110,20 +110,20 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
   interface OptionalRequestGetter<'ctx, 'a> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'a> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Query.TryGetValue queryParamName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
@@ -146,7 +146,7 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Async<Result<'a, Erro
     { new RequestGetter<'ctx, ('a * bool) list option> with
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> async.Return
           | true, "" -> Ok (Some []) |> async.Return
@@ -168,20 +168,20 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Async<Result<'a, Erro
   interface OptionalRequestGetter<'ctx, ('a * bool) list> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, ('a * bool) list> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Query.TryGetValue queryParamName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
@@ -196,7 +196,7 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Async<Result<'a, Er
     { new RequestGetter<'ctx, ('a * bool) option> with
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> async.Return
           | true, str ->
@@ -216,20 +216,20 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Async<Result<'a, Er
   interface OptionalRequestGetter<'ctx, ('a * bool)> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, ('a * bool)> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Query.TryGetValue queryParamName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
@@ -246,7 +246,7 @@ type PageParam<'ctx> internal (pageName: string, ?min: int , ?max: int) =
     { new RequestGetter<'ctx, int option> with
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> async.Return
           | true, i ->
@@ -262,20 +262,20 @@ type PageParam<'ctx> internal (pageName: string, ?min: int , ?max: int) =
   interface OptionalRequestGetter<'ctx, int> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, int> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Query.TryGetValue queryParamName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
@@ -293,7 +293,7 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string 
     { new RequestGetter<'ctx, 'a option> with
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> async.Return
           | true, str ->
@@ -305,20 +305,20 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string 
   interface OptionalRequestGetter<'ctx, 'a> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'a> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Query.TryGetValue queryParamName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
@@ -330,7 +330,7 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Asy
     { new RequestGetter<'ctx, 'a option> with
         member _.FieldName = None
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
+        member _.Get(ctx, req, _) =
           match req.Headers.TryGetValue headerName with
           | false, _ -> Ok None |> async.Return
           | true, str -> parse ctx str |> AsyncResult.map Some
@@ -339,20 +339,20 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Asy
   interface OptionalRequestGetter<'ctx, 'a> with
     member _.FieldName = None
     member _.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'a> with
     member _.FieldName = None
     member _.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredHeader headerName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
     member _.QueryParamName = None
-    member _.GetErrors req =
+    member _.GetErrors(req, _) =
       match req.Headers.TryGetValue headerName with
       | false, _ -> []
       | true, _ -> [reqParserProhibitedHeader headerName]

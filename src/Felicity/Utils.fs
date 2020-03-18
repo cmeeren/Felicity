@@ -23,6 +23,10 @@ open System.Text.Json.Serialization
 let ignoreUnitArray (us: unit []) = ()
 
 
+let (|TryFindIndexed|_|) predicate seq =
+  seq |> Seq.indexed |> Seq.tryFind (fun (_, x) -> predicate x)
+
+
 /// Indicates if the value is null. Boxes the value before checking so even types
 /// that cannot normally be null can be checked. Note that this will return true
 /// if the value is None.

@@ -1137,7 +1137,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     let mapCtxWithBackRef ctx req =
       mapCtx ctx
       |> AsyncResult.bind (fun mappedCtx ->
-          backRef.Get(ctx, req)
+          backRef.Get(ctx, req, None)
           |> AsyncResult.map (fun e -> mappedCtx, e)
       )
     let consumedFieldNames = match backRef.FieldName with None -> Set.empty | Some fn -> Set.empty.Add fn
@@ -1150,7 +1150,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     let mapCtxWithBackRef ctx req =
       mapCtx ctx
       |> AsyncResult.bind (fun mappedCtx ->
-          backRef.Get(ctx, req)
+          backRef.Get(ctx, req, None)
           |> AsyncResult.map (fun e -> mappedCtx, e)
       )
     let addBackRefFieldName = match backRef.FieldName with None -> id | Some fn -> Set.add fn

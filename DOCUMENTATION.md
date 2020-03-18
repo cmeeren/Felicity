@@ -1140,7 +1140,7 @@ Polymorphism
 
 You may encounter the need to have collections or resources that contain several resource types.
 
-First, I would urge you to consider changing your resource model to avoid it. Polymorphic collections/relationships is a complication both in implementation and conceptually.
+First, I would urge you to consider whether you can change your resource model to avoid it. Polymorphic collections/relationships is a complication both in implementation and conceptually.
 
 If you do need to use it though, Felicity has you covered. This is an advanced use-case, though, and while I have tried to make the API both as simple and flexible as I can, compile-time safety can not be guaranteed in all cases.
 
@@ -1160,15 +1160,71 @@ There are three places where polymorphism enters the picture in Felicity.
 
 ### Polymorphic collections
 
-
+TODO
 
 ### Polymorphic resource lookup
 
-
+TODO
 
 ### Polymorphic relationships
 
+TODO
 
+Sideposting (a.k.a sideloading)
+-------------------------------
+
+A common complaint against JSON:API is that it does not support “sideposting”, i.e. creating multiple related resources in a single POST request.
+
+JSON:API will likely support this in a future version, but in the meantime, Felicity already supports this in a fairly straightforward fashion.
+
+The request should contain the necessary related resources in the `included` member, and all relevant relationships should have resource linkage with temporary IDs to indicate “what goes where”. For example:
+
+```json
+{
+  "data": {
+    "type": "parent",
+    "relationships": {
+      "child": {
+        "data": {
+          "type": "child",
+          "id": "temporaryId"
+        }
+      }
+    }
+  },
+  "included": [
+    {
+      "type": "child",
+      "id": "temporaryId",
+      "attributes": {
+        "name": "some value"
+      }
+    }
+  ]
+}
+```
+
+To parse such a request, simply use the request parser for the POST operation, and append `.Included` to a relationship that you want to have sideposted. This gives you access to a nested request parser for the related entity type. For example:
+
+```f#
+let post =
+  define.Operation
+    .Post(fun ctx parser ->
+      parser.For(
+        Parent.create,
+        child.Included(fun childParser ->
+          childParser.For(Child.create, Child.name)
+        )
+      )
+    )
+    .AfterCreate(...)
+```
+
+Above, `Parent.create` has signature `Child -> Parent`, and `child` is the relationship to the child resource with entity type `Child`, and `Child.create`.
+
+You can parse arbitrarily deep resource graphs this way (i.e., the included `child` resource above may have further sideposted relationships, and so on).
+
+As with polymorphism, I would urge you to first consider whether you can change your resource model to avoid the need for sideposting. Sideposting as shown above is covered by JSON:API, and the feature as implemented in Felicity does currently not support polymorphic relationships (there is currently no way to specify different parsers for different types).
 
 Tips for use with “dependent” entities that are not DDD aggregate roots
 -----------------------------------------------------------------------
@@ -1176,7 +1232,7 @@ Tips for use with “dependent” entities that are not DDD aggregate roots
 TODO
 
 * In `Define` (and everywhere else), make `'entity` be a tuple containing both the parent and sub-entity
-* Have a domain function `Parent.withChild: 'childId -> 'parent -> 'parent * 'child` that looks up a known child in the parent (throws if not found)
+* Have a domain function `Parent.withChild: 'childId -> 'parent -> 'parent * 'child` that looks up a known child in the parent (and throws if not found)
 * If needed, use `define.Operation.PostBackRef` instead of `Post` to get access to the (pre-create) parent entity in `AfterCreate`
 
 Current limitations
@@ -1191,10 +1247,13 @@ TODO
 * top-level `jsonapi` member
 * top-level links
 * top-level meta
+* sideposting for polymorphic relationships
 
 FAQ
 ---
 
 TODO
 
-* Why `Func`sk
+* Why `Func`
+  * To help overload resolution so you don’t need as many type annotations
+  * Slightly worse support for partial application (not much)

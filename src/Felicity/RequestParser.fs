@@ -13,6 +13,7 @@ module private RequestParserOperators =
 
 
 type RequestParser<'ctx, 'a> = internal {
+  includedTypeAndId: (ResourceTypeName * ResourceId) option
   consumedFields: Set<ConsumedFieldName>
   consumedQueryParams: Set<ConsumedQueryParamName>
   parse: 'ctx -> Request -> Async<Result<'a, Error list>>
@@ -21,8 +22,9 @@ type RequestParser<'ctx, 'a> = internal {
   prohibited: ProhibitedRequestGetter list
 } with
 
-  static member internal Create(consumedFields, consumedQueryParams, ctx: 'ctx, req: Request, parse: 'ctx -> Request -> Async<Result<'a, Error list>>) : RequestParser<'ctx, 'a> =
+  static member internal Create(consumedFields, consumedQueryParams, includedTypeAndId, ctx: 'ctx, req: Request, parse: 'ctx -> Request -> Async<Result<'a, Error list>>) : RequestParser<'ctx, 'a> =
     {
+      includedTypeAndId = includedTypeAndId
       consumedFields = consumedFields
       consumedQueryParams = consumedQueryParams
       parse = parse
@@ -35,7 +37,7 @@ type RequestParser<'ctx, 'a> = internal {
     async {
       let prohibitedErrs =
         this.prohibited
-        |> List.collect (fun p -> p.GetErrors this.request)
+        |> List.collect (fun p -> p.GetErrors(this.request, this.includedTypeAndId))
         |> List.rev
 
       if prohibitedErrs.IsEmpty then
@@ -72,7 +74,7 @@ type RequestParser<'ctx, 'a> = internal {
           fun ctx req ->
             async {
               let! existingRes = this.parse ctx req
-              let! newRes = getter.Get(ctx, req)
+              let! newRes = getter.Get(ctx, req, this.includedTypeAndId)
               match existingRes, newRes with
               | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
               | Error errs, Ok _ -> return Error errs
@@ -90,7 +92,7 @@ type RequestParser<'ctx, 'a> = internal {
   member this.AddAsyncRes (set: 'b -> 'c -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
     this
       .AddAsyncRes((fun ctx req b a -> async {
-          match! getC.Get(ctx, req) with
+          match! getC.Get(ctx, req, this.includedTypeAndId) with
           | Error errs -> return Error errs
           | Ok c -> return! set b c a
         }),
@@ -133,6 +135,7 @@ type RequestParser<'ctx, 'a> = internal {
 
   member this.Map (f: 'a -> 'b) : RequestParser<'ctx, 'b> =
     {
+      includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
       parse = fun ctx req -> this.parse ctx req |> AsyncResult.map f
@@ -143,6 +146,7 @@ type RequestParser<'ctx, 'a> = internal {
 
   member this.BindRes (f: 'a -> Result<'b, Error list>) : RequestParser<'ctx, 'b> =
     {
+      includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
       parse = fun ctx req -> this.parse ctx req |> AsyncResult.bindResult f
@@ -153,6 +157,7 @@ type RequestParser<'ctx, 'a> = internal {
 
   member this.BindAsync (f: 'a -> Async<'b>) : RequestParser<'ctx, 'b> =
     {
+      includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
       parse = fun ctx req -> this.parse ctx req |> AsyncResult.bind (f >> Async.map Ok)
@@ -163,6 +168,7 @@ type RequestParser<'ctx, 'a> = internal {
 
   member this.BindAsyncRes (f: 'a -> Async<Result<'b, Error list>>) : RequestParser<'ctx, 'b> =
     {
+      includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
       parse = fun ctx req -> this.parse ctx req |> AsyncResult.bind f
@@ -173,18 +179,18 @@ type RequestParser<'ctx, 'a> = internal {
 
 
 
-type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request) =
+type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeAndId) =
 
   member _.GetRequired(param: RequestGetter<'ctx, 'a>) : Async<Result<'a, Error list>> =
-    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, ctx, req, fun c r -> param.Get(c, r)).Parse()
+    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).Parse()
 
   member _.GetOptional(param: OptionalRequestGetter<'ctx, 'a>) : Async<Result<'a option, Error list>> =
-    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, ctx, req, fun c r -> param.Get(c, r)).Parse()
+    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).Parse()
 
   // Arity 0
 
   member _.ForAsyncRes (create: Async<Result<'a, Error list>>) =
-    RequestParser<'ctx, 'a>.Create (Set.empty, Set.empty, ctx, req, fun c r -> create)
+    RequestParser<'ctx, 'a>.Create (Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> create)
 
   member this.ForAsync (create: Async<'a>) =
     this.ForAsyncRes (create |> Async.map Ok)
@@ -200,7 +206,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request) =
   member _.ForAsyncRes (create: 'p1 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
     let consumedFields = [| p1.FieldName |] |> Array.choose id |> Set.ofArray
     let consumedQueryParams = [| p1.QueryParamName |] |> Array.choose id |> Set.ofArray
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, ctx, req, fun c r -> create <!> p1.Get(c, r) |> AsyncResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) |> AsyncResult.bind id)
 
   member this.ForAsync (create: 'p1 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>) =
     this.ForAsyncRes ((fun p1 -> create p1 |> Async.map Ok), p1)
@@ -216,7 +222,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request) =
   member _.ForAsyncRes (create: 'p1 -> 'p2 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
     let consumedFields = [| p1.FieldName; p2.FieldName |] |> Array.choose id |> Set.ofArray
     let consumedQueryParams = [| p1.QueryParamName; p2.QueryParamName |] |> Array.choose id |> Set.ofArray
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, ctx, req, fun c r -> create <!> p1.Get(c, r) <*> p2.Get(c, r) |> AsyncResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) |> AsyncResult.bind id)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
     this.ForAsyncRes ((fun p1 p2 -> create p1 p2 |> Async.map Ok), p1, p2)
@@ -238,7 +244,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request) =
       [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName|]
       |> Array.choose id
       |> Set.ofArray
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, ctx, req, fun c r -> create <!> p1.Get(c, r) <*> p2.Get(c, r) <*> p3.Get(c, r) |> AsyncResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) |> AsyncResult.bind id)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> 'p3 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
     this.ForAsyncRes ((fun p1 p2 p3 -> create p1 p2 p3 |> Async.map Ok), p1, p2, p3)
@@ -260,7 +266,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request) =
       [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName; p4.QueryParamName |]
       |> Array.choose id
       |> Set.ofArray
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, ctx, req, fun c r -> create <!> p1.Get(c, r) <*> p2.Get(c, r) <*> p3.Get(c, r) <*> p4.Get(c, r) |> AsyncResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) |> AsyncResult.bind id)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
     this.ForAsyncRes ((fun p1 p2 p3 p4 -> create p1 p2 p3 p4 |> Async.map Ok), p1, p2, p3, p4)

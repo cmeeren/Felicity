@@ -17,6 +17,7 @@
     <Compile Include="GetCollection.fs" />
     <Compile Include="GetCollectionPolymorphic.fs" />
     <Compile Include="PostCollection.fs" />
+    <Compile Include="PostCollectionIncluded.fs" />
     <Compile Include="PostCollectionBackRef.fs" />
     <Compile Include="GetResource.fs" />
     <Compile Include="GetResourcePolymorphic.fs" />

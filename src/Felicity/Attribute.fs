@@ -90,48 +90,43 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
     { new RequestGetter<'ctx, 'attr option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
-          match req.Document.Value with
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getAttrAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> async.Return
-          | Ok (Some { data = Some { attributes = Include attrVals } }) ->
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (attrVals, attrsPointer)) ->
               match attrVals.TryGetValue this.name with
               | true, (:? 'serialized as attr) ->
                   this.toDomain ctx attr
-                  |> AsyncResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
+                  |> AsyncResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> AsyncResult.map Some
               | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
-          | _ -> None |> Ok |> async.Return
     }
 
   interface OptionalRequestGetter<'ctx, 'attr> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'attr> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { attributes = Skip } }) -> "/data"
-        | Ok (Some { data = Some { attributes = Include _ } }) -> "/data/attributes"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingAttr includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredAttr this.name pointer]
 
   interface ProhibitedRequestGetter with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.GetErrors req =
+    member this.GetErrors(req, includedTypeAndId) =
       match req.Document.Value with
       | Error errs -> errs
       | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey this.name ->
-          [reqParserProhibitedAttr this.name ("/data/attributes/" + this.name)]
+          let pointer = Request.pointerForMissingAttr includedTypeAndId req + "/" + this.name
+          [reqParserProhibitedAttr this.name pointer]
       | _ -> []
 
 
@@ -279,48 +274,43 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
     { new RequestGetter<'ctx, 'attr option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
-        member _.Get(ctx, req) =
-          match req.Document.Value with
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getAttrAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> async.Return
-          | Ok (Some { data = Some { attributes = Include attrVals } }) ->
+          | Ok None -> None |> Ok |> async.Return
+          | Ok (Some (attrVals, attrsPointer)) ->
               match attrVals.TryGetValue this.name with
               | true, (:? 'serialized as attr) ->
                   this.toDomain ctx attr
-                  |> AsyncResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
+                  |> AsyncResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> AsyncResult.map Some
               | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> async.Return
-          | _ -> None |> Ok |> async.Return
     }
 
   interface OptionalRequestGetter<'ctx, 'attr> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      this.Optional.Get(ctx, req, includedTypeAndId)
 
   interface RequestGetter<'ctx, 'attr> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.Get(ctx, req) =
-      let pointer =
-        match req.Document.Value with
-        | Error _ -> ""  // Won't be used
-        | Ok None -> ""
-        | Ok (Some { data = None }) -> ""
-        | Ok (Some { data = Some { attributes = Skip } }) -> "/data"
-        | Ok (Some { data = Some { attributes = Include _ } }) -> "/data/attributes"
-      this.Optional.Get(ctx, req)
+    member this.Get(ctx, req, includedTypeAndId) =
+      let pointer = Request.pointerForMissingAttr includedTypeAndId req
+      this.Optional.Get(ctx, req, includedTypeAndId)
       |> AsyncResult.requireSome [reqParserMissingRequiredAttr this.name pointer]
 
   interface ProhibitedRequestGetter with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
-    member this.GetErrors req =
+    member this.GetErrors(req, includedTypeAndId) =
       match req.Document.Value with
       | Error errs -> errs
       | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey this.name ->
-          [reqParserProhibitedAttr this.name ("/data/attributes/" + this.name)]
+          let pointer = Request.pointerForMissingAttr includedTypeAndId req + "/" + this.name
+          [reqParserProhibitedAttr this.name pointer]
       | _ -> []
 
 

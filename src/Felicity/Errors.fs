@@ -166,6 +166,12 @@
     |> Error.setDetailf "Relationship '%s' is required for this operation" relName
     |> Error.setSourcePointer pointer
 
+  let reqParserMissingIncludedResource resType resId pointer =
+    Error.create 400
+    |> Error.setTitle "Missing included resource"
+    |> Error.setDetailf "Expected to find referenced resource with type '%s' and ID '%s' in the 'included' part of the request" resType resId
+    |> Error.setSourcePointer pointer
+
   let reqParserMissingRequiredHeader headerName =
     Error.create 400
     |> Error.setTitle "Missing required header"
