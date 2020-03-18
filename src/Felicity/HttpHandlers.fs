@@ -60,7 +60,7 @@ module HttpHandlers =
 
   let internal handleErrors (errs: Error list) : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
-      let errs = List.distinct errs
+      let errs = errs |> List.distinctBy (fun e -> { e with id = Skip })
 
       let statusCode =
         errs
