@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.4.3</Version>
-    <PackageReleaseNotes>Added support for sideposting (creating multiple related resources in a single POST request)</PackageReleaseNotes>
+    <Version>0.4.4</Version>
+    <PackageReleaseNotes>Added arity 5 overloads to request parser</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>

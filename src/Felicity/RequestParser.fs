@@ -277,4 +277,26 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
   member this.For (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
     this.ForAsyncRes ((fun p1 p2 p3 p4 -> create p1 p2 p3 p4 |> Ok |> async.Return), p1, p2, p3, p4)
 
+  // Arity 5
+  
+    member _.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
+      let consumedFields =
+        [| p1.FieldName; p2.FieldName; p3.FieldName; p4.FieldName; p5.FieldName |]
+        |> Array.choose id
+        |> Set.ofArray
+      let consumedQueryParams =
+        [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName; p4.QueryParamName; p5.QueryParamName |]
+        |> Array.choose id
+        |> Set.ofArray
+      RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) <*> p5.Get(c, r, includedTypeAndId) |> AsyncResult.bind id)
+  
+    member this.ForAsync (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
+      this.ForAsyncRes ((fun p1 p2 p3 p4 p5 -> create p1 p2 p3 p4 p5 |> Async.map Ok), p1, p2, p3, p4, p5)
+  
+    member this.ForRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
+      this.ForAsyncRes ((fun p1 p2 p3 p4 p5 -> create p1 p2 p3 p4 p5 |> async.Return), p1, p2, p3, p4, p5)
+  
+    member this.For (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
+      this.ForAsyncRes ((fun p1 p2 p3 p4 p5 -> create p1 p2 p3 p4 p5 |> Ok |> async.Return), p1, p2, p3, p4, p5)
+
   // TODO: Higher arities

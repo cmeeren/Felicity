@@ -276,6 +276,10 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### 0.4.4 (2020-03-19)
+
+* Added arity 5 overloads to request parser
+
 ### 0.4.3 (2020-03-18)
 
 * Added support for sideposting (creating multiple related resources in a single POST request)
