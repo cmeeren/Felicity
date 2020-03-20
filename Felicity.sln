@@ -19,6 +19,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity.SampleApi", "src\F
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{5BC571A2-6E6B-40F4-AF0A-D6724A51D392}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Felicity.Benchmarks", "src\Felicity.Benchmarks\Felicity.Benchmarks.fsproj", "{7049A7AE-DBA9-4AD9-A478-05103D670CD1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,12 +39,17 @@ Global
 		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4CD905E1-369E-46F1-8266-040EBBE7328A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7049A7AE-DBA9-4AD9-A478-05103D670CD1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7049A7AE-DBA9-4AD9-A478-05103D670CD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7049A7AE-DBA9-4AD9-A478-05103D670CD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7049A7AE-DBA9-4AD9-A478-05103D670CD1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2BE81693-5656-4AFA-B680-673E22F2E67E} = {5BC571A2-6E6B-40F4-AF0A-D6724A51D392}
+		{7049A7AE-DBA9-4AD9-A478-05103D670CD1} = {5BC571A2-6E6B-40F4-AF0A-D6724A51D392}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A1769E92-7930-4E06-9315-CAF809996945}

@@ -2,6 +2,7 @@
 
 open System
 open System.Text.Json.Serialization
+open Hopac
 open Errors
 
 
@@ -80,12 +81,12 @@ module internal Request =
 type RequestGetter<'ctx, 'a> =
   abstract FieldName: FieldName option
   abstract QueryParamName: QueryParamName option
-  abstract Get: 'ctx * Request * (ResourceTypeName * ResourceId) option -> Async<Result<'a, Error list>>
+  abstract Get: 'ctx * Request * (ResourceTypeName * ResourceId) option -> Job<Result<'a, Error list>>
 
 type OptionalRequestGetter<'ctx, 'a> =
   abstract FieldName: FieldName option
   abstract QueryParamName: QueryParamName option
-  abstract Get: 'ctx * Request * (ResourceTypeName * ResourceId) option -> Async<Result<'a option, Error list>>
+  abstract Get: 'ctx * Request * (ResourceTypeName * ResourceId) option -> Job<Result<'a option, Error list>>
 
 type ProhibitedRequestGetter =
   abstract FieldName: FieldName option
@@ -96,4 +97,4 @@ type ProhibitedRequestGetter =
 type internal Field<'ctx> =
   abstract Name: string
 
-type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> BoxedEntity -> Async<Result<BoxedEntity, Error list>>
+type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> BoxedEntity -> Job<Result<BoxedEntity, Error list>>

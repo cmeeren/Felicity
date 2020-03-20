@@ -3,8 +3,8 @@
 open System
 open System.Reflection
 open System.Text.Json.Serialization
+open Hopac
 open Giraffe
-open FSharp.Control.Tasks.V2.ContextInsensitive
 open Errors
 
 
@@ -49,13 +49,13 @@ module internal RoutingOperations =
 
     { new ResponseBuilder<'ctx> with
         member _.Write ctx req rDefEntity =
-          async {
+          job {
             let resourceDef, e = rDefEntity
             let! main, included =
               ResourceBuilder.ResourceBuilder(resourceModuleMap, baseUrl, [], ctx, req, resourceDef, e)
               |> ResourceBuilder.buildOne
             return {
-              jsonapi = Skip  // support later when valid use-cases arrive
+              ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
               meta = Skip  // support later when valid use-cases arrive
               data = Some main
@@ -64,13 +64,13 @@ module internal RoutingOperations =
           }
 
         member _.WriteList ctx req rDefsEntities =
-          async {
+          job {
             let! main, included =
               rDefsEntities
               |> List.map (fun (rDef, e) -> ResourceBuilder.ResourceBuilder(resourceModuleMap, baseUrl, [], ctx, req, rDef, e))
               |> ResourceBuilder.build
             return {
-              jsonapi = Skip  // support later when valid use-cases arrive
+              ResourceCollectionDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
               meta = Skip  // support later when valid use-cases arrive
               data = main
@@ -79,17 +79,17 @@ module internal RoutingOperations =
           }
 
         member _.WriteOpt ctx req rDefEntity =
-          async {
+          job {
             let! main, included =
               rDefEntity
               |> Option.map (fun (rDef, e) ->
                   ResourceBuilder.ResourceBuilder(resourceModuleMap, baseUrl, [], ctx, req, rDef, e)
                   |> ResourceBuilder.buildOne
-                  |> Async.map (fun (res, inc) -> Some res, inc)
+                  |> Job.map (fun (res, inc) -> Some res, inc)
               )
-              |> Option.defaultValue (async.Return (None, []))
+              |> Option.defaultValue (Job.result (None, []))
             return {
-              jsonapi = Skip  // support later when valid use-cases arrive
+              ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
               meta = Skip  // support later when valid use-cases arrive
               data = main
@@ -112,8 +112,8 @@ module internal RoutingOperations =
                 member _.Set ctx req e =
                   match req.Document.Value with
                   | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey "constraints" ->
-                      Error [setAttrReadOnly "constraints" ("/data/attributes/constraints")] |> async.Return
-                  | _ -> Ok e |> async.Return
+                      Error [setAttrReadOnly "constraints" ("/data/attributes/constraints")] |> Job.result
+                  | _ -> Ok e |> Job.result
             }
 
     let fields =
@@ -122,7 +122,7 @@ module internal RoutingOperations =
       |> Array.append (constraintsField |> Option.toArray)
 
     fun ctx req consumedFields entity ->
-      async {
+      job {
         let mutable result = Ok entity
         for field in fields do
           if not <| consumedFields.Contains field.Name then
@@ -417,12 +417,13 @@ module internal RoutingOperations =
         |> Option.map (fun op ->
           fun ctx rawId handler ->
             fun next httpCtx ->
-              task {
+              job {
                 match! op.GetByIdBoxed ctx rawId with
                 | Error errs -> return! handleErrors errs next httpCtx
                 | Ok None -> return! handleErrors [resourceNotFound collName rawId] next httpCtx
                 | Ok (Some (resDef, entity)) -> return! handler resDef entity next httpCtx
               }
+              |> Job.startAsTask
         )
       get = getResource resourceModuleMap baseUrl collName resourceModules
       patch = patchResource resourceModuleMap baseUrl collName resourceModules

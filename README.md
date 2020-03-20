@@ -276,6 +276,11 @@ Feel free to open an issue if you have questions.
 Release notes
 -------------
 
+### vNext
+
+* Add dependency on Hopac and use `Job` internally for massive performance improvements for very large responses
+* Add `Job` overloads as alternatives to `Async`
+
 ### 0.4.4 (2020-03-19)
 
 * Added arity 5 overloads to request parser

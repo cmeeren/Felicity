@@ -1,16 +1,19 @@
 ﻿namespace Felicity
 
 
+open Hopac
+
+
 type ResourceDefinition<'ctx> =
   abstract TypeName: ResourceTypeName
   abstract CollectionName: CollectionName option
   abstract GetIdBoxed: BoxedEntity -> ResourceId
-  abstract ParseIdBoxed: 'ctx -> ResourceId -> Async<Result<BoxedDomainId, Error list>>
+  abstract ParseIdBoxed: 'ctx -> ResourceId -> Job<Result<BoxedDomainId, Error list>>
 
 
 type ResourceDefinition<'ctx, 'id> =
   abstract TypeName: ResourceTypeName
-  abstract ParseId: 'ctx -> ResourceId -> Async<Result<'id, Error list>>
+  abstract ParseId: 'ctx -> ResourceId -> Job<Result<'id, Error list>>
 
 
 [<Struct>]
@@ -38,7 +41,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     member this.GetIdBoxed entity = unbox entity |> this.id.getId |> this.id.fromDomain
     member this.ParseIdBoxed ctx rawId =
       this.id.toDomain ctx rawId
-      |> AsyncResult.map box
+      |> JobResult.map box
 
   interface ResourceDefinition<'ctx, 'id> with
     member this.TypeName = this.name

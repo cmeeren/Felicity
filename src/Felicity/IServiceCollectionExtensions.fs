@@ -5,13 +5,14 @@ open System.Reflection
 open System.Text.Json
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open Hopac
 open RoutingOperations
 
 
 type JsonApiConfigBuilder<'ctx> = internal {
   services: IServiceCollection
   baseUrl: Uri option
-  getCtx: (HttpContext -> Async<Result<'ctx, Error list>>) option
+  getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
 } with
 
@@ -25,17 +26,23 @@ type JsonApiConfigBuilder<'ctx> = internal {
   member this.BaseUrl(url) : JsonApiConfigBuilder<'ctx> =
     { this with baseUrl = Some url }
 
-  member this.GetCtxAsyncRes(getCtx: HttpContext -> Async<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
+  member this.GetCtxJobRes(getCtx: HttpContext -> Job<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
     { this with getCtx = Some getCtx }
 
+  member this.GetCtxAsyncRes(getCtx: HttpContext -> Async<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
+    this.GetCtxJobRes(Job.liftAsync getCtx)
+
+  member this.GetCtxJob(getCtx: HttpContext -> Job<'ctx>) : JsonApiConfigBuilder<'ctx> =
+    this.GetCtxJobRes(getCtx >> Job.map Ok)
+
   member this.GetCtxAsync(getCtx: HttpContext -> Async<'ctx>) : JsonApiConfigBuilder<'ctx> =
-    { this with getCtx = Some (getCtx >> Async.map Ok) }
+    this.GetCtxJob(Job.liftAsync getCtx)
 
   member this.GetCtxRes(getCtx: HttpContext -> Result<'ctx, Error list>) : JsonApiConfigBuilder<'ctx> =
-    { this with getCtx = Some (getCtx >> async.Return) }
+    this.GetCtxJobRes(Job.lift getCtx)
 
   member this.GetCtx(getCtx: HttpContext -> 'ctx) : JsonApiConfigBuilder<'ctx> =
-    { this with getCtx = Some (getCtx >> Ok >> async.Return) }
+    this.GetCtxJobRes(JobResult.lift getCtx)
 
   member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> =
     { this with configureSerializerOptions = Some configure }

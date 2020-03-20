@@ -1,16 +1,16 @@
 ﻿module internal Felicity.Routing
 
 open Microsoft.AspNetCore.Http
+open Hopac
 open Giraffe
-open FSharp.Control.Tasks.V2.ContextInsensitive
 open Errors
 
 
-let jsonApiHandler (getCtx: HttpContext -> Async<Result<'ctx, Error list>>) collections : HttpHandler =
+let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collections : HttpHandler =
 
-  let getCtx handler =
+  let getCtx (handler: 'ctx -> Request -> HttpHandler) : HttpHandler =
     fun next (httpCtx: HttpContext) ->
-      task {
+      job {
         let serializer = httpCtx.GetService<Serializer> ()
         match! getCtx httpCtx with
         | Error errs -> return! handleErrors errs next httpCtx
@@ -28,6 +28,7 @@ let jsonApiHandler (getCtx: HttpContext -> Async<Result<'ctx, Error list>>) coll
             }
             return! handler ctx req next httpCtx
       }
+      |> Job.startAsTask
 
 
   let validateRequest : HttpHandler =

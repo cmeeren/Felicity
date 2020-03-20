@@ -2,7 +2,9 @@
 module internal Utils
 
 open System
+open System.Threading.Tasks
 open System.Text.Json.Serialization
+open Hopac
 
 
 // TODO: Further optimization of reflection etc.?
@@ -81,13 +83,87 @@ module Async =
       return! f x
     }
 
+
+module Job =
+
+  let inline lift2 f =
+    fun a b -> f a b |> Job.result
+
+  let inline lift3 f =
+    fun a b c -> f a b c |> Job.result
+
+  let inline lift4 f =
+    fun a b c d -> f a b c d |> Job.result
+
+  let inline lift5 f =
+    fun a b c d e -> f a b c d e |> Job.result
+
+  let inline liftFunc (f: Func<_,_>) =
+    Func<_,_>(fun a -> f.Invoke a |> Job.result)
+
+  let inline liftFunc2 (f: Func<_,_,_>) =
+    Func<_,_,_>(fun a b -> f.Invoke(a, b) |> Job.result)
+
+  let inline liftFunc3 (f: Func<_,_,_,_>) =
+    Func<_,_,_,_>(fun a b c -> f.Invoke(a, b, c) |> Job.result)
+
+  let inline liftFunc4 (f: Func<_,_,_,_,_>) =
+    Func<_,_,_,_,_>(fun a b c d -> f.Invoke(a, b, c, d) |> Job.result)
+
+  let inline liftFunc5 (f: Func<_,_,_,_,_,_>) =
+    Func<_,_,_,_,_,_>(fun a b c d e -> f.Invoke(a, b, c, d, e) |> Job.result)
+
+  let inline liftAsync f =
+    fun a -> f a |> Job.fromAsync
+
+  let inline liftAsync2 f =
+    fun a b -> f a b |> Job.fromAsync
+
+  let inline liftAsync3 f =
+    fun a b c -> f a b c |> Job.fromAsync
+
+  let inline liftAsync4 f =
+    fun a b c d -> f a b c d |> Job.fromAsync
+
+  let inline liftAsync5 f =
+    fun a b c d e -> f a b c d e |> Job.fromAsync
+
+  let inline liftAsyncFunc (f: Func<_,_>) =
+    Func<_,_>(fun a -> f.Invoke a |> Job.fromAsync)
+
+  let inline liftAsyncFunc2 (f: Func<_,_,_>) =
+    Func<_,_,_>(fun a b -> f.Invoke(a, b) |> Job.fromAsync)
+
+  let inline liftAsyncFunc3 (f: Func<_,_,_,_>) =
+    Func<_,_,_,_>(fun a b c -> f.Invoke(a, b, c) |> Job.fromAsync)
+
+  let inline liftAsyncFunc4 (f: Func<_,_,_,_,_>) =
+    Func<_,_,_,_,_>(fun a b c d -> f.Invoke(a, b, c, d) |> Job.fromAsync)
+
+  let inline liftAsyncFunc5 (f: Func<_,_,_,_,_,_>) =
+    Func<_,_,_,_,_,_>(fun a b c d e -> f.Invoke(a, b, c, d, e) |> Job.fromAsync)
+
+
+  let startAsTask (xJ: Job<'x>): Task<'x> =
+    let tcs = new TaskCompletionSource<'x>()
+    job {
+      try
+        let! x = xJ
+        tcs.SetResult x
+      with ex -> tcs.SetException ex
+    }
+    |> start
+    tcs.Task
+
+
+
 module AsyncResult =
 
-  let map f = Async.map (Result.map f)
+  let map f = Job.map (Result.map f)
   
-  let mapError f = Async.map (Result.mapError f)
+  let mapError f = Job.map (Result.mapError f)
   
-  let requireSome errIfNone = Async.map (Result.bind (Result.requireSome errIfNone))
+  let requireSome errIfNone = Job.map (Result.bind (Result.requireSome errIfNone))
   
   let bind f asncRes =
     async {
@@ -96,12 +172,87 @@ module AsyncResult =
       | Ok x -> return! f x
     }
 
-  let bindResult f = Async.map (Result.bind f)
+  let bindResult f = Job.map (Result.bind f)
 
   let apply (fAsyncRes: Async<Result<('a->'b), 'c list>>) (xAsyncRes: Async<Result<'a, 'c list>>) : Async<Result<'b, 'c list>> =
     async {
       let! f = fAsyncRes
       let! x = xAsyncRes
+      return
+        match f, x with
+        | Ok f, Ok x -> Ok (f x)
+        | Ok _, Error errs | Error errs, Ok _ -> Error errs
+        | Error errs1, Error errs2 -> Error (errs1 @ errs2)
+    }
+
+
+
+module JobResult =
+
+  let inline lift f =
+    fun a -> f a |> Ok |> Job.result
+
+  let inline lift2 f =
+    fun a b -> f a b |> Ok |> Job.result
+
+  let inline lift3 f =
+    fun a b c -> f a b c |> Ok |> Job.result
+
+  let inline lift4 f =
+    fun a b c d -> f a b c d |> Ok |> Job.result
+
+  let inline lift5 f =
+    fun a b c d e -> f a b c d e |> Ok |> Job.result
+
+  let inline liftJob f =
+    fun a -> f a |> Job.map Ok
+
+  let inline liftJob2 f =
+    fun a b -> f a b |> Job.map Ok
+
+  let inline liftJob3 f =
+    fun a b c -> f a b c |> Job.map Ok
+
+  let inline liftJob4 f =
+    fun a b c d -> f a b c d |> Job.map Ok
+
+  let inline liftJob5 f =
+    fun a b c d e -> f a b c d e |> Job.map Ok
+
+  let inline liftFunc (f: Func<_,_>) =
+    Func<_,_>(fun a -> f.Invoke a |> Ok |> Job.result)
+
+  let inline liftFunc2 (f: Func<_,_,_>) =
+    Func<_,_,_>(fun a b -> f.Invoke(a, b) |> Ok |> Job.result)
+
+  let inline liftFunc3 (f: Func<_,_,_,_>) =
+    Func<_,_,_,_>(fun a b c -> f.Invoke(a, b, c) |> Ok |> Job.result)
+
+  let inline liftFunc4 (f: Func<_,_,_,_,_>) =
+    Func<_,_,_,_,_>(fun a b c d -> f.Invoke(a, b, c, d) |> Ok |> Job.result)
+
+  let inline liftFunc5 (f: Func<_,_,_,_,_,_>) =
+    Func<_,_,_,_,_,_>(fun a b c d e -> f.Invoke(a, b, c, d, e) |> Ok |> Job.result)
+
+  let map f = Job.map (Result.map f)
+  
+  let mapError f = Job.map (Result.mapError f)
+  
+  let requireSome errIfNone = Job.map (Result.bind (Result.requireSome errIfNone))
+  
+  let bind (f: _ -> Job<Result<_,_>>) (jobRes: Job<Result<_,_>>) =
+    job {
+      match! jobRes with
+      | Error err -> return Error err
+      | Ok x -> return! f x
+    }
+
+  let bindResult f = Job.map (Result.bind f)
+
+  let apply (fJobRes: Job<Result<('a->'b), 'c list>>) (xJobRes: Job<Result<'a, 'c list>>) : Job<Result<'b, 'c list>> =
+    job {
+      let! f = fJobRes
+      let! x = xJobRes
       return
         match f, x with
         | Ok f, Ok x -> Ok (f x)
@@ -119,15 +270,15 @@ module Option =
     | None -> Ok None
     | Some v -> f v |> Result.map Some
 
-  let traverseAsync f opt =
+  let traverseJob f opt =
     match opt with
-    | None -> async.Return None
-    | Some v -> f v |> Async.map Some
+    | None -> Job.result None
+    | Some v -> f v |> Job.map Some
 
-  let traverseAsyncResult f opt =
+  let traverseJobResult f opt =
     match opt with
-    | None -> async.Return (Ok None)
-    | Some v -> f v |> AsyncResult.map Some
+    | None -> Job.result (Ok None)
+    | Some v -> f v |> JobResult.map Some
 
 
 
@@ -142,11 +293,12 @@ module List =
         | Error newErrs, Error existingErrs -> Error (newErrs @ existingErrs)
       )
 
-  let traverseAsyncResultA f list =
-    async {
-      let! results = list |> List.map f |> Async.Parallel
+  let traverseJobResultA f list =
+    job {
+      let! results = list |> List.map f |> Job.conCollect
       return
-        (results, Ok [])
+        // TODO: Converting to array. Optimize?
+        (Seq.toArray results, Ok [])
         ||> Array.foldBack (fun t state ->
           match t, state with
           | Ok x, Ok xs -> Ok (x :: xs)

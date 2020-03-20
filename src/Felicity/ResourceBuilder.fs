@@ -2,6 +2,7 @@
 
 open System
 open System.Text.Json.Serialization
+open Hopac
 
 
 type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: Uri, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
@@ -35,21 +36,22 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             member _.Name = "constraints"
             member _.BoxedGetSerialized =
               Some <| fun ctx boxedEntity ->
-                async {
+                job {
                   let! constraints =
                     constrainedFields
                     |> Array.filter (fun f -> shouldUseField f.Name)
                     |> Array.map (fun f ->
-                        async {
+                        job {
                           let! constraints = f.BoxedGetConstraints ctx boxedEntity
                           return f.Name, constraints |> Map.ofList
                         }
                     )
-                    |> Async.Parallel
+                    |> Job.conCollect
 
                   return
                     constraints
-                    |> Array.filter (fun (_, cs) -> not cs.IsEmpty)
+                    |> Seq.filter (fun (_, cs) -> not cs.IsEmpty)
+                    |> Seq.toArray
                     |> Include
                     |> Skippable.filter (not << Array.isEmpty)
                     |> Skippable.map (Map.ofArray >> box)
@@ -58,16 +60,16 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
   member _.Identifier = identifier
 
-  member _.Attributes () : Async<Map<AttributeName, obj>> =
+  member _.Attributes () : Job<Map<AttributeName, obj>> =
     ResourceModule.attributes<'ctx> resourceModule
     |> Array.append (constraintsAttr |> Option.toArray)
     |> Array.filter (fun a -> shouldUseField a.Name)
-    |> Array.choose (fun a -> a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Async.map (fun v -> a.Name, v)))
-    |> Async.Parallel
-    |> Async.map (Array.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
-    |> Async.map Map.ofArray
+    |> Array.choose (fun a -> a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Job.map (fun v -> a.Name, v)))
+    |> Job.conCollect
+    |> Job.map (Seq.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
+    |> Job.map Map.ofSeq
 
-  member _.Relationships () : Async<Map<RelationshipName, IRelationship> * ResourceBuilder<'ctx> list> =
+  member _.Relationships () : Job<Map<RelationshipName, IRelationship> * ResourceBuilder<'ctx> list> =
     let toOneRels =
       ResourceModule.toOneRels<'ctx> resourceModule
       |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
@@ -80,12 +82,12 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       ResourceModule.toManyRels<'ctx> resourceModule
       |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
 
-    async {
+    job {
 
-      let! toOneRelsComp =
+      let! toOneRelsPromise =
         toOneRels
         |> Array.map (fun r ->
-            async {
+            job {
               let links =
                 Map.empty
                 |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u.AddSegments ["relationships"; r.Name]) | _ -> id
@@ -118,13 +120,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     []
             }
         )
-        |> Async.Parallel
-        |> Async.StartChild
+        |> Job.conCollect
+        |> Promise.start
 
-      let! toOneNullableRelsComp =
+      let! toOneNullableRelsPromise =
         toOneNullableRels
         |> Array.map (fun r ->
-            async {
+            job {
               let links =
                 Map.empty
                 |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u.AddSegments ["relationships"; r.Name]) | _ -> id
@@ -162,13 +164,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     []
             }
         )
-        |> Async.Parallel
-        |> Async.StartChild
+        |> Job.conCollect
+        |> Promise.start
 
-      let! toManyRelsComp =
+      let! toManyRelsPromise =
         toManyRels
         |> Array.map (fun r ->
-            async {
+            job {
               let links =
                 Map.empty
                 |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u.AddSegments ["relationships"; r.Name]) | _ -> id
@@ -202,41 +204,41 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     []
             }
           )
-          |> Async.Parallel
-          |> Async.StartChild
+          |> Job.conCollect
+          |> Promise.start
 
-      let! toOneRels = toOneRelsComp
-      let! toOneNullableRels = toOneNullableRelsComp
-      let! toManyRels = toManyRelsComp
+      let! toOneRels = toOneRelsPromise
+      let! toOneNullableRels = toOneNullableRelsPromise
+      let! toManyRels = toManyRelsPromise
 
-      let all = Array.concat [toOneRels; toOneNullableRels; toManyRels]
+      let all = Seq.concat [toOneRels; toOneNullableRels; toManyRels] |> Seq.cache
 
       let relationships =
         all
-        |> Array.choose (fun (name, rel, _) -> if shouldUseField name then Some (name, rel) else None)
-        |> Map.ofArray
+        |> Seq.choose (fun (name, rel, _) -> if shouldUseField name then Some (name, rel) else None)
+        |> Map.ofSeq
 
-      let builders = all |> Array.toList |> List.collect (fun (_, _, builder) -> builder)
+      let builders = all |> Seq.toList |> List.collect (fun (_, _, builder) -> builder)
 
       return relationships, builders
     }
 
-  member _.Links () : Async<Map<string, Link>> =
-    async {
+  member _.Links () : Job<Map<string, Link>> =
+    job {
       let! opNamesHrefsAndMeta =
         ResourceModule.customOps<'ctx> resourceModule
         |> Array.map (fun op ->
-            async {
+            job {
               let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwithf "Framework bug: Attempted to use self URL of resource type '%s' which has no collection name. This error should be caught at startup." resourceDef.TypeName)
               let! href, meta = op.HrefAndMeta ctx selfUrl entity
               return op.Name, href, meta
             }
         )
-        |> Async.Parallel
+        |> Job.conCollect
 
       return
         (Map.empty, opNamesHrefsAndMeta)
-        ||> Array.fold (fun links (name, href, meta) ->
+        ||> Seq.fold (fun links (name, href, meta) ->
               match href, meta with
               | None, None -> links
               | Some href, None -> links |> Links.addOpt name (Some href)
@@ -248,8 +250,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
            | _ -> id
     }
 
-  member _.Meta () : Async<Map<string, obj>> =
-    async.Return Map.empty  // support later when valid use-cases arrive
+  member _.Meta () : Job<Map<string, obj>> =
+    Job.result Map.empty  // support later when valid use-cases arrive
 
 
 open System.Collections.Concurrent
@@ -271,17 +273,17 @@ let setRelationships
 /// the included resources.
 let internal buildAndGetRelated
     addRelationships (builder: ResourceBuilder<'ctx>)
-    : Async<Resource * ResourceBuilder<'ctx> list> =
-  async {
-    let! attrsComp = builder.Attributes () |> Async.StartChild
-    let! relsAndIncludedComp = builder.Relationships () |> Async.StartChild
-    let! linksComp = builder.Links () |> Async.StartChild
-    let! metaComp = builder.Meta () |> Async.StartChild
+    : Job<Resource * ResourceBuilder<'ctx> list> =
+  job {
+    let! attrsPromise = builder.Attributes () |> Promise.start
+    let! relsAndIncludedPromise = builder.Relationships () |> Promise.start
+    let! linksPromise = builder.Links () |> Promise.start
+    let! metaPromise = builder.Meta () |> Promise.start
 
-    let! attrs = attrsComp
-    let! rels, included = relsAndIncludedComp
-    let! links = linksComp
-    let! meta = metaComp
+    let! attrs = attrsPromise
+    let! rels, included = relsAndIncludedPromise
+    let! links = linksPromise
+    let! meta = metaPromise
 
     addRelationships builder.Identifier rels
 
@@ -301,8 +303,8 @@ let internal buildAndGetRelated
 /// returns the builders for the included resources.
 let internal getRelated 
     addRelationship (builder: ResourceBuilder<'ctx>)
-    : Async<ResourceBuilder<'ctx> list> =
-  async {
+    : Job<ResourceBuilder<'ctx> list> =
+  job {
     let! rels, included = builder.Relationships ()
     addRelationship builder.Identifier rels
     return included
@@ -314,31 +316,31 @@ let internal getRelated
 let rec internal buildRecursive 
     initRelationships addRelationships addMainResource addIncludedResource
     isMain (builder: ResourceBuilder<'ctx>)
-    : Async<unit> =
-  async {
+    : Job<unit> =
+  job {
     let recurse = buildRecursive initRelationships addRelationships addMainResource addIncludedResource false
     let wasInitiated = initRelationships builder.Identifier
     if isMain then
       // We are building a main resource
       let! mainResource, relatedBuilders = buildAndGetRelated addRelationships builder
       addMainResource mainResource
-      do! relatedBuilders |> List.map recurse |> Async.Parallel |> Async.map ignoreUnitArray
+      do! relatedBuilders |> List.map recurse |> Job.conCollect |> Job.map ignore<ResizeArray<unit>>
     elif wasInitiated then
       // We are building an included resource that has not been built yet
       let! includedResource, relatedBuilders = buildAndGetRelated addRelationships builder
       addIncludedResource includedResource
-      do! relatedBuilders |> List.map recurse |> Async.Parallel |> Async.map ignoreUnitArray
+      do! relatedBuilders |> List.map recurse |> Job.conCollect |> Job.map ignore<ResizeArray<unit>>
     else
       // We are building a resource that has already been built
       let! relatedBuilders = getRelated addRelationships builder
-      do! relatedBuilders |> List.map recurse |> Async.Parallel |> Async.map ignoreUnitArray
+      do! relatedBuilders |> List.map recurse |> Job.conCollect |> Job.map ignore<ResizeArray<unit>>
   }
 
 /// Builds the specified main resources and returns the built resources along
 /// with any included resources. Included resources are deterministically
 /// sorted (but the actual sorting is an implementation detail).
 let internal build (mainBuilders: ResourceBuilder<'ctx> list)
-    : Async<Resource list * Resource list> =
+    : Job<Resource list * Resource list> =
 
   /// We only build each resource once, but different builders for the same
   /// resource may have different relationships included, so we add all
@@ -392,12 +394,12 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list)
 
   // Do the actual work
 
-  async {
+  job {
     do!
       mainBuilders
       |> List.mapi (fun i b -> b |> buildRecursive initRelationships addRelationships (addMainResource i) addIncludedResource true)
-      |> Async.Parallel
-      |> Async.map ignoreUnitArray
+      |> Job.conCollect
+      |> Job.map ignore<ResizeArray<unit>>
 
     return
       mainResources
@@ -416,8 +418,8 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list)
 /// with any included resources. Included resources are deterministically
 /// sorted (but the actual sorting is an implementation detail).
 let internal buildOne (mainBuilder: ResourceBuilder<'ctx>)
-    : Async<Resource * Resource list> =
-  async {
+    : Job<Resource * Resource list> =
+  job {
     let! main, included = build [mainBuilder]
     return main.Head, included
   }
