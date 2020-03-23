@@ -11,7 +11,7 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
   let getCtx (handler: 'ctx -> Request -> HttpHandler) : HttpHandler =
     fun next (httpCtx: HttpContext) ->
       job {
-        let serializer = httpCtx.GetService<Serializer> ()
+        let serializer = httpCtx.GetService<Serializer<'ctx>> ()
         match! getCtx httpCtx with
         | Error errs -> return! handleErrors errs next httpCtx
         | Ok ctx ->

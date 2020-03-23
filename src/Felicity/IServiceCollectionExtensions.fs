@@ -138,10 +138,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
             let collOperations = collectionOperations<'ctx> resourceModuleMap baseUrl collName resourceModules
             map.Add(collName, collOperations)
       )
-    
+
     this.services
       .AddSingleton<JsonApiHandler<'ctx>>(JsonApiHandler (Routing.jsonApiHandler getCtx collections))
-      .AddSingleton<Serializer>(Serializer(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<Serializer<'ctx>>(Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<Serializer<ErrorSerializerCtx>>(Serializer<ErrorSerializerCtx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
     
   
 

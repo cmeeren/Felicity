@@ -24,10 +24,10 @@ module HttpHandlers =
       handler next ctx
 
 
-  let internal jsonApiWithETag x : HttpHandler =
+  let internal jsonApiWithETag<'ctx> (x: obj) : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
       task {
-        let serializer = ctx.GetService<Serializer> ()
+        let serializer = ctx.GetService<Serializer<'ctx>> ()
         use sha1 = SHA1.Create()
         let bytes =
           serializer.Serialize x
@@ -111,7 +111,7 @@ module HttpHandlers =
 
       let handler =
         setStatusCode statusCode
-        >=> jsonApiWithETag doc
+        >=> jsonApiWithETag<ErrorSerializerCtx> doc
 
       handler next ctx
 

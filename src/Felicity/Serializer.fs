@@ -9,6 +9,9 @@ open InternalDeserializationModelDoNotUse
 open Errors
 
 
+type internal ErrorSerializerCtx = ErrorSerializerCtx
+
+
 module private ToDocumentModel =
 
 
@@ -230,7 +233,7 @@ module private ToDocumentModel =
 
 
 
-type internal Serializer(getFieldType, getFieldSerializationOrder, configureOptions) =
+type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureOptions) =
 
     let options = JsonSerializerOptions()
 

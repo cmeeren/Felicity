@@ -346,7 +346,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetRelatedResponse ctx entity relatedEntity
-                    >=> jsonApiWithETag doc
+                    >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -390,7 +390,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                     let handler =
                       setStatusCode 200
                       >=> this.modifyGetSelfResponse ctx entity relatedEntity
-                      >=> jsonApiWithETag doc
+                      >=> jsonApiWithETag<'ctx> doc
                     return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -467,7 +467,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                               let handler =
                                                 setStatusCode 200
                                                 >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
-                                                >=> jsonApiWithETag doc
+                                                >=> jsonApiWithETag<'ctx> doc
                                               return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -1169,7 +1169,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetRelatedResponse ctx entity relatedEntity
-                    >=> jsonApiWithETag doc
+                    >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -1203,7 +1203,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                     let handler =
                       setStatusCode 200
                       >=> this.modifyGetSelfResponse ctx entity relatedEntity
-                      >=> jsonApiWithETag doc
+                      >=> jsonApiWithETag<'ctx> doc
                     return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -1283,7 +1283,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                                           let handler =
                                             setStatusCode 200
                                             >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
-                                            >=> jsonApiWithETag doc
+                                            >=> jsonApiWithETag<'ctx> doc
                                           return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -2136,7 +2136,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                         let handler =
                                           setStatusCode 200
                                           >=> modifyOkResponse ctx (unbox<'entity> entity3) relatedEntities
-                                          >=> jsonApiWithETag doc
+                                          >=> jsonApiWithETag<'ctx> doc
                                         return! handler next httpCtx
           }
           |> Job.startAsTask
@@ -2176,7 +2176,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                     let handler =
                       setStatusCode 200
                       >=> this.modifyGetRelatedResponse ctx entity relatedEntities
-                      >=> jsonApiWithETag doc
+                      >=> jsonApiWithETag<'ctx> doc
                     return! handler next httpCtx
             }
             |> Job.startAsTask
@@ -2210,7 +2210,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                     let handler =
                       setStatusCode 200
                       >=> this.modifyGetSelfResponse ctx entity relatedEntities
-                      >=> jsonApiWithETag doc
+                      >=> jsonApiWithETag<'ctx> doc
                     return! handler next httpCtx
             }
             |> Job.startAsTask

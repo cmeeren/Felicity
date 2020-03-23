@@ -176,7 +176,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
               let handler =
                 setStatusCode 200
                 >=> this.modifyResponse mappedCtx (unbox<'entity> entity)
-                >=> jsonApiWithETag doc
+                >=> jsonApiWithETag<'originalCtx> doc
               return! handler next httpCtx
         }
         |> Job.startAsTask
@@ -226,7 +226,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                       let handler =
                         setStatusCode 200
                         >=> this.modifyResponse mappedCtx entities
-                        >=> jsonApiWithETag doc
+                        >=> jsonApiWithETag<'originalCtx> doc
                       return! handler next httpCtx
         }
         |> Job.startAsTask
@@ -277,7 +277,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
                       let handler =
                         setStatusCode 200
                         >=> this.modifyResponse mappedCtx entities
-                        >=> jsonApiWithETag doc
+                        >=> jsonApiWithETag<'originalCtx> doc
                       return! handler next httpCtx
         }
         |> Job.startAsTask
@@ -353,7 +353,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                               setStatusCode 201
                               >=> setLocationHeader
                               >=> this.modifyResponse mappedCtx entity1
-                              >=> jsonApiWithETag doc
+                              >=> jsonApiWithETag<'originalCtx> doc
                             return! handler next httpCtx
         }
         |> Job.startAsTask
@@ -523,7 +523,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                                         let handler =
                                           setStatusCode 200
                                           >=> this.modifyResponse mappedCtx entity4
-                                          >=> jsonApiWithETag doc
+                                          >=> jsonApiWithETag<'originalCtx> doc
                                         return! handler next httpCtx
         }
         |> Job.startAsTask

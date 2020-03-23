@@ -10,7 +10,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
     fun next httpCtx ->
       job {
         let! doc = builder.Write ctx req (upcast resourceDef, entity)
-        return! jsonApiWithETag doc next httpCtx
+        return! jsonApiWithETag<'ctx> doc next httpCtx
       }
       |> Job.startAsTask
 
@@ -18,7 +18,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
     fun next httpCtx ->
       job {
         let! doc = builder.WriteList ctx req (entities |> List.map (fun e -> upcast resourceDef, e))
-        return! jsonApiWithETag doc next httpCtx
+        return! jsonApiWithETag<'ctx> doc next httpCtx
       }
       |> Job.startAsTask
 
@@ -26,7 +26,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
     fun next httpCtx ->
       job {
         let! doc = builder.WriteList ctx req (polyBuilders |> List.map (fun b -> b.resourceDef, b.entity))
-        return! jsonApiWithETag doc next httpCtx
+        return! jsonApiWithETag<'ctx> doc next httpCtx
       }
       |> Job.startAsTask
 
@@ -34,6 +34,6 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
     fun next httpCtx ->
       job {
         let! doc = builder.WriteOpt ctx req (entity |> Option.map (fun e -> upcast resourceDef, e))
-        return! jsonApiWithETag doc next httpCtx
+        return! jsonApiWithETag<'ctx> doc next httpCtx
       }
       |> Job.startAsTask

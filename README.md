@@ -282,12 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
-### 0.5.2 (2020-03-23)
+### 0.5.3 (2020-03-23)
 
+* Fixed serialization when using multiple context types
 * Fixed routing when using multiple context types
-
-### 0.5.1 (2020-03-23)
-
 * Added `Option` variants of `Filter.Field`, `Query.Parsed`, `Header.Parsed`, and `Sort.Parsed`
 
 ### 0.5.0 (2020-03-23)

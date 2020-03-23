@@ -28,11 +28,25 @@ let hasPath (path: string) (json: string) =
   o.SelectToken(path, false) |> isNull |> not
 
 
+type SecondCtx = SecondCtx
+
+
 let startTestServer (ctx: 'ctx) =
   let server =
     new TestServer(
       WebHostBuilder()
-        .ConfigureServices(fun services -> services.AddGiraffe().AddJsonApi().BaseUrl("http://example.com").GetCtx(fun _ -> ctx).Add() |> ignore)
+        .ConfigureServices(fun services ->
+          services
+            .AddGiraffe()
+            .AddJsonApi()
+              .BaseUrl("http://example.com")
+              .GetCtx(fun _ -> ctx)
+              .Add()
+            .AddJsonApi()
+              .BaseUrl("http://example.com")
+              .GetCtx(fun _ -> SecondCtx)
+              .Add()
+          |> ignore)
         .Configure(fun app -> app.UseGiraffe jsonApi<'ctx>)
     )
   server.CreateClient ()
