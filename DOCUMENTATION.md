@@ -262,15 +262,15 @@ Felicity is a framework, not a library, and is opinionated on how your domain lo
 
 Your core logic must be “pure” in the sense that it must not cause observable state changes (such as mutate objects or persist changes to a database). For example, field “setters” should have signatures like `'arg -> 'entity -> 'entity`, returning a new entity (typically an updated record). This is a requirement because any setter is allowed to return an error, in which case an error response should be returned, which means that no observable state changes must have taken place while executing the setters.
 
-It’s no problem for setters to be asynchronous; for example, a setter (or even just an attribute parser) may require a database lookup to ensure the value is valid. The only requirement is that your domain logic should not cause observable state changes, in case the request fails and Felicity needs to throw away the updated entity.
+It’s no problem for your domain logic to be asynchronous; for example, a setter (or even just an attribute parser) may require a database lookup to ensure the value is valid. The only requirement is that your domain logic should not cause observable state changes, in case the request fails and Felicity needs to throw away the updated entity.
 
 Therefore, any part of your domain logic may be asynchronous and/or return `Result`. It may also accept the context type you define. For example, the general signature for a “setter” is
 
 ```f#
-'ctx -> 'arg -> 'entity -> Async<Result<'entity, Error list>>
+'ctx -> 'arg -> 'entity -> Job<Result<'entity, Error list>>
 ```
 
-Felicity has tons of overloads for simpler signatures for all operations (e.g. without context, no async, no result, etc.). The goal is to enable you to simply plug your existing domain functions directly into Felicity without needing to use lambdas or lifting to Async or Result.
+(`Job` is from [Hopac](https://github.com/Hopac/Hopac).) Felicity has tons of overloads for simpler/alternative signatures for all operations (e.g. without context, `Async` instead of `Job`, synchronous, no `Result`, etc.). The goal is to enable you to simply plug your existing domain functions directly into Felicity without needing to use lambdas or lifting to `Job`, `Async` or `Result`.
 
 Here is an example of simple domain logic that works well with Felicity:
 
@@ -312,7 +312,7 @@ module Person =
 
 Felicity automatically supports sparse fieldsets and includes for all operations (currently except resource `self` endpoints; please open an issue if you need that functionality). By default, all fields are included, and no related resources are included.
 
-Included resources are fetched asynchronously and on-demand. If your related resources are fetched from the database when needed, you may encounter the “N+1 problem”; for example fetching a list of 1000 resources with an included relationship will cause 1000 queries to the database to fetch the related resource(s) for each of the main data resources. The problem gets even worse for multi-level includes. There are no trivial solutions, but it might be fairly simple to write (more complicated) batched SQL queries and use e.g. [BatchIt](https://github.com/cmeeren/BatchIt) to abstract away the batching in code.
+Included resources are fetched asynchronously and on-demand. If your related resources are fetched from the database when needed, you may encounter the “N+1 problem”; for example fetching a list of 1000 resources with an included relationship will cause 1000 queries to the database to fetch the related resource(s) for each of the main data resources. The problem gets even worse for multi-level includes. There are no trivial solutions, but it might be relatively simple to write (more complicated) batched SQL queries and use e.g. [BatchIt](https://github.com/cmeeren/BatchIt) to abstract away the batching in code.
 
 Resource ID and resource definition
 --------------------------
@@ -941,6 +941,23 @@ parser
 ```
 
  When the primary parameter is included (`protectedValue` above), the secondary parameters are parsed, too, and passed to the immutable setter. If the primary parameter exists but the secondary parameters do not, an error will be returned. You may append `.Optional` to the secondary parameters to make then optional and `Option`-wrapped. 
+
+### Parsing higher arities than is currently available
+
+If you need to parse higher arities than are currently available for the `For` or `Add` methods, please open an issue and/or submit a PR. As a workaround, you can always fall back to monadic parsing using the `JobRes` overloads and use a suitable `jobResult` CE (e.g. from [FsToolkit.ErrorHandling.JobResult](https://www.nuget.org/packages/FsToolkit.ErrorHandling.JobResult/)). For example:
+
+```f#
+parser.ForJobRes(
+  jobResult {
+    let! a = parser.GetRequired fieldA
+    let! b = parser.GetRequired fieldB
+    ...
+    return domainFuncTakingManyParams a b ...
+  }
+)
+```
+
+The only drawback to this method is that the errors won’t be combined; you will only get the first error.
 
 ### Parsing in custom operations
 
