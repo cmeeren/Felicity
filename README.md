@@ -271,20 +271,24 @@ type Startup() =
       .UseGiraffe(mainHandler)
 ```
 
-#### 6. Profit!
+#### 6. Enable server garbage collection
+
+For performance reasons, you should enable server GC if you are running the API on multiple cores. (Cursory testing on my dev machine indicates a ~30% speedup in Felicity code just from this change alone, which is noticeable for very large responses.) Refer to your target environment documentation (Azure, IIS, etc.) for details on whether this is enabled by default, and how to enable it if not. You can find some general information [here](https://docs.microsoft.com/en-us/dotnet/core/run-time-config/garbage-collector).
+
+#### 7. Profit!
 
 That’s it! You now have a wonderfully compliant JSON:API exposing your wonderfully functional F# domain logic.
 
 Release notes
 -------------
 
-### vNext
+### 0.5.0 (2020-03-23)
 
-* TODO: Summarize performance improvements
-* Add dependency on Hopac and use `Job` internally for massive performance improvements for very large responses
+* Huge performance improvements – Felicity overhead reduced by ~90% for very large responses, ~20% for small responses
+* Add dependency on Hopac and use `Job` internally (this gave most of the performance improvements)
 * Add `Job` overloads as alternatives to `Async`
 * Add `string` overload to `JsonApiConfigBuilder.BaseUrl`
-* Breaking: Added `Async` suffic to custom operation's `Get`, `Post`, `Patch`, and `Delete`
+* Breaking: Added `Async` suffix to custom operation's `Get`, `Post`, `Patch`, and `Delete`
 
 ### 0.4.4 (2020-03-19)
 

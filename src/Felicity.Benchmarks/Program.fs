@@ -8,6 +8,8 @@ open Giraffe
 open Felicity
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
+open BenchmarkDotNet.Jobs
+open BenchmarkDotNet.Configs
 
 
 type Resource = {
@@ -106,6 +108,9 @@ module Program =
 
     // Uncomment for BenchmarkDotNet run
 
-    BenchmarkRunner.Run<Benchmark>() |> ignore
+    BenchmarkRunner.Run<Benchmark>(
+      DefaultConfig.Instance.With(Job.Default.WithGcServer(true))
+    )
+    |> ignore
 
     0
