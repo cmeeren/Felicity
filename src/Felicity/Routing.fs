@@ -51,11 +51,11 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
 
 
   validateRequest
-  >=> getCtx (fun ctx req ->
+  >=> 
     choose [
       for collName, ops in collections |> Map.toSeq do
 
-        subRoute ("/" + collName) (choose [
+        subRoute ("/" + collName) (getCtx (fun ctx req -> choose [
 
 
           // Collection operations
@@ -236,6 +236,5 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
           )
 
 
-        ])
+        ]))
     ]
-  )
