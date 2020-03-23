@@ -248,7 +248,7 @@ type Startup() =
     services
       .AddGiraffe()
       .AddJsonApi()
-        .BaseUrl(Uri("http://localhost:5000"))  // Used in resource/relationship links
+        .BaseUrl("http://localhost:5000")  // Used in resource/relationship links
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
       .AddOtherServices(..)
@@ -278,8 +278,10 @@ Release notes
 
 ### vNext
 
+* TODO: Summarize performance improvements
 * Add dependency on Hopac and use `Job` internally for massive performance improvements for very large responses
 * Add `Job` overloads as alternatives to `Async`
+* Add `string` overload to `JsonApiConfigBuilder.BaseUrl`
 
 ### 0.4.4 (2020-03-19)
 

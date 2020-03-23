@@ -237,7 +237,6 @@ type internal Serializer(getFieldType, getFieldSerializationOrder, configureOpti
     do
       options.Encoder <- JavaScriptEncoder.UnsafeRelaxedJsonEscaping
 
-      options.Converters.Add(UriConverter())
       options.Converters.Add(JsonApiConverter())
       options.Converters.Add(LinkConverter())
       options.Converters.Add(ErrorSourceConverter())

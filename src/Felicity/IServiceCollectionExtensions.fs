@@ -11,7 +11,7 @@ open RoutingOperations
 
 type JsonApiConfigBuilder<'ctx> = internal {
   services: IServiceCollection
-  baseUrl: Uri option
+  baseUrl: string option
   getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
 } with
@@ -23,8 +23,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
     configureSerializerOptions = None
   }
 
-  member this.BaseUrl(url) : JsonApiConfigBuilder<'ctx> =
-    { this with baseUrl = Some url }
+  member this.BaseUrl(url: Uri) : JsonApiConfigBuilder<'ctx> =
+    { this with baseUrl = Some (url.ToString().TrimEnd('/')) }
+
+  member this.BaseUrl(url: string) : JsonApiConfigBuilder<'ctx> =
+    { this with baseUrl = Some (url.TrimEnd('/')) }
 
   member this.GetCtxJobRes(getCtx: HttpContext -> Job<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
     { this with getCtx = Some getCtx }

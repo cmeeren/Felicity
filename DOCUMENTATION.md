@@ -168,7 +168,7 @@ type Startup() =
     services
       .AddGiraffe()
       .AddJsonApi()
-        .BaseUrl(Uri("http://localhost:5000"))
+        .BaseUrl("http://localhost:5000")
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
       .AddOtherServices(..)

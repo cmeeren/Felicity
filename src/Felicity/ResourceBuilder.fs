@@ -5,10 +5,10 @@ open System.Text.Json.Serialization
 open Hopac
 
 
-type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: Uri, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
+type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
 
   let identifier = { ``type`` = resourceDef.TypeName; id = resourceDef.GetIdBoxed entity }
-  let selfUrlOpt = resourceDef.CollectionName |> Option.map (fun collName -> baseUrl |> Uri.addSegments [collName; identifier.id])
+  let selfUrlOpt = resourceDef.CollectionName |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + identifier.id)
 
   let shouldUseField fieldName =
     match req.Fieldsets.TryFind resourceDef.TypeName with
@@ -90,8 +90,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links =
                 Map.empty
-                |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u.AddSegments ["relationships"; r.Name]) | _ -> id
-                |> match selfUrlOpt with Some u when r.RelatedLink -> Links.add "related" (u.AddSegment r.Name) | _ -> id
+                |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u + "/relationships/" + r.Name) | _ -> id
+                |> match selfUrlOpt with Some u when r.RelatedLink -> Links.add "related" (u + "/" + r.Name) | _ -> id
                 |> Include
                 // The links object must contain at least one link
                 |> Skippable.filter (not << Map.isEmpty)
@@ -129,8 +129,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links =
                 Map.empty
-                |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u.AddSegments ["relationships"; r.Name]) | _ -> id
-                |> match selfUrlOpt with Some u when r.RelatedLink -> Links.add "related" (u.AddSegment r.Name) | _ -> id
+                |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u + "/relationships/" + r.Name) | _ -> id
+                |> match selfUrlOpt with Some u when r.RelatedLink -> Links.add "related" (u + "/" + r.Name) | _ -> id
                 |> Include
                 // The links object must contain at least one link
                 |> Skippable.filter (not << Map.isEmpty)
@@ -173,8 +173,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links =
                 Map.empty
-                |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u.AddSegments ["relationships"; r.Name]) | _ -> id
-                |> match selfUrlOpt with Some u when r.RelatedLink -> Links.add "related" (u.AddSegment r.Name) | _ -> id
+                |> match selfUrlOpt with Some u when r.SelfLink -> Links.add "self" (u + "/relationships/" + r.Name) | _ -> id
+                |> match selfUrlOpt with Some u when r.RelatedLink -> Links.add "related" (u + "/" + r.Name) | _ -> id
                 |> Include
                 // The links object must contain at least one link
                 |> Skippable.filter (not << Map.isEmpty)

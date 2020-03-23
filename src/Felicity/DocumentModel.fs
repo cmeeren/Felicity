@@ -77,7 +77,7 @@ type internal JsonApi =
 [<CLIMutable>]
 type internal Link =
   {
-    href: Uri option
+    href: string option
     meta: Map<string, obj> Skippable
   }
 
@@ -234,23 +234,6 @@ module internal Json =
 
   open System.Text.Json
   open System.Text.Json.Serialization
-
-
-  // Serialize the actual Uri objects using Uri.ToString() instead of
-  // System.Text.Json's default Uri.OriginalString to avoid unwanted
-  // ports when the Uri has been transformed by UriBuilder.
-  //  - https://github.com/dotnet/runtime/issues/2279
-  type UriConverter() =
-    inherit JsonConverter<Uri>()
-
-    override __.CanConvert (t: Type) =
-      t = typeof<Uri>
-
-    override _.Read(reader: byref<Utf8JsonReader>, t: Type, options: JsonSerializerOptions) =
-      Uri(reader.GetString())
-
-    override _.Write(writer: Utf8JsonWriter, uri: Uri, options: JsonSerializerOptions) =
-      writer.WriteStringValue(uri.ToString())
 
 
   type JsonApiConverter () =
@@ -720,7 +703,7 @@ module internal Links =
 
   /// Adds the specified link and meta to the link collection. The meta property
   /// is not included if there are no meta entries.
-  let addOptWithMeta name (uri: Uri option) metaEntries links =
+  let addOptWithMeta name (uri: string option) metaEntries links =
     links |> Map.add name { href = uri; meta = toMeta metaEntries }
 
 

@@ -928,7 +928,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
 type internal CustomOperation<'ctx> =
   abstract Name: LinkName
-  abstract HrefAndMeta: 'ctx -> Uri -> BoxedEntity -> Job<(Uri option * Map<string, obj> option)>
+  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Job<(string option * Map<string, obj> option)>
   abstract Get: ('ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Post: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Patch: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
@@ -998,7 +998,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                 |> Option.filter (not << Map.isEmpty)
 
               match! this.condition mappedCtx (unbox<'entity> entity) with
-              | Ok () -> return Some (selfUrl |> Uri.addSegment this.name), meta
+              | Ok () -> return Some (selfUrl + "/" + this.name), meta
               | Error _ -> return None, meta
       }
       

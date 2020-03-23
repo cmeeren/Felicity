@@ -32,7 +32,7 @@ let startTestServer (ctx: 'ctx) =
   let server =
     new TestServer(
       WebHostBuilder()
-        .ConfigureServices(fun services -> services.AddGiraffe().AddJsonApi().BaseUrl(Uri("http://example.com")).GetCtx(fun _ -> ctx).Add() |> ignore)
+        .ConfigureServices(fun services -> services.AddGiraffe().AddJsonApi().BaseUrl("http://example.com").GetCtx(fun _ -> ctx).Add() |> ignore)
         .Configure(fun app -> app.UseGiraffe jsonApi<'ctx>)
     )
   server.CreateClient ()
