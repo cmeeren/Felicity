@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.5.1 (2020-03-23)
+
+* Added `Option` variants of `Filter.Field`, `Query.Parsed`, `Header.Parsed`, and `Sort.Parsed`
+
 ### 0.5.0 (2020-03-23)
 
 * Huge performance improvements – Felicity overhead reduced by ~90% for very large responses, ~20% for small responses

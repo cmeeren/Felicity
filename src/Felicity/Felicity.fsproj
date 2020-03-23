@@ -13,12 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.5.0</Version>
-    <PackageReleaseNotes>- Huge performance improvements – Felicity overhead reduced by ~90% for very large responses, ~20% for small responses
-- Add dependency on Hopac and use Job internally (this gave most of the performance improvements)
-- Add Job overloads as alternatives to Async
-- Add string overload to JsonApiConfigBuilder.BaseUrl
-- Breaking: Added Async suffix to custom operation's Get, Post, Patch, and Delete</PackageReleaseNotes>
+    <Version>0.5.1</Version>
+    <PackageReleaseNotes>- Added Option variants of Filter.Field, Query.Parsed, Header.Parsed, and Sort.Parsed</PackageReleaseNotes>
   </PropertyGroup>
   
   <PropertyGroup>

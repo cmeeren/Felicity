@@ -368,8 +368,14 @@ type Filter =
   static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
+  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
   static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
+  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
   static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, string>) =
     Filter.Field(attribute, Ok)
@@ -401,8 +407,14 @@ type Filter =
   static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
+  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
   static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
+  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
   static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, string>) =
     Filter.Field(path, attribute, Ok)
@@ -434,8 +446,14 @@ type Filter =
   static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
+  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str]  |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
   static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
+  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
   static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, string>) =
     Filter.Field(path1, path2, attribute, Ok)
@@ -467,8 +485,14 @@ type Filter =
   static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
+  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
   static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+
+  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
 
   static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, string>) =
     Filter.Field(path1, path2, path3, attribute, Ok)
@@ -567,6 +591,18 @@ type Sort =
   static member ParsedAsyncRes(parse: string -> Async<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
     Sort.ParsedJobRes(Job.liftAsync parse)
 
+  static member ParsedJobOpt(parse: 'ctx -> string -> Job<'a option>) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNone "sort" s]))
+
+  static member ParsedJobOpt(parse: string -> Job<'a option>) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobOpt(fun _ s -> parse s)
+
+  static member ParsedAsyncOpt(parse: 'ctx -> string -> Async<'a option>) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobOpt(Job.liftAsync2 parse)
+
+  static member ParsedAsyncOpt(parse: string -> Async<'a option>) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobOpt(Job.liftAsync parse)
+
   static member ParsedJob(parse: 'ctx -> string -> Job<'a>) : SingleSort<'ctx, 'a> =
     Sort.ParsedJobRes(fun ctx s -> parse ctx s |> Job.map Ok)
 
@@ -584,6 +620,12 @@ type Sort =
 
   static member ParsedRes(parse: string -> Result<'a, Error list>) : SingleSort<'ctx, 'a> =
     Sort.ParsedJobRes(Job.lift parse)
+
+  static member ParsedOpt(parse: 'ctx -> string -> 'a option) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobOpt(Job.lift2 parse)
+
+  static member ParsedOpt(parse: string -> 'a option) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobOpt(Job.lift parse)
 
   static member Parsed(parse: 'ctx -> string -> 'a) : SingleSort<'ctx, 'a> =
     Sort.ParsedJobRes(JobResult.lift2 parse)
@@ -627,6 +669,18 @@ type Query =
   static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
 
+  static member ParsedJobOpt(queryParamName, parse: 'ctx -> string -> Job<'a option>) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNone queryParamName s]))
+
+  static member ParsedJobOpt(queryParamName, parse: string -> Job<'a option>) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobOpt(queryParamName, fun _ s -> parse s)
+
+  static member ParsedAsyncOpt(queryParamName, parse: 'ctx -> string -> Async<'a option>) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobOpt(queryParamName, Job.liftAsync2 parse)
+
+  static member ParsedAsyncOpt(queryParamName, parse: string -> Async<'a option>) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobOpt(queryParamName, Job.liftAsync parse)
+
   static member ParsedJob(queryParamName, parse: 'ctx -> string -> Job<'a>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> Job.map Ok)
 
@@ -644,6 +698,12 @@ type Query =
 
   static member ParsedRes(queryParamName, parse: string -> Result<'a, Error list>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedJobRes(queryParamName, Job.lift parse)
+
+  static member ParsedOpt(queryParamName, parse: 'ctx -> string -> 'a option) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobOpt(queryParamName, Job.lift2 parse)
+
+  static member ParsedOpt(queryParamName, parse: string -> 'a option) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobOpt(queryParamName, Job.lift parse)
 
   static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedJobRes(queryParamName, JobResult.lift2 parse)
@@ -691,6 +751,18 @@ type Header =
   static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, Error list>>) : Header<'ctx, 'a> =
     Header.ParsedJobRes(headerName, Job.liftAsync parse)
 
+  static member ParsedJobOpt(headerName, parse: 'ctx -> string -> Job<'a option>) : Header<'ctx, 'a> =
+    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [headerInvalidParsedNone headerName s]))
+
+  static member ParsedJobOpt(headerName, parse: string -> Job<'a option>) : Header<'ctx, 'a> =
+    Header.ParsedJobOpt(headerName, fun _ s -> parse s)
+
+  static member ParsedAsyncOpt(headerName, parse: 'ctx -> string -> Async<'a option>) : Header<'ctx, 'a> =
+    Header.ParsedJobOpt(headerName, Job.liftAsync2 parse)
+
+  static member ParsedAsyncOpt(headerName, parse: string -> Async<'a option>) : Header<'ctx, 'a> =
+    Header.ParsedJobOpt(headerName, Job.liftAsync parse)
+
   static member ParsedJob(headerName, parse: 'ctx -> string -> Job<'a>) : Header<'ctx, 'a> =
     Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> Job.map Ok)
 
@@ -708,6 +780,12 @@ type Header =
 
   static member ParsedRes(headerName, parse: string -> Result<'a, Error list>) : Header<'ctx, 'a> =
     Header.ParsedJobRes(headerName, Job.lift parse)
+
+  static member ParsedOpt(headerName, parse: 'ctx -> string -> 'a option) : Header<'ctx, 'a> =
+    Header.ParsedJobOpt(headerName, Job.lift2 parse)
+
+  static member ParsedOpt(headerName, parse: string -> 'a option) : Header<'ctx, 'a> =
+    Header.ParsedJobOpt(headerName, Job.lift parse)
 
   static member Parsed(headerName, parse: 'ctx -> string -> 'a) : Header<'ctx, 'a> =
     Header.ParsedJobRes(headerName, JobResult.lift2 parse)

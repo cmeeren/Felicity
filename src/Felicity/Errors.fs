@@ -290,6 +290,11 @@
     |> Error.setTitle "Invalid query parameter value"
     |> Error.setDetailf "Expected a number, but got '%s'" invalidValue
 
+  let queryInvalidParsedNone queryParamName invalidValue =
+    Error.create 400
+    |> Error.setTitle "Invalid query parameter value"
+    |> Error.setDetailf "Query parameter '%s' got invalid value '%s'" queryParamName invalidValue
+
   let queryInvalidParsedNoneUnnamed invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
@@ -300,6 +305,11 @@
     |> Error.setTitle "Multiple values not allowed"
     |> Error.setDetailf "Query parameter '%s' only accepts a single value, but got %i comma-separated values" paramName numValues
     |> Error.setSourceParam paramName
+
+  let headerInvalidParsedNone headerName invalidValue =
+    Error.create 400
+    |> Error.setTitle "Invalid header value"
+    |> Error.setDetailf "Header '%s' got invalid value '%s'" headerName invalidValue
 
 
   (*
