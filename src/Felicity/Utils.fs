@@ -7,16 +7,6 @@ open System.Text.Json.Serialization
 open Hopac
 
 
-// TODO:
-//- Is test performance increased of most of IServiceCollectionExtensions.fs is memoized? (Everything above this.services.Add... at the bottom)
-//- Add Async prefix to CustomOperation.Get, .Post, etc.
-//- In List.traverseJobResultA, we're converting to array. Optimize?
-
-
-
-
-
-
 // TODO: Further optimization of reflection etc.?
 
 // TODO: Refactor
@@ -307,7 +297,6 @@ module List =
     job {
       let! results = list |> List.map f |> Job.conCollect
       return
-        // TODO: Converting to array. Optimize?
         (Seq.toArray results, Ok [])
         ||> Array.foldBack (fun t state ->
           match t, state with

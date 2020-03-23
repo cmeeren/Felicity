@@ -1068,18 +1068,16 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.DeleteJob(delete: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
     { this with delete = Some (fun ctx req responder entity -> delete.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), responder, entity)) }
 
-  // TODO: Add Async prefix
-
-  member this.Get(get: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.GetAsync(get: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.GetJob(Job.liftAsyncFunc4 get)
 
-  member this.Post(post: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.PostAsync(post: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.PostJob(Job.liftAsyncFunc4 post)
 
-  member this.Patch(patch: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.PatchAsync(patch: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.PatchJob(Job.liftAsyncFunc4 patch)
 
-  member this.Delete(delete: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.DeleteAsync(delete: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.DeleteJob(Job.liftAsyncFunc4 delete)
 
 

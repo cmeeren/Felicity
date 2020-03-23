@@ -87,10 +87,10 @@ module A =
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .CustomLink()
       .ConditionRes(fun ctx _ -> ctx.Condition)
-      .Get(fun ctx parser responder _ -> ctx.GetOperation responder |> async.Return)
-      .Post(fun ctx parser responder _ -> ctx.PostOperation responder |> async.Return)
-      .Patch(fun ctx parser responder _ -> ctx.PatchOperation responder |> async.Return)
-      .Delete(fun ctx parser responder _ -> ctx.DeleteOperation responder |> async.Return)
+      .GetAsync(fun ctx parser responder _ -> ctx.GetOperation responder |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> ctx.PostOperation responder |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> ctx.PatchOperation responder |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> ctx.DeleteOperation responder |> async.Return)
       .AddMeta("someValue", (fun _ _ -> 2), fun ctx _ -> not ctx.DisableMeta)
 
 
@@ -108,8 +108,8 @@ module B =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .CustomLink()
-      .Get(fun _ _ _ _ -> failwith "not used")
-      .Post(fun _ _ _ _ -> failwith "not used")
+      .GetAsync(fun _ _ _ _ -> failwith "not used")
+      .PostAsync(fun _ _ _ _ -> failwith "not used")
 
 
 
@@ -124,8 +124,8 @@ module C =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .CustomLink()
-      .Patch(fun _ _ _ _ -> failwith "not used")
-      .Delete(fun _ _ _ _ -> failwith "not used")
+      .PatchAsync(fun _ _ _ _ -> failwith "not used")
+      .DeleteAsync(fun _ _ _ _ -> failwith "not used")
 
 
 module D =
@@ -173,14 +173,14 @@ module A2 =
   let customOpWithGetAndPost =
     define.Operation
       .CustomLink()
-      .Get(fun _ _ _ _ -> failwith "not used")
-      .Post(fun _ _ _ _ -> failwith "not used")
+      .GetAsync(fun _ _ _ _ -> failwith "not used")
+      .PostAsync(fun _ _ _ _ -> failwith "not used")
 
   let customOpWithPatchAndDelete =
     define.Operation
       .CustomLink()
-      .Patch(fun _ _ _ _ -> failwith "not used")
-      .Delete(fun _ _ _ _ -> failwith "not used")
+      .PatchAsync(fun _ _ _ _ -> failwith "not used")
+      .DeleteAsync(fun _ _ _ _ -> failwith "not used")
 
 
 type Ctx3 = Ctx3
@@ -220,9 +220,9 @@ module A5 =
   let customOp =
     define.Operation
       .CustomLink()
-      .Post(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
-      .Patch(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
-      .Delete(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 
 
 type Ctx6 = Ctx6
@@ -240,9 +240,9 @@ module A6 =
   let customOp =
     define.Operation
       .CustomLink()
-      .Post(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
-      .Patch(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
-      .Delete(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 
 
 type Ctx7 = Ctx7
@@ -260,9 +260,9 @@ module A7 =
   let customOp =
     define.Operation
       .CustomLink()
-      .Post(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
-      .Patch(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
-      .Delete(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 
 
 [<Tests>]

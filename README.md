@@ -284,6 +284,7 @@ Release notes
 * Add dependency on Hopac and use `Job` internally for massive performance improvements for very large responses
 * Add `Job` overloads as alternatives to `Async`
 * Add `string` overload to `JsonApiConfigBuilder.BaseUrl`
+* Breaking: Added `Async` suffic to custom operation's `Get`, `Post`, `Patch`, and `Delete`
 
 ### 0.4.4 (2020-03-19)
 
