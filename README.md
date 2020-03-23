@@ -43,6 +43,15 @@ Contributing
 
 Contributions and ideas are welcome! Please see [Contributing.md](https://github.com/cmeeren/Felicity/blob/master/.github/CONTRIBUTING.md) for details.
 
+Documentation
+-------------
+
+[Documentation is in progress.](https://github.com/cmeeren/Felicity/blob/master/DOCUMENTATION.md) A lot is already done.
+
+I also highly recommend you check out the [sample API](https://github.com/cmeeren/Felicity/tree/master/src/Felicity.SampleApi) in this repo, which is a simple but complete and almost-production-ready example API implementation. Open the main solution in VS, start at the topmost file in the sample API, and read through the project in compilation order. There are lots of comments along the way to explain what’s going on.
+
+Feel free to open an issue if you have questions.
+
 Quick start
 -----------
 
@@ -265,13 +274,6 @@ type Startup() =
 #### 6. Profit!
 
 That’s it! You now have a wonderfully compliant JSON:API exposing your wonderfully functional F# domain logic.
-
-Documentation
--------------
-
-I’ll create online docs and function documentation sooner or later. In the meantime, I highly recommend you check out the [sample API](https://github.com/cmeeren/Felicity/tree/master/src/Felicity.SampleApi) in this repo, which is a simple but complete and almost-production-ready example API implementation. Open the main solution in VS, start at the topmost file in the sample API, and read through the project in compilation order. There are lots of comments along the way to explain what’s going on.
-
-Feel free to open an issue if you have questions.
 
 Release notes
 -------------
