@@ -60,7 +60,7 @@ type Benchmark () =
           services
             .AddGiraffe()
             .AddJsonApi()
-              .BaseUrl(Uri("http://example.com"))
+              .BaseUrl("http://example.com")
               .GetCtx(fun _ -> context)
               .Add()
           |> ignore
@@ -89,5 +89,23 @@ module Program =
 
   [<EntryPoint>]
   let main argv =
+
+    // Uncomment for manual run, e.g. profiling
+
+    //let b = Benchmark()
+    //b.NRes <- 10000
+    //b.NInc <- 5
+    //b.Setup()
+    //while true do
+    //  Console.WriteLine("Press Enter to run")
+    //  Console.ReadLine() |> ignore
+    //  Console.WriteLine("Running...")
+    //  b.GetCollection().Result |> ignore
+    //  Console.WriteLine("Done")
+
+
+    // Uncomment for BenchmarkDotNet run
+
     BenchmarkRunner.Run<Benchmark>() |> ignore
+
     0

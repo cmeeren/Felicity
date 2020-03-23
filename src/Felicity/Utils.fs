@@ -8,9 +8,6 @@ open Hopac
 
 
 // TODO:
-//- Performance improvements with string instead of URI?
-//- Performance improvements with Sync/Job DU for attribute/relationship getters?
-//- Performance improvements with Seq at the top of ResourceBuilder.Attributes and ResourceBuilder.Relationships?
 //- Is test performance increased of most of IServiceCollectionExtensions.fs is memoized? (Everything above this.services.Add... at the bottom)
 //- Add Async prefix to CustomOperation.Get, .Post, etc.
 //- In List.traverseJobResultA, we're converting to array. Optimize?
