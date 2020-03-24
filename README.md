@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.5.4 (2020-03-24)
+
+* Don't validate fallthrough requests
+
 ### 0.5.3 (2020-03-23)
 
 * Fixed serialization when using multiple context types

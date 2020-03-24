@@ -50,191 +50,191 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
       | errs -> handleErrors errs next httpCtx
 
 
-  validateRequest
-  >=> 
-    choose [
-      for collName, ops in collections |> Map.toSeq do
+  choose [
+    for collName, ops in collections |> Map.toSeq do
 
-        subRoute ("/" + collName) (getCtx (fun ctx req -> choose [
-
-
-          // Collection operations
-
-          routex "/?" >=> choose [
-            GET_HEAD >=>
-              match ops.getCollection with
-              | None -> handleErrors [collGetNotAllowed collName]
-              | Some getColl -> getColl ctx req
-
-            POST >=> 
-              match ops.postCollection with
-              | None -> handleErrors [collPostNotAllowed collName]
-              | Some postColl -> postColl ctx req
-
-            let allowHeader =
-              [ if ops.getCollection.IsSome then "GET"; "HEAD"
-                if ops.postCollection.IsSome then "POST" ]
-              |> String.concat ", "
-
-            fun next (httpCtx: HttpContext) ->
-              let method = httpCtx.Request.Method
-              handleErrors [methodNotAllowed method allowHeader] next httpCtx
-          ]
+      // TODO: Add test for invalid JSON:API request fallthrough (i.e., test that
+      // validation is performed here, not outside the outer 'choose')
+      subRoute ("/" + collName) (getCtx (fun ctx req -> validateRequest >=> choose [
 
 
-          // Specific resource operations
+        // Collection operations
 
-          subRoutef "/%s" (fun resourceId ->
+        routex "/?" >=> choose [
+          GET_HEAD >=>
+            match ops.getCollection with
+            | None -> handleErrors [collGetNotAllowed collName]
+            | Some getColl -> getColl ctx req
 
-            match ops.resourceOperations.getByIdBoxedHandler with
-            | None -> handleErrors [collLookupNotSupported collName]
-            | Some getById ->
-              getById ctx resourceId (fun resDef entity ->
+          POST >=> 
+            match ops.postCollection with
+            | None -> handleErrors [collPostNotAllowed collName]
+            | Some postColl -> postColl ctx req
 
-                choose [
+          let allowHeader =
+            [ if ops.getCollection.IsSome then "GET"; "HEAD"
+              if ops.postCollection.IsSome then "POST" ]
+            |> String.concat ", "
 
-                  routex "/?" >=> choose [
+          fun next (httpCtx: HttpContext) ->
+            let method = httpCtx.Request.Method
+            handleErrors [methodNotAllowed method allowHeader] next httpCtx
+        ]
+
+
+        // Specific resource operations
+
+        subRoutef "/%s" (fun resourceId ->
+
+          match ops.resourceOperations.getByIdBoxedHandler with
+          | None -> handleErrors [collLookupNotSupported collName]
+          | Some getById ->
+            getById ctx resourceId (fun resDef entity ->
+
+              choose [
+
+                routex "/?" >=> choose [
+
+                  GET_HEAD >=>
+                    match ops.resourceOperations.get with
+                    | None -> handleErrors [resGetNotSupportedForAnyResource collName]
+                    | Some get -> get ctx req resDef entity
+
+                  PATCH >=>
+                    match ops.resourceOperations.patch with
+                    | None -> handleErrors [resPatchNotSupportedForAnyResource collName]
+                    | Some patch -> patch ctx req resDef entity
+
+                  DELETE >=>
+                    match ops.resourceOperations.delete with
+                    | None -> handleErrors [resDeleteNotSupportedForAnyResource collName]
+                    | Some delete -> delete ctx req resDef entity
+
+                  let allowedMethods =
+                    [ if ops.resourceOperations.get.IsSome then "GET"; "HEAD"
+                      if ops.resourceOperations.patch.IsSome then "PATCH"
+                      if ops.resourceOperations.delete.IsSome then "DELETE" ]
+                    |> String.concat ", "
+
+                  fun next (httpCtx: HttpContext) ->
+                    let method = httpCtx.Request.Method
+                    handleErrors [methodNotAllowed method allowedMethods] next httpCtx
+                ]
+
+
+                // Resource relationship operations
+
+                for relName, rel in ops.resourceOperations.relationships |> Map.toList do
+
+                  // Related
+                  routex ("/" + relName + "/?")
+                  >=> choose [
 
                     GET_HEAD >=>
-                      match ops.resourceOperations.get with
-                      | None -> handleErrors [resGetNotSupportedForAnyResource collName]
+                      match rel.getRelated with
+                      | None -> handleErrors [getRelNotDefinedForAnyResource relName collName]
                       | Some get -> get ctx req resDef entity
 
-                    PATCH >=>
-                      match ops.resourceOperations.patch with
-                      | None -> handleErrors [resPatchNotSupportedForAnyResource collName]
-                      | Some patch -> patch ctx req resDef entity
-
-                    DELETE >=>
-                      match ops.resourceOperations.delete with
-                      | None -> handleErrors [resDeleteNotSupportedForAnyResource collName]
-                      | Some delete -> delete ctx req resDef entity
-
-                    let allowedMethods =
-                      [ if ops.resourceOperations.get.IsSome then "GET"; "HEAD"
-                        if ops.resourceOperations.patch.IsSome then "PATCH"
-                        if ops.resourceOperations.delete.IsSome then "DELETE" ]
+                    let allowHeader =
+                      [ if rel.getRelated.IsSome then "GET"; "HEAD" ]
                       |> String.concat ", "
 
                     fun next (httpCtx: HttpContext) ->
                       let method = httpCtx.Request.Method
-                      handleErrors [methodNotAllowed method allowedMethods] next httpCtx
+                      handleErrors [methodNotAllowed method allowHeader] next httpCtx
+
+                  ]
+
+                  // Self
+                  routex ("/relationships/" + relName + "/?")
+                  >=> choose [
+
+                    GET_HEAD >=>
+                      match rel.getSelf with
+                      | None -> handleErrors [getRelNotDefinedForAnyResource relName collName]
+                      | Some get -> get ctx req resDef entity
+
+                    PATCH >=>
+                      match rel.patchSelf with
+                      | None -> handleErrors [patchRelSelfNotAllowedForAnyResource relName collName rel.postSelf.IsSome rel.deleteSelf.IsSome]
+                      | Some patch -> patch ctx req resDef entity
+
+                    POST >=>
+                      match rel.postSelf with
+                      | None -> handleErrors [postToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.deleteSelf.IsSome]
+                      | Some post -> post ctx req resDef entity
+
+                    DELETE >=>
+                      match rel.deleteSelf with
+                      | None -> handleErrors [deleteToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.postSelf.IsSome]
+                      | Some delete -> delete ctx req resDef entity
+
+                    let allowHeader =
+                      [ if rel.getSelf.IsSome then "GET"; "HEAD"
+                        if rel.patchSelf.IsSome then "PATCH"
+                        if rel.postSelf.IsSome then "POST"
+                        if rel.deleteSelf.IsSome then "DELETE" ]
+                      |> String.concat ", "
+
+                    fun next (httpCtx: HttpContext) ->
+                      let method = httpCtx.Request.Method
+                      handleErrors [methodNotAllowed method allowHeader] next httpCtx
+
                   ]
 
 
-                  // Resource relationship operations
 
-                  for relName, rel in ops.resourceOperations.relationships |> Map.toList do
+                // Resource link operations
 
-                    // Related
-                    routex ("/" + relName + "/?")
-                    >=> choose [
+                for linkName, link in ops.resourceOperations.links |> Map.toList do
 
-                      GET_HEAD >=>
-                        match rel.getRelated with
-                        | None -> handleErrors [getRelNotDefinedForAnyResource relName collName]
-                        | Some get -> get ctx req resDef entity
+                  routex ("/" + linkName + "/?")
+                  >=> choose [
 
-                      let allowHeader =
-                        [ if rel.getRelated.IsSome then "GET"; "HEAD" ]
-                        |> String.concat ", "
+                    let allowHeader =
+                      [ if link.get.IsSome then "GET"; "HEAD"
+                        if link.post.IsSome then "POST"
+                        if link.patch.IsSome then "PATCH"
+                        if link.delete.IsSome then "DELETE" ]
+                      |> String.concat ", "
 
-                      fun next (httpCtx: HttpContext) ->
-                        let method = httpCtx.Request.Method
-                        handleErrors [methodNotAllowed method allowHeader] next httpCtx
+                    GET_HEAD >=>
+                      match link.get with
+                      | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "GET" collName allowHeader]
+                      | Some delete -> delete ctx req resDef entity
 
-                    ]
+                    POST >=>
+                      match link.post with
+                      | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "POST" collName allowHeader]
+                      | Some delete -> delete ctx req resDef entity
 
-                    // Self
-                    routex ("/relationships/" + relName + "/?")
-                    >=> choose [
+                    PATCH >=>
+                      match link.patch with
+                      | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "PATCH" collName allowHeader]
+                      | Some delete -> delete ctx req resDef entity
 
-                      GET_HEAD >=>
-                        match rel.getSelf with
-                        | None -> handleErrors [getRelNotDefinedForAnyResource relName collName]
-                        | Some get -> get ctx req resDef entity
+                    DELETE >=>
+                      match link.delete with
+                      | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "DELETE" collName allowHeader]
+                      | Some delete -> delete ctx req resDef entity
 
-                      PATCH >=>
-                        match rel.patchSelf with
-                        | None -> handleErrors [patchRelSelfNotAllowedForAnyResource relName collName rel.postSelf.IsSome rel.deleteSelf.IsSome]
-                        | Some patch -> patch ctx req resDef entity
+                    fun next (httpCtx: HttpContext) ->
+                      let method = httpCtx.Request.Method
+                      handleErrors [methodNotAllowed method allowHeader] next httpCtx
 
-                      POST >=>
-                        match rel.postSelf with
-                        | None -> handleErrors [postToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.deleteSelf.IsSome]
-                        | Some post -> post ctx req resDef entity
-
-                      DELETE >=>
-                        match rel.deleteSelf with
-                        | None -> handleErrors [deleteToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.postSelf.IsSome]
-                        | Some delete -> delete ctx req resDef entity
-
-                      let allowHeader =
-                        [ if rel.getSelf.IsSome then "GET"; "HEAD"
-                          if rel.patchSelf.IsSome then "PATCH"
-                          if rel.postSelf.IsSome then "POST"
-                          if rel.deleteSelf.IsSome then "DELETE" ]
-                        |> String.concat ", "
-
-                      fun next (httpCtx: HttpContext) ->
-                        let method = httpCtx.Request.Method
-                        handleErrors [methodNotAllowed method allowHeader] next httpCtx
-
-                    ]
+                  ]
 
 
+                // Fallback
+                subRoutef "/%s" (fun path ->
+                  handleErrors [linkOrRelationshipDoesNotExistForAnyResource path collName]
+                )
 
-                  // Resource link operations
+              ]
 
-                  for linkName, link in ops.resourceOperations.links |> Map.toList do
-
-                    routex ("/" + linkName + "/?")
-                    >=> choose [
-
-                      let allowHeader =
-                        [ if link.get.IsSome then "GET"; "HEAD"
-                          if link.post.IsSome then "POST"
-                          if link.patch.IsSome then "PATCH"
-                          if link.delete.IsSome then "DELETE" ]
-                        |> String.concat ", "
-
-                      GET_HEAD >=>
-                        match link.get with
-                        | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "GET" collName allowHeader]
-                        | Some delete -> delete ctx req resDef entity
-
-                      POST >=>
-                        match link.post with
-                        | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "POST" collName allowHeader]
-                        | Some delete -> delete ctx req resDef entity
-
-                      PATCH >=>
-                        match link.patch with
-                        | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "PATCH" collName allowHeader]
-                        | Some delete -> delete ctx req resDef entity
-
-                      DELETE >=>
-                        match link.delete with
-                        | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "DELETE" collName allowHeader]
-                        | Some delete -> delete ctx req resDef entity
-
-                      fun next (httpCtx: HttpContext) ->
-                        let method = httpCtx.Request.Method
-                        handleErrors [methodNotAllowed method allowHeader] next httpCtx
-
-                    ]
+            )
+        )
 
 
-                  // Fallback
-                  subRoutef "/%s" (fun path ->
-                    handleErrors [linkOrRelationshipDoesNotExistForAnyResource path collName]
-                  )
-
-                ]
-
-              )
-          )
-
-
-        ]))
-    ]
+      ]))
+  ]
