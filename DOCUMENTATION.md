@@ -1241,7 +1241,7 @@ Above, `Parent.create` has signature `Child -> Parent`, and `child` is the relat
 
 You can parse arbitrarily deep resource graphs this way (i.e., the included `child` resource above may have further sideposted relationships, and so on).
 
-As with polymorphism, I would urge you to first consider whether you can change your resource model to avoid the need for sideposting. Sideposting as shown above is covered by JSON:API, and the feature as implemented in Felicity does currently not support polymorphic relationships (there is currently no way to specify different parsers for different types).
+As with polymorphism, I would urge you to first consider whether you can change your resource model to avoid the need for sideposting. Sideposting as shown above is not covered by JSON:API, and the feature as implemented in Felicity does currently not support polymorphic relationships (there is currently no way to specify different parsers for different types).
 
 Tips for use with “dependent” entities that are not DDD aggregate roots
 -----------------------------------------------------------------------
