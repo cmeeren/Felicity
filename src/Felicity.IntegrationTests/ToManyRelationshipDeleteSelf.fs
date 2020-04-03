@@ -18,7 +18,11 @@ type Child2 = {
   Id: string
 }
 
-type Child = C1 of Child1 | C2 of Child2
+type Child = C1 of Child1 | C2 of Child2 with
+  member this.Id =
+    match this with
+    | C1 c -> c.Id
+    | C2 c -> c.Id
 
 
 type Parent1 = {
@@ -66,7 +70,7 @@ type Ctx = {
   ModifyDeleteSelfOkResponse: Parent1 -> Child list -> HttpHandler
   ModifyDeleteSelfAcceptedResponse: Parent1 -> HttpHandler
   GetParent1Children: Parent1 -> Child list Skippable
-  DeleteChildren1: Child list -> Parent1 -> Result<Parent1, Error list>
+  DeleteChildren1: string list -> Parent1 -> Result<Parent1, Error list>
   DeleteOtherChildrenIds1: string list -> Parent1 -> Result<Parent1, Error list>
   ParseChild2Id: string -> Result<string, Error list>
   LookupChild: string -> Result<Child option, Error list>
@@ -78,7 +82,7 @@ type Ctx = {
     ModifyDeleteSelfOkResponse = fun _ _ -> fun next ctx -> next ctx
     ModifyDeleteSelfAcceptedResponse = fun _ -> fun next ctx -> next ctx
     GetParent1Children = fun p -> Include p.Children
-    DeleteChildren1 = fun c p -> Ok { p with Children = p.Children |> List.except c }
+    DeleteChildren1 = fun cIds p -> Ok { p with Children = p.Children |> List.filter (fun c' -> cIds |> List.contains c'.Id |> not) }
     DeleteOtherChildrenIds1 = fun ids p -> Ok { p with OtherChildIds = p.OtherChildIds |> List.except ids }
     ParseChild2Id = Ok
     LookupChild = db.TryGetChild >> Ok
@@ -135,7 +139,7 @@ module Parent1 =  // remove and get - DELETE self OK
       )
       .ToMany()
       .GetSkip(fun ctx p -> ctx.GetParent1Children p)
-      .RemoveRes(Child.lookup, fun ctx -> ctx.DeleteChildren1)
+      .RemoveRes(fun ctx -> ctx.DeleteChildren1)
       .BeforeModifySelfRes(fun ctx p -> ctx.BeforeModifySelf1 p)
       .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
       .ModifyDeleteSelfOkResponse(fun ctx -> ctx.ModifyDeleteSelfOkResponse)
@@ -532,29 +536,7 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Related setter returns errors returned by related lookup's getById for each lookup" {
-      let db = Db ()
-      let ctx = { Ctx.WithDb db with LookupChild = fun _ -> Error [Error.create 422 |> Error.setCode "custom"] }
-      let! response =
-        Request.delete ctx "/parents/p1/relationships/children"
-        |> Request.bodySerialized
-            {|data = [
-                {| ``type`` = "child2"; id = "c2" |}
-                {| ``type`` = "child2"; id = "c22" |}
-            ] |}
-        |> getResponse
-      response |> testStatusCode 422
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "422" @>
-      test <@ json |> getPath "errors[0].code" = "custom" @>
-      test <@ json |> getPath "errors[0].source.pointer" = "/data/0" @>
-      test <@ json |> getPath "errors[1].status" = "422" @>
-      test <@ json |> getPath "errors[1].code" = "custom" @>
-      test <@ json |> getPath "errors[1].source.pointer" = "/data/1" @>
-      test <@ json |> hasNoPath "errors[2]" @>
-    }
-
-    testJob "Related setter returns errors returned by setter" {
+    testJob "Setter 1: returns errors returned by setter" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with DeleteChildren1 = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
       let! response =
@@ -573,29 +555,7 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Related setter returns 404 for each related resource that is not found" {
-      let db = Db ()
-      let ctx = { Ctx.WithDb db with LookupChild = fun _ -> Ok None }
-      let! response =
-        Request.delete ctx "/parents/p1/relationships/children"
-        |> Request.bodySerialized
-            {| data = [
-                {| ``type`` = "child2"; id = "c2" |}
-                {| ``type`` = "child2"; id = "c22" |}
-            ] |}
-        |> getResponse
-      response |> testStatusCode 404
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
-      test <@ json |> getPath "errors[0].source.pointer" = "/data/0" @>
-      test <@ json |> getPath "errors[1].status" = "404" @>
-      test <@ json |> getPath "errors[1].detail" = "The related resource does not exist" @>
-      test <@ json |> getPath "errors[1].source.pointer" = "/data/1" @>
-      test <@ json |> hasNoPath "errors[2]" @>
-    }
-
-    testJob "Related setter returns 404 for each related ID that fails to parse" {
+    testJob "Setter 1: returns 404 for each related ID that fails to parse" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ParseChild2Id = fun _ -> Error [Error.create 422] }
       let! response =
@@ -617,7 +577,7 @@ let tests =
       test <@ json |> hasNoPath "errors[2]" @>
     }
 
-    testJob "ID setter returns errors returned by setter" {
+    testJob "Setter 2: returns errors returned by setter" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with DeleteOtherChildrenIds1 = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
       let! response =
@@ -632,7 +592,7 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "ID setter returns 404 for each related ID that fails to parse" {
+    testJob "Setter 2: returns 404 for each related ID that fails to parse" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ParseChild2Id = fun _ -> Error [Error.create 422] }
       let! response =

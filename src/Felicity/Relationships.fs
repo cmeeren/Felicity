@@ -2427,23 +2427,11 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.RemoveJobRes (remove: Func<'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     this.RemoveJobRes(fun _ ids e -> remove.Invoke(ids, e))
 
-  member this.RemoveJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'ctx, 'relatedEntity list, 'entity, Job<Result<'entity, Error list>>>) =
-    this.RemoveJobRes(this.toIdSetter getRelated (fun ctx rels e -> remove.Invoke(ctx, rels, e)))
-
-  member this.RemoveJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, Job<Result<'entity, Error list>>>) =
-    this.RemoveJobRes(this.toIdSetter getRelated (fun _ ids e -> remove.Invoke(ids, e)))
-
   member this.RemoveAsyncRes (remove: Func<'ctx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.RemoveJobRes(Job.liftAsyncFunc3 remove)
 
   member this.RemoveAsyncRes (remove: Func<'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.RemoveJobRes(Job.liftAsyncFunc2 remove)
-
-  member this.RemoveAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'ctx, 'relatedEntity list, 'entity, Async<Result<'entity, Error list>>>) =
-    this.RemoveJobRes(getRelated, Job.liftAsyncFunc3 remove)
-
-  member this.RemoveAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, Async<Result<'entity, Error list>>>) =
-    this.RemoveJobRes(getRelated, Job.liftAsyncFunc2 remove)
 
   member this.RemoveJob (remove: Func<'ctx, 'relatedId list, 'entity, Job<'entity>>) =
     this.RemoveJobRes(fun ctx related entity -> remove.Invoke(ctx, related, entity) |> Job.map Ok)
@@ -2451,23 +2439,11 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.RemoveJob (remove: Func<'relatedId list, 'entity, Job<'entity>>) =
     this.RemoveJobRes(fun _ related entity -> remove.Invoke(related, entity) |> Job.map Ok)
 
-  member this.RemoveJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'ctx, 'relatedEntity list, 'entity, Job<'entity>>) =
-    this.RemoveJobRes(getRelated, fun ctx related entity -> remove.Invoke(ctx, related, entity) |> Job.map Ok)
-
-  member this.RemoveJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, Job<'entity>>) =
-    this.RemoveJobRes(getRelated, fun _ related entity -> remove.Invoke(related, entity) |> Job.map Ok)
-
   member this.RemoveAsync (remove: Func<'ctx, 'relatedId list, 'entity, Async<'entity>>) =
     this.RemoveJob(Job.liftAsyncFunc3 remove)
 
   member this.RemoveAsync (remove: Func<'relatedId list, 'entity, Async<'entity>>) =
     this.RemoveJob(Job.liftAsyncFunc2 remove)
-
-  member this.RemoveAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'ctx, 'relatedEntity list, 'entity, Async<'entity>>) =
-    this.RemoveJob(getRelated, Job.liftAsyncFunc3 remove)
-
-  member this.RemoveAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, Async<'entity>>) =
-    this.RemoveJob(getRelated, Job.liftAsyncFunc2 remove)
 
   member this.RemoveRes (remove: Func<'ctx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.RemoveJobRes(Job.liftFunc3 remove)
@@ -2475,23 +2451,11 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.RemoveRes (remove: Func<'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.RemoveJobRes(Job.liftFunc2 remove)
 
-  member this.RemoveRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'ctx, 'relatedEntity list, 'entity, Result<'entity, Error list>>) =
-    this.RemoveJobRes(getRelated, Job.liftFunc3 remove)
-
-  member this.RemoveRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, Result<'entity, Error list>>) =
-    this.RemoveJobRes(getRelated, Job.liftFunc2 remove)
-
   member this.Remove (remove: Func<'ctx, 'relatedId list, 'entity, 'entity>) =
     this.RemoveJobRes(JobResult.liftFunc3 remove)
 
   member this.Remove (remove: Func<'relatedId list, 'entity, 'entity>) =
     this.RemoveJobRes(JobResult.liftFunc2 remove)
-
-  member this.Remove (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'ctx, 'relatedEntity list, 'entity, 'entity>) =
-    this.RemoveJobRes(getRelated, JobResult.liftFunc3 remove)
-
-  member this.Remove (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, remove: Func<'relatedEntity list, 'entity, 'entity>) =
-    this.RemoveJobRes(getRelated, JobResult.liftFunc2 remove)
 
   member this.AddConstraintsJob(getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>) =
     { this with

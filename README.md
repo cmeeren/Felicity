@@ -285,6 +285,7 @@ Release notes
 ### vNext
 
 * Breaking: Renamed `RequestParser.Parse` to `ParseJob` and added `ParseAsync`
+* Breaking: Removed the “related setter” versions of `ToManyRelationship.Remove`. These violated the JSON:API spec; they returned errors when the related resources were not found, but the spec requires a success response even if the members are already removed from the relationship.
 * Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the normal `Post` operation doesn’t work
 * Fixed error for undefined resource-specific operations when the resource is not found
 
