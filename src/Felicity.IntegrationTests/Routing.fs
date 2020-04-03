@@ -22,8 +22,11 @@ module A =
 let tests =
   testList "Routing" [
 
-    testJob "Unknown collections fall through" {
-      let! response = Request.get Ctx "/unknown" |> getResponse
+    testJob "Unknown/invalid collections fall through" {
+      let! response =
+        Request.get Ctx "/unknown"
+        |> Request.setHeader (Accept "text/plain")
+        |> getResponse
       response |> testStatusCode 404
       let! content = response |> Response.readBodyAsString
       test <@ content = "" @>

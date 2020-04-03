@@ -53,8 +53,6 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
   choose [
     for collName, ops in collections |> Map.toSeq do
 
-      // TODO: Add test for invalid JSON:API request fallthrough (i.e., test that
-      // validation is performed here, not outside the outer 'choose')
       subRoute ("/" + collName) (getCtx (fun ctx req -> validateRequest >=> choose [
 
 
