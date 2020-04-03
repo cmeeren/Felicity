@@ -198,7 +198,7 @@ type internal GetCollectionOperation<'ctx> =
 
 type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
   mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  getCollection: 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
+  getCollection: 'originalCtx -> 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
   modifyResponse: 'ctx -> 'entity list -> HttpHandler
 } with
 
@@ -216,7 +216,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              match! this.getCollection mappedCtx req with
+              match! this.getCollection ctx mappedCtx req with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok (_, queryNames, entities) ->
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
@@ -247,7 +247,7 @@ type internal PolymorphicGetCollectionOperation<'ctx> =
 
 type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
   mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  getCollection: 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
+  getCollection: 'originalCtx -> 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
   getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
   modifyResponse: 'ctx -> 'entity list -> HttpHandler
 } with
@@ -267,7 +267,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              match! this.getCollection mappedCtx req with
+              match! this.getCollection ctx mappedCtx req with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok (_, queryNames, entities) ->
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
@@ -299,7 +299,7 @@ type internal PostOperation<'ctx> =
 
 type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Request -> Job<Result<'ctx, Error list>>
-  create: 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
+  create: 'originalCtx -> 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
   afterCreate: ('ctx -> 'entity -> Job<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
@@ -325,7 +325,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
           match! this.mapCtx ctx req with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              match! this.create mappedCtx req |> JobResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> JobResult.map (fun e -> fieldNames, e)) with
+              match! this.create ctx mappedCtx req |> JobResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> JobResult.map (fun e -> fieldNames, e)) with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok (ns, entity0) ->
                   match req.Document.Value with
@@ -450,7 +450,7 @@ type PostCustomHelper<'ctx, 'entity> internal
       patcher: BoxedPatcher<'ctx>,
       builder: ResponseBuilder<'ctx> ) =
 
-  member _.ValidateRequest (?parser: RequestParser<'ctx, 'a>) =
+  member _.ValidateRequest (?parser: RequestParser<'originalCtx, 'a>) =
     let idParsed =
       parser
       |> Option.map (fun p -> p.consumedFields)
@@ -460,7 +460,7 @@ type PostCustomHelper<'ctx, 'entity> internal
     | Ok (Some { data = Some { id = Include _ } }) when not idParsed -> Error [collPostClientIdNotAllowed collName rDef.TypeName]
     | _ -> Ok ()
 
-  member _.RunSettersJob (entity: 'entity, ?parser: RequestParser<'ctx, 'a>) =
+  member _.RunSettersJob (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
     patcher
       ctx
       req
@@ -468,7 +468,7 @@ type PostCustomHelper<'ctx, 'entity> internal
       (box entity)
     |> Job.map (Result.map unbox<'entity>)
 
-  member this.RunSettersAsync (entity: 'entity, ?parser: RequestParser<'ctx, 'a>) =
+  member this.RunSettersAsync (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
     this.RunSettersJob(entity, ?parser = parser) |> Job.toAsync
 
   member _.Return202Accepted () : HttpHandler =
@@ -497,7 +497,7 @@ type PostCustomHelper<'ctx, 'entity> internal
 
 type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  operation: 'ctx -> Request -> PostCustomHelper<'originalCtx, 'entity> -> Job<Result<HttpHandler, Error list>>
+  operation: 'originalCtx -> 'ctx -> Request -> PostCustomHelper<'originalCtx, 'entity> -> Job<Result<HttpHandler, Error list>>
 } with
 
   static member internal Create(mapCtx, operation) : CustomPostOperation<'originalCtx, 'ctx, 'createResult> =
@@ -515,7 +515,7 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
               let helper = PostCustomHelper<'originalCtx, 'entity>(ctx, req, collName, rDef, patch, resp)
-              match! this.operation mappedCtx req helper with
+              match! this.operation ctx mappedCtx req helper with
               | Ok handler -> return! handler next httpCtx
               | Error errors -> return! handleErrors errors next httpCtx
         }
@@ -531,7 +531,7 @@ type internal PatchOperation<'ctx> =
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
   beforeUpdate: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  customSetter: 'ctx -> Request -> 'entity -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
+  customSetter: 'originalCtx -> 'ctx -> Request -> 'entity -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
   afterUpdate: ('ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
@@ -541,7 +541,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     {
       mapCtx = mapCtx
       beforeUpdate = fun _ x -> Ok x |> Job.result
-      customSetter = fun _ _ e -> Ok (Set.empty, Set.empty, e) |> Job.result
+      customSetter = fun _ _ _ e -> Ok (Set.empty, Set.empty, e) |> Job.result
       afterUpdate = None
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
@@ -584,7 +584,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                       match! this.beforeUpdate mappedCtx (unbox<'entity> entity0) with
                       | Error errors -> return! handleErrors errors next httpCtx
                       | Ok entity1 ->
-                          match! this.customSetter mappedCtx req entity1 with
+                          match! this.customSetter ctx mappedCtx req entity1 with
                           | Error errors -> return! handleErrors errors next httpCtx
                           | Ok (fns, _, entity2) ->
                               match! patch ctx req fns entity2 with
@@ -681,31 +681,31 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.BeforeUpdate(f: Func<'entity, unit>) =
     this.BeforeUpdateJobRes(JobResult.liftFunc f)
 
-  member this.AddCustomSetterJobRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+  member this.AddCustomSetterJobRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     { this with
         customSetter =
-          fun ctx req e ->
-            this.customSetter ctx req e
+          fun origCtx ctx req e ->
+            this.customSetter origCtx ctx req e
             |> JobResult.bind (fun (fns, qns, e) ->
-                getRequestParser.Invoke(ctx, e, RequestParserHelper<'ctx>(ctx, req))
+                getRequestParser.Invoke(ctx, e, RequestParserHelper<'originalCtx>(origCtx, req))
                 |> JobResult.bind (fun p -> p.ParseWithConsumed ())
                 |> JobResult.map (fun (fns', qns', e) -> Set.union fns fns', Set.union qns qns', e)
             )
     }
 
-  member this.AddCustomSetterAsyncRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+  member this.AddCustomSetterAsyncRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     this.AddCustomSetterJobRes(Job.liftAsyncFunc3 getRequestParser)
 
-  member this.AddCustomSetterJob (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, 'entity>>>) =
+  member this.AddCustomSetterJob (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity>>>) =
     this.AddCustomSetterJobRes(fun ctx e parser -> getRequestParser.Invoke(ctx, e, parser) |> Job.map Ok)
 
-  member this.AddCustomSetterAsync (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity>>>) =
+  member this.AddCustomSetterAsync (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>) =
     this.AddCustomSetterJob(Job.liftAsyncFunc3 getRequestParser)
 
-  member this.AddCustomSetterRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity>, Error list>>) =
+  member this.AddCustomSetterRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>) =
     this.AddCustomSetterJobRes(Job.liftFunc3 getRequestParser)
 
-  member this.AddCustomSetter (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
+  member this.AddCustomSetter (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity>>) =
     this.AddCustomSetterJobRes(JobResult.liftFunc3 getRequestParser)
 
   member this.AfterUpdateJobRes(f: Func<'ctx, 'entity, 'entity, Job<Result<'entity, Error list>>>) =
@@ -875,7 +875,7 @@ type internal DeleteOperation<'ctx> =
 type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
   beforeDelete: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  delete: 'ctx -> Request -> 'entity -> Job<Result<unit, Error list>>
+  delete: 'originalCtx -> 'ctx -> Request -> 'entity -> Job<Result<unit, Error list>>
   modifyResponse: 'ctx -> HttpHandler
   return202Accepted: bool
 } with
@@ -903,7 +903,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
                   match! this.beforeDelete mappedCtx (unbox<'entity> entity0) with
                   | Error errors -> return! handleErrors errors next httpCtx
                   | Ok entity1 ->
-                      match! this.delete mappedCtx req (unbox<'entity> entity1) with
+                      match! this.delete ctx mappedCtx req (unbox<'entity> entity1) with
                       | Error errors -> return! handleErrors errors next httpCtx
                       | Ok () ->
                           if this.return202Accepted then
@@ -1021,10 +1021,10 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   name: string
   getMeta: ('ctx -> 'entity -> Map<string, obj>) option
   condition: 'ctx -> 'entity -> Job<Result<unit, Error list>>
-  get: ('ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
-  post: ('ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
-  patch: ('ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
-  delete: ('ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
+  get: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
+  post: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
+  patch: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
+  delete: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
 } with
 
   static member internal Create(mapCtx, name) : CustomOperation<'originalCtx, 'ctx, 'entity> =
@@ -1040,7 +1040,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     }
 
 
-  member private this.handler (operation: _ -> _ -> _ -> _ -> Job<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
+  member private this.handler (operation: _ -> _ -> _ -> _ -> _ -> Job<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
     fun next httpCtx ->
       job {
         match! this.mapCtx ctx with
@@ -1052,7 +1052,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                 match preconditions.Validate httpCtx ctx entity with
                 | Error errors -> return! handleErrors errors next httpCtx
                 | Ok () ->
-                    match! operation mappedCtx req responder (unbox<'entity> entity) with
+                    match! operation ctx mappedCtx req responder (unbox<'entity> entity) with
                     | Ok handler -> return! handler next httpCtx
                     | Error errors -> return! handleErrors errors next httpCtx
       }
@@ -1136,28 +1136,28 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.AddMetaOpt(key: string, getValue: 'entity -> 'a option) =
     this.AddMetaOpt(key, fun _ e -> getValue e)
 
-  member this.GetJob(get: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
-    { this with get = Some (fun ctx req responder entity -> get.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), responder, entity)) }
+  member this.GetJob(get: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+    { this with get = Some (fun origCtx ctx req responder entity -> get.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.PostJob(post: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
-    { this with post = Some (fun ctx req responder entity -> post.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), responder, entity)) }
+  member this.PostJob(post: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+    { this with post = Some (fun origCtx ctx req responder entity -> post.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.PatchJob(patch: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
-    { this with patch = Some (fun ctx req responder entity -> patch.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), responder, entity)) }
+  member this.PatchJob(patch: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+    { this with patch = Some (fun origCtx ctx req responder entity -> patch.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.DeleteJob(delete: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
-    { this with delete = Some (fun ctx req responder entity -> delete.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), responder, entity)) }
+  member this.DeleteJob(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+    { this with delete = Some (fun origCtx ctx req responder entity -> delete.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.GetAsync(get: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.GetAsync(get: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.GetJob(Job.liftAsyncFunc4 get)
 
-  member this.PostAsync(post: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.PostAsync(post: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.PostJob(Job.liftAsyncFunc4 post)
 
-  member this.PatchAsync(patch: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.PatchAsync(patch: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.PatchJob(Job.liftAsyncFunc4 patch)
 
-  member this.DeleteAsync(delete: Func<'ctx, RequestParserHelper<'ctx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
+  member this.DeleteAsync(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.DeleteJob(Job.liftAsyncFunc4 delete)
 
 
@@ -1201,16 +1201,16 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
     this.LookupJobRes(JobResult.liftFunc getById, getPolyBuilder)
 
   member _.GetCollectionJobRes(getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun ctx req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs)), getPolyBuilder)
+    PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun origCtx ctx req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs)), getPolyBuilder)
 
   member this.GetCollectionJobRes(getCollection: Func<unit, Job<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes((fun (_: 'ctx) -> getCollection.Invoke ()), getPolyBuilder)
 
-  member _.GetCollectionJobRes(getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member _.GetCollectionJobRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(
       mapCtx,
-      (fun ctx req ->
-        getRequestParser.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req))
+      (fun origCtx ctx req ->
+        getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
         |> JobResult.bind (fun p -> p.ParseWithConsumed ())
       ),
       getPolyBuilder
@@ -1222,7 +1222,7 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
   member this.GetCollectionAsyncRes(getCollection: Func<unit, Async<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(Job.liftAsyncFunc getCollection, getPolyBuilder)
 
-  member this.GetCollectionAsyncRes(getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member this.GetCollectionAsyncRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(Job.liftAsyncFunc2 getRequestParser, getPolyBuilder)
 
   member this.GetCollectionJob(getCollection: Func<'ctx, Job<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
@@ -1231,7 +1231,7 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
   member this.GetCollectionJob(getCollection: Func<unit, Job<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(getCollection.Invoke >> Job.map Ok, getPolyBuilder)
 
-  member this.GetCollectionJob(getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member this.GetCollectionJob(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes((fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok), getPolyBuilder)
 
   member this.GetCollectionAsync(getCollection: Func<'ctx, Async<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
@@ -1240,7 +1240,7 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
   member this.GetCollectionAsync(getCollection: Func<unit, Async<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJob(Job.liftAsyncFunc getCollection, getPolyBuilder)
 
-  member this.GetCollectionAsync(getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member this.GetCollectionAsync(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJob(Job.liftAsyncFunc2 getRequestParser, getPolyBuilder)
 
   member this.GetCollectionRes(getCollection: Func<'ctx, Result<'entity list, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
@@ -1249,7 +1249,7 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
   member this.GetCollectionRes(getCollection: Func<unit, Result<'entity list, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(Job.liftFunc getCollection, getPolyBuilder)
 
-  member this.GetCollectionRes(getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity list>, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member this.GetCollectionRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity list>, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(Job.liftFunc2 getRequestParser, getPolyBuilder)
 
   member this.GetCollection(getCollection: Func<'ctx, 'entity list>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
@@ -1258,7 +1258,7 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
   member this.GetCollection(getCollection: Func<unit, 'entity list>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(JobResult.liftFunc getCollection, getPolyBuilder)
 
-  member this.GetCollection(getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member this.GetCollection(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes(JobResult.liftFunc2 getRequestParser, getPolyBuilder)
 
 
@@ -1334,16 +1334,16 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx)
 
   member _.GetCollectionJobRes (getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>) =
-    GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun ctx req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs))
+    GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun origCtx ctx req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs))
 
   member this.GetCollectionJobRes (getCollection: Func<unit, Job<Result<'entity list, Error list>>>) =
     this.GetCollectionJobRes(fun (_: 'ctx) -> getCollection.Invoke ())
 
-  member _.GetCollectionJobRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, 'entity list>, Error list>>>) =
+  member _.GetCollectionJobRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>) =
     GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(
       mapCtx,
-      fun ctx req ->
-        getRequestParser.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req))
+      fun origCtx ctx req ->
+        getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
         |> JobResult.bind (fun p -> p.ParseWithConsumed ())
     )
 
@@ -1353,7 +1353,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.GetCollectionAsyncRes (getCollection: Func<unit, Async<Result<'entity list, Error list>>>) =
     this.GetCollectionJobRes(Job.liftAsyncFunc getCollection)
 
-  member this.GetCollectionAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity list>, Error list>>>) =
+  member this.GetCollectionAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>) =
     this.GetCollectionJobRes(Job.liftAsyncFunc2 getRequestParser)
 
   member this.GetCollectionJob (getCollection: Func<'ctx, Job<'entity list>>) =
@@ -1362,7 +1362,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.GetCollectionJob (getCollection: Func<unit, Job<'entity list>>) =
     this.GetCollectionJobRes(getCollection.Invoke >> Job.map Ok)
 
-  member this.GetCollectionJob (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, 'entity list>>>) =
+  member this.GetCollectionJob (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity list>>>) =
     this.GetCollectionJobRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok)
 
   member this.GetCollectionAsync (getCollection: Func<'ctx, Async<'entity list>>) =
@@ -1371,7 +1371,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.GetCollectionAsync (getCollection: Func<unit, Async<'entity list>>) =
     this.GetCollectionJob(Job.liftAsyncFunc getCollection)
 
-  member this.GetCollectionAsync (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity list>>>) =
+  member this.GetCollectionAsync (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity list>>>) =
     this.GetCollectionJob(Job.liftAsyncFunc2 getRequestParser)
 
   member this.GetCollectionRes (getCollection: Func<'ctx, Result<'entity list, Error list>>) =
@@ -1380,7 +1380,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.GetCollectionRes (getCollection: Func<unit, Result<'entity list, Error list>>) =
     this.GetCollectionJobRes(Job.liftFunc getCollection)
 
-  member this.GetCollectionRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity list>, Error list>>) =
+  member this.GetCollectionRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity list>, Error list>>) =
     this.GetCollectionJobRes(Job.liftFunc2 getRequestParser)
 
   member this.GetCollection (getCollection: Func<'ctx, 'entity list>) =
@@ -1389,20 +1389,20 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.GetCollection (getCollection: Func<unit, 'entity list>) =
     this.GetCollectionJobRes(JobResult.liftFunc getCollection)
 
-  member this.GetCollection (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity list>>) =
+  member this.GetCollection (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity list>>) =
     this.GetCollectionJobRes(JobResult.liftFunc2 getRequestParser)
 
   member _.PostJobRes (createEntity: Func<'ctx, Job<Result<'entity, Error list>>>) =
-    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx res -> mapCtx ctx), fun ctx res -> createEntity.Invoke ctx |> JobResult.map (fun e -> Set.empty, Set.empty, e))
+    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx res -> mapCtx ctx), fun origCtx ctx res -> createEntity.Invoke ctx |> JobResult.map (fun e -> Set.empty, Set.empty, e))
 
   member this.PostJobRes (createEntity: Func<unit, Job<Result<'entity, Error list>>>) =
     this.PostJobRes(fun (ctx: 'ctx) -> createEntity.Invoke ())
 
-  member _.PostJobRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+  member _.PostJobRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     PostOperation<'originalCtx, 'ctx, 'entity>.Create(
       (fun ctx _ -> mapCtx ctx),
-      fun ctx req ->
-        getRequestParser.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req))
+      fun origCtx ctx req ->
+        getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
         |> JobResult.bind (fun p -> p.ParseWithConsumed ())
     )
 
@@ -1412,7 +1412,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostAsyncRes (createEntity: Func<unit, Async<Result<'entity, Error list>>>) =
     this.PostJobRes(Job.liftAsyncFunc createEntity)
 
-  member this.PostAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+  member this.PostAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     this.PostJobRes(Job.liftAsyncFunc2 getRequestParser)
 
   member this.PostJob (createEntity: Func<'ctx, Job<'entity>>) =
@@ -1421,7 +1421,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostJob (createEntity: Func<unit, Job<'entity>>) =
     this.PostJobRes(createEntity.Invoke >> Job.map Ok)
 
-  member this.PostJob (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, 'entity>>>) =
+  member this.PostJob (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity>>>) =
     this.PostJobRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok)
 
   member this.PostAsync (createEntity: Func<'ctx, Async<'entity>>) =
@@ -1430,7 +1430,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostAsync (createEntity: Func<unit, Async<'entity>>) =
     this.PostJob(Job.liftAsyncFunc createEntity)
 
-  member this.PostAsync (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity>>>) =
+  member this.PostAsync (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>) =
     this.PostJob(Job.liftAsyncFunc2 getRequestParser)
 
   member this.PostRes (createEntity: Func<'ctx, Result<'entity, Error list>>) =
@@ -1439,7 +1439,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostRes (createEntity: Func<unit, Result<'entity, Error list>>) =
     this.PostJobRes(Job.liftFunc createEntity)
 
-  member this.PostRes (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity>, Error list>>) =
+  member this.PostRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>) =
     this.PostJobRes(Job.liftFunc2 getRequestParser)
 
   member this.Post (createEntity: Func<'ctx, 'entity>) =
@@ -1448,7 +1448,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.Post (createEntity: Func<unit, 'entity>) =
     this.PostJobRes(JobResult.liftFunc createEntity)
 
-  member this.Post (getRequestParser: Func<'ctx, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
+  member this.Post (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity>>) =
     this.PostJobRes(JobResult.liftFunc2 getRequestParser)
 
   member _.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Job<Result<'entity, Error list>>>) =
@@ -1459,12 +1459,12 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
           |> JobResult.map (fun e -> mappedCtx, e)
       )
     let consumedFieldNames = match backRef.FieldName with None -> Set.empty | Some fn -> Set.empty.Add fn
-    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun ctx res -> createEntity.Invoke ctx |> JobResult.map (fun e -> consumedFieldNames, Set.empty, e))
+    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun origCtx ctx res -> createEntity.Invoke ctx |> JobResult.map (fun e -> consumedFieldNames, Set.empty, e))
 
   member this.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Job<Result<'entity, Error list>>>) =
     this.PostBackRefJobRes(backRef, fun (ctx: 'ctx, br: 'backRefEntity) -> createEntity.Invoke ())
 
-  member _.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+  member _.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     let mapCtxWithBackRef ctx req =
       mapCtx ctx
       |> JobResult.bind (fun mappedCtx ->
@@ -1474,8 +1474,8 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     let addBackRefFieldName = match backRef.FieldName with None -> id | Some fn -> Set.add fn
     PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(
       mapCtxWithBackRef,
-      fun ctx req ->
-        getRequestParser.Invoke(ctx, RequestParserHelper<'ctx>(fst ctx, req))
+      fun origCtx ctx req ->
+        getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
         |> JobResult.bind (fun p -> p.ParseWithConsumed ())
         |> JobResult.map (fun (fns, qns, e) -> addBackRefFieldName fns, qns, e)
     )
@@ -1486,7 +1486,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<Result<'entity, Error list>>>) =
     this.PostBackRefJobRes(backRef, Job.liftAsyncFunc createEntity)
 
-  member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, 'entity>, Error list>>>) =
+  member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     this.PostBackRefJobRes(backRef, Job.liftAsyncFunc2 getRequestParser)
 
   member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Job<'entity>>) =
@@ -1495,7 +1495,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Job<'entity>>) =
     this.PostBackRefJobRes(backRef, createEntity.Invoke >> Job.map Ok)
 
-  member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, 'entity>>>) =
+  member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity>>>) =
     this.PostBackRefJobRes(backRef, fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok)
 
   member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Async<'entity>>) =
@@ -1504,7 +1504,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<'entity>>) =
     this.PostBackRefJob(backRef, Job.liftAsyncFunc createEntity)
 
-  member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, 'entity>>>) =
+  member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>) =
     this.PostBackRefJob(backRef, Job.liftAsyncFunc2 getRequestParser)
 
   member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Result<'entity, Error list>>) =
@@ -1513,7 +1513,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Result<'entity, Error list>>) =
     this.PostBackRefJobRes(backRef, Job.liftFunc createEntity)
 
-  member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, 'entity>, Error list>>) =
+  member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>) =
     this.PostBackRefJobRes(backRef, Job.liftFunc2 getRequestParser)
 
   member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, 'entity>) =
@@ -1522,36 +1522,36 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, 'entity>) =
     this.PostBackRefJobRes(backRef, JobResult.liftFunc createEntity)
 
-  member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
+  member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity>>) =
     this.PostBackRefJobRes(backRef, JobResult.liftFunc2 getRequestParser)
 
-  member _.PostCustomJob(operation: Func<'ctx, RequestParserHelper<'ctx>, PostCustomHelper<'originalCtx, 'entity>, Job<Result<HttpHandler, Error list>>>) =
+  member _.PostCustomJob(operation: Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Job<Result<HttpHandler, Error list>>>) =
     CustomPostOperation<'originalCtx, 'ctx, 'entity>.Create(
       mapCtx,
-      fun ctx req helper -> operation.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), helper)
+      fun origCtx ctx req helper -> operation.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), helper)
     )
 
-  member this.PostCustomAsync(operation: Func<'ctx, RequestParserHelper<'ctx>, PostCustomHelper<'originalCtx, 'entity>, Async<Result<HttpHandler, Error list>>>) =
+  member this.PostCustomAsync(operation: Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Async<Result<HttpHandler, Error list>>>) =
     this.PostCustomJob(Job.liftAsyncFunc3 operation)
 
   member _.Patch() =
     PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
 
   member _.DeleteJobRes(delete: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun ctx _ entity -> delete.Invoke(ctx, entity))
+    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun origCtx ctx _ entity -> delete.Invoke(ctx, entity))
 
   member this.DeleteJobRes(delete: Func<'entity, Job<Result<unit, Error list>>>) =
     this.DeleteJobRes(fun _ e -> delete.Invoke e)
 
-  member _.DeleteJobRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, unit>, Error list>>>) =
+  member _.DeleteJobRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
     DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(
       mapCtx,
-      fun ctx req entity ->
-        getRequestParser.Invoke(ctx, entity, RequestParserHelper<'ctx>(ctx, req))
+      fun origCtx ctx req entity ->
+        getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
         |> JobResult.bind (fun p -> p.ParseJob ())
     )
 
-  member this.DeleteJobRes(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, unit>, Error list>>>) =
+  member this.DeleteJobRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
     this.DeleteJobRes(fun _ e p -> getRequestParser.Invoke(e, p))
 
   member this.DeleteAsyncRes(delete: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
@@ -1560,10 +1560,10 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.DeleteAsyncRes(delete: Func<'entity, Async<Result<unit, Error list>>>) =
     this.DeleteJobRes(Job.liftAsyncFunc delete)
 
-  member this.DeleteAsyncRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, unit>, Error list>>>) =
+  member this.DeleteAsyncRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
     this.DeleteJobRes(Job.liftAsyncFunc3 getRequestParser)
 
-  member this.DeleteAsyncRes(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, Async<Result<RequestParser<'ctx, unit>, Error list>>>) =
+  member this.DeleteAsyncRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
     this.DeleteJobRes(Job.liftAsyncFunc2 getRequestParser)
 
   member this.DeleteJob(delete: Func<'ctx, 'entity, Job<unit>>) =
@@ -1572,10 +1572,10 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.DeleteJob(delete: Func<'entity, Job<unit>>) =
     this.DeleteJobRes(fun _ e -> delete.Invoke e |> Job.map Ok)
 
-  member this.DeleteJob(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, unit>>>) =
+  member this.DeleteJob(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
     this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(ctx, e, parse) |> Job.map Ok)
 
-  member this.DeleteJob(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, Job<RequestParser<'ctx, unit>>>) =
+  member this.DeleteJob(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
     this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(e, parse) |> Job.map Ok)
 
   member this.DeleteAsync(delete: Func<'ctx, 'entity, Async<unit>>) =
@@ -1584,10 +1584,10 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.DeleteAsync(delete: Func<'entity, Async<unit>>) =
     this.DeleteJob(Job.liftAsyncFunc delete)
 
-  member this.DeleteAsync(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, unit>>>) =
+  member this.DeleteAsync(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
     this.DeleteJob(Job.liftAsyncFunc3 getRequestParser)
 
-  member this.DeleteAsync(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, Async<RequestParser<'ctx, unit>>>) =
+  member this.DeleteAsync(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
     this.DeleteJob(Job.liftAsyncFunc2 getRequestParser)
 
   member this.DeleteRes(delete: Func<'ctx, 'entity, Result<unit, Error list>>) =
@@ -1596,10 +1596,10 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.DeleteRes(delete: Func<'entity, Result<unit, Error list>>) =
     this.DeleteJobRes(Job.liftFunc delete)
 
-  member this.DeleteRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, unit>, Error list>>) =
+  member this.DeleteRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
     this.DeleteJobRes(Job.liftFunc3 getRequestParser)
 
-  member this.DeleteRes(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, Result<RequestParser<'ctx, unit>, Error list>>) =
+  member this.DeleteRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
     this.DeleteJobRes(Job.liftFunc2 getRequestParser)
 
   member this.Delete(delete: Func<'ctx, 'entity, unit>) =
@@ -1608,10 +1608,10 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member this.Delete(delete: Func<'entity, unit>) =
     this.DeleteJobRes(JobResult.liftFunc delete)
 
-  member this.Delete(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'ctx>, RequestParser<'ctx, unit>>) =
+  member this.Delete(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
     this.DeleteJobRes(JobResult.liftFunc3 getRequestParser)
 
-  member this.Delete(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, RequestParser<'ctx, unit>>) =
+  member this.Delete(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
     this.DeleteJobRes(JobResult.liftFunc2 getRequestParser)
 
   member _.CustomLink([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =

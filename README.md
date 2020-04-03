@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.7.0 (2020-04-03)
+
+* Breaking bugfix: For operations with transformed context (`.ForContext(...)`), the `ResourceParserHelper`/`ResourceParser` is now typed to the original context, not the mapped context, so that it actually can parse the resource’s fields (which are typed to the original context)
+
 ### 0.6.0 (2020-04-03)
 
 * Breaking: Renamed `RequestParser.Parse` to `ParseJob` and added `ParseAsync`
