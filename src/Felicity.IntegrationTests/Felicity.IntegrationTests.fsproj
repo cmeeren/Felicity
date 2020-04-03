@@ -20,6 +20,7 @@
     <Compile Include="PostCollection.fs" />
     <Compile Include="PostCollectionIncluded.fs" />
     <Compile Include="PostCollectionBackRef.fs" />
+    <Compile Include="PostCollectionCustom.fs" />
     <Compile Include="GetResource.fs" />
     <Compile Include="GetResourcePolymorphic.fs" />
     <Compile Include="PatchResource.fs" />

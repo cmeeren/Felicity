@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### vNext
+
+* Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the normal `Post` doesn’t work
+
 ### 0.5.4 (2020-03-24)
 
 * Don't validate fallthrough requests

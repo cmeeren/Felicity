@@ -442,6 +442,86 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.ModifyResponse(handler: HttpHandler) =
     this.ModifyResponse(fun _ _ -> handler)
 
+type PostCustomHelper<'ctx, 'entity> internal
+    ( ctx: 'ctx,
+      req: Request,
+      collName: string,
+      rDef: ResourceDefinition<'ctx>,
+      patcher: BoxedPatcher<'ctx>,
+      builder: ResponseBuilder<'ctx> ) =
+
+  member _.ValidateRequest (?parser: RequestParser<'ctx, 'a>) =
+    let idParsed =
+      parser
+      |> Option.map (fun p -> p.consumedFields)
+      |> Option.defaultValue Set.empty
+      |> Set.contains "id"
+    match req.Document.Value with
+    | Ok (Some { data = Some { id = Include _ } }) when not idParsed -> Error [collPostClientIdNotAllowed collName rDef.TypeName]
+    | _ -> Ok ()
+
+  member _.RunSettersJob (entity: 'entity, ?parser: RequestParser<'ctx, 'a>) =
+    patcher
+      ctx
+      req
+      (parser |> Option.map (fun p -> p.consumedFields) |> Option.defaultValue Set.empty)
+      (box entity)
+    |> Job.map (Result.map unbox<'entity>)
+
+  member this.RunSettersAsync (entity: 'entity, ?parser: RequestParser<'ctx, 'a>) =
+    this.RunSettersJob(entity, ?parser = parser) |> Job.toAsync
+
+  member _.Return202Accepted () : HttpHandler =
+    setStatusCode 202
+
+  member _.ReturnCreatedEntity (entity: 'entity) : HttpHandler =
+    fun next httpCtx ->
+      job {
+        let! doc = builder.Write ctx req (rDef, entity)
+        let setLocationHeader =
+          match doc with
+          | { data = Some { links = Include links } } ->
+              match links.TryGetValue "self" with
+              | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
+              | _ -> fun next ctx -> next ctx
+          | _ -> fun next ctx -> next ctx
+        let handler =
+          setStatusCode 201
+          >=> setLocationHeader
+          >=> jsonApiWithETag<'ctx> doc
+        return! handler next httpCtx
+      }
+      |> Job.startAsTask
+
+
+
+type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
+  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
+  operation: 'ctx -> Request -> PostCustomHelper<'originalCtx, 'entity> -> Job<Result<HttpHandler, Error list>>
+} with
+
+  static member internal Create(mapCtx, operation) : CustomPostOperation<'originalCtx, 'ctx, 'createResult> =
+    {
+      mapCtx = mapCtx
+      operation = operation
+    }
+
+  interface PostOperation<'originalCtx> with
+    member _.HasPersist = true
+    member this.Run collName rDef ctx req patch resp =
+      fun next httpCtx ->
+        job {
+          match! this.mapCtx ctx with
+          | Error errors -> return! handleErrors errors next httpCtx
+          | Ok mappedCtx ->
+              let helper = PostCustomHelper<'originalCtx, 'entity>(ctx, req, collName, rDef, patch, resp)
+              match! this.operation mappedCtx req helper with
+              | Ok handler -> return! handler next httpCtx
+              | Error errors -> return! handleErrors errors next httpCtx
+        }
+        |> Job.startAsTask
+
+
 
 type internal PatchOperation<'ctx> =
   abstract HasPersist: bool
@@ -1444,6 +1524,15 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
   member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'ctx>, RequestParser<'ctx, 'entity>>) =
     this.PostBackRefJobRes(backRef, JobResult.liftFunc2 getRequestParser)
+
+  member _.PostCustomJob(operation: Func<'ctx, RequestParserHelper<'ctx>, PostCustomHelper<'originalCtx, 'entity>, Job<Result<HttpHandler, Error list>>>) =
+    CustomPostOperation<'originalCtx, 'ctx, 'entity>.Create(
+      mapCtx,
+      fun ctx req helper -> operation.Invoke(ctx, RequestParserHelper<'ctx>(ctx, req), helper)
+    )
+
+  member this.PostCustomAsync(operation: Func<'ctx, RequestParserHelper<'ctx>, PostCustomHelper<'originalCtx, 'entity>, Async<Result<HttpHandler, Error list>>>) =
+    this.PostCustomJob(Job.liftAsyncFunc3 operation)
 
   member _.Patch() =
     PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)

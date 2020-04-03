@@ -621,6 +621,78 @@ If you need the operation to return `202 Accepted`, simply add `Return202Accepte
 4. `AfterCreate`
 5. `ModifyResponse`
 
+Custom POST collection operation
+--------------------------------
+
+The normal POST operation described above requires you to supply at least two functions – one for creating an entity that does not cause any observable state change, and one for persisting the entity. You also have to choose whether or not to *always* return `202 Accepted`.
+
+This is very simple, but you may come across use-cases where this at best would require you to twist your domain logic quite a bit, or at worst is not sufficient at all. For these use-cases, you can use a custom POST operation instead. Here you are entirely free, and you get a helper that you can use for common POST tasks, but you’re not guided as much as with the normal POST operation.
+
+### Example
+
+Let’s say you have an account service with these requirements:
+
+* A user can have multiple emails
+* Emails must be verified before being added
+* For anonymity/misuse reasons, you can not return an error indicating that an email address is taken – instead, when adding an email address, you always send an email to the specified address, either with a verification code/link, or with a message indicating that the email is already registered.
+
+There are undoubtedly many ways to model this. One way is like this:
+
+* You have a `user` resource with an `emails` relationship which is to-many `email`
+* You have an `email` resource with attributes `email` (the address) and `token` (write-only, used when verifying), and a relationship `user` (back-reference for use when creating using POST)
+* Add email, step 1: `POST /emails` with fields `email` and `user`. Returns `202 Accepted`. Internally a token is generated and stored along with the email address and user ID, and an email is sent to the specified address.
+* Add email, step 2: `POST /emails` with field `token`. The “pending email request” is looked up by the token, and the email is added to the user. Returns `201 Created` with the new `email` resource.
+
+The custom POST operation might look like this (note that all of the steps below are optional – you can do whatever you want):
+
+```f#
+let post =
+  define.Operation
+    // PostCustomAsync accepts context, parser helper, and a special helper for
+    // the PostCustom operation, and returns Async<Result<HttpHandler, Error list>>
+    // just like custom operations.
+    .PostCustomAsync(fun ctx parser helper ->
+      asyncResult {
+        // First set up a parser. The implication below is that User.addEmail
+        // returns Async<Result<Choice<unit,Email>, Error list>>. It returns
+        // unit after stage 1, Email after stage 2, and errors if there is an invalid
+        // combination of parameters.
+        let parser =
+          parser.ForAsyncRes(
+            User.addEmail, email.Optional, user.Optional, token.Optional
+          )
+        // Then validate the request (pass in the parser to indicate which fields
+        // are used). For example, if you don't parse the resource ID, an error is
+        // returned if the ID is present in the request.
+        do! helper.ValidateRequest parser
+        // Parse and call User.addEmail
+        match! parser.Parse() with
+        | Choice1Of2 () ->
+            // This simply returns 202 Accepted
+            return helper.Return202Accepted ()
+        | Choice2Of2 email ->
+        		// Returns 201 with the entity, and also sets the Location header if relevant
+        		return helper.ReturnCreatedEntity email
+      }
+    )
+```
+
+### Parsing fields and parameters
+
+The parser works just like it does in the normal POST operation. However, you have to call `.Parse()` yourself when you need it.
+
+### Checking for client-generated IDs
+
+Call `helper.ValidateRequest`, optionally with the parser you have created if you are parsing the request. If you have not parsed the resource ID and the ID is present in the request, an error is returned.
+
+### Running additional setters
+
+Call `helper.RunSettersAsync(entity)` (or `RunSettersJob`). It optionally also accepts a parser, which you should supply if you have parsed any fields. It will skip fields you have already parsed.
+
+### Returning 201 or 202
+
+Call `helper.ReturnCreatedEntity(entity)` to return a proper JSON:API `201 Created` response (automatically supporting sparse fieldsets and includes as usual), or `helper.Return202Accepted()` to return an empty `202 Accepted` response.
+
 ID lookup operation
 -------------------
 
