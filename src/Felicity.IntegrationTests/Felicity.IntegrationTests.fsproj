@@ -41,7 +41,7 @@
     <PackageReference Include="Expecto" Version="8.13.2" />
     <PackageReference Include="Expecto.Hopac" Version="8.13.2" />
     <PackageReference Include="Http.fs" Version="5.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.2" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="Unquote" Version="5.0.0" />
@@ -50,6 +50,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Felicity\Felicity.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.7.1" />
   </ItemGroup>
   
 </Project>
