@@ -666,7 +666,7 @@ let post =
         // returned if the ID is present in the request.
         do! helper.ValidateRequest parser
         // Parse and call User.addEmail
-        match! parser.Parse() with
+        match! parser.ParseAsync() with
         | Choice1Of2 () ->
             // This simply returns 202 Accepted
             return helper.Return202Accepted ()
@@ -679,7 +679,7 @@ let post =
 
 ### Parsing fields and parameters
 
-The parser works just like it does in the normal POST operation. However, you have to call `.Parse()` yourself when you need it.
+The parser works just like it does in the normal POST operation. However, you have to call `.ParseAsync()` yourself when you need it.
 
 ### Checking for client-generated IDs
 
@@ -1057,7 +1057,7 @@ let linkName =
 
 This demonstrates one possible way of using the parser in custom operations: `GetRequired` simply parses a single required parameter. There is also `GetOptional` that returns an `Option`-wrapped value which is `None` if the parameter was not present.
 
-The other possible way to use the parser in custom operation is to use it exactly like in the standard operations, i.e. `parser.For(…).Add(…)`, but end with `.Parse()`. This returns `Async<Result<'a, Error list>>`, meaning you can bind it using `let!` in a custom operation. For example:
+The other possible way to use the parser in custom operation is to use it exactly like in the standard operations, i.e. `parser.For(…).Add(…)`, but end with `.ParseAsync()`. This returns `Async<Result<'a, Error list>>`, meaning you can bind it using `let!` in a custom operation. For example:
 
 ```f#
 let linkName =
@@ -1069,7 +1069,7 @@ let linkName =
           parser.For(MyArgs.create, someAttr)
             .Add(MyArgs.setFoo, Query.Int("foo"))
             .Add(...)
-            .Parse()
+            .ParseAsync()
         ...
       }
     )

@@ -284,7 +284,8 @@ Release notes
 
 ### vNext
 
-* Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the normal `Post` doesn’t work
+* Breaking: Renamed `RequestParser.Parse` to `ParseJob` and added `ParseAsync`
+* Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the normal `Post` operation doesn’t work
 
 ### 0.5.4 (2020-03-24)
 

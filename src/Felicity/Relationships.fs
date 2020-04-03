@@ -111,7 +111,7 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                   | { data = Include identifier } ->
                       RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
                       |> this.getParser
-                      |> fun p -> p.Parse()
+                      |> fun p -> p.ParseJob()
                       |> JobResult.map Some
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> Job.result
@@ -921,7 +921,7 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                           else
                             RequestParserHelper<'ctx>(ctx, req, (id.``type``, id.id))
                             |> this.getParser
-                            |> fun p -> p.Parse()
+                            |> fun p -> p.ParseJob()
                       )
                       |> JobResult.map Some
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (x.GetType().FullName)
@@ -1819,7 +1819,7 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                           else
                             RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
                             |> this.getParser
-                            |> fun p -> p.Parse()
+                            |> fun p -> p.ParseJob()
                       )
                       |> JobResult.map Some
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (x.GetType().FullName)

@@ -74,7 +74,7 @@ module A =
           match helper.ValidateRequest parser with
           | Error errs -> return Error errs
           | Ok () ->
-              match! parser.Parse() |> Hopac.Job.toAsync with
+              match! parser.ParseJob() |> Hopac.Job.toAsync with
               | Error errs -> return Error errs
               | Ok a ->
                   match ADomain.create a with

@@ -48,8 +48,11 @@ type RequestParser<'ctx, 'a> = internal {
       else return Error prohibitedErrs
     }
 
-  member this.Parse () : Job<Result<'a, Error list>> =
+  member this.ParseJob () : Job<Result<'a, Error list>> =
     this.ParseWithConsumed () |> JobResult.map (fun (_, _, x) -> x)
+
+  member this.ParseAsync () : Async<Result<'a, Error list>> =
+    this.ParseJob () |> Job.toAsync
 
   member private this.MarkAsConsumed(getter: RequestGetter<'ctx, 'b>) =
     { this with
@@ -202,10 +205,10 @@ type RequestParser<'ctx, 'a> = internal {
 type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeAndId) =
 
   member _.GetRequired(param: RequestGetter<'ctx, 'a>) : Job<Result<'a, Error list>> =
-    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).Parse()
+    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
 
   member _.GetOptional(param: OptionalRequestGetter<'ctx, 'a>) : Job<Result<'a option, Error list>> =
-    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).Parse()
+    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
 
   // Arity 0
 

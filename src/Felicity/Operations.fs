@@ -1548,7 +1548,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
       mapCtx,
       fun ctx req entity ->
         getRequestParser.Invoke(ctx, entity, RequestParserHelper<'ctx>(ctx, req))
-        |> JobResult.bind (fun p -> p.Parse ())
+        |> JobResult.bind (fun p -> p.ParseJob ())
     )
 
   member this.DeleteJobRes(getRequestParser: Func<'entity, RequestParserHelper<'ctx>, Job<Result<RequestParser<'ctx, unit>, Error list>>>) =
