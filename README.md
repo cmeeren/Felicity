@@ -282,7 +282,7 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
-### vNext
+### 0.6.0 (2020-04-03)
 
 * Breaking: Renamed `RequestParser.Parse` to `ParseJob` and added `ParseAsync`
 * Breaking: Removed the “related setter” versions of `ToManyRelationship.Remove`. These violated the JSON:API spec; they returned errors when the related resources were not found, but the spec requires a success response even if the members are already removed from the relationship.
