@@ -143,7 +143,7 @@ module A2 =
   let define = Define<Ctx2, A, string>()
   let resId = define.Id.Simple(fun _ -> failwith "not used")
   let resDef = define.Resource("a", resId).CollectionName("abs")
-  let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "a1" })
+  let lookup = define.Operation.Lookup(fun _ -> None)
 
 
 type Ctx3 = Ctx3

@@ -111,7 +111,7 @@ module AB2 =
   let resDef =
     define.PolymorphicResource(resId)
       .CollectionName("abs")
-  let lookup = define.Operation.Lookup(fun _ -> Some a)
+  let lookup = define.Operation.Lookup(fun _ -> None)
 
 
 

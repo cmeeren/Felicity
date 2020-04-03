@@ -60,7 +60,7 @@ module A2 =
   let define = Define<Ctx2, A, string>()
   let resId = define.Id.Simple(fun a -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("as")
-  let lookup = define.Operation.Lookup(fun _ -> Some a)
+  let lookup = define.Operation.Lookup(fun _ -> None)
 
 
 
@@ -149,7 +149,7 @@ let tests =
     }
 
     testJob "Returns 403 if not supported" {
-      let! response = Request.get Ctx2 "/as/1" |> getResponse
+      let! response = Request.get Ctx2 "/as/nonExistentId" |> getResponse
       response |> testStatusCode 403
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].detail" = "GET is not supported for any resource in collection 'as'" @>
@@ -158,7 +158,7 @@ let tests =
     }
 
     testJob "Returns 403 if missing lookup" {
-      let! response = Request.get Ctx3 "/as/1" |> getResponse
+      let! response = Request.get Ctx3 "/as/nonExistentId" |> getResponse
       response |> testStatusCode 403
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "403" @>

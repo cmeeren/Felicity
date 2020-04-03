@@ -286,6 +286,7 @@ Release notes
 
 * Breaking: Renamed `RequestParser.Parse` to `ParseJob` and added `ParseAsync`
 * Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the normal `Post` operation doesn’t work
+* Fixed error for undefined resource-specific operations when the resource is not found
 
 ### 0.5.4 (2020-03-24)
 

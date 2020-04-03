@@ -226,7 +226,7 @@ module A2 =
   let define = Define<Ctx2, A, string>()
   let resId = define.Id.Simple(function a -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("abs")
-  let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
+  let lookup = define.Operation.Lookup(fun _ -> None)
 
 
 

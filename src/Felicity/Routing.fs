@@ -89,7 +89,7 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
           match ops.resourceOperations.getByIdBoxedHandler with
           | None -> handleErrors [collLookupNotSupported collName]
           | Some getById ->
-            getById ctx resourceId (fun resDef entity ->
+              let lookup f = getById ctx resourceId f
 
               choose [
 
@@ -98,17 +98,17 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                   GET_HEAD >=>
                     match ops.resourceOperations.get with
                     | None -> handleErrors [resGetNotSupportedForAnyResource collName]
-                    | Some get -> get ctx req resDef entity
+                    | Some get -> lookup (get ctx req)
 
                   PATCH >=>
                     match ops.resourceOperations.patch with
                     | None -> handleErrors [resPatchNotSupportedForAnyResource collName]
-                    | Some patch -> patch ctx req resDef entity
+                    | Some patch -> lookup (patch ctx req)
 
                   DELETE >=>
                     match ops.resourceOperations.delete with
                     | None -> handleErrors [resDeleteNotSupportedForAnyResource collName]
-                    | Some delete -> delete ctx req resDef entity
+                    | Some delete -> lookup (delete ctx req)
 
                   let allowedMethods =
                     [ if ops.resourceOperations.get.IsSome then "GET"; "HEAD"
@@ -133,7 +133,7 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     GET_HEAD >=>
                       match rel.getRelated with
                       | None -> handleErrors [getRelNotDefinedForAnyResource relName collName]
-                      | Some get -> get ctx req resDef entity
+                      | Some get -> lookup (get ctx req)
 
                     let allowHeader =
                       [ if rel.getRelated.IsSome then "GET"; "HEAD" ]
@@ -152,22 +152,22 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     GET_HEAD >=>
                       match rel.getSelf with
                       | None -> handleErrors [getRelNotDefinedForAnyResource relName collName]
-                      | Some get -> get ctx req resDef entity
+                      | Some get -> lookup (get ctx req)
 
                     PATCH >=>
                       match rel.patchSelf with
                       | None -> handleErrors [patchRelSelfNotAllowedForAnyResource relName collName rel.postSelf.IsSome rel.deleteSelf.IsSome]
-                      | Some patch -> patch ctx req resDef entity
+                      | Some patch -> lookup (patch ctx req)
 
                     POST >=>
                       match rel.postSelf with
                       | None -> handleErrors [postToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.deleteSelf.IsSome]
-                      | Some post -> post ctx req resDef entity
+                      | Some post -> lookup (post ctx req)
 
                     DELETE >=>
                       match rel.deleteSelf with
                       | None -> handleErrors [deleteToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.postSelf.IsSome]
-                      | Some delete -> delete ctx req resDef entity
+                      | Some delete -> lookup (delete ctx req)
 
                     let allowHeader =
                       [ if rel.getSelf.IsSome then "GET"; "HEAD"
@@ -201,22 +201,22 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     GET_HEAD >=>
                       match link.get with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "GET" collName allowHeader]
-                      | Some delete -> delete ctx req resDef entity
+                      | Some get -> lookup (get ctx req)
 
                     POST >=>
                       match link.post with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "POST" collName allowHeader]
-                      | Some delete -> delete ctx req resDef entity
+                      | Some post -> lookup (post ctx req)
 
                     PATCH >=>
                       match link.patch with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "PATCH" collName allowHeader]
-                      | Some delete -> delete ctx req resDef entity
+                      | Some patch -> lookup (patch ctx req)
 
                     DELETE >=>
                       match link.delete with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "DELETE" collName allowHeader]
-                      | Some delete -> delete ctx req resDef entity
+                      | Some delete -> lookup (delete ctx req)
 
                     fun next (httpCtx: HttpContext) ->
                       let method = httpCtx.Request.Method
@@ -231,8 +231,6 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                 )
 
               ]
-
-            )
         )
 
 
