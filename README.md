@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.7.1 (2020-04-06)
+
+* Update and lock FSharp.SystemTextJson version
+
 ### 0.7.0 (2020-04-03)
 
 * Breaking bugfix: For operations with transformed context (`.ForContext(...)`), the `ResourceParserHelper`/`ResourceParser` is now typed to the original context, not the mapped context, so that it actually can parse the resource’s fields (which are typed to the original context)
