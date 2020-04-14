@@ -32,24 +32,16 @@ type Preconditions<'ctx, 'entity> = internal {
     member this.Validate httpCtx ctx entity =
       let eTag = this.getETag ctx (unbox<'entity> entity)
       let lastModified = this.getLastModified ctx (unbox<'entity> entity)
-
-      // TODO: Simplify after https://github.com/giraffe-fsharp/Giraffe/issues/402 is fixed
-      let preconditionsDefined = eTag.IsSome || lastModified.IsSome
-      let preconditionsSupplied =
-        httpCtx.TryGetRequestHeader "If-Match" |> Option.isSome
-        || httpCtx.TryGetRequestHeader "If-Unmodified-Since" |> Option.isSome
-      if not preconditionsDefined then Ok ()
-      elif not preconditionsSupplied && this.isOptional then Ok ()
-      elif not preconditionsSupplied then Error [preconditionRequired eTag.IsSome lastModified.IsSome]
-      else
-        let res = httpCtx.ValidatePreconditions eTag lastModified
-        // Clear headers because response-level ETag/Last-Modified headers don't
-        // necessarily make sense in JSON:API due to compound documents; these values
-        // should be communicated as attributes or meta.
-        httpCtx.Response.Headers.Remove "ETag" |> ignore
-        httpCtx.Response.Headers.Remove "Last-Modified" |> ignore
-        if res = ConditionFailed then Error [preconditionFailed eTag.IsSome lastModified.IsSome]
-        else Ok ()
+      let res = httpCtx.ValidatePreconditions eTag lastModified
+      // Clear headers because response-level ETag/Last-Modified headers don't
+      // necessarily make sense in JSON:API due to compound documents; these values
+      // should be communicated as attributes or meta.
+      httpCtx.Response.Headers.Remove "ETag" |> ignore
+      httpCtx.Response.Headers.Remove "Last-Modified" |> ignore
+      match res with
+      | ConditionFailed -> Error [preconditionFailed eTag.IsSome lastModified.IsSome]
+      | NoConditionsSpecified when not this.isOptional -> Error [preconditionRequired eTag.IsSome lastModified.IsSome]
+      | _ -> Ok ()
 
   member this.ETag(getETag: Func<'ctx, 'entity, EntityTagHeaderValue>) =
     { this with getETag = fun ctx e -> getETag.Invoke(ctx, e) |> Some }

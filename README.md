@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.7.2 (2020-04-14)
+
+* Update Giraffe version
+
 ### 0.7.1 (2020-04-06)
 
 * Update and lock FSharp.SystemTextJson version
