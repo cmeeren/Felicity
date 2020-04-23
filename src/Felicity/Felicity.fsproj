@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.7.2</Version>
-    <PackageReleaseNotes>Update Giraffe version</PackageReleaseNotes>
+    <Version>0.7.3</Version>
+    <PackageReleaseNotes>Add .AsNonNullable to a nullable to-one relationship’s related getter (used in request parsing) to require a non-null related resource</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>

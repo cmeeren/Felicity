@@ -7,12 +7,16 @@ open Giraffe
 open Felicity
 
 
+type Child = { Id: string }
+
+
 type A = {
   Id: string
   A: bool
   X: string
   Nullable: string option
   NullableNotNullWhenSet: string option
+  NullableChildNotNullWhenCreated: Child option
 }
 
 type B = {
@@ -24,7 +28,7 @@ type B = {
 
 module ADomain =
 
-  let create a =
+  let create a child =
     if a = false then Error [Error.create 422 |> Error.setCode "custom"]
     else Ok {
       Id = "1"
@@ -32,6 +36,7 @@ module ADomain =
       X = ""
       Nullable = None
       NullableNotNullWhenSet = None
+      NullableChildNotNullWhenCreated = Some child
     }
 
   let setA x a : A =
@@ -62,6 +67,7 @@ module BDomain =
 type Db () =
   let mutable As : A list = []
   let mutable Bs : B list = []
+  let mutable Children : Child list = [{ Child.Id = "c" }]
 
   member _.SaveA a =
     As <- a :: As
@@ -69,11 +75,17 @@ type Db () =
   member _.SaveB b =
     Bs <- b :: Bs
 
+  member _.SaveChild c =
+    Children <- c :: Children
+
   member _.GetAOrFail id =
     As |> List.find (fun a -> a.Id = id)
 
   member _.GetBOrFail id =
     Bs |> List.find (fun b -> b.Id = id)
+
+  member _.TryGetChild id =
+    Children |> List.tryFind (fun c -> c.Id = id)
 
 
 
@@ -87,6 +99,14 @@ type Ctx = {
     ModifyBResponse = fun _ -> fun next ctx -> next ctx
     Db = db
   }
+
+
+module Child =
+
+  let define = Define<Ctx, Child, string>()
+  let resId = define.Id.Simple(fun (c: Child) -> c.Id)
+  let resDef = define.Resource("child", resId)
+  let lookup = define.Operation.Lookup(fun ctx cid -> ctx.Db.TryGetChild cid)
 
 
 module A =
@@ -123,6 +143,10 @@ module A =
       .Get(fun a -> a.NullableNotNullWhenSet)
       .SetNonNull(ADomain.setNullableNotNullWhenSet)
 
+  let nullableChildNotNullWhenCreated =
+    define.Relationship
+      .ToOneNullable(Child.resDef)
+
   let readonly =
     define.Attribute
       .Simple()
@@ -131,7 +155,7 @@ module A =
   let post =
     define.Operation
       .Post(fun ctx parser ->
-        parser.ForRes(ADomain.create, a)
+        parser.ForRes(ADomain.create, a, nullableChildNotNullWhenCreated.Related(Child.lookup).AsNonNullable)
       )
       .AfterCreate(fun (ctx: Ctx) a -> ctx.Db.SaveA a)
       .ModifyResponse(fun (ctx: Ctx) -> ctx.ModifyAResponse)
@@ -215,6 +239,11 @@ let tests =
                       nullable = "foo"
                       nullableNotNullWhenSet = "bar"
                     |}
+                  relationships =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = {| ``type`` = "child"; id = "c" |}
+                        |}
+                    |}
                 |}
             |}
         |> getResponse
@@ -236,6 +265,7 @@ let tests =
       test <@ a.X = "abc" @>
       test <@ a.Nullable = Some "foo" @>
       test <@ a.NullableNotNullWhenSet = Some "bar" @>
+      test <@ a.NullableChildNotNullWhenCreated = Some { Id = "c" } @>
     }
 
     testJob "Create B: Returns 202, runs setters and returns correct data if successful" {
@@ -266,6 +296,38 @@ let tests =
       test <@ b.Y = "abc" @>
     }
 
+    testJob "Returns 403 when nullableChildNotNullWhenCreated is null" {
+      let db = Db ()
+      db.SaveChild { Child.Id = "c" }
+      let ctx = { Ctx.WithDb db with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
+      let! response =
+        Request.post ctx "/abs"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  attributes =
+                    {|a = true
+                      x = "abc"
+                      nullable = "foo"
+                      nullableNotNullWhenSet = "bar"
+                    |}
+                  relationships =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = null
+                        |}
+                    |}
+                |}
+            |}
+        |> getResponse
+
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Relationship 'nullableChildNotNullWhenCreated' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/relationships/nullableChildNotNullWhenCreated/data" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
     testJob "Returns errors returned by create" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
@@ -277,6 +339,11 @@ let tests =
                   attributes =
                     {|a = false
                       x = "abc"
+                    |}
+                  relationships =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = {| ``type`` = "child"; id = "c" |}
+                        |}
                     |}
                 |}
             |}
@@ -301,6 +368,11 @@ let tests =
                       {|a = true
                         readonly = "foo"
                       |}
+                  relationships =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = {| ``type`` = "child"; id = "c" |}
+                        |}
+                    |}
                 |}
             |}
         |> getResponse
@@ -323,6 +395,11 @@ let tests =
                   attributes =
                     {|a = true
                       nullableNotNullWhenSet = null |}
+                  relationships =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = {| ``type`` = "child"; id = "c" |}
+                        |}
+                    |}
                 |}
             |}
         |> getResponse
@@ -367,6 +444,11 @@ let tests =
                 {|``type`` = "a"
                   id = "foo"
                   attributes = {| a = true |}
+                  relationships =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = {| ``type`` = "child"; id = "c" |}
+                        |}
+                    |}
                 |}
             |}
         |> getResponse
@@ -561,7 +643,10 @@ let tests =
                       nonExistentAttribute = "foo"
                     |}
                   relationships =
-                    {|nonExistentRelationship =
+                    {|nullableChildNotNullWhenCreated =
+                        {|data = {| ``type`` = "child"; id = "c" |}
+                        |}
+                      nonExistentRelationship =
                         {|data = null
                         |}
                     |}

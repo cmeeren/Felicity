@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.7.3 (2020-04-23)
+
+* Add `.AsNonNullable` to a nullable to-one relationship’s related getter (used in request parsing) to require a non-null related resource
+
 ### 0.7.2 (2020-04-14)
 
 * Update Giraffe version

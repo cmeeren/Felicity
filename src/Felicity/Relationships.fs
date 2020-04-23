@@ -884,6 +884,22 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
       this.Optional.Get(ctx, req, includedTypeAndId)
       |> JobResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
+  member this.AsNonNullable =
+    let nonNullIdGetter =
+      { new RequestGetter<'ctx, 'relatedId option> with
+          member _.FieldName = Some this.name
+          member _.QueryParamName = None
+          member _.Get(ctx, req, includedTypeAndId) =
+            job {
+              match! this.idGetter.Get(ctx, req, includedTypeAndId) with
+              | Error errs -> return Error errs
+              | Ok None -> return Error [setRelNullNotAllowed this.name |> Error.setSourcePointer ("/data/relationships/" + this.name + "/data")]
+              | Ok (Some None) -> return Ok None
+              | Ok (Some (Some resId)) -> return Ok (Some resId)
+            }
+      }
+    ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(
+      this.name, nonNullIdGetter, this.getRelated)
 
 
 type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
