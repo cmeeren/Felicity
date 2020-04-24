@@ -767,18 +767,26 @@ let tests =
 
     testJob "Can resolve non-context overloads" {
       // Compile-time tests
-      Filter.Parsed("", id) |> ignore
-      Filter.ParsedOpt("", Some) |> ignore
-      Filter.ParsedRes("", Ok) |> ignore
-      Sort.Parsed(id) |> ignore
-      Sort.ParsedOpt(Some) |> ignore
-      Sort.ParsedRes(Ok) |> ignore
-      Query.Parsed("", id) |> ignore
-      Query.ParsedOpt("", Some) |> ignore
-      Query.ParsedRes("", Ok) |> ignore
-      Header.Parsed("", id) |> ignore
-      Header.ParsedOpt("", Some) |> ignore
-      Header.ParsedRes("", Ok) |> ignore
+      let f () =
+        let parser : RequestParserHelper<unit> = failwith "Not called"
+        let setString (_: string) () = ()
+        let setStringBool (_: string * bool) () = ()
+        parser
+          .For(())
+          .Add(setString, Filter.Parsed("", id))
+          .Add(setString, Filter.ParsedOpt("", Some))
+          .Add(setString, Filter.ParsedRes("", Ok))
+          .Add(setStringBool, Sort.Parsed(id))
+          .Add(setStringBool, Sort.ParsedOpt(Some))
+          .Add(setStringBool, Sort.ParsedRes(Ok))
+          .Add(setString, Query.Parsed("", id))
+          .Add(setString, Query.ParsedOpt("", Some))
+          .Add(setString, Query.ParsedRes("", Ok))
+          .Add(setString, Header.Parsed("", id))
+          .Add(setString, Header.ParsedOpt("", Some))
+          .Add(setString, Header.ParsedRes("", Ok))
+        |> ignore
+      ignore f
     }
 
   ]

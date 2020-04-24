@@ -569,8 +569,9 @@ type Filter =
   static member ParsedOpt(name, parse: string -> 'a option) =
     Filter.ParsedJobOpt(name, Job.lift parse)
 
-  static member Parsed(name: string, parse: 'ctx -> string -> 'a) =
-    Filter.ParsedJobRes(name, JobResult.lift2 parse)
+  static member Parsed(name: string, parse: string -> 'a) =
+    Filter.ParsedJobRes(name, JobResult.lift parse)
+
 
 
 
@@ -580,8 +581,8 @@ module FilterExtensions =
 
   type Filter with
 
-    static member Parsed(name: string, parse: string -> 'a) =
-      Filter.ParsedJobRes(name, JobResult.lift parse)
+    static member Parsed(name: string, parse: 'ctx -> string -> 'a) =
+      Filter.ParsedJobRes(name, JobResult.lift2 parse)
 
 
 
@@ -635,8 +636,8 @@ type Sort =
   static member ParsedOpt(parse: string -> 'a option) : SingleSort<'ctx, 'a> =
     Sort.ParsedJobOpt(Job.lift parse)
 
-  static member Parsed(parse: 'ctx -> string -> 'a) : SingleSort<'ctx, 'a> =
-    Sort.ParsedJobRes(JobResult.lift2 parse)
+  static member Parsed(parse: string -> 'a) : SingleSort<'ctx, 'a> =
+    Sort.ParsedJobRes(JobResult.lift parse)
 
   static member Enum(sortMap: (string * 'a) list) : SingleSort<'ctx, 'a> =
     let d = dict sortMap
@@ -655,8 +656,8 @@ module SortExtensions =
 
   type Sort with
 
-    static member Parsed(parse: string -> 'a) : SingleSort<'ctx, 'a> =
-      Sort.ParsedJobRes(JobResult.lift parse)
+    static member Parsed(parse: 'ctx -> string -> 'a) : SingleSort<'ctx, 'a> =
+      Sort.ParsedJobRes(JobResult.lift2 parse)
 
 
 
@@ -722,8 +723,8 @@ type Query =
   static member ParsedOpt(queryParamName, parse: string -> 'a option) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedJobOpt(queryParamName, Job.lift parse)
 
-  static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) : CustomQueryParam<'ctx, 'a> =
-    Query.ParsedJobRes(queryParamName, JobResult.lift2 parse)
+  static member Parsed(queryParamName, parse: string -> 'a) : CustomQueryParam<'ctx, 'a> =
+    Query.ParsedJobRes(queryParamName, JobResult.lift parse)
 
   static member String(queryParamName) : CustomQueryParam<'ctx, string> =
     CustomQueryParam<'ctx, string>(queryParamName, fun _ s -> s |> Ok |> Job.result)
@@ -754,8 +755,8 @@ module QueryExtensions =
 
   type Query with
 
-    static member Parsed(queryParamName, parse: string -> 'a) : CustomQueryParam<'ctx, 'a> =
-      Query.ParsedJobRes(queryParamName, JobResult.lift parse)
+    static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) : CustomQueryParam<'ctx, 'a> =
+      Query.ParsedJobRes(queryParamName, JobResult.lift2 parse)
 
 
 
@@ -812,8 +813,8 @@ type Header =
   static member ParsedOpt(headerName, parse: string -> 'a option) : Header<'ctx, 'a> =
     Header.ParsedJobOpt(headerName, Job.lift parse)
 
-  static member Parsed(headerName, parse: 'ctx -> string -> 'a) : Header<'ctx, 'a> =
-    Header.ParsedJobRes(headerName, JobResult.lift2 parse)
+  static member Parsed(headerName, parse: string -> 'a) : Header<'ctx, 'a> =
+    Header.ParsedJobRes(headerName, JobResult.lift parse)
 
 
 
@@ -823,5 +824,5 @@ module HeaderExtensions =
 
   type Header with
 
-    static member Parsed(headerName, parse: string -> 'a) : Header<'ctx, 'a> =
-      Header.ParsedJobRes(headerName, JobResult.lift parse)
+    static member Parsed(headerName, parse: 'ctx -> string -> 'a) : Header<'ctx, 'a> =
+      Header.ParsedJobRes(headerName, JobResult.lift2 parse)
