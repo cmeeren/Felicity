@@ -765,4 +765,20 @@ let tests =
       test <@ calledWith' = Some None @>
     }
 
+    testJob "Can resolve non-context overloads" {
+      // Compile-time tests
+      Filter.Parsed("", id) |> ignore
+      Filter.ParsedOpt("", Some) |> ignore
+      Filter.ParsedRes("", Ok) |> ignore
+      Sort.Parsed(id) |> ignore
+      Sort.ParsedOpt(Some) |> ignore
+      Sort.ParsedRes(Ok) |> ignore
+      Query.Parsed("", id) |> ignore
+      Query.ParsedOpt("", Some) |> ignore
+      Query.ParsedRes("", Ok) |> ignore
+      Header.Parsed("", id) |> ignore
+      Header.ParsedOpt("", Some) |> ignore
+      Header.ParsedRes("", Ok) |> ignore
+    }
+
   ]

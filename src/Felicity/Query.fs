@@ -572,8 +572,16 @@ type Filter =
   static member Parsed(name: string, parse: 'ctx -> string -> 'a) =
     Filter.ParsedJobRes(name, JobResult.lift2 parse)
 
-  static member Parsed(name: string, parse: string -> 'a) =
-    Filter.ParsedJobRes(name, JobResult.lift parse)
+
+
+[<AutoOpen>]
+module FilterExtensions =
+
+
+  type Filter with
+
+    static member Parsed(name: string, parse: string -> 'a) =
+      Filter.ParsedJobRes(name, JobResult.lift parse)
 
 
 
@@ -630,9 +638,6 @@ type Sort =
   static member Parsed(parse: 'ctx -> string -> 'a) : SingleSort<'ctx, 'a> =
     Sort.ParsedJobRes(JobResult.lift2 parse)
 
-  static member Parsed(parse: string -> 'a) : SingleSort<'ctx, 'a> =
-    Sort.ParsedJobRes(JobResult.lift parse)
-
   static member Enum(sortMap: (string * 'a) list) : SingleSort<'ctx, 'a> =
     let d = dict sortMap
     let allowed = sortMap |> List.map fst |> List.distinct
@@ -641,6 +646,18 @@ type Sort =
       | true, v -> Ok v
       | false, _ -> Error [queryInvalidEnum "sort" s allowed]
     SingleSort<'ctx, 'a>(fun _ s -> parseSort s |> Job.result)
+
+
+
+[<AutoOpen>]
+module SortExtensions =
+
+
+  type Sort with
+
+    static member Parsed(parse: string -> 'a) : SingleSort<'ctx, 'a> =
+      Sort.ParsedJobRes(JobResult.lift parse)
+
 
 
 type Page<'ctx> =
@@ -708,9 +725,6 @@ type Query =
   static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedJobRes(queryParamName, JobResult.lift2 parse)
 
-  static member Parsed(queryParamName, parse: string -> 'a) : CustomQueryParam<'ctx, 'a> =
-    Query.ParsedJobRes(queryParamName, JobResult.lift parse)
-
   static member String(queryParamName) : CustomQueryParam<'ctx, string> =
     CustomQueryParam<'ctx, string>(queryParamName, fun _ s -> s |> Ok |> Job.result)
 
@@ -731,6 +745,17 @@ type Query =
       | true, v -> Ok v
       | false, _ -> Error [queryInvalidEnum queryParamName s allowed]
     CustomQueryParam<'ctx, 'a>(queryParamName, fun _ s -> parse s |> Job.result)
+
+
+
+[<AutoOpen>]
+module QueryExtensions =
+
+
+  type Query with
+
+    static member Parsed(queryParamName, parse: string -> 'a) : CustomQueryParam<'ctx, 'a> =
+      Query.ParsedJobRes(queryParamName, JobResult.lift parse)
 
 
 
@@ -790,5 +815,13 @@ type Header =
   static member Parsed(headerName, parse: 'ctx -> string -> 'a) : Header<'ctx, 'a> =
     Header.ParsedJobRes(headerName, JobResult.lift2 parse)
 
-  static member Parsed(headerName, parse: string -> 'a) : Header<'ctx, 'a> =
-    Header.ParsedJobRes(headerName, JobResult.lift parse)
+
+
+[<AutoOpen>]
+module HeaderExtensions =
+
+
+  type Header with
+
+    static member Parsed(headerName, parse: string -> 'a) : Header<'ctx, 'a> =
+      Header.ParsedJobRes(headerName, JobResult.lift parse)

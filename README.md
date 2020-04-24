@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.7.5 (2020-04-24)
+
+* Improved query param helper overload resolution
+
 ### 0.7.4 (2020-04-24)
 
 * Added arity 6 overloads to request parser
