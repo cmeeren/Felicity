@@ -1141,17 +1141,68 @@ If you use an operator that indicates the query parameter should accept a boolea
 Filter.Field(firstName).Operator("isNull").Bool
 ```
 
-#### Filtering on nullable attributes
+#### Filtering on nullable attributes and relationships
 
-Query strings have no standard representation of `null` which can be used unambiguously. Therefore, Felicity only allows you to filter on non-`null` values of nullable attributes using `Filter.FieldAsNonNullable(...)`. As with `Filter.Field()`, this creates a parser for the specified field type, but it is not `Option`-wrapped.
+Query strings have no standard representation of `null` which can be used unambiguously. Therefore, Felicity only allows you to filter on non-`null` values of nullable attributes and relationships. The parsed attribute value will then not be `Option`-wrapped.
+
+If you need a filter for whether the value is null, you can use e.g.
+
+```f#
+Filter.Field(updatedAt).Operator("isNull").Bool
+```
+
+which will give you a filter parameter called `filter[updatedAt][isNull]` accepting `true` or `false`.
+
+#### Filtering on to-many relationships
+
+Filtering on to-many relationships work just like to-one and to-one nullable relationships. **Each relationship type only provides information about how to parse a single string to the related resource’s ID type.** It is up to you to append `.List` to the filter if you want multiple values, and to determine what single or multiple values mean in each case (AND, OR, contains, identical, ordered/unordered, etc.).
 
 #### Custom filter parameters
 
-You can use `Filter.Parsed(...)` to specify fully custom names and parsing behavior. You may find it useful to use the `.Name` property of the resource fields to create the filter parameter name.
+You can use `Filter.Parsed(...)` to specify fully custom names and parsing behavior. You may find it useful to use the `.Name` property of the resource fields to create the filter parameter name. For example:
+
+```f#
+Filter.ParsedRes(firstName.Name, myResultReturningParseFunction)
+```
+
+#### Filtering on polymorphic relationship IDs
+
+You may not use polymorphic relationships in `Filter.Field`. This is because the query parameter contains just the ID value and no type information, and thus Felicity has no way of knowing which of the possible ID types it should parse the value to. This is one of the very few cases where Felicity will throw at runtime:
+
+```f#
+// Will throw at runtime, don't do this!
+Filter.Field(myPolyRel)
+```
+
+Instead, you have to use a custom parser as shown above:
+
+```f#
+Filter.Parsed(myPolyRel.Name, myPolyIdParser)
+```
+
+Possible options include:
+
+* Parse to a type that encompasses all the possible ID types, and let the rest of the code deal with the ambiguity. Using `string` will of course always work, or you could parse to another type like `GUID` or `int` if all types in the relationship use the same ID type under the covers.
+
+* Actually look up in the database during the parsing to see which resource type contains a match for the specified ID. This requires the IDs to be unique among all the types in the relationship, but depending on the use-case for the parsing, this may not give you much benefit over just parsing to e.g. a simple `GUID` and using that in the DB query in the first place.
+
+* Require type information in another parameter, e.g. by using the higher-arity overloads of `RequestParser.Add` (or by requiring both parameters in `RequestParser.For`):
+
+  ```f#
+  parser
+    .For(...)
+    .Add(
+      myArgsSetter,
+      Filter.Parsed(myPolyRel.Name, id),
+      Filter.Parsed(myPolyRel.Name + ".type", id)
+  )
+  ```
+
+  This will accept a query like `?filter[myPolyRel]=someId&filter[myPolyRel.type]=someTypeName` where the string values `"someId"` and `"someTypeName"` are passed to `myArgsSetter`. This removes all ambiguity, but is more verbose for the API client.
 
 ### Parsing other query parameters
 
-Much of what is said above about filter parameters are relevant here, too,m and won’t be repeated.,
+Much of what is said above about filter parameters are relevant here, too, and won’t be repeated.
 
 #### Sort
 

@@ -282,7 +282,7 @@ let tests =
       let mutable calledWith = None
       let ctx = Ctx.Create (fun parser ->
         parser
-          .For((fun x -> calledWith <- Some x), Filter.FieldAsNonNullable(X.nullableNonEmptyString))
+          .For((fun x -> calledWith <- Some x), Filter.Field(X.nullableNonEmptyString))
       )
       let! response = Request.get ctx "/xs?filter[nullableNonEmptyString]=val" |> getResponse
 
@@ -805,7 +805,7 @@ let tests =
           .For(XSearchArgs.Create, Filter.Field(X.nonEmptyString))
           .Add(XSearchArgs.setNonNegativeIntLe, Filter.Field(X.nonNegativeInt).Operator("le"))
           .Add(XSearchArgs.setNonNegativeIntGe, Filter.Field(X.nonNegativeInt).Operator("ge"))
-          .Add(XSearchArgs.setNullableNonEmptyString, Filter.FieldAsNonNullable(X.nullableNonEmptyString))
+          .Add(XSearchArgs.setNullableNonEmptyString, Filter.Field(X.nullableNonEmptyString))
           .Map(fun args -> calledWith <- Some args; ())
       )
 

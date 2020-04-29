@@ -24,6 +24,12 @@ type internal FieldSetter<'ctx> =
   abstract Set: 'ctx -> Request -> BoxedEntity -> Job<Result<BoxedEntity, Error list>>
 
 
+type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
+  abstract Name: string
+  abstract ToDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
+
+
+
 type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   name: string
   fromDomain: 'attr -> 'serialized
@@ -129,6 +135,11 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
           let pointer = Request.pointerForMissingAttr includedTypeAndId req + "/" + this.name
           [reqParserProhibitedAttr this.name pointer]
       | _ -> []
+
+  interface FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> with
+    member this.Name = this.name
+    member this.ToDomain ctx serialized =
+      this.toDomain ctx serialized
 
 
   member this.Name = this.name
@@ -337,6 +348,11 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
           let pointer = Request.pointerForMissingAttr includedTypeAndId req + "/" + this.name
           [reqParserProhibitedAttr this.name pointer]
       | _ -> []
+
+  interface FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> with
+    member this.Name = this.name
+    member this.ToDomain ctx serialized =
+      this.toDomain ctx serialized
 
 
   member this.Name = this.name

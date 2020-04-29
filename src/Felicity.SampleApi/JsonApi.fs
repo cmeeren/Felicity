@@ -311,17 +311,17 @@ module Person =
         parser.For(PersonSearchArgs.empty)
           .Add(PersonSearchArgs.setFirstName, Filter.Field(firstName))
           .Add(PersonSearchArgs.setLastName, Filter.Field(lastName))
-          // There is no standard representation of a null query parameter value, so if
-          // you want to filter on a nullable attribute value, you currently have to use
-          // Filter.FieldAsNonNullable. If you need a filter for whether the value is
-          // null, you can use e.g.
+          // There is no standard representation of a null query parameter value, so
+          // filters on nullable attributes work just like filters on non-nullable
+          // attributes. If you need a filter for whether the value is null, you can use
+          // e.g.
           //
-          //   Filter.FieldAsNonNullable(twitter).Operator("isNull").Bool
+          // Filter.Field(twitter).Operator("isNull").Bool
           //
           // which will give you a filter parameter called filter[twitter][isNull]
           // accepting "true" or "false".
-          .Add(PersonSearchArgs.setTwitter, Filter.FieldAsNonNullable(twitter))
-          .Add(PersonSearchArgs.setGenders, Filter.FieldAsNonNullable(gender).List)
+          .Add(PersonSearchArgs.setTwitter, Filter.Field(twitter))
+          .Add(PersonSearchArgs.setGenders, Filter.Field(gender).List)
           .Add(PersonSearchArgs.setSort, Sort.Enum(PersonSort.fromStringMap))
           .Add(PersonSearchArgs.setOffset, Page.Offset)
           .Add(PersonSearchArgs.setLimit, Page.Limit.Max(20))

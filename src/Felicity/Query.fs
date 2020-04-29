@@ -365,161 +365,77 @@ type Filter =
   static member Field(id: Id<'ctx, 'entity, 'id>) =
     SingleFilter<'ctx, 'id>("id", fun ctx str -> id.toDomain ctx str)
 
-  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, string>) =
+    Filter.Field(field, Ok)
 
-  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, bool>) =
+    Filter.Field(field, parseBool)
 
-  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, string>) =
-    Filter.Field(attribute, Ok)
+  static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, int>) =
+    Filter.Field(field, parseInt)
 
-  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, bool>) =
-    Filter.Field(attribute, parseBool)
+  static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, float>) =
+    Filter.Field(field, parseFloat)
 
-  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, int>) =
-    Filter.Field(attribute, parseInt)
+  static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member Field(attribute: NonNullableAttribute<'ctx, 'entity, 'attr, float>) =
-    Filter.Field(attribute, parseFloat)
+  static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, string>) =
-    Filter.FieldAsNonNullable(attribute, Ok)
+  static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, string>) =
+    Filter.Field(path, field, Ok)
 
-  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, bool>) =
-    Filter.FieldAsNonNullable(attribute, parseBool)
+  static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, bool>) =
+    Filter.Field(path, field, parseBool)
 
-  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, int>) =
-    Filter.FieldAsNonNullable(attribute, parseInt)
+  static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, int>) =
+    Filter.Field(path, field, parseInt)
 
-  static member FieldAsNonNullable(attribute: NullableAttribute<'ctx, 'entity, 'attr, float>) =
-    Filter.FieldAsNonNullable(attribute, parseFloat)
+  static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, float>) =
+    Filter.Field(path, field, parseFloat)
 
-  static member Field(relationship: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>) =
-    SingleFilter<'ctx, 'relatedId>(relationship.Name, relationship.IdToDomain)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str]  |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, string>) =
+    Filter.Field(path1, path2, field, Ok)
 
-  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, bool>) =
+    Filter.Field(path1, path2, field, parseBool)
 
-  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, int>) =
+    Filter.Field(path1, path2, field, parseInt)
 
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, string>) =
-    Filter.Field(path, attribute, Ok)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, float>) =
+    Filter.Field(path1, path2, field, parseFloat)
 
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, bool>) =
-    Filter.Field(path, attribute, parseBool)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, int>) =
-    Filter.Field(path, attribute, parseInt)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (field.ToDomain ctx))
 
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NonNullableAttribute<'ctx, 'relatedEntity, 'attr, float>) =
-    Filter.Field(path, attribute, parseFloat)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, string>) =
+    Filter.Field(path1, path2, path3, field, Ok)
 
-  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, string>) =
-    Filter.FieldAsNonNullable(path, attribute, Ok)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, bool>) =
+    Filter.Field(path1, path2, path3, field, parseBool)
 
-  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, bool>) =
-    Filter.FieldAsNonNullable(path, attribute, parseBool)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, int>) =
+    Filter.Field(path1, path2, path3, field, parseInt)
 
-  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, int>) =
-    Filter.FieldAsNonNullable(path, attribute, parseInt)
-
-  static member FieldAsNonNullable(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, attribute: NullableAttribute<'ctx, 'relatedEntity, 'attr, float>) =
-    Filter.FieldAsNonNullable(path, attribute, parseFloat)
-
-  static member Field(path: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId>, relationship: RelationshipQueryIdParser<'ctx, 'relatedEntity, 'relatedEntity2, 'relatedId2>) =
-    SingleFilter<'ctx, 'relatedId2>(path.Name + "." + relationship.Name, relationship.IdToDomain)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str]  |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, string>) =
-    Filter.Field(path1, path2, attribute, Ok)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, bool>) =
-    Filter.Field(path1, path2, attribute, parseBool)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, int>) =
-    Filter.Field(path1, path2, attribute, parseInt)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NonNullableAttribute<'ctx, 'relatedEntity2, 'attr, float>) =
-    Filter.Field(path1, path2, attribute, parseFloat)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, string>) =
-    Filter.FieldAsNonNullable(path1, path2, attribute, Ok)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, bool>) =
-    Filter.FieldAsNonNullable(path1, path2, attribute, parseBool)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, int>) =
-    Filter.FieldAsNonNullable(path1, path2, attribute, parseInt)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, attribute: NullableAttribute<'ctx, 'relatedEntity2, 'attr, float>) =
-    Filter.FieldAsNonNullable(path1, path2, attribute, parseFloat)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, relationship: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>) =
-    SingleFilter<'ctx, 'relatedId3>(path1.Name + "." + path2.Name + "." + relationship.Name, relationship.IdToDomain)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + attribute.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (attribute.toDomain ctx))
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, string>) =
-    Filter.Field(path1, path2, path3, attribute, Ok)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, bool>) =
-    Filter.Field(path1, path2, path3, attribute, parseBool)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, int>) =
-    Filter.Field(path1, path2, path3, attribute, parseInt)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NonNullableAttribute<'ctx, 'relatedEntity3, 'attr, float>) =
-    Filter.Field(path1, path2, path3, attribute, parseFloat)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, string>) =
-    Filter.FieldAsNonNullable(path1, path2, path3, attribute, Ok)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, bool>) =
-    Filter.FieldAsNonNullable(path1, path2, path3, attribute, parseBool)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, int>) =
-    Filter.FieldAsNonNullable(path1, path2, path3, attribute, parseInt)
-
-  static member FieldAsNonNullable(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, attribute: NullableAttribute<'ctx, 'relatedEntity3, 'attr, float>) =
-    Filter.FieldAsNonNullable(path1, path2, path3, attribute, parseFloat)
-
-  static member Field(path1: RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: RelationshipQueryIdParser<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: RelationshipQueryIdParser<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, relationship: RelationshipQueryIdParser<'ctx, 'relatedEntity3, 'relatedEntity4, 'relatedId4>) =
-    SingleFilter<'ctx, 'relatedId4>(path1.Name + "." + path2.Name + "." + path3.Name + "." + relationship.Name, relationship.IdToDomain)
+  static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, float>) =
+    Filter.Field(path1, path2, path3, field, parseFloat)
 
   static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
     SingleFilter<'ctx, 'a>(name, parse)

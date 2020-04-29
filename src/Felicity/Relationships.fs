@@ -12,9 +12,8 @@ open Errors
 
 
 
-type RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+type Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
   abstract Name: string
-  abstract IdToDomain: 'ctx -> string -> Job<Result<'relatedId, Error list>>
 
 
 type internal RelationshipHandlers<'ctx> =
@@ -299,9 +298,12 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     ToOneRelationshipIncludedGetter.Create(this.name, getParser, this.idParsers |> Option.map (Map.toList >> List.map fst) |> Option.defaultValue [])
 
 
-  interface RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+  interface Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
     member this.Name = this.name
-    member this.IdToDomain ctx str =
+
+  interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
+    member this.Name = this.name
+    member this.ToDomain ctx str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwithf "Relationship '%s' does not contain any ID parsers and may not be used to parse query IDs" this.name
       | [_, parseId] -> parseId ctx str
@@ -1136,9 +1138,12 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     ToOneNullableRelationshipIncludedGetter.Create(this.name, getParser, this.idParsers |> Option.map (Map.toList >> List.map fst) |> Option.defaultValue [])
 
 
-  interface RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+  interface Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
     member this.Name = this.name
-    member this.IdToDomain ctx str =
+
+  interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
+    member this.Name = this.name
+    member this.ToDomain ctx str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwithf "Relationship '%s' does not contain any ID parsers and may not be used to parse query IDs" this.name
       | [_, parseId] -> parseId ctx str
@@ -2059,9 +2064,12 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     ToManyRelationshipIncludedGetter.Create(this.name, getParser, this.idParsers |> Option.map (Map.toList >> List.map fst) |> Option.defaultValue [])
 
 
-  interface RelationshipQueryIdParser<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+  interface Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
     member this.Name = this.name
-    member this.IdToDomain ctx str =
+
+  interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
+    member this.Name = this.name
+    member this.ToDomain ctx str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwithf "Relationship '%s' does not contain any ID parsers and may not be used to parse query IDs" this.name
       | [_, parseId] -> parseId ctx str
