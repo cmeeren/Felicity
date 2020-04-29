@@ -872,20 +872,26 @@ let tests =
         let parser : RequestParserHelper<unit> = failwith "Not called"
         let setString (_: string) () = ()
         let setStringBool (_: string * bool) () = ()
+        let parseRes : string -> Result<_, Error list> = failwith "Not called"
+        let parseResString : string -> Result<_, string> = failwith "Not called"
         parser
           .For(())
           .Add(setString, Filter.Parsed("", id))
           .Add(setString, Filter.ParsedOpt("", Some))
-          .Add(setString, Filter.ParsedRes("", Ok))
+          .Add(setString, Filter.ParsedRes("", parseRes))
+          .Add(setString, Filter.ParsedRes("", parseResString))
           .Add(setStringBool, Sort.Parsed(id))
           .Add(setStringBool, Sort.ParsedOpt(Some))
-          .Add(setStringBool, Sort.ParsedRes(Ok))
+          .Add(setStringBool, Sort.ParsedRes(parseRes))
+          .Add(setStringBool, Sort.ParsedRes(parseResString))
           .Add(setString, Query.Parsed("", id))
           .Add(setString, Query.ParsedOpt("", Some))
-          .Add(setString, Query.ParsedRes("", Ok))
+          .Add(setString, Query.ParsedRes("", parseRes))
+          .Add(setString, Query.ParsedRes("", parseResString))
           .Add(setString, Header.Parsed("", id))
           .Add(setString, Header.ParsedOpt("", Some))
-          .Add(setString, Header.ParsedRes("", Ok))
+          .Add(setString, Header.ParsedRes("", parseRes))
+          .Add(setString, Header.ParsedRes("", parseResString))
         |> ignore
       ignore f
     }

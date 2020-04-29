@@ -443,10 +443,34 @@ type Filter =
   static member ParsedJobRes(name, parse: string -> Job<Result<'a, Error list>>) =
     Filter.ParsedJobRes(name, fun _ s -> parse s)
 
+  static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, string>>) =
+    Filter.ParsedJobRes(name, fun ctx s -> parse ctx s |> JobResult.mapError (queryInvalidParsedErrMsgUnnamed s >> List.singleton))
+
+  static member ParsedJobRes(name, parse: string -> Job<Result<'a, string>>) =
+    Filter.ParsedJobRes(name, fun _ s -> parse s)
+
+  static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, string list>>) =
+    SingleFilter<'ctx, 'a>(name, fun ctx s -> parse ctx s |> JobResult.mapError (List.map (queryInvalidParsedErrMsgUnnamed s)))
+
+  static member ParsedJobRes(name, parse: string -> Job<Result<'a, string list>>) =
+    Filter.ParsedJobRes(name, fun _ s -> parse s)
+
   static member ParsedAsyncRes(name, parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
     Filter.ParsedJobRes(name, Job.liftAsync2 parse)
 
   static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, Error list>>) =
+    Filter.ParsedJobRes(name, Job.liftAsync parse)
+
+  static member ParsedAsyncRes(name, parse: 'ctx -> string -> Async<Result<'a, string>>) =
+    Filter.ParsedJobRes(name, Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, string>>) =
+    Filter.ParsedJobRes(name, Job.liftAsync parse)
+
+  static member ParsedAsyncRes(name, parse: 'ctx -> string -> Async<Result<'a, string list>>) =
+    Filter.ParsedJobRes(name, Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, string list>>) =
     Filter.ParsedJobRes(name, Job.liftAsync parse)
 
   static member ParsedJobOpt(name, parse: 'ctx -> string -> Job<'a option>) =
@@ -462,10 +486,10 @@ type Filter =
     Filter.ParsedJobOpt(name, Job.liftAsync parse)
 
   static member ParsedJob(name, parse: 'ctx -> string -> Job<'a>) =
-    Filter.ParsedJobRes(name, fun ctx s -> parse ctx s |> Job.map Ok)
+    SingleFilter<'ctx, 'a>(name, JobResult.liftJob2 parse)
 
   static member ParsedJob(name, parse: string -> Job<'a>) =
-    Filter.ParsedJobRes(name, fun _ s -> parse s |> Job.map Ok)
+    SingleFilter<'ctx, 'a>(name, JobResult.liftJob2 (fun _ s -> parse s))
 
   static member ParsedAsync(name, parse: 'ctx -> string -> Async<'a>) =
     Filter.ParsedJob(name, Job.liftAsync2 parse)
@@ -479,6 +503,18 @@ type Filter =
   static member ParsedRes(name, parse: string -> Result<'a, Error list>) =
     Filter.ParsedJobRes(name, Job.lift parse)
 
+  static member ParsedRes(name, parse: 'ctx -> string -> Result<'a, string>) =
+    Filter.ParsedJobRes(name, Job.lift2 parse)
+
+  static member ParsedRes(name, parse: string -> Result<'a, string>) =
+    Filter.ParsedJobRes(name, Job.lift parse)
+
+  static member ParsedRes(name, parse: 'ctx -> string -> Result<'a, string list>) =
+    Filter.ParsedJobRes(name, Job.lift2 parse)
+
+  static member ParsedRes(name, parse: string -> Result<'a, string list>) =
+    Filter.ParsedJobRes(name, Job.lift parse)
+
   static member ParsedOpt(name, parse: 'ctx -> string -> 'a option) =
     Filter.ParsedJobOpt(name, Job.lift2 parse)
 
@@ -486,7 +522,7 @@ type Filter =
     Filter.ParsedJobOpt(name, Job.lift parse)
 
   static member Parsed(name: string, parse: string -> 'a) =
-    Filter.ParsedJobRes(name, JobResult.lift parse)
+    SingleFilter<'ctx, 'a>(name, JobResult.lift2 (fun _ s -> parse s))
 
 
 
@@ -498,64 +534,100 @@ module FilterExtensions =
   type Filter with
 
     static member Parsed(name: string, parse: 'ctx -> string -> 'a) =
-      Filter.ParsedJobRes(name, JobResult.lift2 parse)
+      SingleFilter<'ctx, 'a>(name, JobResult.lift2 parse)
 
 
 
 type Sort =
 
-  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
+  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
     SingleSort<'ctx, 'a>(parse)
 
-  static member ParsedJobRes(parse: string -> Job<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
+  static member ParsedJobRes(parse: string -> Job<Result<'a, Error list>>) =
     Sort.ParsedJobRes(fun _ s -> parse s)
 
-  static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
+  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, string>>) =
+    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> JobResult.mapError (queryInvalidParsedErrMsg "sort" s >> List.singleton))
+
+  static member ParsedJobRes(parse: string -> Job<Result<'a, string>>) =
+    Sort.ParsedJobRes(fun _ s -> parse s)
+
+  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, string list>>) =
+    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> JobResult.mapError (List.map (queryInvalidParsedErrMsg "sort" s)))
+
+  static member ParsedJobRes(parse: string -> Job<Result<'a, string list>>) =
+    Sort.ParsedJobRes(fun _ s -> parse s)
+
+  static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
     Sort.ParsedJobRes(Job.liftAsync2 parse)
 
-  static member ParsedAsyncRes(parse: string -> Async<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
+  static member ParsedAsyncRes(parse: string -> Async<Result<'a, Error list>>) =
     Sort.ParsedJobRes(Job.liftAsync parse)
 
-  static member ParsedJobOpt(parse: 'ctx -> string -> Job<'a option>) : SingleSort<'ctx, 'a> =
+  static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, string>>) =
+    Sort.ParsedJobRes(Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(parse: string -> Async<Result<'a, string>>) =
+    Sort.ParsedJobRes(Job.liftAsync parse)
+
+  static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, string list>>) =
+    Sort.ParsedJobRes(Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(parse: string -> Async<Result<'a, string list>>) =
+    Sort.ParsedJobRes(Job.liftAsync parse)
+
+  static member ParsedJobOpt(parse: 'ctx -> string -> Job<'a option>) =
     Sort.ParsedJobRes(fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNone "sort" s]))
 
-  static member ParsedJobOpt(parse: string -> Job<'a option>) : SingleSort<'ctx, 'a> =
+  static member ParsedJobOpt(parse: string -> Job<'a option>) =
     Sort.ParsedJobOpt(fun _ s -> parse s)
 
-  static member ParsedAsyncOpt(parse: 'ctx -> string -> Async<'a option>) : SingleSort<'ctx, 'a> =
+  static member ParsedAsyncOpt(parse: 'ctx -> string -> Async<'a option>) =
     Sort.ParsedJobOpt(Job.liftAsync2 parse)
 
-  static member ParsedAsyncOpt(parse: string -> Async<'a option>) : SingleSort<'ctx, 'a> =
+  static member ParsedAsyncOpt(parse: string -> Async<'a option>) =
     Sort.ParsedJobOpt(Job.liftAsync parse)
 
-  static member ParsedJob(parse: 'ctx -> string -> Job<'a>) : SingleSort<'ctx, 'a> =
-    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> Job.map Ok)
+  static member ParsedJob(parse: 'ctx -> string -> Job<'a>) =
+    SingleSort<'ctx, 'a>(JobResult.liftJob2 parse)
 
-  static member ParsedJob(parse: string -> Job<'a>) : SingleSort<'ctx, 'a> =
-    Sort.ParsedJobRes(fun _ s -> parse s |> Job.map Ok)
+  static member ParsedJob(parse: string -> Job<'a>) =
+    SingleSort<'ctx, 'a>(JobResult.liftJob2 (fun _ s -> parse s))
 
-  static member ParsedAsync(parse: 'ctx -> string -> Async<'a>) : SingleSort<'ctx, 'a> =
+  static member ParsedAsync(parse: 'ctx -> string -> Async<'a>) =
     Sort.ParsedJob(Job.liftAsync2 parse)
 
-  static member ParsedAsync(parse: string -> Async<'a>) : SingleSort<'ctx, 'a> =
+  static member ParsedAsync(parse: string -> Async<'a>) =
     Sort.ParsedJob(Job.liftAsync parse)
 
-  static member ParsedRes(parse: 'ctx -> string -> Result<'a, Error list>) : SingleSort<'ctx, 'a> =
+  static member ParsedRes(parse: 'ctx -> string -> Result<'a, Error list>) =
     Sort.ParsedJobRes(Job.lift2 parse)
 
-  static member ParsedRes(parse: string -> Result<'a, Error list>) : SingleSort<'ctx, 'a> =
+  static member ParsedRes(parse: string -> Result<'a, Error list>) =
     Sort.ParsedJobRes(Job.lift parse)
 
-  static member ParsedOpt(parse: 'ctx -> string -> 'a option) : SingleSort<'ctx, 'a> =
+  static member ParsedRes(parse: 'ctx -> string -> Result<'a, string>) =
+    Sort.ParsedJobRes(Job.lift2 parse)
+
+  static member ParsedRes(parse: string -> Result<'a, string>) =
+    Sort.ParsedJobRes(Job.lift parse)
+
+  static member ParsedRes(parse: 'ctx -> string -> Result<'a, string list>) =
+    Sort.ParsedJobRes(Job.lift2 parse)
+
+  static member ParsedRes(parse: string -> Result<'a, string list>) =
+    Sort.ParsedJobRes(Job.lift parse)
+
+  static member ParsedOpt(parse: 'ctx -> string -> 'a option) =
     Sort.ParsedJobOpt(Job.lift2 parse)
 
-  static member ParsedOpt(parse: string -> 'a option) : SingleSort<'ctx, 'a> =
+  static member ParsedOpt(parse: string -> 'a option) =
     Sort.ParsedJobOpt(Job.lift parse)
 
-  static member Parsed(parse: string -> 'a) : SingleSort<'ctx, 'a> =
-    Sort.ParsedJobRes(JobResult.lift parse)
+  static member Parsed(parse: string -> 'a) =
+    SingleSort<'ctx, 'a>(JobResult.lift2 (fun _ s -> parse s))
 
-  static member Enum(sortMap: (string * 'a) list) : SingleSort<'ctx, 'a> =
+  static member Enum(sortMap: (string * 'a) list) =
     let d = dict sortMap
     let allowed = sortMap |> List.map fst |> List.distinct
     let parseSort s =
@@ -572,8 +644,8 @@ module SortExtensions =
 
   type Sort with
 
-    static member Parsed(parse: 'ctx -> string -> 'a) : SingleSort<'ctx, 'a> =
-      Sort.ParsedJobRes(JobResult.lift2 parse)
+    static member Parsed(parse: 'ctx -> string -> 'a) =
+      SingleSort<'ctx, 'a>(JobResult.lift2 parse)
 
 
 
@@ -591,56 +663,92 @@ type Page<'ctx> =
 
 type Query =
 
-  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
     CustomQueryParam<'ctx, 'a>(queryParamName, parse)
 
-  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, Error list>>) =
     Query.ParsedJobRes(queryParamName, fun _ s -> parse s)
 
-  static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, string>>) =
+    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> JobResult.mapError (queryInvalidParsedErrMsg queryParamName s >> List.singleton))
+
+  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, string>>) =
+    Query.ParsedJobRes(queryParamName, fun _ s -> parse s)
+
+  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, string list>>) =
+    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> JobResult.mapError (List.map (queryInvalidParsedErrMsg queryParamName s)))
+
+  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, string list>>) =
+    Query.ParsedJobRes(queryParamName, fun _ s -> parse s)
+
+  static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
     Query.ParsedJobRes(queryParamName, Job.liftAsync2 parse)
 
-  static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, Error list>>) =
     Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
 
-  static member ParsedJobOpt(queryParamName, parse: 'ctx -> string -> Job<'a option>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, string>>) =
+    Query.ParsedJobRes(queryParamName, Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, string>>) =
+    Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
+
+  static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, string list>>) =
+    Query.ParsedJobRes(queryParamName, Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, string list>>) =
+    Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
+
+  static member ParsedJobOpt(queryParamName, parse: 'ctx -> string -> Job<'a option>) =
     Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNone queryParamName s]))
 
-  static member ParsedJobOpt(queryParamName, parse: string -> Job<'a option>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedJobOpt(queryParamName, parse: string -> Job<'a option>) =
     Query.ParsedJobOpt(queryParamName, fun _ s -> parse s)
 
-  static member ParsedAsyncOpt(queryParamName, parse: 'ctx -> string -> Async<'a option>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedAsyncOpt(queryParamName, parse: 'ctx -> string -> Async<'a option>) =
     Query.ParsedJobOpt(queryParamName, Job.liftAsync2 parse)
 
-  static member ParsedAsyncOpt(queryParamName, parse: string -> Async<'a option>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedAsyncOpt(queryParamName, parse: string -> Async<'a option>) =
     Query.ParsedJobOpt(queryParamName, Job.liftAsync parse)
 
-  static member ParsedJob(queryParamName, parse: 'ctx -> string -> Job<'a>) : CustomQueryParam<'ctx, 'a> =
-    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> Job.map Ok)
+  static member ParsedJob(queryParamName, parse: 'ctx -> string -> Job<'a>) =
+    CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.liftJob2 parse)
 
-  static member ParsedJob(queryParamName, parse: string -> Job<'a>) : CustomQueryParam<'ctx, 'a> =
-    Query.ParsedJobRes(queryParamName, fun _ s -> parse s |> Job.map Ok)
+  static member ParsedJob(queryParamName, parse: string -> Job<'a>) =
+    CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.liftJob2 (fun _ s -> parse s))
 
-  static member ParsedAsync(queryParamName, parse: 'ctx -> string -> Async<'a>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedAsync(queryParamName, parse: 'ctx -> string -> Async<'a>) =
     Query.ParsedJob(queryParamName, Job.liftAsync2 parse)
 
-  static member ParsedAsync(queryParamName, parse: string -> Async<'a>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedAsync(queryParamName, parse: string -> Async<'a>) =
     Query.ParsedJob(queryParamName, Job.liftAsync parse)
 
-  static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, Error list>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, Error list>) =
     Query.ParsedJobRes(queryParamName, Job.lift2 parse)
 
-  static member ParsedRes(queryParamName, parse: string -> Result<'a, Error list>) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedRes(queryParamName, parse: string -> Result<'a, Error list>) =
     Query.ParsedJobRes(queryParamName, Job.lift parse)
 
-  static member ParsedOpt(queryParamName, parse: 'ctx -> string -> 'a option) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, string>) =
+    Query.ParsedJobRes(queryParamName, Job.lift2 parse)
+
+  static member ParsedRes(queryParamName, parse: string -> Result<'a, string>) =
+    Query.ParsedJobRes(queryParamName, Job.lift parse)
+
+  static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, string list>) =
+    Query.ParsedJobRes(queryParamName, Job.lift2 parse)
+
+  static member ParsedRes(queryParamName, parse: string -> Result<'a, string list>) =
+    Query.ParsedJobRes(queryParamName, Job.lift parse)
+
+  static member ParsedOpt(queryParamName, parse: 'ctx -> string -> 'a option) =
     Query.ParsedJobOpt(queryParamName, Job.lift2 parse)
 
-  static member ParsedOpt(queryParamName, parse: string -> 'a option) : CustomQueryParam<'ctx, 'a> =
+  static member ParsedOpt(queryParamName, parse: string -> 'a option) =
     Query.ParsedJobOpt(queryParamName, Job.lift parse)
 
-  static member Parsed(queryParamName, parse: string -> 'a) : CustomQueryParam<'ctx, 'a> =
-    Query.ParsedJobRes(queryParamName, JobResult.lift parse)
+  static member Parsed(queryParamName, parse: string -> 'a) =
+    CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.lift2 (fun _ s -> parse s))
 
   static member String(queryParamName) : CustomQueryParam<'ctx, string> =
     CustomQueryParam<'ctx, string>(queryParamName, fun _ s -> s |> Ok |> Job.result)
@@ -671,8 +779,8 @@ module QueryExtensions =
 
   type Query with
 
-    static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) : CustomQueryParam<'ctx, 'a> =
-      Query.ParsedJobRes(queryParamName, JobResult.lift2 parse)
+    static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) =
+      CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.lift2 parse)
 
 
 
@@ -681,56 +789,92 @@ type Header =
   static member String(headerName) =
     Header<'ctx, string>(headerName, fun _ s -> s |> Ok |> Job.result)
 
-  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) : Header<'ctx, 'a> =
+  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
     Header<'ctx, 'a>(headerName, parse)
 
-  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, Error list>>) : Header<'ctx, 'a> =
+  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, Error list>>) =
     Header.ParsedJobRes(headerName, fun _ s -> parse s)
 
-  static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, Error list>>) : Header<'ctx, 'a> =
+  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, string>>) =
+    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> JobResult.mapError (headerInvalidParsedErrMsg headerName s >> List.singleton))
+
+  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, string>>) =
+    Header.ParsedJobRes(headerName, fun _ s -> parse s)
+
+  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, string list>>) =
+    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> JobResult.mapError (List.map (headerInvalidParsedErrMsg headerName s)))
+
+  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, string list>>) =
+    Header.ParsedJobRes(headerName, fun _ s -> parse s)
+
+  static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
     Header.ParsedJobRes(headerName, Job.liftAsync2 parse)
 
-  static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, Error list>>) : Header<'ctx, 'a> =
+  static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, Error list>>) =
     Header.ParsedJobRes(headerName, Job.liftAsync parse)
 
-  static member ParsedJobOpt(headerName, parse: 'ctx -> string -> Job<'a option>) : Header<'ctx, 'a> =
+  static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, string>>) =
+    Header.ParsedJobRes(headerName, Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, string>>) =
+    Header.ParsedJobRes(headerName, Job.liftAsync parse)
+
+  static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, string list>>) =
+    Header.ParsedJobRes(headerName, Job.liftAsync2 parse)
+
+  static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, string list>>) =
+    Header.ParsedJobRes(headerName, Job.liftAsync parse)
+
+  static member ParsedJobOpt(headerName, parse: 'ctx -> string -> Job<'a option>) =
     Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [headerInvalidParsedNone headerName s]))
 
-  static member ParsedJobOpt(headerName, parse: string -> Job<'a option>) : Header<'ctx, 'a> =
+  static member ParsedJobOpt(headerName, parse: string -> Job<'a option>) =
     Header.ParsedJobOpt(headerName, fun _ s -> parse s)
 
-  static member ParsedAsyncOpt(headerName, parse: 'ctx -> string -> Async<'a option>) : Header<'ctx, 'a> =
+  static member ParsedAsyncOpt(headerName, parse: 'ctx -> string -> Async<'a option>) =
     Header.ParsedJobOpt(headerName, Job.liftAsync2 parse)
 
-  static member ParsedAsyncOpt(headerName, parse: string -> Async<'a option>) : Header<'ctx, 'a> =
+  static member ParsedAsyncOpt(headerName, parse: string -> Async<'a option>) =
     Header.ParsedJobOpt(headerName, Job.liftAsync parse)
 
-  static member ParsedJob(headerName, parse: 'ctx -> string -> Job<'a>) : Header<'ctx, 'a> =
-    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> Job.map Ok)
+  static member ParsedJob(headerName, parse: 'ctx -> string -> Job<'a>) =
+    Header<'ctx, 'a>(headerName, JobResult.liftJob2 (fun ctx s -> parse ctx s))
 
-  static member ParsedJob(headerName, parse: string -> Job<'a>) : Header<'ctx, 'a> =
-    Header.ParsedJobRes(headerName, fun _ s -> parse s |> Job.map Ok)
+  static member ParsedJob(headerName, parse: string -> Job<'a>) =
+    Header<'ctx, 'a>(headerName, JobResult.liftJob2 (fun _ s -> parse s))
 
-  static member ParsedAsync(headerName, parse: 'ctx -> string -> Async<'a>) : Header<'ctx, 'a> =
+  static member ParsedAsync(headerName, parse: 'ctx -> string -> Async<'a>) =
     Header.ParsedJob(headerName, Job.liftAsync2 parse)
 
-  static member ParsedAsync(headerName, parse: string -> Async<'a>) : Header<'ctx, 'a> =
+  static member ParsedAsync(headerName, parse: string -> Async<'a>) =
     Header.ParsedJob(headerName, Job.liftAsync parse)
 
-  static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, Error list>) : Header<'ctx, 'a> =
+  static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, Error list>) =
     Header.ParsedJobRes(headerName, Job.lift2 parse)
 
-  static member ParsedRes(headerName, parse: string -> Result<'a, Error list>) : Header<'ctx, 'a> =
+  static member ParsedRes(headerName, parse: string -> Result<'a, Error list>) =
     Header.ParsedJobRes(headerName, Job.lift parse)
 
-  static member ParsedOpt(headerName, parse: 'ctx -> string -> 'a option) : Header<'ctx, 'a> =
+  static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, string>) =
+    Header.ParsedJobRes(headerName, Job.lift2 parse)
+
+  static member ParsedRes(headerName, parse: string -> Result<'a, string>) =
+    Header.ParsedJobRes(headerName, Job.lift parse)
+
+  static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, string list>) =
+    Header.ParsedJobRes(headerName, Job.lift2 parse)
+
+  static member ParsedRes(headerName, parse: string -> Result<'a, string list>) =
+    Header.ParsedJobRes(headerName, Job.lift parse)
+
+  static member ParsedOpt(headerName, parse: 'ctx -> string -> 'a option) =
     Header.ParsedJobOpt(headerName, Job.lift2 parse)
 
-  static member ParsedOpt(headerName, parse: string -> 'a option) : Header<'ctx, 'a> =
+  static member ParsedOpt(headerName, parse: string -> 'a option) =
     Header.ParsedJobOpt(headerName, Job.lift parse)
 
-  static member Parsed(headerName, parse: string -> 'a) : Header<'ctx, 'a> =
-    Header.ParsedJobRes(headerName, JobResult.lift parse)
+  static member Parsed(headerName, parse: string -> 'a) =
+    Header<'ctx, 'a>(headerName, JobResult.lift2 (fun _ s -> parse s))
 
 
 
@@ -740,5 +884,5 @@ module HeaderExtensions =
 
   type Header with
 
-    static member Parsed(headerName, parse: 'ctx -> string -> 'a) : Header<'ctx, 'a> =
-      Header.ParsedJobRes(headerName, JobResult.lift2 parse)
+    static member Parsed(headerName, parse: 'ctx -> string -> 'a) =
+      Header<'ctx, 'a>(headerName, JobResult.lift2 parse)

@@ -300,6 +300,16 @@
     |> Error.setTitle "Invalid query parameter value"
     |> Error.setDetailf "The value '%s' is not valid" invalidValue
 
+  let queryInvalidParsedErrMsg queryParamName invalidValue errMsg =
+    Error.create 400
+    |> Error.setTitle "Invalid query parameter value"
+    |> Error.setDetailf "Query parameter '%s' got invalid value '%s': %s" queryParamName invalidValue errMsg
+
+  let queryInvalidParsedErrMsgUnnamed invalidValue errMsg =
+    Error.create 400
+    |> Error.setTitle "Invalid query parameter value"
+    |> Error.setDetailf "The value '%s' is not valid: %s" invalidValue errMsg
+
   let queryNotSingular paramName numValues =
     Error.create 400
     |> Error.setTitle "Multiple values not allowed"
@@ -310,6 +320,11 @@
     Error.create 400
     |> Error.setTitle "Invalid header value"
     |> Error.setDetailf "Header '%s' got invalid value '%s'" headerName invalidValue
+
+  let headerInvalidParsedErrMsg headerName invalidValue errMsg =
+    Error.create 400
+    |> Error.setTitle "Invalid header value"
+    |> Error.setDetailf "Header '%s' got invalid value '%s': %s" headerName invalidValue errMsg
 
 
   (*

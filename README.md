@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.8.1 (2020-04-29)
+
+* Added additional query/header parsing overloads
+
 ### 0.8.0 (2020-04-29)
 
 * Removed `Filter.FieldAsNonNullable` to simplify field query parsing; just use `Filter.Field` instead
