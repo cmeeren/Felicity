@@ -295,7 +295,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
 
   member this.Optional =
-    { new RequestGetter<'ctx, 'attr option> with
+    { new RequestGetter<'ctx, 'attr option option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
         member _.Get(ctx, req, includedTypeAndId) =
@@ -304,21 +304,22 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
           | Ok None -> None |> Ok |> Job.result
           | Ok (Some (attrVals, attrsPointer)) ->
               match attrVals.TryGetValue this.name with
-              | true, (:? 'serialized as attr) ->
-                  this.toDomain ctx attr
+              | true, (:? ('serialized option) as attr) ->
+                  attr
+                  |> Option.traverseJobResult (this.toDomain ctx)
                   |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> JobResult.map Some
               | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> Job.result
     }
 
-  interface OptionalRequestGetter<'ctx, 'attr> with
+  interface OptionalRequestGetter<'ctx, 'attr option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
 
-  interface RequestGetter<'ctx, 'attr> with
+  interface RequestGetter<'ctx, 'attr option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
     member this.Get(ctx, req, includedTypeAndId) =

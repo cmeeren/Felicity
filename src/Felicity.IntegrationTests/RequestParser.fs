@@ -291,6 +291,107 @@ let tests =
       test <@ calledWith' = Some (NonEmptyString "val") @>
     }
 
+    testJob "Can parse a required nullable field" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = "val" |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome (Some (NonEmptyString "val")) @>
+    }
+
+    testJob "Can parse a required nullable field set to null" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = null |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome None @>
+    }
+
+    testJob "Returns 400 if required nullable field is missing" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, X.nullableNonEmptyString))
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = obj() |} |}
+        |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableNonEmptyString' is required for this operation" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Can parse an optional nullable field" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = "val" |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome (Some (Some (NonEmptyString "val"))) @>
+    }
+
+    testJob "Can parse an optional nullable field set to null" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = null |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome (Some None) @>
+    }
+
+    testJob "Can parse an optional nullable field that is not present" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = obj () |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome None @>
+    }
+
     testJob "Returns 400 if required single filter value contains comma" {
       let ctx = Ctx.Create (fun parser ->
         parser

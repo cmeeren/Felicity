@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.7.7 (2020-04-29)
+
+* Fixed nullable attributes in request parser
+
 ### 0.7.6 (2020-04-24)
 
 * Improved query param helper overload resolution
