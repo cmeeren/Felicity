@@ -1182,11 +1182,11 @@ Filter.Parsed(myPolyRel.Name, myPolyIdParser)
 
 Possible options include:
 
-* Parse to a type that encompasses all the possible ID types, and let the rest of the code deal with the ambiguity. Using `string` will of course always work, or you could parse to another type like `GUID` or `int` if all types in the relationship use the same ID type under the covers.
+* Parse to a type that encompasses all the possible ID types, and let the rest of the code deal with the ambiguity. Using `string` will of course always work, or you could parse to another type like `GUID` or `int` if all resource types in the relationship use compatible ID types in the database. Note that if using anything else than a `GUID` (e.g. `int`) this may not be feasible, since multiple resource types may have a resource with the specified ID.
 
-* Actually look up in the database during the parsing to see which resource type contains a match for the specified ID. This requires the IDs to be unique among all the types in the relationship, but depending on the use-case for the parsing, this may not give you much benefit over just parsing to e.g. a simple `GUID` and using that in the DB query in the first place.
+* Actually look up in the database during the parsing to see which resource type contains a match for the specified ID. This requires the IDs to be unique among all the types in the relationship. Depending on the use-case for the parsing, this may not give you much benefit over the previous method.
 
-* Require type information in another parameter, e.g. by using the higher-arity overloads of `RequestParser.Add` (or by requiring both parameters in `RequestParser.For`):
+* Require type information in another parameter, e.g. by using the higher-arity overloads of `RequestParser.Add` (or by requiring both parameters in `RequestParser.For`). Here is a very simple example that requires `myArgsSetter` to handle the case when the type filter is not set to a valid type:
 
   ```f#
   parser
@@ -1199,6 +1199,26 @@ Possible options include:
   ```
 
   This will accept a query like `?filter[myPolyRel]=someId&filter[myPolyRel.type]=someTypeName` where the string values `"someId"` and `"someTypeName"` are passed to `myArgsSetter`. This removes all ambiguity, but is more verbose for the API client.
+  
+  Here is a more sophisticated example the uses `Query.Enum`  so that Felicity handles the case when the type is not valid:
+  
+  ```f#
+  let setVehicleType resId parseResId args =
+    VehicleArgs.setVehicleType (parseResId resId) args
+  
+  let vehicleTypeMap = [
+    "car", CarId.fromString >> VehicleId.Car
+    "truck", TruckId.fromString >> VehicleId.Truck
+  ]
+  
+  parser
+    .For(...)
+    .Add(
+      myArgsSetter,
+      Filter.Parsed(vehicle.Name, id),
+      Query.Enum(sprintf "filter[%s.type]" vehicle.Name, vehicleTypeMap)
+  )
+  ```
 
 ### Parsing other query parameters
 
