@@ -290,8 +290,8 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       )
 
   
-  member this.Related (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) =
-    ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(this.name, this.Optional, getRelated)
+  member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
+    ToOneRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.Optional, getRelated)
 
 
   member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -1130,8 +1130,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
       )
 
   
-  member this.Related (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) =
-    ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(this.name, this.Optional, getRelated)
+  member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
+    ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.Optional, getRelated)
 
 
   member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -2056,8 +2056,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       )
 
 
-  member this.Related (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) =
-    ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(this.name, this.Optional, getRelated)
+  member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
+    ToManyRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.Optional, getRelated)
 
 
   member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =

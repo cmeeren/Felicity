@@ -1086,9 +1086,27 @@ let post =
     .AfterCreateAsync(Db.Article.save)
 ```
 
-You may append `.Optional` to an attribute or relationship if you want an optional parser that returns `None` when the field is not present, though it may be clearer to use the parser’s `.Add` methods to add optional parameters using “immutable setters” as shown previously. You can, for example, use this to add optional, read-only fields that may be used in POST requests but not in PATCH requests.
+You may append `.Optional` to an attribute or relationship if you want an optional parser that returns `None` when the field is not present, though depending on the use-case it may be clearer to use the parser’s `.Add` methods to add optional parameters using “immutable setters” as shown previously. You can, for example, use this to add optional, read-only fields that may be used in POST requests but not in PATCH requests.
 
-For relationships, you may also append e.g. `.Related(Person.lookup)` to get a parser that returns the actual entity, and not just its ID. See the previous section TODO for notes on this.
+#### Parsing related entities and projections
+
+For relationships, you may also append e.g. `.Related(Person.lookup)` to get a parser that returns the actual entity, and not just its ID. For example:
+
+```f#
+parser.For(Article.create, author.Related(Person.lookup))
+```
+
+Here, `Article.create` accepts a `Person` parameter instead of a `PersonId`.
+
+But what if `Article.create` doesn’t need the whole `Person` entity, only a subset of it? Or what if it only needs the `PersonId`, but you still want Felicity to ensure that the resource exists? Then you simply define another lookup operation just for the entity projection you want, and use that instead:
+
+```f#
+let customLookup =
+  Define<Context, MyPersonProjection, PersonId>()
+    .Operation.LookupAsync(myProjectionLookup)
+```
+
+Above, `myProjectionLookup` has signature `PersonId -> MyPersonProjection option`. This `customLookup` is then used in `author.Related` just like `Person.lookup`. `Article.create` can then accept `MyPersonProjection` instead of `Person`. Note that you have to create a new `Define` instance because the `define` value you already have in the resource module is a different generic instantiation (has different generic parameters).
 
 ### Parsing filter query parameters
 

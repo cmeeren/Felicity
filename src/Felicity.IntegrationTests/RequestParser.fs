@@ -106,6 +106,8 @@ module X =
       .ParsedOpt(NonEmptyString.value, NonEmptyString.create)
       .Get(fun _ -> None)
 
+  let alternativeALookup = Define<Ctx,string,NonEmptyString>().Operation.Lookup(fun (NonEmptyString id) -> Some id)
+
   let a = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> A)
 
   let getColl = define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
@@ -390,6 +392,24 @@ let tests =
       response |> testSuccessStatusCode
       let calledWith' = calledWith
       test <@ calledWith' = ValueSome None @>
+    }
+
+    testJob "Can parse a related resource using an alternative lookup" {
+      let mutable calledWith = ValueNone
+
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.a.Related(X.alternativeALookup))
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; relationships = {| a = {| data = {| ``type`` = "a"; id = "someId" |} |} |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome "someId" @>
     }
 
     testJob "Returns 400 if required single filter value contains comma" {
