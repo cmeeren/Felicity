@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.8.3 (2020-06-05)
+
+* Added workaround for [giraffe-fsharp/Giraffe#24](https://github.com/giraffe-fsharp/Giraffe/issues/424)
+
 ### 0.8.2 (2020-05-21)
 
 * Enabled lookup of arbitrary types in `myRelationship.Related()` parsers (was previously restricted to the relationship’s related entity type, now allows lookups of e.g. simpler resource projections, or simple existence checks for the related IDs)

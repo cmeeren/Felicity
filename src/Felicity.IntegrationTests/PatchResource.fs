@@ -262,7 +262,7 @@ module A5 =
   let lookup = define.Operation.Lookup(fun _ -> Some { Id = "a1"; ReadOnly = ""; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
   let get = define.Operation.GetResource()
   let patch = define.Operation.Patch().AfterUpdate(ignore)
-  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, 999, TimeSpan.Zero))  // Should ignore milliseconds
 
 
 type Ctx6 = Ctx6
