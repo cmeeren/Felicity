@@ -34,7 +34,7 @@ type Preconditions<'ctx, 'entity> = internal {
       let lastModified =
         this.getLastModified ctx (unbox<'entity> entity)
         // Workaround for https://github.com/giraffe-fsharp/Giraffe/issues/424
-        |> Option.map (fun dt -> dt.AddMilliseconds (float (-dt.Millisecond)))
+        |> Option.map (fun dt -> dt.AddTicks(-(dt.Ticks % TimeSpan.TicksPerSecond)))
       let res = httpCtx.ValidatePreconditions eTag lastModified
       // Clear headers because response-level ETag/Last-Modified headers don't
       // necessarily make sense in JSON:API due to compound documents; these values
