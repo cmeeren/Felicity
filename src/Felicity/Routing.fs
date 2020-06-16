@@ -224,8 +224,25 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
 
 
                 // Fallback
-                subRoutef "/%s" (fun path ->
-                  handleErrors [linkOrRelationshipDoesNotExistForAnyResource path collName]
+
+                subRoute "/relationships" (choose [
+                  routex "/?" >=> handleErrors [invalidPath "relationships" collName]
+
+                  subRoutef "/%s" (fun relName -> choose [
+                    routex "/?" >=> handleErrors [linkOrRelationshipDoesNotExistForAnyResource relName collName]
+                    subRoutef "/%s" (fun path2 ->
+                      handleErrors [invalidPath (sprintf "relationships/%s/%s" relName path2) collName]
+                    )
+                  ])
+                ])
+
+                subRoutef "/%s" (fun linkOrRelName ->
+                  choose [
+                    routex "/?" >=> handleErrors [linkOrRelationshipDoesNotExistForAnyResource linkOrRelName collName]
+                    subRoutef "/%s" (fun path2 ->
+                      handleErrors [invalidPath (sprintf "%s/%s" linkOrRelName path2) collName]
+                    )
+                  ]
                 )
 
               ]

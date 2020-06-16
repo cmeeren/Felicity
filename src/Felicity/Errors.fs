@@ -757,7 +757,12 @@
   let linkOrRelationshipDoesNotExistForAnyResource linkOrRelName collName =
     Error.create 404
     |> Error.setTitle "Unknown link or relationship"
-    |> Error.setDetailf "Link or relationship '%s' does not exist for any resource in collection '%s'" linkOrRelName collName
+    |> Error.setDetailf "The link or relationship '%s' does not exist for any resource in collection '%s'" linkOrRelName collName
+
+  let invalidPath path collName =
+    Error.create 404
+    |> Error.setTitle "Invalid path"
+    |> Error.setDetailf "The path '%s' does not exist for resources in collection '%s'" path collName
 
   let methodNotAllowed method allowedHeaderValue =
     Error.create 405

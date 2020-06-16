@@ -970,50 +970,6 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "GET returns 404 if link not defined for any resource" {
-      let db = Db ()
-      let! response = Request.get (Ctx.WithDb db) "/entities/d1/invalidOp" |> getResponse
-      response |> testStatusCode 404
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "Link or relationship 'invalidOp' does not exist for any resource in collection 'entities'" @>
-      test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ json |> hasNoPath "errors[1]" @>
-    }
-
-    testJob "POST returns 404 if link not defined for any resource" {
-      let db = Db ()
-      let! response = Request.post (Ctx.WithDb db) "/entities/d1/invalidOp" |> getResponse
-      response |> testStatusCode 404
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "Link or relationship 'invalidOp' does not exist for any resource in collection 'entities'" @>
-      test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ json |> hasNoPath "errors[1]" @>
-    }
-
-    testJob "PATCH returns 404 if link not defined for any resource" {
-      let db = Db ()
-      let! response = Request.patch (Ctx.WithDb db) "/entities/d1/invalidOp" |> getResponse
-      response |> testStatusCode 404
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "Link or relationship 'invalidOp' does not exist for any resource in collection 'entities'" @>
-      test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ json |> hasNoPath "errors[1]" @>
-    }
-
-    testJob "DELETE returns 404 if link not defined for any resource" {
-      let db = Db ()
-      let! response = Request.delete (Ctx.WithDb db) "/entities/d1/invalidOp" |> getResponse
-      response |> testStatusCode 404
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "Link or relationship 'invalidOp' does not exist for any resource in collection 'entities'" @>
-      test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ json |> hasNoPath "errors[1]" @>
-    }
-
     testJob "GET returns 403 if missing lookup" {
       let! response = Request.get Ctx4 "/entities/ignoredId/ignoredOp" |> getResponse
 
