@@ -282,6 +282,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.8.5 (2020-06-16)
+
+* Fix nullable relationship request parser interpreting null data as missing relationship
+
 ### 0.8.4 (2020-06-08)
 
 * More robust workaround workaround for [giraffe-fsharp/Giraffe#24](https://github.com/giraffe-fsharp/Giraffe/issues/424)
