@@ -16,6 +16,7 @@ type A = {
   X: string
   Nullable: string option
   NullableNotNullWhenSet: string option
+  NullableChild: Child option
   NullableChildNotNullWhenCreated: Child option
 }
 
@@ -28,7 +29,7 @@ type B = {
 
 module ADomain =
 
-  let create a child =
+  let create a child1 child2 =
     if a = false then Error [Error.create 422 |> Error.setCode "custom"]
     else Ok {
       Id = "1"
@@ -36,7 +37,8 @@ module ADomain =
       X = ""
       Nullable = None
       NullableNotNullWhenSet = None
-      NullableChildNotNullWhenCreated = Some child
+      NullableChild = child1
+      NullableChildNotNullWhenCreated = Some child2
     }
 
   let setA x a : A =
@@ -143,6 +145,10 @@ module A =
       .Get(fun a -> a.NullableNotNullWhenSet)
       .SetNonNull(ADomain.setNullableNotNullWhenSet)
 
+  let nullableChild =
+    define.Relationship
+      .ToOneNullable(Child.resDef)
+
   let nullableChildNotNullWhenCreated =
     define.Relationship
       .ToOneNullable(Child.resDef)
@@ -155,7 +161,11 @@ module A =
   let post =
     define.Operation
       .Post(fun ctx parser ->
-        parser.ForRes(ADomain.create, a, nullableChildNotNullWhenCreated.Related(Child.lookup).AsNonNullable)
+        parser.ForRes(
+          ADomain.create,
+          a,
+          nullableChild.Related(Child.lookup),
+          nullableChildNotNullWhenCreated.Related(Child.lookup).AsNonNullable)
       )
       .AfterCreate(fun (ctx: Ctx) a -> ctx.Db.SaveA a)
       .ModifyResponse(fun (ctx: Ctx) -> ctx.ModifyAResponse)
@@ -240,9 +250,9 @@ let tests =
                       nullableNotNullWhenSet = "bar"
                     |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
-                        {|data = {| ``type`` = "child"; id = "c" |}
-                        |}
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
+                        {| data = {| ``type`` = "child"; id = "c" |} |}
                     |}
                 |}
             |}
@@ -312,7 +322,8 @@ let tests =
                       nullableNotNullWhenSet = "bar"
                     |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
                         {|data = null
                         |}
                     |}
@@ -341,7 +352,8 @@ let tests =
                       x = "abc"
                     |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
                         {|data = {| ``type`` = "child"; id = "c" |}
                         |}
                     |}
@@ -369,7 +381,8 @@ let tests =
                         readonly = "foo"
                       |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
                         {|data = {| ``type`` = "child"; id = "c" |}
                         |}
                     |}
@@ -396,7 +409,8 @@ let tests =
                     {|a = true
                       nullableNotNullWhenSet = null |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
                         {|data = {| ``type`` = "child"; id = "c" |}
                         |}
                     |}
@@ -445,7 +459,8 @@ let tests =
                   id = "foo"
                   attributes = {| a = true |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
                         {|data = {| ``type`` = "child"; id = "c" |}
                         |}
                     |}
@@ -643,7 +658,8 @@ let tests =
                       nonExistentAttribute = "foo"
                     |}
                   relationships =
-                    {|nullableChildNotNullWhenCreated =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
                         {|data = {| ``type`` = "child"; id = "c" |}
                         |}
                       nonExistentRelationship =

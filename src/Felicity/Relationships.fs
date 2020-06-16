@@ -895,8 +895,8 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
             job {
               match! this.idGetter.Get(ctx, req, includedTypeAndId) with
               | Error errs -> return Error errs
-              | Ok None -> return Error [setRelNullNotAllowed this.name |> Error.setSourcePointer ("/data/relationships/" + this.name + "/data")]
-              | Ok (Some None) -> return Ok None
+              | Ok None -> return Ok None
+              | Ok (Some None) -> return Error [setRelNullNotAllowed this.name |> Error.setSourcePointer ("/data/relationships/" + this.name + "/data")]
               | Ok (Some (Some resId)) -> return Ok (Some resId)
             }
       }
@@ -1041,8 +1041,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
                               |> JobResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data")])
-                              |> JobResult.map Some
                       )
+                      |> JobResult.map Some
               | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> Job.result
     }
