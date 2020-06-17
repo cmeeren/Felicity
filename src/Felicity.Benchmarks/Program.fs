@@ -62,7 +62,6 @@ type Benchmark () =
           services
             .AddGiraffe()
             .AddJsonApi()
-              .BaseUrl("http://example.com")
               .GetCtx(fun _ -> context)
               .Add()
           |> ignore

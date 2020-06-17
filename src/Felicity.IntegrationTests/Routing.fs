@@ -1,8 +1,12 @@
 ﻿module Routing
 
+open System
+open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.TestHost
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote
+open Giraffe
 open Felicity
 
 
@@ -15,9 +19,10 @@ module A =
   let define = Define<Ctx, A, string>()
   let resId = define.Id.Simple(fun _-> "1")
   let resDef = define.Resource("a", resId).CollectionName("as")
+  let knownRel = define.Relationship.ToOne(resDef).Get(fun _ -> A)
   let lookup = define.Operation.Lookup(fun _ -> Some A)
   let post = define.Operation.Post(fun () -> A).AfterCreate(ignore)
-  let knownRel = define.Relationship.ToOne(resDef).Get(fun _ -> A)
+  let get = define.Operation.GetResource()
 
 [<Tests>]
 let tests =
@@ -103,6 +108,163 @@ let tests =
       test <@ json |> getPath "errors[0].detail" = "The path 'relationships/knownRel/path1' does not exist for resources in collection 'as'" @>
       test <@ json |> hasNoPath "errors[0].source.pointer" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "If no base URL or relative root path is specified, uses the base URL from the request" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .Add()
+                |> ignore)
+            .Configure(fun app -> app.UseGiraffe (jsonApi<Ctx>))
+        )
+      let client = server.CreateClient ()
+
+      let! response1 =
+        Request.createWithClient client Get (Uri("http://example1.com/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response1 |> testSuccessStatusCode
+      let! json1 = response1 |> Response.readBodyAsString
+      test <@ json1 |> getPath "data.links.self" = "http://example1.com/as/1" @>
+
+      let! response2 =
+        Request.createWithClient client Get (Uri("http://example2.com/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response2 |> testSuccessStatusCode
+      let! json2 = response2 |> Response.readBodyAsString
+      test <@ json2 |> getPath "data.links.self" = "http://example2.com/as/1" @>
+    }
+
+
+    testJob "If relative root path is specified, uses the base URL from the request with the root path inserted" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .RelativeJsonApiRoot("foo/bar")
+                  .Add()
+                |> ignore)
+            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+        )
+      let client = server.CreateClient ()
+
+      let! response1 =
+        Request.createWithClient client Get (Uri("http://example1.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response1 |> testSuccessStatusCode
+      let! json1 = response1 |> Response.readBodyAsString
+      test <@ json1 |> getPath "data.links.self" = "http://example1.com/foo/bar/as/1" @>
+
+      let! response2 =
+        Request.createWithClient client Get (Uri("http://example2.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response2 |> testSuccessStatusCode
+      let! json2 = response2 |> Response.readBodyAsString
+      test <@ json2 |> getPath "data.links.self" = "http://example2.com/foo/bar/as/1" @>
+    }
+
+
+    testJob "Relative root path works with leading slash" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .RelativeJsonApiRoot("/foo/bar")
+                  .Add()
+                |> ignore)
+            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+        )
+      let client = server.CreateClient ()
+
+      let! response1 =
+        Request.createWithClient client Get (Uri("http://example.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response1 |> testSuccessStatusCode
+      let! json1 = response1 |> Response.readBodyAsString
+      test <@ json1 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+    }
+
+
+    testJob "Relative root path works with trailing slash" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .RelativeJsonApiRoot("foo/bar/")
+                  .Add()
+                |> ignore)
+            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+        )
+      let client = server.CreateClient ()
+
+      let! response =
+        Request.createWithClient client Get (Uri("http://example.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+    }
+
+
+    testJob "If base URL is specified, uses the specified base URL in links regardless of actual request URL" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .BaseUrl("http://example.com/foo/bar")
+                  .Add()
+                |> ignore)
+            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+        )
+      let client = server.CreateClient ()
+
+      let! response1 =
+        Request.createWithClient client Get (Uri("http://example.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response1 |> testSuccessStatusCode
+      let! json1 = response1 |> Response.readBodyAsString
+      test <@ json1 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+
+      let! response2 =
+        Request.createWithClient client Get (Uri("http://something-else.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response2 |> testSuccessStatusCode
+      let! json2 = response2 |> Response.readBodyAsString
+      test <@ json2 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
     }
 
 ]

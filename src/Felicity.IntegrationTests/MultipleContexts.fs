@@ -43,11 +43,9 @@ let tests =
               services
                 .AddGiraffe()
                 .AddJsonApi()
-                  .BaseUrl("http://example.com")
                   .GetCtxRes(fun _ -> (Error [Error.create 422]: Result<Ctx1, _>))
                   .Add()
                 .AddJsonApi()
-                  .BaseUrl("http://example.com")
                   .GetCtx(fun _ -> Ctx2)
                   .Add()
                 |> ignore)

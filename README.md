@@ -257,7 +257,6 @@ type Startup() =
     services
       .AddGiraffe()
       .AddJsonApi()
-        .BaseUrl("http://localhost:5000")  // Used in resource/relationship links
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
       .AddOtherServices(..)
@@ -281,6 +280,11 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 
 Release notes
 -------------
+
+### 0.8.6 (2020-06-17)
+
+* Base URL no longer needs to be specified in startup code
+* Can add a relative JSON:API handler root path instead of the full base URL in startup code
 
 ### 0.8.5 (2020-06-16)
 

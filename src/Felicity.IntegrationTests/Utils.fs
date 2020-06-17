@@ -39,11 +39,9 @@ let startTestServer (ctx: 'ctx) =
           services
             .AddGiraffe()
             .AddJsonApi()
-              .BaseUrl("http://example.com")
               .GetCtx(fun _ -> ctx)
               .Add()
             .AddJsonApi()
-              .BaseUrl("http://example.com")
               .GetCtx(fun _ -> SecondCtx)
               .Add()
           |> ignore)

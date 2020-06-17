@@ -167,7 +167,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              let! doc = resp.Write ctx req (resDef, entity)
+              let! doc = resp.Write httpCtx ctx req (resDef, entity)
               let handler =
                 setStatusCode 200
                 >=> this.modifyResponse mappedCtx (unbox<'entity> entity)
@@ -217,7 +217,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
                   | Some _, false -> return! handleErrors [sortNotSupported] next httpCtx
                   | _ -> 
-                      let! doc = resp.WriteList ctx req (entities |> List.map (fun e -> resDef, e))
+                      let! doc = resp.WriteList httpCtx ctx req (entities |> List.map (fun e -> resDef, e))
                       let handler =
                         setStatusCode 200
                         >=> this.modifyResponse mappedCtx entities
@@ -268,7 +268,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
                   | Some _, false -> return! handleErrors [sortNotSupported] next httpCtx
                   | _ -> 
-                      let! doc = resp.WriteList ctx req (entities |> List.map this.getPolyBuilder |> List.map (fun b -> b.resourceDef, b.entity))
+                      let! doc = resp.WriteList httpCtx ctx req (entities |> List.map this.getPolyBuilder |> List.map (fun b -> b.resourceDef, b.entity))
                       let handler =
                         setStatusCode 200
                         >=> this.modifyResponse mappedCtx entities
@@ -336,7 +336,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                               >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
                             return! handler next httpCtx
                           else
-                            let! doc = resp.Write ctx req (rDef, entity1)
+                            let! doc = resp.Write httpCtx ctx req (rDef, entity1)
                             let setLocationHeader =
                               match doc with
                               | { data = Some { links = Include links } } ->
@@ -472,7 +472,7 @@ type PostCustomHelper<'ctx, 'entity> internal
   member _.ReturnCreatedEntity (entity: 'entity) : HttpHandler =
     fun next httpCtx ->
       job {
-        let! doc = builder.Write ctx req (rDef, entity)
+        let! doc = builder.Write httpCtx ctx req (rDef, entity)
         let setLocationHeader =
           match doc with
           | { data = Some { links = Include links } } ->
@@ -594,7 +594,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                                           >=> this.modifyResponse mappedCtx (unbox<'entity> entity4)
                                         return! handler next httpCtx
                                       else
-                                        let! doc = resp.Write ctx req (rDef, entity4)
+                                        let! doc = resp.Write httpCtx ctx req (rDef, entity4)
                                         let handler =
                                           setStatusCode 200
                                           >=> this.modifyResponse mappedCtx entity4

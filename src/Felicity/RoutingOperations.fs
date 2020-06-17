@@ -45,14 +45,14 @@ type internal CollectionOperations<'ctx> = {
 
 module internal RoutingOperations =
 
-  let responseBuilder resourceModuleMap baseUrl : ResponseBuilder<'ctx> =
+  let responseBuilder resourceModuleMap getBaseUrl : ResponseBuilder<'ctx> =
 
     { new ResponseBuilder<'ctx> with
-        member _.Write ctx req rDefEntity =
+        member _.Write httpCtx ctx req rDefEntity =
           job {
             let resourceDef, e = rDefEntity
             let! main, included =
-              ResourceBuilder.ResourceBuilder(resourceModuleMap, baseUrl, [], ctx, req, resourceDef, e)
+              ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, resourceDef, e)
               |> ResourceBuilder.buildOne
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
@@ -63,11 +63,11 @@ module internal RoutingOperations =
             }
           }
 
-        member _.WriteList ctx req rDefsEntities =
+        member _.WriteList httpCtx ctx req rDefsEntities =
           job {
             let! main, included =
               rDefsEntities
-              |> List.map (fun (rDef, e) -> ResourceBuilder.ResourceBuilder(resourceModuleMap, baseUrl, [], ctx, req, rDef, e))
+              |> List.map (fun (rDef, e) -> ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, rDef, e))
               |> ResourceBuilder.build
             return {
               ResourceCollectionDocument.jsonapi = Skip  // support later when valid use-cases arrive
@@ -78,12 +78,12 @@ module internal RoutingOperations =
             }
           }
 
-        member _.WriteOpt ctx req rDefEntity =
+        member _.WriteOpt httpCtx ctx req rDefEntity =
           job {
             let! main, included =
               rDefEntity
               |> Option.map (fun (rDef, e) ->
-                  ResourceBuilder.ResourceBuilder(resourceModuleMap, baseUrl, [], ctx, req, rDef, e)
+                  ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, rDef, e)
                   |> ResourceBuilder.buildOne
                   |> Job.map (fun (res, inc) -> Some res, inc)
               )
@@ -136,7 +136,7 @@ module internal RoutingOperations =
       }
 
 
-  let getResource<'ctx> resourceModuleMap baseUrl collName (resourceModules: Type []) =
+  let getResource<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) =
     let opsAndResourceDefs =
       resourceModules
       |> Array.choose (fun m ->
@@ -149,7 +149,7 @@ module internal RoutingOperations =
       let opLookup =
         opsAndResourceDefs
         |> Array.map (fun (op, resDef) ->
-            let builder = responseBuilder resourceModuleMap baseUrl
+            let builder = responseBuilder resourceModuleMap getBaseUrl
             resDef.TypeName, fun ctx req entity -> op.Run resDef ctx req entity builder
         )
         |> dict
@@ -161,7 +161,7 @@ module internal RoutingOperations =
             | true, run -> run ctx req entity next httpCtx
 
 
-  let patchResource<'ctx> resourceModuleMap baseUrl collName (resourceModules: Type []) =
+  let patchResource<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) =
     let opsAndResourceDefs =
       resourceModules
       |> Array.choose (fun m ->
@@ -180,7 +180,7 @@ module internal RoutingOperations =
       let opLookup =
         opsAndResourceDefs
         |> Array.map (fun (patchOp, prec, resDef) ->
-            let builder = responseBuilder resourceModuleMap baseUrl
+            let builder = responseBuilder resourceModuleMap getBaseUrl
             let prec =
               prec
               |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
@@ -200,7 +200,7 @@ module internal RoutingOperations =
             | true, run -> run ctx req entity next httpCtx
 
 
-  let deleteResource<'ctx> resourceModuleMap baseUrl collName (resourceModules: Type []) =
+  let deleteResource<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) =
     let opsAndResourceDefs =
       resourceModules
       |> Array.choose (fun m ->
@@ -219,7 +219,7 @@ module internal RoutingOperations =
       let opLookup =
         opsAndResourceDefs
         |> Array.map (fun (op, prec, resDef) ->
-            let builder = responseBuilder resourceModuleMap baseUrl
+            let builder = responseBuilder resourceModuleMap getBaseUrl
             let prec =
               prec
               |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
@@ -234,7 +234,7 @@ module internal RoutingOperations =
             | true, run -> run ctx req entity next httpCtx
 
 
-  let relationshipOperations (resourceModuleMap: Map<_,_>) baseUrl collName (resourceModules: Type []) : Map<RelationshipName, RelationshipOperations<'ctx>> =
+  let relationshipOperations (resourceModuleMap: Map<_,_>) getBaseUrl collName (resourceModules: Type []) : Map<RelationshipName, RelationshipOperations<'ctx>> =
     resourceModules
     |> Array.collect (fun m ->
         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
@@ -248,7 +248,7 @@ module internal RoutingOperations =
               rDef.TypeName,
               (op, preconditions |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }))
           |> dict
-        let builder = responseBuilder resourceModuleMap baseUrl
+        let builder = responseBuilder resourceModuleMap getBaseUrl
         let hasGetRelated = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.GetRelated.IsSome)
         let hasGetSelf = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.GetSelf.IsSome)
         let hasPostSelf = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.PostSelf.IsSome)
@@ -328,7 +328,7 @@ module internal RoutingOperations =
     |> Map.ofArray
 
 
-  let linkOperations (resourceModuleMap: Map<_,_>) baseUrl collName (resourceModules: Type []) : Map<LinkName, LinkOperations<'ctx>> =
+  let linkOperations (resourceModuleMap: Map<_,_>) getBaseUrl collName (resourceModules: Type []) : Map<LinkName, LinkOperations<'ctx>> =
     resourceModules
     |> Array.collect (fun m ->
         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
@@ -345,7 +345,7 @@ module internal RoutingOperations =
                 |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
               rDef.TypeName, (op, prec))
           |> dict
-        let getResponder ctx req = Responder(responseBuilder resourceModuleMap baseUrl, ctx, req)
+        let getResponder ctx req = Responder(responseBuilder resourceModuleMap getBaseUrl, ctx, req)
         let hasGet = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.Get.IsSome)
         let hasPost = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.Post.IsSome)
         let hasPatch = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.Patch.IsSome)
@@ -410,7 +410,7 @@ module internal RoutingOperations =
 
 
 
-  let resourceOperations resourceModuleMap baseUrl collName (resourceModules: Type []) : ResourceOperations<'ctx> =
+  let resourceOperations resourceModuleMap getBaseUrl collName (resourceModules: Type []) : ResourceOperations<'ctx> =
     {
       getByIdBoxedHandler =
         ResourceModule.resourceLookup<'ctx> collName resourceModules
@@ -425,15 +425,15 @@ module internal RoutingOperations =
               }
               |> Job.startAsTask
         )
-      get = getResource resourceModuleMap baseUrl collName resourceModules
-      patch = patchResource resourceModuleMap baseUrl collName resourceModules
-      delete = deleteResource resourceModuleMap baseUrl collName resourceModules
-      relationships = relationshipOperations resourceModuleMap baseUrl collName resourceModules
-      links = linkOperations resourceModuleMap baseUrl collName resourceModules
+      get = getResource resourceModuleMap getBaseUrl collName resourceModules
+      patch = patchResource resourceModuleMap getBaseUrl collName resourceModules
+      delete = deleteResource resourceModuleMap getBaseUrl collName resourceModules
+      relationships = relationshipOperations resourceModuleMap getBaseUrl collName resourceModules
+      links = linkOperations resourceModuleMap getBaseUrl collName resourceModules
     }
 
 
-  let getCollection<'ctx> resourceModuleMap baseUrl collName (resourceModules: Type []) =
+  let getCollection<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) =
     let nonPolymorphicOperations =
       resourceModules
       |> Array.choose (fun m ->
@@ -442,7 +442,7 @@ module internal RoutingOperations =
           |> Array.tryHead
           |> Option.map (fun op ->
               let rDef = ResourceModule.resourceDefinition<'ctx> m
-              let builder = responseBuilder resourceModuleMap baseUrl
+              let builder = responseBuilder resourceModuleMap getBaseUrl
               fun ctx req -> op.Run rDef ctx req builder
           )
       )
@@ -454,7 +454,7 @@ module internal RoutingOperations =
           |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<PolymorphicGetCollectionOperation<'ctx>>)
           |> Array.tryHead
           |> Option.map (fun op ->
-              let builder = responseBuilder resourceModuleMap baseUrl
+              let builder = responseBuilder resourceModuleMap getBaseUrl
               fun ctx req -> op.Run ctx req builder
           )
       )
@@ -466,7 +466,7 @@ module internal RoutingOperations =
         | xs -> failwithf "%i public GET resource operations specified for collection name %s; only one is allowed" xs.Length collName
 
 
-  let postCollection<'ctx> resourceModuleMap baseUrl collName (resourceModules: Type []) =
+  let postCollection<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) =
     let opsAndResourceDefs =
       resourceModules
       |> Array.choose (fun m ->
@@ -479,7 +479,7 @@ module internal RoutingOperations =
       let opLookup =
         opsAndResourceDefs
         |> Array.map (fun (op, resDef) ->
-            let builder = responseBuilder resourceModuleMap baseUrl
+            let builder = responseBuilder resourceModuleMap getBaseUrl
             let patch =
               resourceModuleMap
               |> Map.tryFind resDef.TypeName
@@ -508,7 +508,7 @@ module internal RoutingOperations =
               | true, run -> run ctx req next httpCtx
 
 
-  let collectionOperations<'ctx> resourceModuleMap baseUrl collName (resourceModules: Type []) : CollectionOperations<'ctx> =
-    { getCollection = getCollection resourceModuleMap baseUrl collName resourceModules
-      postCollection = postCollection resourceModuleMap baseUrl collName resourceModules
-      resourceOperations = resourceOperations resourceModuleMap baseUrl collName resourceModules }
+  let collectionOperations<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) : CollectionOperations<'ctx> =
+    { getCollection = getCollection resourceModuleMap getBaseUrl collName resourceModules
+      postCollection = postCollection resourceModuleMap getBaseUrl collName resourceModules
+      resourceOperations = resourceOperations resourceModuleMap getBaseUrl collName resourceModules }

@@ -159,7 +159,7 @@ You use the `getCtx` function when setting up Felicity in `ConfigureServices` as
 
 ### Startup configuration
 
-You need to set up Felicity in `ConfigureServices`. The below code shows an example of a `Startup` class. You must supply the base URL used in resource/relationship links, as well as the function that creates your context.
+You need to set up Felicity in `ConfigureServices`. The below code shows an example of a `Startup` class. You must supply the function that creates your context.
 
 ```f#
 type Startup() =
@@ -168,7 +168,6 @@ type Startup() =
     services
       .AddGiraffe()
       .AddJsonApi()
-        .BaseUrl("http://localhost:5000")
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
       .AddOtherServices(..)
@@ -181,6 +180,14 @@ type Startup() =
       )
       .UseGiraffe(mainHandler)
 ```
+
+#### Base URLs
+
+JSON:API responses contain resource/relationship links. By default, Felicity infers these links from the HTTP request. For example, if your API is available both on `https://example.com` and `https://something-else.com`, then `GET https://example.com/articles` will return resources with `example.com` in their links, and for `GET https://something-else.com/articles` the resources will have `something-else.com` in their links.
+
+If you want, you can use the `.BaseUrl` method after `.AddJsonApi()` to specify the base URL that will be used for all links.
+
+#### Multiple context types
 
 You may call `AddJsonApi` multiple times for different context types. This may be useful if you have some collections/resource types that are only accessible to privileged users, which you can model with a different context type.
 
@@ -206,7 +213,33 @@ let mainHandler : HttpHandler =
   ]
 ```
 
-Note that you can place the `jsonApi` in a subroute, too, and everything works just like you’d expect.
+#### Pacing the JSON:API routes in a subroute
+
+You can place the `jsonApi` in a subroute, too. For example, the following route
+
+```f#
+let mainHandler : HttpHandler =
+  choose [
+    subRoute "/foo" (subRoute "/bar" jsonApi<Context>)
+  ]
+```
+
+means that clients call `https://example.com/foo/bar/articles/1` to get the `article` with ID `1`.
+
+If you do this, you need to use the `.RelativeJsonApiRoot` method after `.AddJsonApi()` in your startup code to specify the relative root in order to get correct links in the JSON:API responses, like this (leading/trailing slashes doesn’t matter):
+
+```f#
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .RelativeJsonApiRoot("foo/bar")
+      .Add()
+    .AddOtherServices(..)
+```
+
+Alternatively you may use `.BaseUrl` to explicitly specify the whole base URL as described earlier.
 
 ### Errors
 

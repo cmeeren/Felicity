@@ -344,7 +344,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
               | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
               | Include relatedEntity ->
                   let b = resolveEntity relatedEntity
-                  let! doc = resp.Write ctx req (b.resourceDef, b.entity)
+                  let! doc = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetRelatedResponse ctx entity relatedEntity
@@ -1183,7 +1183,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
               match! getRelated ctx entity with
               | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
               | Include relatedEntity ->
-                  let! doc = resp.WriteOpt ctx req (relatedEntity |> Option.map (fun e ->
+                  let! doc = resp.WriteOpt httpCtx ctx req (relatedEntity |> Option.map (fun e ->
                     let b = resolveEntity e
                     b.resourceDef, b.entity
                   ))
@@ -2193,7 +2193,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                 match! getRelated ctx entity with
                 | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
                 | Include relatedEntities ->
-                    let! doc = resp.WriteList ctx req (relatedEntities |> List.map (fun e ->
+                    let! doc = resp.WriteList httpCtx ctx req (relatedEntities |> List.map (fun e ->
                       let b = resolveEntity e
                       b.resourceDef, b.entity
                     ))

@@ -58,7 +58,6 @@ type Startup() =
     services
       .AddGiraffe()
       .AddJsonApi()
-        .BaseUrl("http://localhost:5000")
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
     |> ignore

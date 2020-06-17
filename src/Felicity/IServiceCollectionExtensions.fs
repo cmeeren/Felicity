@@ -6,12 +6,15 @@ open System.Text.Json
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Hopac
+open Giraffe
 open RoutingOperations
+
 
 
 type JsonApiConfigBuilder<'ctx> = internal {
   services: IServiceCollection
   baseUrl: string option
+  relativeJsonApiRoot: string option
   getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
 } with
@@ -19,15 +22,43 @@ type JsonApiConfigBuilder<'ctx> = internal {
   static member internal DefaultFor services : JsonApiConfigBuilder<'ctx> = {
     services = services
     baseUrl = None
+    relativeJsonApiRoot = None
     getCtx = None
     configureSerializerOptions = None
   }
 
+  /// Explicitly sets the base URL to be used in JSON:API responses. This is
+  /// optional; if not supplied, this will be inferred from the actual request
+  /// URL. (See also RelativeJsonApiRoot which you need to use then if your
+  /// jsonApi handler is not at the root level.)
+  ///
+  /// This may not be combined with RelativeJsonApiRoot.
   member this.BaseUrl(url: Uri) : JsonApiConfigBuilder<'ctx> =
+    if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.ToString().TrimEnd('/')) }
 
+  /// Explicitly sets the base URL to be used in JSON:API responses. This is
+  /// optional; if not supplied, this will be inferred from the actual request
+  /// URL. (See also RelativeJsonApiRoot which you need to use then if your
+  /// jsonApi handler is not at the root level.)
+  ///
+  /// This may not be combined with RelativeJsonApiRoot.
   member this.BaseUrl(url: string) : JsonApiConfigBuilder<'ctx> =
+    if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.TrimEnd('/')) }
+
+  /// Sets the relative root path for the JSON:API routes. This must match the
+  /// placement of the jsonApi HttpHandler in your Giraffe routing. For example,
+  /// if the jsonApi handler is placed in a subroute 'foo', e.g. clients call
+  /// 'GET /foo/articles' to query the /articles collection, then you must pass
+  /// 'foo' as a parameter here.
+  ///
+  /// This may not be combined with BaseUrl.
+  ///
+  /// Leading/trailing slashes don't matter.
+  member this.RelativeJsonApiRoot(path: string) : JsonApiConfigBuilder<'ctx> =
+    if this.baseUrl.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
+    { this with relativeJsonApiRoot = Some (path.Trim('/')) }
 
   member this.GetCtxJobRes(getCtx: HttpContext -> Job<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
     { this with getCtx = Some getCtx }
@@ -51,7 +82,14 @@ type JsonApiConfigBuilder<'ctx> = internal {
     { this with configureSerializerOptions = Some configure }
 
   member this.Add() =
-    let baseUrl = this.baseUrl |> Option.defaultWith (fun () -> failwith "Must specify a base URL")
+    let getBaseUrl =
+      match this.baseUrl with
+      | None -> fun (ctx: HttpContext) ->
+          let url = Uri(ctx.GetRequestUrl())
+          let baseUrl = url.Scheme + Uri.SchemeDelimiter + url.Authority
+          match this.relativeJsonApiRoot with None -> baseUrl | Some r -> baseUrl + "/" + r
+      | Some url ->
+          fun _ -> url
     let getCtx = this.getCtx |> Option.defaultWith (fun () -> failwith "Must specify a context getter")
     let configureSerializerOptions = this.configureSerializerOptions |> Option.defaultValue ignore
     
@@ -135,7 +173,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     let collections =
       (Map.empty, modulesByCollectionName)
       ||> Array.fold (fun map (collName: CollectionName, resourceModules: Type []) ->
-            let collOperations = collectionOperations<'ctx> resourceModuleMap baseUrl collName resourceModules
+            let collOperations = collectionOperations<'ctx> resourceModuleMap getBaseUrl collName resourceModules
             map.Add(collName, collOperations)
       )
 
