@@ -204,11 +204,17 @@ type RequestParser<'ctx, 'a> = internal {
 
 type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeAndId) =
 
-  member _.GetRequired(param: RequestGetter<'ctx, 'a>) : Job<Result<'a, Error list>> =
+  member _.GetRequiredJob(param: RequestGetter<'ctx, 'a>) : Job<Result<'a, Error list>> =
     RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
 
-  member _.GetOptional(param: OptionalRequestGetter<'ctx, 'a>) : Job<Result<'a option, Error list>> =
+  member _.GetOptionalJob(param: OptionalRequestGetter<'ctx, 'a>) : Job<Result<'a option, Error list>> =
     RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
+
+  member _.GetRequiredAsync(param: RequestGetter<'ctx, 'a>) : Async<Result<'a, Error list>> =
+    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseAsync()
+
+  member _.GetOptionalAsync(param: OptionalRequestGetter<'ctx, 'a>) : Async<Result<'a option, Error list>> =
+    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseAsync()
 
   // Arity 0
 

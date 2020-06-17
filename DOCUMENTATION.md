@@ -897,7 +897,7 @@ let linkName =
     .CustomLink()
     .Post(fun ctx parser respond entity ->
       async {
-        let! someParam = parser.GetRequired(Query.Bool("someQueryParam"))
+        let! someParam = parser.GetRequiredAsync(Query.Bool("someQueryParam"))
         let! updatedEntity = doSomeUpdate someParam entity
         let handler =
           respond.WithEntity updatedEntity
@@ -1049,13 +1049,13 @@ parser
 
 ### Parsing higher arities than is currently available
 
-If you need to parse higher arities than are currently available for the `For` or `Add` methods, please open an issue and/or submit a PR. As a workaround, you can always fall back to monadic parsing using the `JobRes` overloads and use a suitable `jobResult` CE (e.g. from [FsToolkit.ErrorHandling.JobResult](https://www.nuget.org/packages/FsToolkit.ErrorHandling.JobResult/)). For example:
+If you need to parse higher arities than are currently available for the `For` or `Add` methods, please open an issue and/or submit a PR. As a workaround, you can always fall back to monadic parsing using the `AsyncRes` overloads and use a suitable `asyncResult` CE (e.g. from [FsToolkit.ErrorHandling.JobResult](https://www.nuget.org/packages/FsToolkit.ErrorHandling.JobResult/)). `JobRes` overloads are also available. For example:
 
 ```f#
-parser.ForJobRes(
-  jobResult {
-    let! a = parser.GetRequired fieldA
-    let! b = parser.GetRequired fieldB
+parser.ForAsyncRes(
+  asyncResult {
+    let! a = parser.GetRequiredAsync fieldA
+    let! b = parser.GetRequiredAsync fieldB
     ...
     return domainFuncTakingManyParams a b ...
   }
@@ -1078,7 +1078,7 @@ let linkName =
     .CustomLink()
     .Post(fun ctx parser respond entity ->
       async {
-        let! someParam = parser.GetRequired(Query.Bool("someQueryParam"))
+        let! someParam = parser.GetRequiredAsync(Query.Bool("someQueryParam"))
         let! updatedEntity = doSomeUpdate someParam entity
         let handler =
           respond.WithEntity updatedEntity
@@ -1088,7 +1088,7 @@ let linkName =
     )
 ```
 
-This demonstrates one possible way of using the parser in custom operations: `GetRequired` simply parses a single required parameter. There is also `GetOptional` that returns an `Option`-wrapped value which is `None` if the parameter was not present.
+This demonstrates one possible way of using the parser in custom operations: The `GetRequired` overloads simply parse a single required parameter. There are also `GetOptional` overloads that returns an `Option`-wrapped value which is `None` if the parameter was not present.
 
 The other possible way to use the parser in custom operation is to use it exactly like in the standard operations, i.e. `parser.For(…).Add(…)`, but end with `.ParseAsync()`. This returns `Async<Result<'a, Error list>>`, meaning you can bind it using `let!` in a custom operation. For example:
 

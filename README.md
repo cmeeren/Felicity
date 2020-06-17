@@ -281,10 +281,12 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
-### 0.8.6 (2020-06-17)
+### 0.9.0 (2020-06-17)
 
+* Breaking: `RequestParserHelper.GetRequired` and `.GetOptional` are renamed to `GetRequiredJob` and `GetOptionalJob`
+* Added `RequestParserHelper.GetRequiredAsync` and `.GetOptionalAsync`
 * Base URL no longer needs to be specified in startup code
-* Can add a relative JSON:API handler root path instead of the full base URL in startup code
+* Can add a relative JSON:API handler root path instead of the full base URL in startup code if the `jsonApi` handler is not at the root
 
 ### 0.8.5 (2020-06-16)
 
