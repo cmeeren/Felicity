@@ -287,6 +287,7 @@ Release notes
 * Added `RequestParserHelper.GetRequiredAsync` and `.GetOptionalAsync`
 * Base URL no longer needs to be specified in startup code
 * Can add a relative JSON:API handler root path instead of the full base URL in startup code if the `jsonApi` handler is not at the root
+* Updated `System.Text.Json` from 4.7.1 to 4.7.2
 
 ### 0.8.5 (2020-06-16)
 

@@ -14,10 +14,11 @@
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
     <Version>0.9.0</Version>
-    <PackageReleaseNotes>* Breaking: RequestParserHelper.GetRequired and .GetOptional are renamed to GetRequiredJob and GetOptionalJob
-* Added RequestParserHelper.GetRequiredAsync and .GetOptionalAsync
-* Base URL no longer needs to be specified in startup code
-* Can add a relative JSON:API handler root path instead of the full base URL in startup code if the jsonApi handler is not at the root</PackageReleaseNotes>
+    <PackageReleaseNotes>- Breaking: RequestParserHelper.GetRequired and .GetOptional are renamed to GetRequiredJob and GetOptionalJob
+- Added RequestParserHelper.GetRequiredAsync and .GetOptionalAsync
+- Base URL no longer needs to be specified in startup code
+- Can add a relative JSON:API handler root path instead of the full base URL in startup code if the jsonApi handler is not at the root
+- Updated System.Text.Json from 4.7.1 to 4.7.2</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -59,7 +60,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="System.Text.Json" Version="4.7.1" />
+    <PackageReference Include="System.Text.Json" Version="4.7.2" />
   </ItemGroup>
   
   <ItemGroup>
