@@ -24,7 +24,20 @@ module X =
       .AddConstraint("foo", 1)
       .AddConstraint("bar", true)
       .AddConstraint("baz", [123; 456])
+      .AddConstraint("cux", fun X -> 2)
+      .AddConstraint("cuux", fun Ctx X -> 3)
       .Get(fun _ -> true)
+
+  let b =
+    define.Attribute
+      .Nullable
+      .Simple()
+      .AddConstraint("foo5", 5)
+      .AddConstraint("bar5", true)
+      .AddConstraint("baz5", [987; 654])
+      .AddConstraint("cux5", fun X -> 6)
+      .AddConstraint("cuux5", fun Ctx X -> 7)
+      .Get(fun _ -> Some false)
 
   let toOne =
     define.Relationship
@@ -32,6 +45,8 @@ module X =
       .AddConstraint("foo2", 2)
       .AddConstraint("bar2", false)
       .AddConstraint("baz2", ["foo"; "bar"])
+      .AddConstraint("cux2", fun X -> 3)
+      .AddConstraint("cuux2", fun Ctx X -> 4)
       // No getter so that we test that constraints are also visible for fields without
       // getter
 
@@ -41,6 +56,8 @@ module X =
       .AddConstraint("foo3", 3)
       .AddConstraint("bar3", true)
       .AddConstraint("baz3", ["abc"; "def"])
+      .AddConstraint("cux3", fun X -> 4)
+      .AddConstraint("cuux3", fun Ctx X -> 5)
       .Get(fun _ _ -> failwith "not used")
 
   let toMany =
@@ -49,6 +66,8 @@ module X =
       .AddConstraint("foo4", 4)
       .AddConstraint("bar4", false)
       .AddConstraint("baz4", ["123"; "456"])
+      .AddConstraint("cux4", fun X -> 5)
+      .AddConstraint("cuux4", fun Ctx X -> 6)
       .Get(fun _ _ -> failwith "not used")
 
   let lookup = define.Operation.Lookup(fun _ -> Some X)
@@ -87,15 +106,28 @@ let tests =
       test <@ json |> getPath "data[0].attributes.constraints.a.foo" = 1 @>
       test <@ json |> getPath "data[0].attributes.constraints.a.bar" = true @>
       test <@ json |> getPath "data[0].attributes.constraints.a.baz" = [123; 456] @>
+      test <@ json |> getPath "data[0].attributes.constraints.a.cux" = 2 @>
+      test <@ json |> getPath "data[0].attributes.constraints.a.cuux" = 3 @>
+      test <@ json |> getPath "data[0].attributes.constraints.b.foo5" = 5 @>
+      test <@ json |> getPath "data[0].attributes.constraints.b.bar5" = true @>
+      test <@ json |> getPath "data[0].attributes.constraints.b.baz5" = [987; 654] @>
+      test <@ json |> getPath "data[0].attributes.constraints.b.cux5" = 6 @>
+      test <@ json |> getPath "data[0].attributes.constraints.b.cuux5" = 7 @>
       test <@ json |> getPath "data[0].attributes.constraints.toOne.foo2" = 2 @>
       test <@ json |> getPath "data[0].attributes.constraints.toOne.bar2" = false @>
       test <@ json |> getPath "data[0].attributes.constraints.toOne.baz2" = ["foo"; "bar"] @>
+      test <@ json |> getPath "data[0].attributes.constraints.toOne.cux2" = 3 @>
+      test <@ json |> getPath "data[0].attributes.constraints.toOne.cuux2" = 4 @>
       test <@ json |> getPath "data[0].attributes.constraints.toOneNullable.foo3" = 3 @>
       test <@ json |> getPath "data[0].attributes.constraints.toOneNullable.bar3" = true @>
       test <@ json |> getPath "data[0].attributes.constraints.toOneNullable.baz3" = ["abc"; "def"] @>
+      test <@ json |> getPath "data[0].attributes.constraints.toOneNullable.cux3" = 4 @>
+      test <@ json |> getPath "data[0].attributes.constraints.toOneNullable.cuux3" = 5 @>
       test <@ json |> getPath "data[0].attributes.constraints.toMany.foo4" = 4 @>
       test <@ json |> getPath "data[0].attributes.constraints.toMany.bar4" = false @>
       test <@ json |> getPath "data[0].attributes.constraints.toMany.baz4" = ["123"; "456"] @>
+      test <@ json |> getPath "data[0].attributes.constraints.toMany.cux4" = 5 @>
+      test <@ json |> getPath "data[0].attributes.constraints.toMany.cuux4" = 6 @>
     }
 
     testJob "Does not return constraints for excluded fields" {

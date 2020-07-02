@@ -231,8 +231,16 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ -> value)
+
+
+[<AutoOpen>]
+module NonNullableAttributeExtensions =
+
+  type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> with
+
+    member this.AddConstraint (name: string, value: 'a) =
+      this.AddConstraint(name, fun _ -> value)
+
 
 
 
@@ -486,8 +494,15 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ -> value)
+
+
+[<AutoOpen>]
+module NullableAttributeExtensions =
+
+  type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> with
+
+    member this.AddConstraint (name: string, value: 'a) =
+      this.AddConstraint(name, fun _ -> value)
 
 
 

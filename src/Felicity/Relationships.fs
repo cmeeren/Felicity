@@ -610,9 +610,6 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ -> value)
-
   member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
@@ -831,6 +828,16 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
     this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
+
+
+
+[<AutoOpen>]
+module ToOneRelationshipExtensions =
+
+  type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+
+    member this.AddConstraint (name: string, value: 'a) =
+      this.AddConstraint(name, fun _ -> value)
 
 
 
@@ -1527,9 +1534,6 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ -> value)
-
   member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
@@ -1748,6 +1752,17 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
   member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
     this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
+
+
+
+[<AutoOpen>]
+module ToOneNullableRelationshipExtensions =
+
+  type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+
+    member this.AddConstraint (name: string, value: 'a) =
+      this.AddConstraint(name, fun _ -> value)
+
 
 
 type internal ToManyRelationship<'ctx> =
@@ -2505,9 +2520,6 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.AddConstraint (name: string, value: 'a) =
-    this.AddConstraint(name, fun _ -> value)
-
   member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
     { this with modifyGetRelatedResponse = fun ctx entity -> getHandler ctx entity }
 
@@ -2762,6 +2774,16 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.ModifySelfReturn202Accepted () =
     { this with modifySelfReturn202Accepted = true }
+
+
+
+[<AutoOpen>]
+module ToManyRelationshipExtensions =
+
+  type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+
+    member this.AddConstraint (name: string, value: 'a) =
+      this.AddConstraint(name, fun _ -> value)
 
 
 

@@ -281,6 +281,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.9.1 (2020-07-02)
+
+* Fixed `AddConstraint` overload resolution
+
 ### 0.9.0 (2020-06-17)
 
 * Breaking: `RequestParserHelper.GetRequired` and `.GetOptional` are renamed to `GetRequiredJob` and `GetOptionalJob`
