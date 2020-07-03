@@ -778,12 +778,16 @@ module Error =
 
 
   /// Sets the error's source.parameter property (and removes any source.pointer value).
-  let internal setSourceParam queryParam (err: Error) =
-    { err with source = Include { parameter = Include queryParam; pointer = Skip } }
+  /// Note that Felicity almost always sets/overrides the pointer/parameter, even on
+  /// user-defined errors. You should very rarely need to use this.
+  let setSourceParam queryParamName (err: Error) =
+    { err with source = Include { parameter = Include queryParamName; pointer = Skip } }
 
 
   /// Sets the error's source.pointer property (and removes any source.parameter value).
-  let internal setSourcePointer jsonPointer (err: Error) =
+  /// Note that Felicity almost always sets/overrides the pointer/parameter, even on
+  /// user-defined errors. You should very rarely need to use this.
+  let setSourcePointer jsonPointer (err: Error) =
     { err with source = Include { parameter = Skip; pointer = Include jsonPointer } }
 
 

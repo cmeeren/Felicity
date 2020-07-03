@@ -281,6 +281,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.9.2 (2020-07-03)
+
+* Added `Error.setSourceParam` and `Error.setSourcePointer`
+
 ### 0.9.1 (2020-07-02)
 
 * Fixed `AddConstraint` overload resolution
