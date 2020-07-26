@@ -213,6 +213,7 @@ module private ToDocumentModel =
         links = Skip
         meta = Skip
         data = d
+        included = Skip
       }
     )
 
@@ -228,6 +229,7 @@ module private ToDocumentModel =
         links = Skip
         meta = Skip
         data = Array.toList d
+        included = Skip
       }
     )
 

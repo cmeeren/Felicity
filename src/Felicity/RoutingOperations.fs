@@ -277,7 +277,7 @@ module internal RoutingOperations =
                   | true, (op, _) ->
                       match op.GetSelf with
                       | None -> handleErrors [getRelNotDefinedPolymorphic relName resDef.TypeName collName]
-                      | Some getSelf -> getSelf ctx req entity
+                      | Some getSelf -> getSelf ctx req entity resDef builder
           postSelf =
             if not hasPostSelf then None
             else
@@ -288,7 +288,7 @@ module internal RoutingOperations =
                   | true, (op, preconditions) ->
                       match op.PostSelf with
                       | None -> handleErrors [postToManyRelSelfNotAllowedPolymorphic relName resDef.TypeName op.PatchSelf.IsSome op.DeleteSelf.IsSome collName]
-                      | Some postSelf -> postSelf ctx req preconditions entity
+                      | Some postSelf -> postSelf ctx req preconditions entity resDef builder
           patchSelf =
             if not hasPatchSelf then None
             else
@@ -311,7 +311,7 @@ module internal RoutingOperations =
                               handleErrors [patchRelSelfSettableButNotGettablePolymorphic relName resDef.TypeName collName]
                             else
                               handleErrors [modifyRelSelfReadOnly relName resDef.TypeName]
-                      | Some patchSelf -> patchSelf ctx req resDef.TypeName preconditions entity
+                      | Some patchSelf -> patchSelf ctx req resDef.TypeName preconditions entity resDef builder
           deleteSelf =
             if not hasDeleteSelf then None
             else
@@ -322,7 +322,7 @@ module internal RoutingOperations =
                   | true, (op, preconditions) ->
                       match op.DeleteSelf with
                       | None -> handleErrors [deleteToManyRelSelfNotAllowedPolymorphic relName resDef.TypeName op.PatchSelf.IsSome op.PostSelf.IsSome collName]
-                      | Some deleteSelf -> deleteSelf ctx req preconditions entity
+                      | Some deleteSelf -> deleteSelf ctx req preconditions entity resDef builder
         }
     )
     |> Map.ofArray

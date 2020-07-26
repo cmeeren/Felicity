@@ -188,6 +188,7 @@ type internal ResourceIdentifierDocument =
     links: Map<string, Link> Skippable
     meta: Map<string, obj> Skippable
     data: ResourceIdentifier option
+    included: Resource list Skippable
   }
 
 
@@ -198,6 +199,7 @@ type internal ResourceIdentifierCollectionDocument =
     links: Map<string, Link> Skippable
     meta: Map<string, obj> Skippable
     data: ResourceIdentifier list
+    included: Resource list Skippable
   }
 
 
@@ -627,6 +629,11 @@ module internal Json =
       writer.WritePropertyName "data"
       JsonSerializer.Serialize(writer, doc.data, options)
 
+      doc.included |> Skippable.iter (fun x ->
+        writer.WritePropertyName "included"
+        JsonSerializer.Serialize(writer, x, options)
+      )
+
       writer.WriteEndObject()
 
 
@@ -656,6 +663,11 @@ module internal Json =
 
       writer.WritePropertyName "data"
       JsonSerializer.Serialize(writer, doc.data, options)
+
+      doc.included |> Skippable.iter (fun x ->
+        writer.WritePropertyName "included"
+        JsonSerializer.Serialize(writer, x, options)
+      )
 
       writer.WriteEndObject()
 

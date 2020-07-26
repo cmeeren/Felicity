@@ -12,6 +12,18 @@ open Errors
 
 
 
+[<AutoOpen>]
+module private RelationshipHelpers =
+
+  let getIncludedForSelfUrl httpCtx ctx (req: Request) (resp: ResponseBuilder<'ctx>) relName parentResDef parentEntity =
+    // Hack: The included resources are the same as those for the parent resource document
+    // when using only the include paths that start with this relationship.
+    let reqForIncluded = { req with Includes = req.Includes |> List.filter (List.tryHead >> (=) (Some relName)) }
+    resp.Write httpCtx ctx reqForIncluded (parentResDef, parentEntity)
+    |> Job.map (fun doc -> doc.included)
+
+
+
 type Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
   abstract Name: string
 
@@ -22,10 +34,10 @@ type internal RelationshipHandlers<'ctx> =
   abstract IsSettableButNotGettable: bool
   abstract IsSettableWithoutPersist: bool
   abstract GetRelated: ('ctx -> Request -> BoxedEntity -> ResponseBuilder<'ctx> -> HttpHandler) option
-  abstract GetSelf: ('ctx -> Request -> BoxedEntity -> HttpHandler) option
-  abstract PostSelf: ('ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
-  abstract PatchSelf: ('ctx -> Request -> ParentResourceTypeName -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
-  abstract DeleteSelf: ('ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
+  abstract GetSelf: ('ctx -> Request -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
+  abstract PostSelf: ('ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
+  abstract PatchSelf: ('ctx -> Request -> ParentResourceTypeName -> Preconditions<'ctx> -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
+  abstract DeleteSelf: ('ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
 
 
 type internal ToOneRelationship<'ctx> =
@@ -359,41 +371,27 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
-        fun ctx req entity ->
+        fun ctx req entity resDef resp ->
           fun next httpCtx ->
             job {
-              (*
-              TODO: Support 'include' query parameter for relationship self (for all relationships)
-
-              https://jsonapi.org/format/#fetching-includes
-              
-                  Furthermore, related resources can be requested from a relationship endpoint:
-              
-                  GET /articles/1/relationships/comments?include=comments.author HTTP/1.1
-              
-                  In this case, the primary data would be a collection of resource identifier objects that
-                  represent linkage to comments for an article, while the full comments and comment authors
-                  would be returned as included data.
-              *)
-              if req.Query.ContainsKey "include" then
-                return! handleErrors [relSelfIncludeNotSupported] next httpCtx
-              else
-                let entity = unbox<'entity> entity
-                match! getRelated ctx entity with
-                | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
-                | Include relatedEntity ->
-                    let b = resolveEntity relatedEntity
-                    let doc : ResourceIdentifierDocument = {
-                      jsonapi = Skip
-                      links = Skip
-                      meta = Skip
-                      data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                    }
-                    let handler =
-                      setStatusCode 200
-                      >=> this.modifyGetSelfResponse ctx entity relatedEntity
-                      >=> jsonApiWithETag<'ctx> doc
-                    return! handler next httpCtx
+              let entity = unbox<'entity> entity
+              match! getRelated ctx entity with
+              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Include relatedEntity ->
+                  let b = resolveEntity relatedEntity
+                  let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+                  let doc : ResourceIdentifierDocument = {
+                    jsonapi = Skip
+                    links = Skip
+                    meta = Skip
+                    data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                    included = included
+                  }
+                  let handler =
+                    setStatusCode 200
+                    >=> this.modifyGetSelfResponse ctx entity relatedEntity
+                    >=> jsonApiWithETag<'ctx> doc
+                  return! handler next httpCtx
             }
             |> Job.startAsTask
       )
@@ -411,66 +409,65 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
         let afterModifySelf =
           this.afterModifySelf
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
-        fun ctx req parentTypeName preconditions entity0 ->
+        fun ctx req parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
-              if req.Query.ContainsKey "include" then
-                return! handleErrors [relSelfIncludeNotSupported] next httpCtx
-              else
-                match req.IdentifierDocument.Value with
-                | Error errs -> return! handleErrors errs next httpCtx
-                | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
-                | Ok (Some { data = None }) -> return! handleErrors [relInvalidNull parentTypeName this.name "/data"] next httpCtx
-                | Ok (Some { data = Some id }) ->
-                    match preconditions.Validate httpCtx ctx entity0 with
-                    | Error errors -> return! handleErrors errors next httpCtx
-                    | Ok () ->
-                        match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
-                        | Error errors -> return! handleErrors errors next httpCtx
-                        | Ok entity1 ->
-                            match idParsers.TryGetValue id.``type`` with
-                            | false, _ ->
-                                let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                return! handleErrors [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] next httpCtx
-                            | true, parseId ->
-                                let! entity2Res =
-                                  parseId ctx id.id
-                                  // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                  // this just means that the resource does not exist, which is a more helpful result.
-                                  |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
-                                  |> JobResult.bind (fun domain ->
-                                      set ctx "/data" domain (unbox<'entity> entity1)
-                                  )
-                                match entity2Res with
-                                | Error errs -> return! handleErrors errs next httpCtx
-                                | Ok entity2 ->
-                                    match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
-                                    | Error errors -> return! handleErrors errors next httpCtx
-                                    | Ok entity3 ->
-                                        if this.patchSelfReturn202Accepted then
-                                          let handler =
-                                            setStatusCode 202
-                                            >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity2)
-                                          return! handler next httpCtx
-                                        else
-                                          match! getRelated ctx (unbox<'entity> entity3) with
-                                          | Skip ->
-                                              let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                              logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                              return! handleErrors [relModifySelfWhileSkip] next httpCtx
-                                          | Include relatedEntity ->
-                                              let b = resolveEntity relatedEntity
-                                              let doc : ResourceIdentifierDocument = {
-                                                jsonapi = Skip
-                                                links = Skip
-                                                meta = Skip
-                                                data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                              }
-                                              let handler =
-                                                setStatusCode 200
-                                                >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
-                                                >=> jsonApiWithETag<'ctx> doc
-                                              return! handler next httpCtx
+              match req.IdentifierDocument.Value with
+              | Error errs -> return! handleErrors errs next httpCtx
+              | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
+              | Ok (Some { data = None }) -> return! handleErrors [relInvalidNull parentTypeName this.name "/data"] next httpCtx
+              | Ok (Some { data = Some id }) ->
+                  match preconditions.Validate httpCtx ctx entity0 with
+                  | Error errors -> return! handleErrors errors next httpCtx
+                  | Ok () ->
+                      match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
+                      | Error errors -> return! handleErrors errors next httpCtx
+                      | Ok entity1 ->
+                          match idParsers.TryGetValue id.``type`` with
+                          | false, _ ->
+                              let allowedTypes = idParsers |> Map.toList |> List.map fst
+                              return! handleErrors [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] next httpCtx
+                          | true, parseId ->
+                              let! entity2Res =
+                                parseId ctx id.id
+                                // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                // this just means that the resource does not exist, which is a more helpful result.
+                                |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
+                                |> JobResult.bind (fun domain ->
+                                    set ctx "/data" domain (unbox<'entity> entity1)
+                                )
+                              match entity2Res with
+                              | Error errs -> return! handleErrors errs next httpCtx
+                              | Ok entity2 ->
+                                  match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                                  | Error errors -> return! handleErrors errors next httpCtx
+                                  | Ok entity3 ->
+                                      if this.patchSelfReturn202Accepted then
+                                        let handler =
+                                          setStatusCode 202
+                                          >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity2)
+                                        return! handler next httpCtx
+                                      else
+                                        match! getRelated ctx (unbox<'entity> entity3) with
+                                        | Skip ->
+                                            let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                            logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                            return! handleErrors [relModifySelfWhileSkip] next httpCtx
+                                        | Include relatedEntity ->
+                                            let b = resolveEntity relatedEntity
+                                            let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
+                                            let doc : ResourceIdentifierDocument = {
+                                              jsonapi = Skip
+                                              links = Skip
+                                              meta = Skip
+                                              data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                              included = included
+                                            }
+                                            let handler =
+                                              setStatusCode 200
+                                              >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
+                                              >=> jsonApiWithETag<'ctx> doc
+                                            return! handler next httpCtx
             }
             |> Job.startAsTask
       )
@@ -1208,31 +1205,30 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
-        fun ctx req entity ->
+        fun ctx req entity resDef resp ->
           fun next httpCtx ->
             job {
-              if req.Query.ContainsKey "include" then
-                return! handleErrors [relSelfIncludeNotSupported] next httpCtx
-              else
-                let entity = unbox<'entity> entity
-                match! getRelated ctx entity with
-                | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
-                | Include relatedEntity ->
-                    let doc : ResourceIdentifierDocument = {
-                      jsonapi = Skip
-                      links = Skip
-                      meta = Skip
-                      data =
-                        relatedEntity |> Option.map (fun e ->
-                          let b = resolveEntity e
-                          { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                      )
-                    }
-                    let handler =
-                      setStatusCode 200
-                      >=> this.modifyGetSelfResponse ctx entity relatedEntity
-                      >=> jsonApiWithETag<'ctx> doc
-                    return! handler next httpCtx
+              let entity = unbox<'entity> entity
+              match! getRelated ctx entity with
+              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Include relatedEntity ->
+                  let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+                  let doc : ResourceIdentifierDocument = {
+                    jsonapi = Skip
+                    links = Skip
+                    meta = Skip
+                    data =
+                      relatedEntity |> Option.map (fun e ->
+                        let b = resolveEntity e
+                        { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                    )
+                    included = included
+                  }
+                  let handler =
+                    setStatusCode 200
+                    >=> this.modifyGetSelfResponse ctx entity relatedEntity
+                    >=> jsonApiWithETag<'ctx> doc
+                  return! handler next httpCtx
             }
             |> Job.startAsTask
       )
@@ -1250,69 +1246,68 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
         let afterModifySelf =
           this.afterModifySelf
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
-        fun ctx req parentTypeName preconditions entity0 ->
+        fun ctx req parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
-              if req.Query.ContainsKey "include" then
-                return! handleErrors [relSelfIncludeNotSupported] next httpCtx
-              else
-                match req.IdentifierDocument.Value with
-                | Error errs -> return! handleErrors errs next httpCtx
-                | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
-                | Ok (Some { data = identifier }) ->
-                    match preconditions.Validate httpCtx ctx entity0 with
-                    | Error errors -> return! handleErrors errors next httpCtx
-                    | Ok () ->
-                        match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
-                        | Error errors -> return! handleErrors errors next httpCtx
-                        | Ok entity1 ->
-                            let! entity2Res =
-                              identifier
-                              |> Option.traverseJobResult (fun id ->
-                                  match idParsers.TryGetValue id.``type`` with
-                                  | false, _ ->
-                                      let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                      Error [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] |> Job.result
-                                  | true, parseId ->
-                                      parseId ctx id.id
-                                      // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                      // this just means that the resource does not exist, which is a more helpful result.
-                                      |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
-                              )
-                              |> JobResult.bind (fun domain -> set ctx "/data" domain (unbox<'entity> entity1))
-                            match entity2Res with
-                            | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok entity2 ->
-                                match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
-                                | Error errors -> return! handleErrors errors next httpCtx
-                                | Ok entity3 ->
-                                    if this.patchSelfReturn202Accepted then
-                                      let handler =
-                                        setStatusCode 202
-                                        >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity3)
-                                      return! handler next httpCtx
-                                    else
-                                      match! getRelated ctx (unbox<'entity> entity3) with
-                                      | Skip ->
-                                          let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                          logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                          return! handleErrors [relModifySelfWhileSkip] next httpCtx
-                                      | Include relatedEntity ->
-                                          let doc : ResourceIdentifierDocument = {
-                                            jsonapi = Skip
-                                            links = Skip
-                                            meta = Skip
-                                            data =
-                                              relatedEntity |> Option.map (fun e ->
-                                                let b = resolveEntity e
-                                                { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                              )
-                                          }
-                                          let handler =
-                                            setStatusCode 200
-                                            >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
-                                            >=> jsonApiWithETag<'ctx> doc
-                                          return! handler next httpCtx
+              match req.IdentifierDocument.Value with
+              | Error errs -> return! handleErrors errs next httpCtx
+              | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
+              | Ok (Some { data = identifier }) ->
+                  match preconditions.Validate httpCtx ctx entity0 with
+                  | Error errors -> return! handleErrors errors next httpCtx
+                  | Ok () ->
+                      match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
+                      | Error errors -> return! handleErrors errors next httpCtx
+                      | Ok entity1 ->
+                          let! entity2Res =
+                            identifier
+                            |> Option.traverseJobResult (fun id ->
+                                match idParsers.TryGetValue id.``type`` with
+                                | false, _ ->
+                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                    Error [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] |> Job.result
+                                | true, parseId ->
+                                    parseId ctx id.id
+                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                    // this just means that the resource does not exist, which is a more helpful result.
+                                    |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
+                            )
+                            |> JobResult.bind (fun domain -> set ctx "/data" domain (unbox<'entity> entity1))
+                          match entity2Res with
+                          | Error errs -> return! handleErrors errs next httpCtx
+                          | Ok entity2 ->
+                              match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                              | Error errors -> return! handleErrors errors next httpCtx
+                              | Ok entity3 ->
+                                  if this.patchSelfReturn202Accepted then
+                                    let handler =
+                                      setStatusCode 202
+                                      >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity3)
+                                    return! handler next httpCtx
+                                  else
+                                    match! getRelated ctx (unbox<'entity> entity3) with
+                                    | Skip ->
+                                        let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                        logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                        return! handleErrors [relModifySelfWhileSkip] next httpCtx
+                                    | Include relatedEntity ->
+                                        let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
+                                        let doc : ResourceIdentifierDocument = {
+                                          jsonapi = Skip
+                                          links = Skip
+                                          meta = Skip
+                                          data =
+                                            relatedEntity |> Option.map (fun e ->
+                                              let b = resolveEntity e
+                                              { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                            )
+                                          included = included
+                                        }
+                                        let handler =
+                                          setStatusCode 200
+                                          >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
+                                          >=> jsonApiWithETag<'ctx> doc
+                                        return! handler next httpCtx
             }
             |> Job.startAsTask
       )
@@ -2113,70 +2108,69 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       let afterModifySelf =
         this.afterModifySelf
         |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
-      fun ctx req (preconditions: Preconditions<'ctx>) entity0 ->
+      fun ctx req (preconditions: Preconditions<'ctx>) entity0 resDef (resp: ResponseBuilder<'ctx>) ->
         fun next httpCtx ->
           job {
-            if req.Query.ContainsKey "include" then
-              return! handleErrors [relSelfIncludeNotSupported] next httpCtx
-            else
-              match req.IdentifierCollectionDocument.Value with
-              | Error errs -> return! handleErrors errs next httpCtx
-              | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
-              | Ok (Some { data = ids }) ->
-                  match preconditions.Validate httpCtx ctx entity0 with
-                  | Error errors -> return! handleErrors errors next httpCtx
-                  | Ok () ->
-                      match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
-                      | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok entity1 ->
-                          let! entity2Res =
-                            ids
-                            |> List.indexed
-                            |> List.traverseJobResultA (fun (i, id) ->
-                                match idParsers.TryGetValue id.``type`` with
-                                | false, _ ->
-                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                    let pointer = "/data/" + string i + "/type"
-                                    Error [relInvalidTypeSelf id.``type`` allowedTypes pointer] |> Job.result
-                                | true, parseId ->
-                                    parseId ctx id.id
-                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                    // this just means that the resource does not exist, which is a more helpful result.
-                                    |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
-                            )
-                            |> JobResult.bind (fun domain -> f ctx "/data" domain (unbox<'entity> entity1))
-                          match entity2Res with
-                          | Error errs -> return! handleErrors errs next httpCtx
-                          | Ok entity2 ->
-                              match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
-                              | Error errors -> return! handleErrors errors next httpCtx
-                              | Ok entity3 ->
-                                  if this.modifySelfReturn202Accepted then
-                                    let handler =
-                                      setStatusCode 202
-                                      >=> modifyAcceptedResponse ctx (unbox<'entity> entity3)
-                                    return! handler next httpCtx
-                                  else
-                                    match! getRelated ctx (unbox<'entity> entity3) with
-                                    | Skip ->
-                                        let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                        logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                        return! handleErrors [relModifySelfWhileSkip] next httpCtx
-                                    | Include relatedEntities ->
-                                        let doc : ResourceIdentifierCollectionDocument = {
-                                          jsonapi = Skip
-                                          links = Skip
-                                          meta = Skip
-                                          data = relatedEntities |> List.map (fun e ->
-                                            let b = resolveEntity e
-                                            { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                          )
-                                        }
-                                        let handler =
-                                          setStatusCode 200
-                                          >=> modifyOkResponse ctx (unbox<'entity> entity3) relatedEntities
-                                          >=> jsonApiWithETag<'ctx> doc
-                                        return! handler next httpCtx
+            match req.IdentifierCollectionDocument.Value with
+            | Error errs -> return! handleErrors errs next httpCtx
+            | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
+            | Ok (Some { data = ids }) ->
+                match preconditions.Validate httpCtx ctx entity0 with
+                | Error errors -> return! handleErrors errors next httpCtx
+                | Ok () ->
+                    match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
+                    | Error errors -> return! handleErrors errors next httpCtx
+                    | Ok entity1 ->
+                        let! entity2Res =
+                          ids
+                          |> List.indexed
+                          |> List.traverseJobResultA (fun (i, id) ->
+                              match idParsers.TryGetValue id.``type`` with
+                              | false, _ ->
+                                  let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                  let pointer = "/data/" + string i + "/type"
+                                  Error [relInvalidTypeSelf id.``type`` allowedTypes pointer] |> Job.result
+                              | true, parseId ->
+                                  parseId ctx id.id
+                                  // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                  // this just means that the resource does not exist, which is a more helpful result.
+                                  |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
+                          )
+                          |> JobResult.bind (fun domain -> f ctx "/data" domain (unbox<'entity> entity1))
+                        match entity2Res with
+                        | Error errs -> return! handleErrors errs next httpCtx
+                        | Ok entity2 ->
+                            match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                            | Error errors -> return! handleErrors errors next httpCtx
+                            | Ok entity3 ->
+                                if this.modifySelfReturn202Accepted then
+                                  let handler =
+                                    setStatusCode 202
+                                    >=> modifyAcceptedResponse ctx (unbox<'entity> entity3)
+                                  return! handler next httpCtx
+                                else
+                                  match! getRelated ctx (unbox<'entity> entity3) with
+                                  | Skip ->
+                                      let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                      logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                      return! handleErrors [relModifySelfWhileSkip] next httpCtx
+                                  | Include relatedEntities ->
+                                      let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
+                                      let doc : ResourceIdentifierCollectionDocument = {
+                                        jsonapi = Skip
+                                        links = Skip
+                                        meta = Skip
+                                        data = relatedEntities |> List.map (fun e ->
+                                          let b = resolveEntity e
+                                          { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                        )
+                                        included = included
+                                      }
+                                      let handler =
+                                        setStatusCode 200
+                                        >=> modifyOkResponse ctx (unbox<'entity> entity3) relatedEntities
+                                        >=> jsonApiWithETag<'ctx> doc
+                                      return! handler next httpCtx
           }
           |> Job.startAsTask
     )
@@ -2226,31 +2220,29 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
-        fun ctx req entity ->
+        fun ctx req entity resDef resp ->
           fun next httpCtx ->
             job {
-              // TODO: Support 'include' query parameter
-              if req.Query.ContainsKey "include" then
-                return! handleErrors [relSelfIncludeNotSupported] next httpCtx
-              else
-                let entity = unbox<'entity> entity
-                match! getRelated ctx entity with
-                | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
-                | Include relatedEntities ->
-                    let doc : ResourceIdentifierCollectionDocument = {
-                      jsonapi = Skip
-                      links = Skip
-                      meta = Skip
-                      data = relatedEntities |> List.map (fun e ->
-                        let b = resolveEntity e
-                        { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                      )
-                    }
-                    let handler =
-                      setStatusCode 200
-                      >=> this.modifyGetSelfResponse ctx entity relatedEntities
-                      >=> jsonApiWithETag<'ctx> doc
-                    return! handler next httpCtx
+              let entity = unbox<'entity> entity
+              match! getRelated ctx entity with
+              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Include relatedEntities ->
+                  let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+                  let doc : ResourceIdentifierCollectionDocument = {
+                    jsonapi = Skip
+                    links = Skip
+                    meta = Skip
+                    data = relatedEntities |> List.map (fun e ->
+                      let b = resolveEntity e
+                      { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                    )
+                    included = included
+                  }
+                  let handler =
+                    setStatusCode 200
+                    >=> this.modifyGetSelfResponse ctx entity relatedEntities
+                    >=> jsonApiWithETag<'ctx> doc
+                  return! handler next httpCtx
             }
             |> Job.startAsTask
       )

@@ -536,18 +536,6 @@
     |> Error.setTitle "Relationship does not exist"
     |> Error.setDetailf "Relationship '%s' is not defined for resource type '%s' (other resource types in collection '%s' may have a relationship called '%s')" relName resType collName relName
 
-  (*
-   * Any relationship self request
-  *)
-
-  let relSelfIncludeNotSupported =
-    // "If a server is unable to identify a relationship path or does not support
-    // inclusion of resources from a path, it MUST respond with 400 Bad Request."
-    Error.create 400
-    |> Error.setTitle "Include not supported"
-    |> Error.setDetail "Included resources are not currently supported for relationship self links"
-    |> Error.setSourceParam "include"
-
 
   (*
    * GET relationship self or related

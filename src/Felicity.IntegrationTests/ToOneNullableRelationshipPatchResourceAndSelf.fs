@@ -10,8 +10,13 @@ open Giraffe
 open Felicity
 
 
+type Child3 = {
+  Id: string
+}
+
 type Child1 = {
   Id: string
+  Child: Child3
 }
 
 type Child2 = {
@@ -47,14 +52,14 @@ type Parent = P1 of Parent1 | P2 of Parent2 | P3 of Parent3 | P4 of Parent4
 type Db () =
   let mutable parents : Map<string, Parent> =
     Map.empty
-    |> Map.add "p1" (P1 { Id = "p1"; Child = Some (C1 { Id = "c1" }); OtherChildId = Some "c2"; NullableNotNullWhenSet = None })
+    |> Map.add "p1" (P1 { Id = "p1"; Child = Some (C1 { Id = "c1"; Child = { Id = "c3" } }); OtherChildId = Some "c2"; NullableNotNullWhenSet = None })
     |> Map.add "p2" (P2 { Id = "p2"; Child = Some (C2 { Id = "c2" }) })
     |> Map.add "p3" (P3 { Id = "p3" })
     |> Map.add "p4" (P4 { Id = "p4" })
 
   let mutable children : Map<string, Child> =
     Map.empty
-    |> Map.add "c1" (C1 { Id = "c1" })
+    |> Map.add "c1" (C1 { Id = "c1"; Child = { Id = "c3" } })
     |> Map.add "c2" (C2 { Id = "c2" })
 
   member _.TryGetParent id =
@@ -96,11 +101,23 @@ type Ctx = {
   }
 
 
+module Child3 =
+
+  let define = Define<Ctx, Child3, string>()
+  let resId = define.Id.Simple(fun (c: Child3) -> c.Id)
+  let resDef = define.Resource("child3", resId)
+  let c = define.Attribute.Simple().Get(fun _ -> "abc")
+
+
 module Child1 =
 
   let define = Define<Ctx, Child1, string>()
   let resId = define.Id.Simple(fun (c: Child1) -> c.Id)
   let resDef = define.Resource("child1", resId)
+  let subChild =
+    define.Relationship
+      .ToOne(Child3.resDef)
+      .Get(fun c -> c.Child)
 
 
 module Child2 =
@@ -389,7 +406,7 @@ let tests1 =
       test <@ p.Id = "p1" @>
       test <@ p.Child = Some (C2 { Id = "c2" }) @>
       test <@ p.OtherChildId = Some "c1" @>
-      test <@ p.NullableNotNullWhenSet = Some (C1 { Id = "c1" }) @>
+      test <@ p.NullableNotNullWhenSet = Some (C1 { Id = "c1"; Child = { Id = "c3" } }) @>
     }
 
     testJob "Get/set null: Returns 200, saves, and returns correct data if successful" {
@@ -449,7 +466,7 @@ let tests1 =
         | Some (P2 p) -> p
         | _ -> failwith "not found"
       test <@ p.Id = "p2" @>
-      test <@ p.Child = Some (C1 { Id = "c1" }) @>
+      test <@ p.Child = Some (C1 { Id = "c1"; Child = { Id = "c3" } }) @>
     }
 
     testJob "Related setter returns errors returned by related lookup's getById" {
@@ -799,6 +816,10 @@ let tests2 =
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "data.type" = "child2" @>
       test <@ json |> getPath "data.id" = "c2" @>
+      test <@ json |> hasNoPath "data.attributes" @>
+      test <@ json |> hasNoPath "data.relationships" @>
+      test <@ json |> hasNoPath "data.links" @>
+      test <@ json |> hasNoPath "included" @>
 
       test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
 
@@ -808,6 +829,35 @@ let tests2 =
         | _ -> failwith "not found"
       test <@ p.Id = "p1" @>
       test <@ p.Child = Some (C2 { Id = "c2" }) @>
+    }
+
+    testJob "Supports include parameter and ignores include paths not starting with relationship name" {
+      let db = Db ()
+      let ctx = Ctx.WithDb db
+      let! response =
+        Request.patch ctx "/parents/p1/relationships/child?include=child.subChild,otherChild"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child1"
+                  id = "c1"
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 200
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.type" = "child1" @>
+      test <@ json |> getPath "data.id" = "c1" @>
+      test <@ json |> hasNoPath "data.attributes" @>
+      test <@ json |> hasNoPath "data.relationships" @>
+      test <@ json |> hasNoPath "data.links" @>
+      test <@ json |> getPath "included.[0].type" = "child1" @>
+      test <@ json |> getPath "included.[0].id" = "c1" @>
+      test <@ json |> getPath "included.[0].relationships.subChild.data.type" = "child3" @>
+      test <@ json |> getPath "included.[0].relationships.subChild.data.id" = "c3" @>
+      test <@ json |> getPath "included.[1].type" = "child3" @>
+      test <@ json |> getPath "included.[1].id" = "c3" @>
+      test <@ json |> getPath "included.[1].attributes.c" = "abc" @>
+      test <@ json |> hasNoPath "included.[2]" @>
     }
 
     testJob "Parent1.child null: Saves and returns correct data if successful" {
@@ -820,6 +870,10 @@ let tests2 =
       response |> testStatusCode 200
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "data" = null @>
+      test <@ json |> hasNoPath "data.attributes" @>
+      test <@ json |> hasNoPath "data.relationships" @>
+      test <@ json |> hasNoPath "data.links" @>
+      test <@ json |> hasNoPath "included" @>
 
       let p = 
         match db.TryGetParent "p1" with
@@ -890,6 +944,10 @@ let tests2 =
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "data.type" = "child2" @>
       test <@ json |> getPath "data.id" = "c2" @>
+      test <@ json |> hasNoPath "data.attributes" @>
+      test <@ json |> hasNoPath "data.relationships" @>
+      test <@ json |> hasNoPath "data.links" @>
+      test <@ json |> hasNoPath "included" @>
 
       let p = 
         match db.TryGetParent "p1" with
@@ -1066,17 +1124,6 @@ let tests2 =
       test <@ json |> getPath "errors[0].status" = "422" @>
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ json |> hasNoPath "errors[1]" @>
-    }
-
-    testJob "Returns 400 if using include parameter" {
-      let db = Db ()
-      let! response = Request.patch (Ctx.WithDb db) "/parents/p1/relationships/child?include=ignored" |> getResponse
-      response |> testStatusCode 400
-      let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Included resources are not currently supported for relationship self links" @>
-      test <@ json |> getPath "errors[0].source.parameter" = "include" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
