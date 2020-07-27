@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.9.3</Version>
-    <PackageReleaseNotes>Supported include query parameter for all relationship self URL operations</PackageReleaseNotes>
+    <Version>0.10.0</Version>
+    <PackageReleaseNotes>Updated FSharp.SystemTextJson dependency</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -60,7 +60,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="FSharp.SystemTextJson" Version="[0.11.13]" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="[0.12.12]" />
     <PackageReference Include="Giraffe" Version="4.1.0" />
     <PackageReference Include="Hopac" Version="0.4.1" />
   </ItemGroup>

@@ -281,6 +281,10 @@ That’s it! You now have a wonderfully compliant JSON:API exposing your wonderf
 Release notes
 -------------
 
+### 0.10.0 (2020-07-27)
+
+* Updated FSharp.SystemTextJson dependency
+
 ### 0.9.3 (2020-07-27)
 
 * Supported `include` query parameter for all relationship `self` URL operations
