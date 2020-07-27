@@ -1451,7 +1451,6 @@ Current limitations
 
 TODO
 
-* Included resources in relationship self requests
 * Sorting of relationships
 * Relationship meta
 * Resource meta
