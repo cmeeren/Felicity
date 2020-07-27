@@ -13,13 +13,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.github\CONTRIBUTING.md = .github\CONTRIBUTING.md
 		DOCUMENTATION.md = DOCUMENTATION.md
 		README.md = README.md
+		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity.SampleApi", "src\Felicity.SampleApi\Felicity.SampleApi.fsproj", "{4CD905E1-369E-46F1-8266-040EBBE7328A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{5BC571A2-6E6B-40F4-AF0A-D6724A51D392}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Felicity.Benchmarks", "src\Felicity.Benchmarks\Felicity.Benchmarks.fsproj", "{7049A7AE-DBA9-4AD9-A478-05103D670CD1}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity.Benchmarks", "src\Felicity.Benchmarks\Felicity.Benchmarks.fsproj", "{7049A7AE-DBA9-4AD9-A478-05103D670CD1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
