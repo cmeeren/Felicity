@@ -314,6 +314,7 @@ paths:
         - in: query
           name: "filter[gender]"
           description: Only return persons with one of these genders.
+          explode: false
           schema:
             type: array
             items:
@@ -489,6 +490,7 @@ paths:
         - in: query
           name: "filter[type]"
           description: Only return articles with one of these types.
+          explode: false
           schema:
             type: array
             items:
