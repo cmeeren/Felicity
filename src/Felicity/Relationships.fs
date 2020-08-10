@@ -691,17 +691,29 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> JobResult.map (fun () -> e))
 
+  member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew)
+
+  member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<unit, Error list>>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> JobResult.map (fun () -> eNew))
+
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<'entity, Error list>>) =
-    this.AfterModifySelfJobRes(fun _ e -> f e)
+    this.AfterModifySelfJobRes(fun _ _ e -> f e)
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<unit, Error list>>) =
-    this.AfterModifySelfJobRes(fun _ e -> f e |> JobResult.map (fun () -> e))
+    this.AfterModifySelfJobRes(fun _ _ e -> f e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
+
+  member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
+    this.AfterModifySelfJobRes(Job.liftAsync2 f)
+
+  member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<unit, Error list>>) =
+    this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
@@ -721,6 +733,12 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
+  member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<'entity>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
+
+  member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<unit>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
+
   member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
@@ -738,6 +756,12 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
+
+  member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<'entity>) =
+    this.AfterModifySelfJob(Job.liftAsync2 f)
+
+  member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<unit>) =
+    this.AfterModifySelfJob(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
@@ -757,6 +781,12 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
+  member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<'entity, Error list>) =
+    this.AfterModifySelfJobRes(Job.lift2 f)
+
+  member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<unit, Error list>) =
+    this.AfterModifySelfJobRes(Job.lift2 f)
+
   member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
@@ -774,6 +804,12 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
+
+  member this.AfterModifySelf(f: 'entity -> 'entity -> 'entity) =
+    this.AfterModifySelfJobRes(JobResult.lift2 f)
+
+  member this.AfterModifySelf(f: 'entity -> 'entity -> unit) =
+    this.AfterModifySelfJobRes(JobResult.lift2 f)
 
   member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
@@ -1607,6 +1643,12 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
 
+  member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
+    { this with afterModifySelf = Some (fun _ eOld eNew -> f eOld eNew) }
+
+  member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<unit, Error list>>) =
+    { this with afterModifySelf = Some (fun _ eOld eNew -> f eOld eNew |> JobResult.map (fun () -> eNew)) }
+
   member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx _ e -> f ctx e) }
 
@@ -1614,16 +1656,22 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<'entity, Error list>>) =
-    this.AfterModifySelfJobRes(fun _ e -> f e)
+    this.AfterModifySelfJobRes(fun _ _ e -> f e)
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<unit, Error list>>) =
-    this.AfterModifySelfJobRes(fun _ e -> f e |> JobResult.map (fun () -> e))
+    this.AfterModifySelfJobRes(fun _ _ e -> f e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
+
+  member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
+    this.AfterModifySelfJobRes(Job.liftAsync2 f)
+
+  member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<unit, Error list>>) =
+    this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
@@ -1643,6 +1691,12 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
+  member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<'entity>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
+
+  member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<unit>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
+
   member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
@@ -1660,6 +1714,12 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
   member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
+
+  member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<'entity>) =
+    this.AfterModifySelfJob(Job.liftAsync2 f)
+
+  member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<unit>) =
+    this.AfterModifySelfJob(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
@@ -1679,6 +1739,12 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
+  member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<'entity, Error list>) =
+    this.AfterModifySelfJobRes(Job.lift2 f)
+
+  member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<unit, Error list>) =
+    this.AfterModifySelfJobRes(Job.lift2 f)
+
   member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
@@ -1696,6 +1762,12 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
   member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
+
+  member this.AfterModifySelf(f: 'entity -> 'entity -> 'entity) =
+    this.AfterModifySelfJobRes(JobResult.lift2 f)
+
+  member this.AfterModifySelf(f: 'entity -> 'entity -> unit) =
+    this.AfterModifySelfJobRes(JobResult.lift2 f)
 
   member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
@@ -2662,6 +2734,12 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
 
+  member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
+    { this with afterModifySelf = Some (fun _ eOld eNew -> f eOld eNew) }
+
+  member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<unit, Error list>>) =
+    { this with afterModifySelf = Some (fun _ eOld eNew -> f eOld eNew |> JobResult.map (fun () -> eNew)) }
+
   member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx _ e -> f ctx e) }
 
@@ -2669,16 +2747,22 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<'entity, Error list>>) =
-    this.AfterModifySelfJobRes(fun _ e -> f e)
+    this.AfterModifySelfJobRes(fun _ _ e -> f e)
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<unit, Error list>>) =
-    this.AfterModifySelfJobRes(fun _ e -> f e |> JobResult.map (fun () -> e))
+    this.AfterModifySelfJobRes(fun _ _ e -> f e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
+
+  member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
+    this.AfterModifySelfJobRes(Job.liftAsync2 f)
+
+  member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<unit, Error list>>) =
+    this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
@@ -2698,6 +2782,12 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
+  member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<'entity>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
+
+  member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<unit>) =
+    this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
+
   member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
@@ -2715,6 +2805,12 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
+
+  member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<'entity>) =
+    this.AfterModifySelfJob(Job.liftAsync2 f)
+
+  member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<unit>) =
+    this.AfterModifySelfJob(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
@@ -2734,6 +2830,12 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
+  member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<'entity, Error list>) =
+    this.AfterModifySelfJobRes(Job.lift2 f)
+
+  member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<unit, Error list>) =
+    this.AfterModifySelfJobRes(Job.lift2 f)
+
   member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
@@ -2751,6 +2853,12 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
+
+  member this.AfterModifySelf(f: 'entity -> 'entity -> 'entity) =
+    this.AfterModifySelfJobRes(JobResult.lift2 f)
+
+  member this.AfterModifySelf(f: 'entity -> 'entity -> unit) =
+    this.AfterModifySelfJobRes(JobResult.lift2 f)
 
   member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)

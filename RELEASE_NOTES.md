@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.10.1 (2020-08-10)
+
+* Added more `AfterModifySelf` overloads to relationships
+
 ### 0.10.0 (2020-07-27)
 
 * Updated FSharp.SystemTextJson dependency
