@@ -1346,6 +1346,45 @@ These values **must be communicated to the client as resource attributes** (or m
 
 You can also append `.Optional` in order to make the precondition validation optional. If so, clients may perform request without the precondition headers, but if present, they will be validated.
 
+Resource locking
+----------------
+
+Even if you use preconditions as described above, resource operations may still conflict with each other due to thread safety. For example, if two requests for the same resource arrive at the same time, the same representation is fetched from the database and the preconditions for both requests pass. However, the operation that finishes last will overwrite the changes of the operation that finishes first.
+
+This becomes even more problematic if persisting resources involve other non-atomic operations such as deleting or moving files on disk: The first operation may remove a file reference from your resource and delete the file, and the second operation may overwrite the newly updated DB row with conflicting data that still references the file, corrupting the system state. (Yes, I have experienced this very problem.)
+
+To combat this problem, Felicity can easily take care of locking and queueing all write access to your resources. Only one non-safe (POST/PATCH/DELETE) request will be allowed at a time for any given resource; other requests are queued and will be executed in the order they arrived, or will get a 503 error if the lock times out.
+
+In the simplest sense, simply append `.Lock()` to your resource definition (after `CollectionName`):
+
+```f#
+let resDef =
+  define.Resource("article", resId)
+    .CollectionName("articles")
+    .Lock()
+```
+
+`Lock()` optionally accepts a custom timeout. The default is 10 seconds.
+
+### Locking dependent resources
+
+You may have resources that are “child” entities and belong to another resource (see section TODO). In this case, it is generally the “parent” resource that should be locked. For example, when modifying an `orderline`, the shared state that should be locked may be the parent `order`.
+
+To set up this, simply use the `LockOther()` method and pass in the parent resource definition as well as a function that, given the child ID, returns the parent ID. Felicity then locks the specified parent resource instead of the child resource:
+
+```f#
+let resDef =
+  define.Resource("orderline", resId)
+    .CollectionName("orderlines")
+    .LockOther(Order.resDef, getOrderIdForOrderLine)
+```
+
+Above, `getOrderIdForOrderLine` has the signature `OrderLineId -> Async<OrderLine option>`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
+
+### Limitations
+
+Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
+
 Polymorphism
 ------------
 

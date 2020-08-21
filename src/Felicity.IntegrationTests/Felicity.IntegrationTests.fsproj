@@ -34,6 +34,7 @@
     <Compile Include="ToManyRelationshipPostSelf.fs" />
     <Compile Include="ToManyRelationshipDeleteSelf.fs" />
     <Compile Include="CustomLinks.fs" />
+    <Compile Include="ResourceLocking.fs" />
     <Compile Include="RequestParser.fs" />
   </ItemGroup>
 

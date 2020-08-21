@@ -37,6 +37,25 @@ let resourceDefinition<'ctx> (m: Type) =
   |> unbox<ResourceDefinition<'ctx>>
 
 
+let private lockSpecDict = ConcurrentDictionary<Type * string, obj>()
+let lockSpec<'ctx> (collName: CollectionName) =
+  lockSpecDict.GetOrAdd(
+    (typeof<'ctx>, collName),
+    fun _ ->
+      all<'ctx>
+      |> Array.collect (fun m -> m.GetProperties(BindingFlags.Public ||| BindingFlags.Static))
+      |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<ResourceDefinitionLockSpec<'ctx>>)
+      |> Array.filter (fun x -> x.CollName = Some collName)
+      |> Array.choose (fun x -> x.LockSpec)
+      |> function
+          | [||] -> None
+          | [|x|] -> Some x
+          | xs -> failwithf "Collection name '%s' contains %i resources with lock definitions; only one lock definition per collection is allowed" collName xs.Length
+      |> box<LockSpecification<'ctx> option>
+  )
+  |> unbox<LockSpecification<'ctx> option>
+
+
 let private fieldsDict = ConcurrentDictionary<Type * Type, obj>()
 let fields<'ctx> (m: Type) =
   fieldsDict.GetOrAdd(
@@ -428,6 +447,11 @@ let private ensureNoDuplicateTypeNames<'ctx> ms =
   )
 
 
+let private ensureAtMostOneLockSpecPerCollection<'ctx> ms =
+  ms
+  |> Array.choose (fun m -> (resourceDefinition<'ctx> m).CollectionName)
+  |> Array.distinct
+  |> Array.iter (lockSpec<'ctx> >> ignore)
 
 
 let validateAll<'ctx> ms =
@@ -442,3 +466,4 @@ let validateAll<'ctx> ms =
   ms |> Array.iter ensureHasPersistFunction<'ctx>
   ms |> ensureNoDuplicateTypeNames<'ctx>
   ms |> ensureHasLookupIfNeeded<'ctx>
+  ms |> ensureAtMostOneLockSpecPerCollection<'ctx>

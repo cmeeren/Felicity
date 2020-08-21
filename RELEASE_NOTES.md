@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.10.2 (2020-08-22)
+
+* Added resource locking/queueing to ensure thread safety; see the documentation for details
+
 ### 0.10.1 (2020-08-10)
 
 * Added more `AfterModifySelf` overloads to relationships

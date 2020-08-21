@@ -169,7 +169,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
           | (None, _) -> None
           | Some collName, ms -> Some (collName, ms)
       )
-          
+
     let collections =
       (Map.empty, modulesByCollectionName)
       ||> Array.fold (fun map (collName: CollectionName, resourceModules: Type []) ->
@@ -181,6 +181,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
       .AddSingleton<JsonApiHandler<'ctx>>(JsonApiHandler (Routing.jsonApiHandler getCtx collections))
       .AddSingleton<Serializer<'ctx>>(Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<Serializer<ErrorSerializerCtx>>(Serializer<ErrorSerializerCtx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
     
   
 

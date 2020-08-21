@@ -1,6 +1,6 @@
 ﻿namespace Felicity
 
-
+open System
 open Hopac
 
 
@@ -9,6 +9,19 @@ type ResourceDefinition<'ctx> =
   abstract CollectionName: CollectionName option
   abstract GetIdBoxed: BoxedEntity -> ResourceId
   abstract ParseIdBoxed: 'ctx -> ResourceId -> Job<Result<BoxedDomainId, Error list>>
+
+
+type internal LockSpecification<'ctx> = {
+  Timeout: TimeSpan
+  CollName: CollectionName
+  GetId: 'ctx -> ResourceId -> Job<ResourceId option>
+}
+
+
+type internal ResourceDefinitionLockSpec<'ctx> =
+  abstract CollName: CollectionName option
+  abstract LockSpec: LockSpecification<'ctx> option
+
 
 
 type ResourceDefinition<'ctx, 'id> =
@@ -27,12 +40,14 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   name: string
   collectionName: string option
   id: Id<'ctx, 'entity, 'id>
+  lockSpec: LockSpecification<'ctx> option
 } with
   static member internal Create(name: string, id: Id<'ctx, 'entity, 'id>) : ResourceDefinition<'ctx, 'entity, 'id> =
     {
       name = name
       collectionName = None
       id = id
+      lockSpec = None
     }
 
   interface ResourceDefinition<'ctx> with
@@ -42,6 +57,10 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     member this.ParseIdBoxed ctx rawId =
       this.id.toDomain ctx rawId
       |> JobResult.map box
+
+  interface ResourceDefinitionLockSpec<'ctx> with
+    member this.CollName = this.collectionName
+    member this.LockSpec = this.lockSpec
 
   interface ResourceDefinition<'ctx, 'id> with
     member this.TypeName = this.name
@@ -54,3 +73,61 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
 
   member this.PolymorphicFor (entity: 'entity) =
     { resourceDef = this; entity = box entity }
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates. If a lock can not be acquired after the specified timeout
+  /// (default 10 seconds), an error will be returned.
+  member this.Lock(?timeout) =
+    let lockSpec = {
+      Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
+      CollName =
+        this.collectionName
+        |> Option.defaultWith (fun () -> failwithf "Resource type %s does not have a collection name and can therefore not be used for locking" this.name)
+      GetId = fun _ resId -> resId |> Some |> Job.result
+    }
+    { this with lockSpec = Some lockSpec }
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource. If
+  /// a lock can not be acquired after the specified timeout (default 10 seconds), an
+  /// error will be returned.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Job<'otherId option>, ?timeout) =
+    let lockSpec = {
+      Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
+      CollName =
+        resDef.collectionName
+        |> Option.defaultWith (fun () -> failwithf "Resource type %s does not have a collection name and can therefore not be used for locking" resDef.name)
+      GetId =
+        fun ctx thisIdRaw ->
+          job {
+            match! this.id.toDomain ctx thisIdRaw with
+            | Error _ -> return None
+            | Ok thisIdDomain ->
+                match! getId ctx thisIdDomain with
+                | None -> return None
+                | Some otherIdDomain ->
+                    return Some (resDef.id.fromDomain otherIdDomain)
+          }
+    }
+    { this with lockSpec = Some lockSpec }
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource. If
+  /// a lock can not be acquired after the specified timeout (default 10 seconds), an
+  /// error will be returned.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'id -> Job<'otherId option>, ?timeout) =
+    this.LockOther(resDef, (fun _ -> getId), ?timeout=timeout)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource. If
+  /// a lock can not be acquired after the specified timeout (default 10 seconds), an
+  /// error will be returned.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'id -> Async<'otherId option>, ?timeout) =
+    this.LockOther(resDef, Job.liftAsync2 (fun _ -> getId), ?timeout=timeout)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource. If
+  /// a lock can not be acquired after the specified timeout (default 10 seconds), an
+  /// error will be returned.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Async<'otherId option>, ?timeout) =
+    this.LockOther(resDef, Job.liftAsync2 getId, ?timeout=timeout)

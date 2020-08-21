@@ -2,8 +2,11 @@
 module internal Utils
 
 open System
+open System.Collections.Concurrent
+open System.Threading
 open System.Threading.Tasks
 open System.Text.Json.Serialization
+open FSharp.Control.Tasks.V2.ContextInsensitive
 open Hopac
 
 
@@ -344,3 +347,75 @@ module Exception =
 
   let rec getInnerMsg (ex: Exception) =
     if isNull ex.InnerException then ex.Message else getInnerMsg ex.InnerException
+
+
+
+/// A semaphore with FIFO semantics (operations are guaranteed to be executed
+/// in the order they started waiting on the semaphore).
+type SemaphoreQueue() =
+  let semaphore = new SemaphoreSlim 1
+  let queue = new ConcurrentQueue<TaskCompletionSource<bool>>()
+
+  let waitAsync (timeout: TimeSpan) =
+    let tcs = new TaskCompletionSource<bool>()
+    queue.Enqueue(tcs)
+    semaphore.WaitAsync(timeout).ContinueWith(fun (t: Task<bool>) ->
+      match queue.TryDequeue() with
+      | true, popped -> popped.SetResult(t.Result)
+      | false, _ -> ()
+    ) |> ignore
+    tcs.Task
+
+  let release () =
+    semaphore.Release()
+
+  member _.IsIdle =
+    semaphore.CurrentCount = 0
+    && queue.IsEmpty
+
+  /// Queues a lock on the SemaphoreQueue. The lock is released when the returned object
+  /// is disposed. ALWAYS remember to dispose, otherwise the order can not be edited. Use
+  /// the "use" keyword to ensure disposal. Returns Error if the lock times out.
+  member _.Lock (timeout) =
+    task {
+      let! locked = waitAsync timeout
+      if not locked then return Error ()
+      else return Ok { new IDisposable with member _.Dispose() = release() |> ignore }
+    }
+
+  interface IDisposable with
+    member _.Dispose () =
+      semaphore.Dispose ()
+
+
+
+type SemaphoreQueueFactory<'ctx>() =
+
+  let queues = ConcurrentDictionary<string * string, SemaphoreQueue>()
+
+  let cleanIdle () =
+    let idle = queues |> Seq.filter (fun kvp -> kvp.Value.IsIdle) |> Seq.toList
+    if not idle.IsEmpty then
+      lock queues (fun () ->
+        for kvp in idle do
+          if kvp.Value.IsIdle then
+            (kvp.Value :> IDisposable).Dispose ()
+            queues.TryRemove kvp.Key |> ignore
+      )
+
+  do
+    let timer =
+      new Timers.Timer(
+        TimeSpan.FromMinutes(5.).TotalMilliseconds,
+        AutoReset = true,
+        Enabled = true)
+    timer.Elapsed.Add (ignore >> cleanIdle)
+    timer.Start()
+
+  member _.GetFor(collName, resourceId) =
+    match queues.TryGetValue ((collName, resourceId)) with
+    | true, q -> q
+    | false, _ ->
+        lock queues (fun () ->
+          queues.GetOrAdd((collName, resourceId), fun _ -> new SemaphoreQueue())
+        )

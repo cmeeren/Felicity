@@ -73,6 +73,11 @@
     |> Error.setTitle "Precondition failed"
     |> Error.setDetail msg
 
+  let lockTimeout =
+    Error.create 503
+    |> Error.setTitle "Resource lock timeout"
+    |> Error.setDetailf "Timed out waiting for the completion of other operations on the requested resource"
+
 
   (*
    * Any request: Deserialization and document validation

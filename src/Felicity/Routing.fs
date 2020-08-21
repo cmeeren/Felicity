@@ -2,6 +2,7 @@
 
 open Microsoft.AspNetCore.Http
 open Hopac
+open FSharp.Control.Tasks.V2.ContextInsensitive
 open Giraffe
 open Errors
 
@@ -48,6 +49,26 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
       match errs with
       | [] -> next httpCtx
       | errs -> handleErrors errs next httpCtx
+
+
+  let lockResourceForModification (ctx: 'ctx) collName resId : HttpHandler =
+    fun next httpCtx ->
+      task {
+        match ResourceModule.lockSpec<'ctx> collName with
+        | None -> return! next httpCtx
+        | Some lockSpec ->
+            match! lockSpec.GetId ctx resId |> Job.startAsTask with
+            | None -> return! next httpCtx
+            | Some resIdToLock ->
+                let queueFactory = httpCtx.GetService<SemaphoreQueueFactory<'ctx>>()
+                let queue = queueFactory.GetFor(lockSpec.CollName, resIdToLock)
+                match! queue.Lock lockSpec.Timeout with
+                | Ok locker ->
+                    use _ = locker
+                    return! next httpCtx
+                | Error () ->
+                    return! handleErrors [lockTimeout] next httpCtx
+      }
 
 
   choose [
@@ -101,12 +122,12 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                   PATCH >=>
                     match ops.resourceOperations.patch with
                     | None -> handleErrors [resPatchNotSupportedForAnyResource collName]
-                    | Some patch -> lookup (patch ctx req)
+                    | Some patch -> lockResourceForModification ctx collName resourceId >=> lookup (patch ctx req)
 
                   DELETE >=>
                     match ops.resourceOperations.delete with
                     | None -> handleErrors [resDeleteNotSupportedForAnyResource collName]
-                    | Some delete -> lookup (delete ctx req)
+                    | Some delete -> lockResourceForModification ctx collName resourceId >=> lookup (delete ctx req)
 
                   let allowedMethods =
                     [ if ops.resourceOperations.get.IsSome then "GET"; "HEAD"
@@ -155,17 +176,17 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     PATCH >=>
                       match rel.patchSelf with
                       | None -> handleErrors [patchRelSelfNotAllowedForAnyResource relName collName rel.postSelf.IsSome rel.deleteSelf.IsSome]
-                      | Some patch -> lookup (patch ctx req)
+                      | Some patch -> lockResourceForModification ctx collName resourceId >=> lookup (patch ctx req)
 
                     POST >=>
                       match rel.postSelf with
                       | None -> handleErrors [postToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.deleteSelf.IsSome]
-                      | Some post -> lookup (post ctx req)
+                      | Some post -> lockResourceForModification ctx collName resourceId >=> lookup (post ctx req)
 
                     DELETE >=>
                       match rel.deleteSelf with
                       | None -> handleErrors [deleteToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.postSelf.IsSome]
-                      | Some delete -> lookup (delete ctx req)
+                      | Some delete -> lockResourceForModification ctx collName resourceId >=> lookup (delete ctx req)
 
                     let allowHeader =
                       [ if rel.getSelf.IsSome then "GET"; "HEAD"
@@ -204,17 +225,17 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     POST >=>
                       match link.post with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "POST" collName allowHeader]
-                      | Some post -> lookup (post ctx req)
+                      | Some post -> lockResourceForModification ctx collName resourceId >=> lookup (post ctx req)
 
                     PATCH >=>
                       match link.patch with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "PATCH" collName allowHeader]
-                      | Some patch -> lookup (patch ctx req)
+                      | Some patch -> lockResourceForModification ctx collName resourceId >=> lookup (patch ctx req)
 
                     DELETE >=>
                       match link.delete with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "DELETE" collName allowHeader]
-                      | Some delete -> lookup (delete ctx req)
+                      | Some delete -> lockResourceForModification ctx collName resourceId >=> lookup (delete ctx req)
 
                     fun next (httpCtx: HttpContext) ->
                       let method = httpCtx.Request.Method
