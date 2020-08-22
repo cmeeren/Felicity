@@ -24,7 +24,7 @@ Core features:
 * If it compiles and starts, it works
 * Support for polymorphic resource collections and relationships
 * Built-in support for resource-level precondition validation using ETags and modification dates (requiring the client to supply `If-Match` and `If-Unmodified-Since` to avoid “mid-air collisions”)
-* 
+* Resource-level locking and operation queueing to ensure thread safety (can also lock “parent” resources)
 * Supports sideposting (a.k.a. sideloading) to create a related resource hierarchy in a single POST request (not in official JSON:API spec)
 
 ### Production readiness
