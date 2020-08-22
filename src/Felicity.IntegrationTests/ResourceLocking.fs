@@ -98,9 +98,9 @@ let tests =
       do!
         Request.post ctx "/as/ignoredId/customOp"
         |> getResponse
-        |> Array.replicate 1000
+        |> Array.replicate 5000
         |> Job.conIgnore
-      test <@ !i < 1000 @>
+      test <@ !i < 5000 @>
     }
 
     testJob "Locked resources are thread-safe" {
@@ -111,9 +111,9 @@ let tests =
         Request.createWithClient testClient Post (Uri("http://example.com/bs/someId/customOp"))
         |> Request.jsonApiHeaders
         |> getResponse
-        |> Array.replicate 1000
+        |> Array.replicate 5000
         |> Job.conIgnore
-      test <@ !i = 1000 @>
+      test <@ !i = 5000 @>
     }
 
     testJob "Cross-locked resources are collectively thread-safe when IDs match" {
@@ -126,10 +126,10 @@ let tests =
           Request.createWithClient testClient Post (Uri("http://example.com/cs/someId/customOp"))
         |]
         |> Array.map (Request.jsonApiHeaders >> getResponse)
-        |> Array.replicate 500
+        |> Array.replicate 2500
         |> Array.collect id
         |> Job.conIgnore
-      test <@ !i = 1000 @>
+      test <@ !i = 5000 @>
     }
 
     testJob "Cross-locked resources are not collectively thread-safe when IDs don't match" {
@@ -142,10 +142,10 @@ let tests =
           Request.createWithClient testClient Post (Uri("http://example.com/cs/id2/customOp"))
         |]
         |> Array.map (Request.jsonApiHeaders >> getResponse)
-        |> Array.replicate 500
+        |> Array.replicate 2500
         |> Array.collect id
         |> Job.conIgnore
-      test <@ !i < 1000 @>
+      test <@ !i < 5000 @>
     }
 
     testJob "Returns 503 if error times out" {

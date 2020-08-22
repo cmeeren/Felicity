@@ -20,10 +20,11 @@ Core features:
 * Any attribute, relationship, or operation may be async or return errors
 * Loads included resources on-demand and in parallel
 * Easily pass strongly typed context data (e.g. authentication information) through Felicity to any part of your code
-* ~100 common error cases handled automatically; you only have to care about your application-specific errors
+* Over 100 common error cases handled automatically; you only have to care about your application-specific errors
 * If it compiles and starts, it works
 * Support for polymorphic resource collections and relationships
 * Built-in support for resource-level precondition validation using ETags and modification dates (requiring the client to supply `If-Match` and `If-Unmodified-Since` to avoid “mid-air collisions”)
+* 
 * Supports sideposting (a.k.a. sideloading) to create a related resource hierarchy in a single POST request (not in official JSON:API spec)
 
 ### Production readiness
