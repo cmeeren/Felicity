@@ -51,13 +51,13 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
       | errs -> handleErrors errs next httpCtx
 
 
-  let lockResourceForModification (ctx: 'ctx) collName resId : HttpHandler =
+  let lockResourceForModification (ctx: 'ctx) req collName resId : HttpHandler =
     fun next httpCtx ->
       task {
         match ResourceModule.lockSpec<'ctx> collName with
         | None -> return! next httpCtx
         | Some lockSpec ->
-            match! lockSpec.GetId ctx resId |> Job.startAsTask with
+            match! lockSpec.GetId ctx req resId |> Job.startAsTask with
             | None -> return! next httpCtx
             | Some resIdToLock ->
                 let queueFactory = httpCtx.GetService<SemaphoreQueueFactory<'ctx>>()
@@ -88,7 +88,7 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
           POST >=> 
             match ops.postCollection with
             | None -> handleErrors [collPostNotAllowed collName]
-            | Some postColl -> postColl ctx req
+            | Some postColl -> lockResourceForModification ctx req collName None >=> postColl ctx req
 
           let allowHeader =
             [ if ops.getCollection.IsSome then "GET"; "HEAD"
@@ -122,12 +122,12 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                   PATCH >=>
                     match ops.resourceOperations.patch with
                     | None -> handleErrors [resPatchNotSupportedForAnyResource collName]
-                    | Some patch -> lockResourceForModification ctx collName resourceId >=> lookup (patch ctx req)
+                    | Some patch -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (patch ctx req)
 
                   DELETE >=>
                     match ops.resourceOperations.delete with
                     | None -> handleErrors [resDeleteNotSupportedForAnyResource collName]
-                    | Some delete -> lockResourceForModification ctx collName resourceId >=> lookup (delete ctx req)
+                    | Some delete -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (delete ctx req)
 
                   let allowedMethods =
                     [ if ops.resourceOperations.get.IsSome then "GET"; "HEAD"
@@ -176,17 +176,17 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     PATCH >=>
                       match rel.patchSelf with
                       | None -> handleErrors [patchRelSelfNotAllowedForAnyResource relName collName rel.postSelf.IsSome rel.deleteSelf.IsSome]
-                      | Some patch -> lockResourceForModification ctx collName resourceId >=> lookup (patch ctx req)
+                      | Some patch -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (patch ctx req)
 
                     POST >=>
                       match rel.postSelf with
                       | None -> handleErrors [postToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.deleteSelf.IsSome]
-                      | Some post -> lockResourceForModification ctx collName resourceId >=> lookup (post ctx req)
+                      | Some post -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (post ctx req)
 
                     DELETE >=>
                       match rel.deleteSelf with
                       | None -> handleErrors [deleteToManyRelSelfNotAllowedForAnyResource relName collName rel.patchSelf.IsSome rel.postSelf.IsSome]
-                      | Some delete -> lockResourceForModification ctx collName resourceId >=> lookup (delete ctx req)
+                      | Some delete -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (delete ctx req)
 
                     let allowHeader =
                       [ if rel.getSelf.IsSome then "GET"; "HEAD"
@@ -225,17 +225,17 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     POST >=>
                       match link.post with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "POST" collName allowHeader]
-                      | Some post -> lockResourceForModification ctx collName resourceId >=> lookup (post ctx req)
+                      | Some post -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (post ctx req)
 
                     PATCH >=>
                       match link.patch with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "PATCH" collName allowHeader]
-                      | Some patch -> lockResourceForModification ctx collName resourceId >=> lookup (patch ctx req)
+                      | Some patch -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (patch ctx req)
 
                     DELETE >=>
                       match link.delete with
                       | None -> handleErrors [customOpVerbNotDefinedForAnyResource linkName "DELETE" collName allowHeader]
-                      | Some delete -> lockResourceForModification ctx collName resourceId >=> lookup (delete ctx req)
+                      | Some delete -> lockResourceForModification ctx req collName (Some resourceId) >=> lookup (delete ctx req)
 
                     fun next (httpCtx: HttpContext) ->
                       let method = httpCtx.Request.Method

@@ -1370,20 +1370,28 @@ let resDef =
 
 You may have resources that are “child” entities and belong to another resource (see section TODO). In this case, it is generally the “parent” resource that should be locked. For example, when modifying an `orderline`, the shared state that should be locked may be the parent `order`.
 
-To set up this, simply use the `LockOther()` method and pass in the parent resource definition as well as a function that, given the child ID, returns the parent ID. Felicity then locks the specified parent resource instead of the child resource:
+To set up this, simply use the `LockOther()` method and pass in the following three arguments:
+
+* The parent resource definition
+* A function that, given the child ID, returns the parent ID
+* Optionally the relationship from the child to the parent resource (required in order to lock POST requests to create child resources)
+
+Felicity then locks the specified parent resource instead of the child resource:
 
 ```f#
+let order = define.Relationship.ToOne(Order.resDef)
+
 let resDef =
   define.Resource("orderline", resId)
     .CollectionName("orderlines")
-    .LockOther(Order.resDef, getOrderIdForOrderLine)
+    .LockOther(Order.resDef, getOrderIdForOrderLine, order)
 ```
 
 Above, `getOrderIdForOrderLine` has the signature `OrderLineId -> Async<OrderLine option>`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
 
 ### Limitations
 
-Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
+Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all queued operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
 
 Polymorphism
 ------------

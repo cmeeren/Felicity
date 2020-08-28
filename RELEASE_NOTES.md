@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.11.0 (2020-08-28)
+
+* Extended resource locking/queueing to support POST requests to create child resources. Pass in the parent relationship to `.LockOther()` to enable this.
+
 ### 0.10.2 (2020-08-22)
 
 * Added resource locking/queueing to ensure thread safety; see the documentation for details

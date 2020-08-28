@@ -283,6 +283,10 @@ module Option =
     | None -> Job.result (Ok None)
     | Some v -> f v |> JobResult.map Some
 
+  let fromResult = function
+    | Ok x -> Some x
+    | Error _ -> None
+
 
 
 module List =

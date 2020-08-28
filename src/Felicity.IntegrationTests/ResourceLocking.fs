@@ -52,13 +52,23 @@ module C =
 
   let define = Define<Ctx, string, string>()
   let resId = define.Id.Simple(id)
+
+  let b =
+    define.Relationship
+      .ToOne(B.resDef)
+
   let resDef =
     define.Resource("c", resId)
       .CollectionName("cs")
-      .LockOther(B.resDef, Some >> Job.result)
+      .LockOther(B.resDef, Some >> Job.result, b)
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()
+
+  let post =
+    define.Operation
+      .Post(fun (Ctx i) parser -> i := !i + 1; parser.For(id, b))
+      .AfterCreate(ignore)
 
   let customOp =
     define.Operation
@@ -154,6 +164,26 @@ let tests =
         |> Async.Parallel
         |> Async.Ignore<Response []>
       test <@ !i < 1000 @>
+    }
+
+    testJob "Cross-locked resources are collectively thread-safe when using POST collection" {
+      let i = ref 0
+      let ctx = Ctx i
+      let testClient = startTestServer ctx
+      do!
+        [|
+          Request.createWithClient testClient Post (Uri("http://example.com/bs/someId/customOp"))
+
+          Request.createWithClient testClient Post (Uri("http://example.com/cs"))
+          |> Request.bodySerialized {| data = {| ``type``= "c"; relationships = {| b = {| data = {| ``type`` = "b"; id = "someId" |} |} |} |} |}
+        |]
+        |> Array.map (Request.jsonApiHeaders >> getResponse)
+        |> Array.replicate 500
+        |> Array.collect id
+        |> Array.map Job.toAsync
+        |> Async.Parallel
+        |> Async.Ignore<Response []>
+      test <@ !i = 1000 @>
     }
 
     testJob "Returns 503 if error times out" {
