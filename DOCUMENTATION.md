@@ -1389,6 +1389,12 @@ let resDef =
 
 Above, `getOrderIdForOrderLine` has the signature `OrderLineId -> Async<OrderLine option>`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
 
+### External locking mechanisms
+
+The locking demonstrated above is handled entirely within Felicity. However, you may need to plug into external locking system, e.g. because there are background operations being triggered for the same resources that are modifiable through the API, or because you need distributed locking across multiple instances of an API (see e.g. [DistributedLock](https://github.com/madelson/DistributedLock)).
+
+In this case, use the `CustomLock` or `CustomLockOther` methods. They correspond to the variants above, but you must pass a `getLock` function. This function accepts the (strongly typed) resource ID, and should return `None` if the lock times out, or `Some` with an `IDisposable` that releases the lock when disposed.
+
 ### Limitations
 
 Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all queued operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.

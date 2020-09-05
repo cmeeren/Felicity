@@ -1,6 +1,7 @@
 ﻿namespace Felicity
 
 open System
+open System.Threading.Tasks
 open Hopac
 
 
@@ -15,6 +16,7 @@ type internal LockSpecification<'ctx> = {
   Timeout: TimeSpan
   CollName: CollectionName
   GetId: 'ctx -> Request -> ResourceId option -> Job<ResourceId option>
+  CustomLock: ('ctx -> ResourceId -> Job<IDisposable option>) option
 }
 
 
@@ -74,26 +76,18 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   member this.PolymorphicFor (entity: 'entity) =
     { resourceDef = this; entity = box entity }
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates. If a lock can not be acquired after the specified timeout
-  /// (default 10 seconds), an error will be returned.
-  member this.Lock(?timeout) =
-    let lockSpec = {
+  member private this.CreateLockSpec(?timeout) =
+    {
       Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
       CollName =
         this.collectionName
         |> Option.defaultWith (fun () -> failwithf "Resource type %s does not have a collection name and can therefore not be used for locking" this.name)
       GetId = fun _ _ resId -> resId |> Job.result
+      CustomLock = None
     }
-    { this with lockSpec = Some lockSpec }
 
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// If a lock can not be acquired after the specified timeout (default 10 seconds), an
-  /// error will be returned. The optional relationship must be specified in order to
-  /// lock POST collection requests for this resource.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Job<'otherId option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>, ?timeout) =
-    let lockSpec = {
+  member private this.CreateOtherLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Job<'otherId option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>, ?timeout) =
+    {
       Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
       CollName =
         resDef.collectionName
@@ -121,7 +115,72 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
                       rel.Get(ctx, req, None)
                       |> Job.map (Option.fromResult >> Option.bind id >> Option.map resDef.id.fromDomain)
           }
+      CustomLock = None
     }
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates. If a lock can not be acquired after the specified timeout
+  /// (default 10 seconds), an error will be returned.
+  member this.Lock(?timeout) =
+    let lockSpec = this.CreateLockSpec(?timeout=timeout)
+    { this with lockSpec = Some lockSpec }
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'ctx -> 'id -> Job<IDisposable option>) =
+    let lockSpec = this.CreateLockSpec()
+    let getLock ctx rawId =
+      job {
+        match! this.id.toDomain ctx rawId with
+        | Error _ -> return None  // Request will fail anyway
+        | Ok id -> return! getLock ctx id
+      }
+    { this with lockSpec = Some { lockSpec with CustomLock = Some getLock } }
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'id -> Job<IDisposable option>) =
+    this.CustomLock(fun _ id -> getLock id)
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'ctx -> 'id -> Async<IDisposable option>) =
+    this.CustomLock(Job.liftAsync2 getLock)
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'id -> Async<IDisposable option>) =
+    this.CustomLock(Job.liftAsync getLock)
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'ctx -> 'id -> IDisposable option) =
+    this.CustomLock(Job.lift2 getLock)
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'id -> IDisposable option) =
+    this.CustomLock(Job.lift getLock)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  /// If a lock can not be acquired after the specified timeout (default 10 seconds), an
+  /// error will be returned. The optional relationship must be specified in order to
+  /// lock POST collection requests for this resource.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Job<'otherId option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>, ?timeout) =
+    let lockSpec = this.CreateOtherLockSpec(resDef, getId, ?relationship=relationship, ?timeout=timeout)
     { this with lockSpec = Some lockSpec }
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
@@ -147,3 +206,64 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// lock POST collection requests for this resource. 
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Async<'otherId option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>, ?timeout) =
     this.LockOther(resDef, Job.liftAsync2 getId, ?relationship=relationship, ?timeout=timeout)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource,
+  /// using an external lock mechanism. The getLock function is passed the resource ID,
+  /// and should return None if the lock times out, or Some with an IDisposable that
+  /// releases the lock when disposed. The optional relationship must be specified in
+  /// order to lock POST collection requests for this resource.
+  member this.CustomLockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Job<'otherId option>, getLock: 'ctx -> 'otherId -> Job<IDisposable option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>) =
+    let lockSpec = this.CreateOtherLockSpec(resDef, getId, ?relationship=relationship)
+    let getLock ctx rawId =
+      job {
+        match! resDef.id.toDomain ctx rawId with
+        | Error _ -> return None  // Request will fail anyway
+        | Ok id -> return! getLock ctx id
+      }
+    { this with lockSpec = Some { lockSpec with CustomLock = Some getLock } }
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource,
+  /// using an external lock mechanism. The getLock function is passed the resource ID,
+  /// and should return None if the lock times out, or Some with an IDisposable that
+  /// releases the lock when disposed. The optional relationship must be specified in
+  /// order to lock POST collection requests for this resource.
+  member this.CustomLockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'ctx -> 'id -> Async<'otherId option>, getLock: 'ctx -> 'otherId -> Async<IDisposable option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.CustomLockOther(resDef, Job.liftAsync2 getId, Job.liftAsync2 getLock, ?relationship=relationship)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource,
+  /// using an external lock mechanism. The getLock function is passed the resource ID,
+  /// and should return None if the lock times out, or Some with an IDisposable that
+  /// releases the lock when disposed. The optional relationship must be specified in
+  /// order to lock POST collection requests for this resource.
+  member this.CustomLockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'id -> Job<'otherId option>, getLock: 'otherId -> Job<IDisposable option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.CustomLockOther(resDef, (fun _ id -> getId id), (fun _ id -> getLock id), ?relationship=relationship)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource,
+  /// using an external lock mechanism. The getLock function is passed the resource ID,
+  /// and should return None if the lock times out, or Some with an IDisposable that
+  /// releases the lock when disposed. The optional relationship must be specified in
+  /// order to lock POST collection requests for this resource.
+  member this.CustomLockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'id -> Async<'otherId option>, getLock: 'otherId -> Async<IDisposable option>, ?relationship: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.CustomLockOther(resDef, Job.liftAsync2 (fun _ id -> getId id), Job.liftAsync2 (fun _ id -> getLock id), ?relationship=relationship)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource,
+  /// using an external lock mechanism. The getLock function is passed the resource ID,
+  /// and should return None if the lock times out, or Some with an IDisposable that
+  /// releases the lock when disposed. The optional relationship must be specified in
+  /// order to lock POST collection requests for this resource.
+  member this.CustomLockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'id -> Job<'otherId option>, getLock: 'otherId -> IDisposable option, ?relationship: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.CustomLockOther(resDef, (fun _ id -> getId id), Job.lift2 (fun _ id -> getLock id), ?relationship=relationship)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource,
+  /// using an external lock mechanism. The getLock function is passed the resource ID,
+  /// and should return None if the lock times out, or Some with an IDisposable that
+  /// releases the lock when disposed. The optional relationship must be specified in
+  /// order to lock POST collection requests for this resource.
+  member this.CustomLockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getId: 'id -> Async<'otherId option>, getLock: 'otherId -> IDisposable option, ?relationship: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.CustomLockOther(resDef, Job.liftAsync2 (fun _ id -> getId id), Job.lift2 (fun _ id -> getLock id), ?relationship=relationship)

@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.11.1</Version>
-    <PackageReleaseNotes>Fix 500 error when deserializing null to a reference-typed non-nullable attribute (now returns a more helpful error)</PackageReleaseNotes>
+    <Version>0.11.2</Version>
+    <PackageReleaseNotes>Added support for external lock mechanisms</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.11.2 (2020-09-05)
+
+* Added support for external lock mechanisms
+
 ### 0.11.1 (2020-09-02)
 
 * Fix 500 error when deserializing `null` to a reference-typed non-nullable attribute (now returns a more helpful error)
