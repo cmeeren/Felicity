@@ -1399,6 +1399,12 @@ In this case, use the `CustomLock` or `CustomLockOther` methods. They correspond
 
 Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all queued operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
 
+Furthermore, if you use `LockOther` or `CustomLockOther`, it is assumed that the related ID returned by `getId` will never change. The `getId` function is first called to get the ID to lock. Then the operation is performed. If the output of `getId` changes between checking/locking and performing the operation, locking may not work:
+
+* If it changes between two different `Some` values, the incorrect resource is locked
+* If it changes from `None` to `Some`, no locking is performed
+* If it changes from `Some` to `None`, you’re probably fine
+
 Polymorphism
 ------------
 
