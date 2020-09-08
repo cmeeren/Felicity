@@ -1281,6 +1281,8 @@ The static `Sort` class is the entry point for parsing the JSON:API `sort` param
 
 Usually there would be a limited set of sorting options available. Use `Sort.Enum` for this. Section TODO contains relevant notes about enum parsing. You can also use `Sort.Parsed` to specify custom parsing behavior.
 
+When parsed, you get a tuple with the parsed sort value and a boolean that indicates the sort direction. The boolean is `false` for ascending and `true` for descending. In other words, the boolean indicates whether the JSON:API `-` prefix was present on the sort column.
+
 #### Page
 
 The static `Page` class is the entry point for parsing the JSON:API `page[]` parameter family.
