@@ -295,6 +295,11 @@
     |> Error.setTitle "Invalid query parameter value"
     |> Error.setDetailf "Expected a number, but got '%s'" invalidValue
 
+  let queryInvalidDateTimeUnnamed invalidValue =
+    Error.create 400
+    |> Error.setTitle "Invalid query parameter value"
+    |> Error.setDetailf "Expected a valid ISO 8601-1:2019 date-time, but got '%s'" invalidValue
+
   let queryInvalidParsedNone queryParamName invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"

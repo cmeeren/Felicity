@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### vNext
+
+* Added `DateTime` and `DateTimeOffset` as built-in query parser target types
+
 ### 0.11.0 (2020-08-28)
 
 * Extended resource locking/queueing to support POST requests to create child resources. Pass in the parent relationship to `.LockOther()` to enable this.
