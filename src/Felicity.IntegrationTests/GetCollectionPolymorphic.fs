@@ -44,7 +44,7 @@ module A =
   let define = Define<Ctx, A, string>()
   let resId = define.Id.Simple(fun (a: A) -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("abs")
-  let a = define.Attribute.Simple().Get(fun a -> a.A)
+  let a = define.Attribute.SimpleBool().Get(fun a -> a.A)
 
 
 module B =
@@ -52,7 +52,7 @@ module B =
   let define = Define<Ctx, B, string>()
   let resId = define.Id.Simple(fun (b: B) -> b.Id)
   let resDef = define.Resource("b", resId).CollectionName("abs")
-  let b = define.Attribute.Simple().Get(fun b -> b.B)
+  let b = define.Attribute.SimpleInt().Get(fun b -> b.B)
 
 
 

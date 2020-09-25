@@ -508,9 +508,45 @@ module NullableAttributeExtensions =
 
 type NullableAttributeHelper<'ctx, 'entity> internal () =
 
-  member _.Simple([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NullableAttribute<'ctx, 'entity, 'serialized, 'serialized>.Create(
       name, id, fun _ -> Ok >> Job.result)
+
+  member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, bool, bool> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleByte([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, byte, byte> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleInt([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, int, int> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleInt64([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, int64, int64> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleDecimal([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, decimal, decimal> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleFloat([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, float, float> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleString([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, string, string> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleChar([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, string, string> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleDateTime([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, DateTime, DateTime> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, DateTimeOffset, DateTimeOffset> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, Guid, Guid> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, Uri, Uri> =
+    this.SimpleUnsafe(name)
 
   member private _.ParsedJobRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create(name, fromDomain, toDomain)
@@ -624,9 +660,45 @@ type AttributeHelper<'ctx, 'entity> internal () =
 
   member _.Nullable = NullableAttributeHelper<'ctx, 'entity>()
 
-  member _.Simple([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NonNullableAttribute<'ctx, 'entity, 'serialized, 'serialized>.Create(
       name, id, fun _ -> Ok >> Job.result)
+
+  member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, bool, bool> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleByte([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, byte, byte> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleInt([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, int, int> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleInt64([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, int64, int64> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleDecimal([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, decimal, decimal> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleFloat([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, float, float> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleString([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, string, string> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleChar([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, string, string> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleDateTime([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, DateTime, DateTime> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, DateTimeOffset, DateTimeOffset> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, Guid, Guid> =
+    this.SimpleUnsafe(name)
+
+  member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, Uri, Uri> =
+    this.SimpleUnsafe(name)
 
   member private _.ParsedJobRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create(name, fromDomain, toDomain)

@@ -101,7 +101,7 @@ module Child3 =
   let define = Define<Ctx, Child3, string>()
   let resId = define.Id.Simple(fun (c: Child3) -> c.Id)
   let resDef = define.Resource("child3", resId)
-  let c = define.Attribute.Simple().Get(fun _ -> "abc")
+  let c = define.Attribute.SimpleString().Get(fun _ -> "abc")
 
 
 module Child1 =

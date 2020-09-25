@@ -51,7 +51,7 @@ module A =
   let define = Define<Ctx, A, string>()
   let resId = define.Id.ParsedOpt(id, (fun ctx s -> ctx.ParseId s), fun (a: A) -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("abs")
-  let a = define.Attribute.Simple().Get(fun a -> a.A)
+  let a = define.Attribute.SimpleBool().Get(fun a -> a.A)
   let get =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
@@ -64,7 +64,7 @@ module B =
   let define = Define<Ctx, B, string>()
   let resId = define.Id.ParsedOpt(id, (fun ctx s -> ctx.ParseId s), fun (b: B) -> b.Id)
   let resDef = define.Resource("b", resId).CollectionName("abs")
-  let b = define.Attribute.Simple().Get(fun b -> b.B)
+  let b = define.Attribute.SimpleInt().Get(fun b -> b.B)
   let get =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)

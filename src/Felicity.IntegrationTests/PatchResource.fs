@@ -113,32 +113,32 @@ module A =
 
   let readonly =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun (a: A) -> a.ReadOnly)
 
   let a =
     define.Attribute
-      .Simple()
+      .SimpleBool()
       .Get(fun a -> a.A)
       .SetRes(fun ctx -> ctx.SetA)
 
   let x =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.X)
       .Set(ADomain.setX)
   
   let nullable =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.Nullable)
       .Set(ADomain.setNullable)
   
   let nullableNotNullWhenSet =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.NullableNotNullWhenSet)
       .SetNonNull(ADomain.setNullableNotNullWhenSet)
 
@@ -162,18 +162,18 @@ module B =
 
   let readonly =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun b -> b.ReadOnly)
 
   let b =
     define.Attribute
-      .Simple()
+      .SimpleInt()
       .Get(fun b -> b.B)
       .Set(BDomain.setB)
 
   let y =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun b -> b.Y)
       .Set(BDomain.setY)
 
@@ -288,18 +288,18 @@ module A7 =
 
   let readonly =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun (a: A) -> a.ReadOnly)
 
   let x =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.X)
       .Set(fun _ _ -> failwith<A> "not used")
 
   let y =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun _ -> "test")
 
   let lookup =

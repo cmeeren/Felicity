@@ -18,8 +18,8 @@ module X =
   let resId = define.Id.Simple(fun _ -> "someId")
   let resDef = define.Resource("x", resId).CollectionName("xs")
 
-  let nonNullable = define.Attribute.Simple("nonNullableCustomName").Get(fun _ -> true)
-  let nullable = define.Attribute.Nullable.Simple("nullableCustomName").Get(fun _ -> Some true)
+  let nonNullable = define.Attribute.SimpleBool("nonNullableCustomName").Get(fun _ -> true)
+  let nullable = define.Attribute.Nullable.SimpleBool("nullableCustomName").Get(fun _ -> Some true)
 
   let toOne = define.Relationship.ToOne(resDef, "toOneCustomName").Get(fun _ _ -> X)
   let toOneNullable = define.Relationship.ToOne(resDef, "toOneNullableCustomName").Get(fun _ _ -> X)

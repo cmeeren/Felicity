@@ -44,7 +44,7 @@ module A =
   let define = Define<Ctx, A, string>()
   let resId = define.Id.Simple(fun a -> a.Id)
   let resDef = define.Resource("a", resId).CollectionName("as")
-  let a = define.Attribute.Simple().Get(fun a -> a.A)
+  let a = define.Attribute.SimpleBool().Get(fun a -> a.A)
   let getColl =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)

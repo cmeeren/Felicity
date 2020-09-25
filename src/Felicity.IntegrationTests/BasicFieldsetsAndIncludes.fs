@@ -39,8 +39,8 @@ module Person =
   let resId = define.Id.Simple(fun p -> p.Id)
   let resDef = define.Resource("person", resId).CollectionName("persons")
 
-  let firstName = define.Attribute.Simple().Get(fun p -> p.FirstName)
-  let attrLastName = define.Attribute.Simple("lastName").Get(fun p -> p.LastName)
+  let firstName = define.Attribute.SimpleString().Get(fun p -> p.FirstName)
+  let attrLastName = define.Attribute.SimpleString("lastName").Get(fun p -> p.LastName)
   let friends = define.Relationship.ToMany(resDef).Get(fun _ -> [bob; jane])
   let bestFriend = define.Relationship.ToMany(resDef).Get(fun _ -> [bob])
   let emptyRel = define.Relationship.ToMany(resDef).Get(fun _ -> [])

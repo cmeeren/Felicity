@@ -81,7 +81,7 @@ module Child3 =
   let define = Define<Ctx, Child3, string>()
   let resId = define.Id.Simple(fun (c: Child3) -> c.Id)
   let resDef = define.Resource("child3", resId)
-  let c = define.Attribute.Simple().Get(fun _ -> "abc")
+  let c = define.Attribute.SimpleString().Get(fun _ -> "abc")
 
 
 
@@ -90,7 +90,7 @@ module Child1 =
   let define = Define<Ctx, Child1, string>()
   let resId = define.Id.Simple(fun (c: Child1) -> c.Id)
   let resDef = define.Resource("child1", resId)
-  let a = define.Attribute.Simple().Get(fun _ -> 2)
+  let a = define.Attribute.SimpleInt().Get(fun _ -> 2)
   let subChild =
     define.Relationship
       .ToOne(Child3.resDef)
@@ -102,7 +102,7 @@ module Child2 =
   let define = Define<Ctx, Child2, string>()
   let resId = define.Id.Simple(fun (c: Child2) -> c.Id)
   let resDef = define.Resource("child2", resId)
-  let b = define.Attribute.Simple().Get(fun _ -> true)
+  let b = define.Attribute.SimpleBool().Get(fun _ -> true)
 
 
 module Parent1 =

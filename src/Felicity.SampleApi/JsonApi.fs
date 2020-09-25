@@ -131,7 +131,7 @@ module Article =
 
   let createdAt =
     define.Attribute
-      .Simple()
+      .SimpleDateTimeOffset()
       .Get(fun a -> a.CreatedAt)
 
   // Nullable attributes are defined using define.Attribute.Nullable. The only difference
@@ -141,7 +141,7 @@ module Article =
   let updatedAt =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleDateTimeOffset()
       .Get(fun a -> a.UpdatedAt)
 
   // Relationships are defined using a similar syntax. You use either ToOne,
@@ -366,13 +366,13 @@ module Comment =
 
   let createdAt =
     define.Attribute
-      .Simple()
+      .SimpleDateTimeOffset()
       .Get(fun c -> c.CreatedAt)
 
   let updatedAt =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleDateTimeOffset()
       .Get(fun c -> c.UpdatedAt)
 
   let author =

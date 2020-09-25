@@ -121,27 +121,27 @@ module A =
 
   let a =
     define.Attribute
-      .Simple()
+      .SimpleBool()
       .Get(fun a -> a.A)
       .Set(ADomain.setA)
 
   let x =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.X)
       .Set(ADomain.setX)
 
   let nullable =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.Nullable)
       .Set(ADomain.setNullable)
 
   let nullableNotNullWhenSet =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.NullableNotNullWhenSet)
       .SetNonNull(ADomain.setNullableNotNullWhenSet)
 
@@ -155,7 +155,7 @@ module A =
 
   let readonly =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun _ -> "test")
 
   let post =
@@ -181,12 +181,12 @@ module B =
 
   let b =
     define.Attribute
-      .Simple()
+      .SimpleInt()
       .Get(fun b -> b.B)
 
   let y =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun b -> b.Y)
       .Set(BDomain.setY)
 

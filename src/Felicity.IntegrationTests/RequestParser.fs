@@ -41,7 +41,7 @@ module D =
   let resId = define.Id.Simple(fun _ -> "someId")
   let resDef = define.Resource("d", resId)
   let lookup = define.Operation.Lookup(fun _ -> Some D)
-  let attr = define.Attribute.Simple().Get(fun _ -> "foo")
+  let attr = define.Attribute.SimpleString().Get(fun _ -> "foo")
 
 
 module C =
@@ -51,7 +51,7 @@ module C =
   let resDef = define.Resource("c", resId)
   let lookup = define.Operation.Lookup(fun _ -> Some C)
   let d = define.Relationship.ToOne(D.resDef).Get(fun _ _ -> D)
-  let attr = define.Attribute.Simple().Get(fun _ -> "foo")
+  let attr = define.Attribute.SimpleString().Get(fun _ -> "foo")
 
 
 module B =
@@ -61,7 +61,7 @@ module B =
   let resDef = define.Resource("b", resId)
   let lookup = define.Operation.Lookup(fun _ -> Some B)
   let c = define.Relationship.ToOne(C.resDef).Get(fun _ _ -> C)
-  let attr = define.Attribute.Simple().Get(fun _ -> "foo")
+  let attr = define.Attribute.SimpleString().Get(fun _ -> "foo")
 
 
 module A =
@@ -71,7 +71,7 @@ module A =
   let resDef = define.Resource("a", resId)
   let lookup = define.Operation.Lookup(fun _ -> Some A)
   let b = define.Relationship.ToOne(B.resDef).Get(fun _ _ -> B)
-  let attr = define.Attribute.Simple().Get(fun _ -> "foo")
+  let attr = define.Attribute.SimpleString().Get(fun _ -> "foo")
 
 
 module X =

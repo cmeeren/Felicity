@@ -102,7 +102,7 @@ module B =
   let resDef = define.Resource("b", resId).CollectionName("entities")
   let get = define.Operation.GetResource()
 
-  let x = define.Attribute.Simple().Get(fun _ -> 2)
+  let x = define.Attribute.SimpleInt().Get(fun _ -> 2)
 
   let customOp =
     define.Operation

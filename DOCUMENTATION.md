@@ -74,13 +74,13 @@ module Article =
 
   let createdAt =
     define.Attribute
-      .Simple()
+      .SimpleDateTimeOffset()
       .Get(fun a -> a.CreatedAt)
 
   let updatedAt =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleDateTimeOffset()
       .Get(fun a -> a.UpdatedAt)
 
   let author =
@@ -452,7 +452,7 @@ To define a nullable attribute, it must be wrapped in `option` on the domain sid
 let updatedAt =
   define.Attribute
     .Nullable
-    .Simple()
+    .SimpleDateTimeOffset()
     .Get(fun a -> a.UpdatedAt)
 ```
 

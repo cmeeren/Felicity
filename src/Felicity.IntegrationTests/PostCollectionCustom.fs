@@ -51,19 +51,19 @@ module A =
 
   let a =
     define.Attribute
-      .Simple()
+      .SimpleBool()
       .Get(fun a -> a.A)
       .Set(ADomain.setA)
 
   let x =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun a -> a.X)
       .Set(ADomain.setX)
 
   let readonly =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun _ -> "test")
 
   let post =

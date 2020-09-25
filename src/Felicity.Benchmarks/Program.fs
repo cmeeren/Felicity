@@ -31,11 +31,11 @@ module Resource =
 
   let resDef = define.Resource("resource", resId).CollectionName("resources")
 
-  let a = define.Attribute.Simple().Get(fun _ -> "a")
-  let b = define.Attribute.Simple().Get(fun _ -> true)
-  let c = define.Attribute.Simple().Get(fun _ -> 3)
-  let d = define.Attribute.Simple().Get(fun _ -> DateTimeOffset.Now)
-  let e = define.Attribute.Nullable.Simple().Get(fun _ -> (None: int option))
+  let a = define.Attribute.SimpleString().Get(fun _ -> "a")
+  let b = define.Attribute.SimpleBool().Get(fun _ -> true)
+  let c = define.Attribute.SimpleInt().Get(fun _ -> 3)
+  let d = define.Attribute.SimpleDateTimeOffset().Get(fun _ -> DateTimeOffset.Now)
+  let e = define.Attribute.Nullable.SimpleInt().Get(fun _ -> (None: int option))
 
   let r1 = define.Relationship.ToOneNullable(resDef).Get(fun _ _ -> None)
   let r2 = define.Relationship.ToOneNullable(resDef).Get(fun _ _ -> None)

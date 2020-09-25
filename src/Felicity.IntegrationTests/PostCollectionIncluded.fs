@@ -97,7 +97,7 @@ module GrandChild =
 
   let name =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun c -> c.Name)
 
   let children =
@@ -114,12 +114,13 @@ module Child =
 
   let name =
     define.Attribute
-      .Simple()
+      .SimpleString()
       .Get(fun c -> c.Name)
 
   let name2 =
     define.Attribute
-      .Simple()
+      .Nullable
+      .SimpleString()
       .Get(fun c -> c.Name2)
 
   let child =

@@ -20,7 +20,7 @@ module X =
 
   let a =
     define.Attribute
-      .Simple()
+      .SimpleBool()
       .AddConstraint("foo", 1)
       .AddConstraint("bar", true)
       .AddConstraint("baz", [123; 456])
@@ -31,7 +31,7 @@ module X =
   let b =
     define.Attribute
       .Nullable
-      .Simple()
+      .SimpleBool()
       .AddConstraint("foo5", 5)
       .AddConstraint("bar5", true)
       .AddConstraint("baz5", [987; 654])
@@ -86,7 +86,7 @@ module Y =
 
   let constraints =
     define.Attribute
-      .Simple()
+      .SimpleBool()
       .Get(fun (Y b) -> b)
       .Set(fun b _ -> Y b)
 
