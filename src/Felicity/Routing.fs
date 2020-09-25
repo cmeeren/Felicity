@@ -60,13 +60,19 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
             match! lockSpec.GetId ctx req resId |> Job.startAsTask with
             | None -> return! next httpCtx
             | Some resIdToLock ->
-                let queueFactory = httpCtx.GetService<SemaphoreQueueFactory<'ctx>>()
-                let queue = queueFactory.GetFor(lockSpec.CollName, resIdToLock)
-                match! queue.Lock lockSpec.Timeout with
-                | Ok locker ->
+                let! locker =
+                  match lockSpec.CustomLock with
+                  | None ->
+                      let queueFactory = httpCtx.GetService<SemaphoreQueueFactory<'ctx>>()
+                      let queue = queueFactory.GetFor(lockSpec.CollName, resIdToLock)
+                      queue.Lock lockSpec.Timeout
+                  | Some getLock ->
+                      getLock ctx resIdToLock |> Job.startAsTask
+                match locker with
+                | Some locker ->
                     use _ = locker
                     return! next httpCtx
-                | Error () ->
+                | None ->
                     return! handleErrors [lockTimeout] next httpCtx
       }
 

@@ -306,6 +306,34 @@ let tests =
       test <@ b.Y = "abc" @>
     }
 
+    testJob "Returns 400 when non-nullable attribute is null" {
+      let db = Db ()
+      db.SaveChild { Child.Id = "c" }
+      let ctx = { Ctx.WithDb db with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
+      let! response =
+        Request.post ctx "/abs"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  attributes =
+                    {| a = null |}
+                  relationships =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
+                        {| data = {| ``type`` = "child"; id = "c" |} |}
+                    |}
+                |}
+            |}
+        |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'a' on type 'a' is not nullable" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/a" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
     testJob "Returns 403 when nullableChildNotNullWhenCreated is null" {
       let db = Db ()
       db.SaveChild { Child.Id = "c" }

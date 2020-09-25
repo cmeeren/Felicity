@@ -1281,6 +1281,8 @@ The static `Sort` class is the entry point for parsing the JSON:API `sort` param
 
 Usually there would be a limited set of sorting options available. Use `Sort.Enum` for this. Section TODO contains relevant notes about enum parsing. You can also use `Sort.Parsed` to specify custom parsing behavior.
 
+When parsed, you get a tuple with the parsed sort value and a boolean that indicates the sort direction. The boolean is `false` for ascending and `true` for descending. In other words, the boolean indicates whether the JSON:API `-` prefix was present on the sort column.
+
 #### Page
 
 The static `Page` class is the entry point for parsing the JSON:API `page[]` parameter family.
@@ -1389,9 +1391,21 @@ let resDef =
 
 Above, `getOrderIdForOrderLine` has the signature `OrderLineId -> Async<OrderLine option>`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
 
+### External locking mechanisms
+
+The locking demonstrated above is handled entirely within Felicity. However, you may need to plug into external locking system, e.g. because there are background operations being triggered for the same resources that are modifiable through the API, or because you need distributed locking across multiple instances of an API (see e.g. [DistributedLock](https://github.com/madelson/DistributedLock)).
+
+In this case, use the `CustomLock` or `CustomLockOther` methods. They correspond to the variants above, but you must pass a `getLock` function. This function accepts the (strongly typed) resource ID, and should return `None` if the lock times out, or `Some` with an `IDisposable` that releases the lock when disposed.
+
 ### Limitations
 
 Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all queued operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
+
+Furthermore, if you use `LockOther` or `CustomLockOther`, it is assumed that the related ID returned by `getId` will never change. The `getId` function is first called to get the ID to lock. Then the operation is performed. If the output of `getId` changes between checking/locking and performing the operation, locking may not work:
+
+* If it changes between two different `Some` values, the incorrect resource is locked
+* If it changes from `None` to `Some`, no locking is performed
+* If it changes from `Some` to `None`, you’re probably fine
 
 Polymorphism
 ------------

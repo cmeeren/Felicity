@@ -117,10 +117,14 @@ module private ToDocumentModel =
               let jsonEl = kvp.Value
               getFieldType d.``type`` attrName
               |> Option.traverseResult (fun tp ->
-                  try
-                    Ok (attrName, JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options))
-                  with (:? JsonException as ex) ->
-                    Error [attrInvalidJson attrName (Exception.getInnerMsg ex) (ptr + "/attributes/" + attrName)]
+                  let isOption = tp.IsGenericType && tp.GetGenericTypeDefinition() = typedefof<Option<_>>
+                  if jsonEl.ValueKind = JsonValueKind.Null && not isOption then
+                    Error [attrInvalidNull d.``type`` attrName (ptr + "/attributes/" + attrName)]
+                  else
+                    try
+                      Ok (attrName, JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options))
+                    with (:? JsonException as ex) ->
+                      Error [attrInvalidJson attrName (Exception.getInnerMsg ex) (ptr + "/attributes/" + attrName)]
               )
           )
           |> Array.sequenceResultA

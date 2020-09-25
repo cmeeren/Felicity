@@ -146,6 +146,9 @@ module Job =
   let inline liftAsyncFunc5 (f: Func<_,_,_,_,_,_>) =
     Func<_,_,_,_,_,_>(fun a b c d e -> f.Invoke(a, b, c, d, e) |> Job.fromAsync)
 
+  let inline liftTask2 f =
+    fun a b -> f a b |> Job.fromTask
+
 
   let startAsTask (xJ: Job<'x>): Task<'x> =
     let tcs = new TaskCompletionSource<'x>()
@@ -383,8 +386,8 @@ type SemaphoreQueue() =
   member _.Lock (timeout) =
     task {
       let! locked = waitAsync timeout
-      if not locked then return Error ()
-      else return Ok { new IDisposable with member _.Dispose() = release() |> ignore }
+      if not locked then return None
+      else return Some { new IDisposable with member _.Dispose() = release() |> ignore }
     }
 
   interface IDisposable with

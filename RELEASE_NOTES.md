@@ -6,6 +6,14 @@ Release notes
 * **Breaking:** Renamed `define.Attribute.Simple` to `SimpleUnsafe` and added variants for well-known types such as `SimpleString`, `SimpleDateTimeOffset`, etc.
 * Added `DateTime` and `DateTimeOffset` as built-in query parser target types
 
+### 0.11.2 (2020-09-05)
+
+* Added support for external lock mechanisms
+
+### 0.11.1 (2020-09-02)
+
+* Fix 500 error when deserializing `null` to a reference-typed non-nullable attribute (now returns a more helpful error)
+
 ### 0.11.0 (2020-08-28)
 
 * Extended resource locking/queueing to support POST requests to create child resources. Pass in the parent relationship to `.LockOther()` to enable this.
