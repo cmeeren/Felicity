@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### vNext
+### 0.12.0 (2020-09-25)
 
 * **Breaking:** Renamed `define.Attribute.Simple` to `SimpleUnsafe` and added variants for well-known types such as `SimpleString`, `SimpleDateTimeOffset`, etc.
 * Added `DateTime` and `DateTimeOffset` as built-in query parser target types
