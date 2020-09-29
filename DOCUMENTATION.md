@@ -1184,7 +1184,7 @@ As with parsing optional resource fields, you may append `.Optional`, but as men
 
 #### Operators
 
-If you want to add an “operator” to the filter parameter name, e.g. `filter[firstName][contains]`, you can use `.Operator(contains)`. This is just a parameter name change; it has no effect on the parsing.
+If you want to add an “operator” to the filter parameter name, e.g. `filter[firstName][contains]`, you can use `.Operator("contains")`. This is just a parameter name change; it has no effect on the parsing.
 
 If you use an operator that indicates the query parameter should accept a boolean value, you can append `.Bool` and the parser will be replaced with a `bool` parser. In other words, the field(s) you specify in `Filter.Field()` are then only used to construct the filter parameter’s name, not for parsing. For example, the following will parse a query parameter `filter[firstName][isNull]` which may be `true` or `false`.
 
