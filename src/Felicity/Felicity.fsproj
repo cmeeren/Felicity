@@ -13,9 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.12.0</Version>
-    <PackageReleaseNotes>- Breaking: Renamed define.Attribute.Simple to SimpleUnsafe and added variants for well-known types such as SimpleString, SimpleDateTimeOffset, etc.
-- Added DateTime and DateTimeOffset as built-in query parser target types</PackageReleaseNotes>
+    <Version>0.12.1</Version>
+    <PackageReleaseNotes>Enabled lookup of arbitrary types in relationship `Set`, `SetAll`, and `Add` overloads accepting a resource lookup (was previously restricted to the relationship's related entity type, now allows lookups of e.g. simpler resource projections, or simple existence checks for the related IDs)</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -179,7 +179,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       patchSelfReturn202Accepted = false
     }
 
-  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) entitySetter =
+  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
     fun ctx (dataPointer: Pointer) relatedId entity ->
       getRelated.GetById ctx relatedId
       |> JobResult.mapError (List.map (Error.setSourcePointer dataPointer))
@@ -517,10 +517,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetJobRes (set: Func<'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(fun _ id e -> set.Invoke(id, e))
 
-  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun ctx relId e -> set.Invoke(ctx, relId, e)))
 
-  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun _ id e -> set.Invoke(id, e)))
 
   member this.SetAsyncRes (set: Func<'ctx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
@@ -529,10 +529,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAsyncRes (set: Func<'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(Job.liftAsyncFunc2 set)
 
-  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc3 set)
 
-  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc2 set)
 
   member this.SetJob (set: Func<'ctx, 'relatedId, 'entity, Job<'entity>>) =
@@ -541,10 +541,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetJob (set: Func<'relatedId, 'entity, Job<'entity>>) =
     this.SetJobRes(fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Job<'entity>>) =
+  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok))
 
-  member this.SetJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Job<'entity>>) =
+  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok))
 
   member this.SetAsync (set: Func<'ctx, 'relatedId, 'entity, Async<'entity>>) =
@@ -553,10 +553,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAsync (set: Func<'relatedId, 'entity, Async<'entity>>) =
     this.SetJob(Job.liftAsyncFunc2 set)
 
-  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Async<'entity>>) =
+  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc3 set)
 
-  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Async<'entity>>) =
+  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc2 set)
 
   member this.SetRes (set: Func<'ctx, 'relatedId, 'entity, Result<'entity, Error list>>) =
@@ -565,10 +565,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetRes (set: Func<'relatedId, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftFunc2 set)
 
-  member this.SetRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc3 set)
 
-  member this.SetRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc2 set)
 
   member this.Set (set: Func<'ctx, 'relatedId, 'entity, 'entity>) =
@@ -577,10 +577,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.Set (set: Func<'relatedId, 'entity, 'entity>) =
     this.SetJobRes(JobResult.liftFunc2 set)
 
-  member this.Set (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, 'entity>) =
+  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc3 set)
 
-  member this.Set (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, 'entity>) =
+  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc2 set)
 
   member this.AddConstraintsJob(getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>) =
@@ -1038,7 +1038,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
       patchSelfReturn202Accepted = false
     }
 
-  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) entitySetter =
+  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
     fun ctx (dataPointer: Pointer) relatedId entity ->
       relatedId
       |> Option.traverseJobResult (
@@ -1393,10 +1393,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetJobRes (set: Func<'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(fun _ id e -> set.Invoke(id, e))
 
-  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity option, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun ctx relId e -> set.Invoke(ctx, relId, e)))
 
-  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun _ id e -> set.Invoke(id, e)))
 
   member this.SetAsyncRes (set: Func<'ctx, 'relatedId option, 'entity, Async<Result<'entity, Error list>>>) =
@@ -1405,10 +1405,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetAsyncRes (set: Func<'relatedId option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(Job.liftAsyncFunc2 set)
 
-  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity option, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc3 set)
 
-  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc2 set)
 
   member this.SetJob (set: Func<'ctx, 'relatedId option, 'entity, Job<'entity>>) =
@@ -1417,10 +1417,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetJob (set: Func<'relatedId option, 'entity, Job<'entity>>) =
     this.SetJobRes(fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity option, 'entity, Job<'entity>>) =
+  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok))
 
-  member this.SetJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, Job<'entity>>) =
+  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok))
 
   member this.SetAsync (set: Func<'ctx, 'relatedId option, 'entity, Async<'entity>>) =
@@ -1429,10 +1429,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetAsync (set: Func<'relatedId option, 'entity, Async<'entity>>) =
     this.SetJob(Job.liftAsyncFunc2 set)
 
-  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity option, 'entity, Async<'entity>>) =
+  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc3 set)
 
-  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, Async<'entity>>) =
+  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc2 set)
 
   member this.SetRes (set: Func<'ctx, 'relatedId option, 'entity, Result<'entity, Error list>>) =
@@ -1441,10 +1441,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetRes (set: Func<'relatedId option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftFunc2 set)
 
-  member this.SetRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity option, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc3 set)
 
-  member this.SetRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc2 set)
 
   member this.Set (set: Func<'ctx, 'relatedId option, 'entity, 'entity>) =
@@ -1453,10 +1453,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.Set (set: Func<'relatedId option, 'entity, 'entity>) =
     this.SetJobRes(JobResult.liftFunc2 set)
 
-  member this.Set (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity option, 'entity, 'entity>) =
+  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc3 set)
 
-  member this.Set (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity option, 'entity, 'entity>) =
+  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc2 set)
 
   member this.SetNonNullJobRes (set: Func<'ctx, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
@@ -1470,7 +1470,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullJobRes (set: Func<'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(fun _ id e -> set.Invoke(id, e))
 
-  member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, fun ctx relId e ->
       relId
       |> Result.requireSome [setRelNullNotAllowed this.name]
@@ -1478,7 +1478,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
       |> JobResult.bind (fun relId -> set.Invoke(ctx, relId, e))
     )
 
-  member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(getRelated, fun _ id e -> set.Invoke(id, e))
 
   member this.SetNonNullAsyncRes (set: Func<'ctx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
@@ -1487,10 +1487,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullAsyncRes (set: Func<'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(Job.liftAsyncFunc2 set)
 
-  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(getRelated, Job.liftAsyncFunc3 set)
 
-  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(getRelated, Job.liftAsyncFunc2 set)
 
   member this.SetNonNullJob (set: Func<'ctx, 'relatedId, 'entity, Job<'entity>>) =
@@ -1499,10 +1499,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullJob (set: Func<'relatedId, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Job<'entity>>) =
+  member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok))
 
-  member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Job<'entity>>) =
+  member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok))
 
   member this.SetNonNullAsync (set: Func<'ctx, 'relatedId, 'entity, Async<'entity>>) =
@@ -1511,10 +1511,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullAsync (set: Func<'relatedId, 'entity, Async<'entity>>) =
     this.SetNonNullJob(Job.liftAsyncFunc2 set)
 
-  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Async<'entity>>) =
+  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<'entity>>) =
     this.SetNonNullJob(getRelated, Job.liftAsyncFunc3 set)
 
-  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Async<'entity>>) =
+  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<'entity>>) =
     this.SetNonNullJob(getRelated, Job.liftAsyncFunc2 set)
 
   member this.SetNonNullRes (set: Func<'ctx, 'relatedId, 'entity, Result<'entity, Error list>>) =
@@ -1523,10 +1523,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullRes (set: Func<'relatedId, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(Job.liftFunc2 set)
 
-  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, Result<'entity, Error list>>) =
+  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(getRelated, Job.liftFunc3 set)
 
-  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, Result<'entity, Error list>>) =
+  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(getRelated, Job.liftFunc2 set)
 
   member this.SetNonNull (set: Func<'ctx, 'relatedId, 'entity, 'entity>) =
@@ -1535,10 +1535,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNull (set: Func<'relatedId, 'entity, 'entity>) =
     this.SetNonNullJobRes(JobResult.liftFunc2 set)
 
-  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'ctx, 'relatedEntity, 'entity, 'entity>) =
+  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, 'entity>) =
     this.SetNonNullJobRes(getRelated, JobResult.liftFunc3 set)
 
-  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, set: Func<'relatedEntity, 'entity, 'entity>) =
+  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, 'entity>) =
     this.SetNonNullJobRes(getRelated, JobResult.liftFunc2 set)
 
   member this.AddConstraintsJob(getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>) =
@@ -1993,7 +1993,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       modifySelfReturn202Accepted = false
     }
 
-  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) (entitySetter: 'ctx -> 'relatedEntity list -> 'entity -> Job<Result<'entity, Error list>>) =
+  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) (entitySetter: 'ctx -> 'lookupType list -> 'entity -> Job<Result<'entity, Error list>>) =
     fun ctx (dataPointer: Pointer) relatedIds entity ->
       relatedIds
       |> List.map (getRelated.GetById ctx)
@@ -2372,10 +2372,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAllJobRes (setAll: Func<'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetAllJobRes(fun _ ids e -> setAll.Invoke(ids, e))
 
-  member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'ctx, 'relatedEntity list, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetAllJobRes(this.toIdSetter getRelated (fun ctx rels e -> setAll.Invoke(ctx, rels, e)))
 
-  member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'relatedEntity list, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetAllJobRes(this.toIdSetter getRelated (fun _ ids e -> setAll.Invoke(ids, e)))
 
   member this.SetAllAsyncRes (setAll: Func<'ctx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
@@ -2384,10 +2384,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAllAsyncRes (setAll: Func<'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(Job.liftAsyncFunc2 setAll)
 
-  member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'ctx, 'relatedEntity list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(getRelated, Job.liftAsyncFunc3 setAll)
 
-  member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'relatedEntity list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(getRelated, Job.liftAsyncFunc2 setAll)
 
   member this.SetAllJob (setAll: Func<'ctx, 'relatedId list, 'entity, Job<'entity>>) =
@@ -2396,10 +2396,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAllJob (setAll: Func<'relatedId list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(fun _ related entity -> setAll.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'ctx, 'relatedEntity list, 'entity, Job<'entity>>) =
+  member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(getRelated, fun ctx related entity -> setAll.Invoke(ctx, related, entity) |> Job.map Ok)
 
-  member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'relatedEntity list, 'entity, Job<'entity>>) =
+  member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(getRelated, fun _ related entity -> setAll.Invoke(related, entity) |> Job.map Ok)
 
   member this.SetAllAsync (setAll: Func<'ctx, 'relatedId list, 'entity, Async<'entity>>) =
@@ -2408,10 +2408,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAllAsync (setAll: Func<'relatedId list, 'entity, Async<'entity>>) =
     this.SetAllJob(Job.liftAsyncFunc2 setAll)
 
-  member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'ctx, 'relatedEntity list, 'entity, Async<'entity>>) =
+  member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Async<'entity>>) =
     this.SetAllJob(getRelated, Job.liftAsyncFunc3 setAll)
 
-  member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'relatedEntity list, 'entity, Async<'entity>>) =
+  member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Async<'entity>>) =
     this.SetAllJob(getRelated, Job.liftAsyncFunc2 setAll)
 
   member this.SetAllRes (setAll: Func<'ctx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
@@ -2420,10 +2420,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAllRes (setAll: Func<'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(Job.liftFunc2 setAll)
 
-  member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'ctx, 'relatedEntity list, 'entity, Result<'entity, Error list>>) =
+  member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(getRelated, Job.liftFunc3 setAll)
 
-  member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'relatedEntity list, 'entity, Result<'entity, Error list>>) =
+  member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(getRelated, Job.liftFunc2 setAll)
 
   member this.SetAll (setAll: Func<'ctx, 'relatedId list, 'entity, 'entity>) =
@@ -2432,10 +2432,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.SetAll (setAll: Func<'relatedId list, 'entity, 'entity>) =
     this.SetAllJobRes(JobResult.liftFunc2 setAll)
 
-  member this.SetAll (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'ctx, 'relatedEntity list, 'entity, 'entity>) =
+  member this.SetAll (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, 'entity>) =
     this.SetAllJobRes(getRelated, JobResult.liftFunc3 setAll)
 
-  member this.SetAll (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, setAll: Func<'relatedEntity list, 'entity, 'entity>) =
+  member this.SetAll (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, 'entity>) =
     this.SetAllJobRes(getRelated, JobResult.liftFunc2 setAll)
 
   member private this.AddJobRes (add: Func<'ctx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
@@ -2451,10 +2451,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddJobRes (add: Func<'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     this.AddJobRes(fun _ ids e -> add.Invoke(ids, e))
 
-  member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'ctx, 'relatedEntity list, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.AddJobRes(this.toIdSetter getRelated (fun ctx rels e -> add.Invoke(ctx, rels, e)))
 
-  member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'relatedEntity list, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.AddJobRes(this.toIdSetter getRelated (fun _ ids e -> add.Invoke(ids, e)))
 
   member this.AddAsyncRes (add: Func<'ctx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
@@ -2463,10 +2463,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddAsyncRes (add: Func<'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(Job.liftAsyncFunc2 add)
 
-  member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'ctx, 'relatedEntity list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(getRelated, Job.liftAsyncFunc3 add)
 
-  member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'relatedEntity list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(getRelated, Job.liftAsyncFunc2 add)
 
   member this.AddJob (add: Func<'ctx, 'relatedId list, 'entity, Job<'entity>>) =
@@ -2475,10 +2475,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddJob (add: Func<'relatedId list, 'entity, Job<'entity>>) =
     this.AddJobRes(fun _ related entity -> add.Invoke(related, entity) |> Job.map Ok)
 
-  member this.AddJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'ctx, 'relatedEntity list, 'entity, Job<'entity>>) =
+  member this.AddJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Job<'entity>>) =
     this.AddJobRes(getRelated, fun ctx related entity -> add.Invoke(ctx, related, entity) |> Job.map Ok)
 
-  member this.AddJob (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'relatedEntity list, 'entity, Job<'entity>>) =
+  member this.AddJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Job<'entity>>) =
     this.AddJobRes(getRelated, fun _ related entity -> add.Invoke(related, entity) |> Job.map Ok)
 
   member this.AddAsync (add: Func<'ctx, 'relatedId list, 'entity, Async<'entity>>) =
@@ -2487,10 +2487,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddAsync (add: Func<'relatedId list, 'entity, Async<'entity>>) =
     this.AddJob(Job.liftAsyncFunc2 add)
 
-  member this.AddAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'ctx, 'relatedEntity list, 'entity, Async<'entity>>) =
+  member this.AddAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Async<'entity>>) =
     this.AddJob(getRelated, Job.liftAsyncFunc3 add)
 
-  member this.AddAsync (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'relatedEntity list, 'entity, Async<'entity>>) =
+  member this.AddAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Async<'entity>>) =
     this.AddJob(getRelated, Job.liftAsyncFunc2 add)
 
   member this.AddRes (add: Func<'ctx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
@@ -2499,10 +2499,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddRes (add: Func<'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(Job.liftFunc2 add)
 
-  member this.AddRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'ctx, 'relatedEntity list, 'entity, Result<'entity, Error list>>) =
+  member this.AddRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(getRelated, Job.liftFunc3 add)
 
-  member this.AddRes (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'relatedEntity list, 'entity, Result<'entity, Error list>>) =
+  member this.AddRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(getRelated, Job.liftFunc2 add)
 
   member this.Add (add: Func<'ctx, 'relatedId list, 'entity, 'entity>) =
@@ -2511,10 +2511,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.Add (add: Func<'relatedId list, 'entity, 'entity>) =
     this.AddJobRes(JobResult.liftFunc2 add)
 
-  member this.Add (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'ctx, 'relatedEntity list, 'entity, 'entity>) =
+  member this.Add (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, 'entity>) =
     this.AddJobRes(getRelated, JobResult.liftFunc3 add)
 
-  member this.Add (getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>, add: Func<'relatedEntity list, 'entity, 'entity>) =
+  member this.Add (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, 'entity>) =
     this.AddJobRes(getRelated, JobResult.liftFunc2 add)
 
   member private this.RemoveJobRes (remove: Func<'ctx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =

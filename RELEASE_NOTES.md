@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### 0.12.1 (2020-09-29)
+
+* Enabled lookup of arbitrary types in relationship `Set`, `SetAll`, and `Add` overloads accepting a resource lookup (was previously restricted to the relationship’s related entity type, now allows lookups of e.g. simpler resource projections, or simple existence checks for the related IDs)
+
+
 ### 0.12.0 (2020-09-25)
 
 * **Breaking:** Renamed `define.Attribute.Simple` to `SimpleUnsafe` and added variants for well-known types such as `SimpleString`, `SimpleDateTimeOffset`, etc.
