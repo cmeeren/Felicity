@@ -25,12 +25,12 @@ module private QueryParseHelpers =
 
   /// Converts a string conforming to the ISO 8601-1:2019 format to a DateTime.
   let parseDateTime (str: string) =
-    try System.Text.Json.JsonSerializer.Deserialize<DateTime> str |> Ok
+    try System.Text.Json.JsonSerializer.Deserialize<DateTime> ("\"" + str + "\"") |> Ok
     with _ -> Error [queryInvalidDateTimeUnnamed str]
 
   /// Converts a string conforming to the ISO 8601-1:2019 format to a DateTimeOffset.
   let parseDateTimeOffset (str: string) =
-    try System.Text.Json.JsonSerializer.Deserialize<DateTimeOffset> str |> Ok
+    try System.Text.Json.JsonSerializer.Deserialize<DateTimeOffset> ("\"" + str + "\"") |> Ok
     with _ -> Error [queryInvalidDateTimeUnnamed str]
 
 

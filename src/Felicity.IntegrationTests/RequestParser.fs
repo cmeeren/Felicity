@@ -1,5 +1,6 @@
 ﻿module ``RequestParser``
 
+open System
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote
@@ -665,6 +666,32 @@ let tests =
       response |> testSuccessStatusCode
       let calledWith' = calledWith
       test <@ calledWith' = Some (NonEmptyString "val") @>
+    }
+
+    testJob "Can parse DateTime" {
+      let mutable calledWith = None
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- Some x), Query.DateTime("customParam"))
+      )
+      let! response = Request.get ctx "/xs?customParam=2020-01-01T00:00:00" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some (DateTime(2020, 1, 1, 0, 0, 0)) @>
+    }
+
+    testJob "Can parse DateTimeOffset" {
+      let mutable calledWith = None
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- Some x), Query.DateTimeOffset("customParam"))
+      )
+      let! response = Request.get ctx "/xs?customParam=2020-01-01T00:00:00Z" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some (DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero)) @>
     }
 
     testJob "Can parse a custom query filter parameter" {
