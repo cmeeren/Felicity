@@ -81,7 +81,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
       Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
       CollName =
         this.collectionName
-        |> Option.defaultWith (fun () -> failwithf "Resource type %s does not have a collection name and can therefore not be used for locking" this.name)
+        |> Option.defaultWith (fun () -> failwithf "Resource type '%s' does not have a collection name and can therefore not be used for locking" this.name)
       GetId = fun _ _ resId -> resId |> Job.result
       CustomLock = None
     }
@@ -91,7 +91,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
       Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
       CollName =
         resDef.collectionName
-        |> Option.defaultWith (fun () -> failwithf "Resource type %s does not have a collection name and can therefore not be used for locking" resDef.name)
+        |> Option.defaultWith (fun () -> failwithf "Resource type '%s' does not have a collection name and can therefore not be used for locking" resDef.name)
       GetId =
         fun ctx req thisIdRaw ->
           job {
