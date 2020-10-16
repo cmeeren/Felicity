@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.12.3 (2020-10-16)
+
+* Treat fields/params as consumed when using the one-off `GetRequired`/`GetOptional`
+
 ### 0.12.2 (2020-09-30)
 
 * Fix `DateTime` and `DateTimeOffset` query parsing

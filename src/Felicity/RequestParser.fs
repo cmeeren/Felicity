@@ -204,25 +204,36 @@ type RequestParser<'ctx, 'a> = internal {
 
 type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeAndId) =
 
+  let mutable consumedSingleFields : Set<FieldName> = Set.empty
+  let mutable consumedSingleParams : Set<FieldName> = Set.empty
+
   member _.GetRequiredJob(param: RequestGetter<'ctx, 'a>) : Job<Result<'a, Error list>> =
+    match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
+    match param.QueryParamName with None -> () | Some n -> consumedSingleParams <- consumedSingleParams.Add n
     RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
 
   member _.GetOptionalJob(param: OptionalRequestGetter<'ctx, 'a>) : Job<Result<'a option, Error list>> =
+    match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
+    match param.QueryParamName with None -> () | Some n -> consumedSingleParams <- consumedSingleParams.Add n
     RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
 
   member _.GetRequiredAsync(param: RequestGetter<'ctx, 'a>) : Async<Result<'a, Error list>> =
+    match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
+    match param.QueryParamName with None -> () | Some n -> consumedSingleParams <- consumedSingleParams.Add n
     RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseAsync()
 
   member _.GetOptionalAsync(param: OptionalRequestGetter<'ctx, 'a>) : Async<Result<'a option, Error list>> =
+    match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
+    match param.QueryParamName with None -> () | Some n -> consumedSingleParams <- consumedSingleParams.Add n
     RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseAsync()
 
   // Arity 0
 
   member _.ForJobRes (create: Job<Result<'a, Error list>>) =
-    RequestParser<'ctx, 'a>.Create (Set.empty, Set.empty, includedTypeAndId, ctx, req, fun _ _ -> create)
+    RequestParser<'ctx, 'a>.Create (consumedSingleFields, consumedSingleParams, includedTypeAndId, ctx, req, fun _ _ -> create)
 
   member _.ForAsyncRes (create: Async<Result<'a, Error list>>) =
-    RequestParser<'ctx, 'a>.Create (Set.empty, Set.empty, includedTypeAndId, ctx, req, fun _ _ -> Job.fromAsync create)
+    RequestParser<'ctx, 'a>.Create (consumedSingleFields, consumedSingleParams, includedTypeAndId, ctx, req, fun _ _ -> Job.fromAsync create)
 
   member this.ForJob (create: Job<'a>) =
     this.ForJobRes (create |> Job.map Ok)
@@ -239,8 +250,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
   // Arity 1
 
   member _.ForJobRes (create: 'p1 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
-    let consumedFields = [| p1.FieldName |] |> Array.choose id |> Set.ofArray
-    let consumedQueryParams = [| p1.QueryParamName |] |> Array.choose id |> Set.ofArray
+    let consumedFields = [| p1.FieldName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleFields
+    let consumedQueryParams = [| p1.QueryParamName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleParams
     RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) |> JobResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
@@ -261,8 +272,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
   // Arity 2
 
   member _.ForJobRes (create: 'p1 -> 'p2 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
-    let consumedFields = [| p1.FieldName; p2.FieldName |] |> Array.choose id |> Set.ofArray
-    let consumedQueryParams = [| p1.QueryParamName; p2.QueryParamName |] |> Array.choose id |> Set.ofArray
+    let consumedFields = [| p1.FieldName; p2.FieldName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleFields
+    let consumedQueryParams = [| p1.QueryParamName; p2.QueryParamName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleParams
     RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) |> JobResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
@@ -287,10 +298,12 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       [| p1.FieldName; p2.FieldName; p3.FieldName |]
       |> Array.choose id
       |> Set.ofArray
+      |> Set.union consumedSingleFields
     let consumedQueryParams =
       [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName|]
       |> Array.choose id
       |> Set.ofArray
+      |> Set.union consumedSingleParams
     RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) |> JobResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
@@ -315,10 +328,12 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       [| p1.FieldName; p2.FieldName; p3.FieldName; p4.FieldName |]
       |> Array.choose id
       |> Set.ofArray
+       |> Set.union consumedSingleFields
     let consumedQueryParams =
       [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName; p4.QueryParamName |]
       |> Array.choose id
       |> Set.ofArray
+       |> Set.union consumedSingleParams
     RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) |> JobResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
@@ -343,10 +358,12 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       [| p1.FieldName; p2.FieldName; p3.FieldName; p4.FieldName; p5.FieldName |]
       |> Array.choose id
       |> Set.ofArray
+       |> Set.union consumedSingleFields
     let consumedQueryParams =
       [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName; p4.QueryParamName; p5.QueryParamName |]
       |> Array.choose id
       |> Set.ofArray
+       |> Set.union consumedSingleParams
     RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) <*> p5.Get(c, r, includedTypeAndId) |> JobResult.bind id)
   
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
@@ -378,6 +395,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       |]
       |> Array.choose id
       |> Set.ofArray
+      |> Set.union consumedSingleFields
 
     let consumedQueryParams =
       [|
@@ -390,6 +408,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       |]
       |> Array.choose id
       |> Set.ofArray
+      |> Set.union consumedSingleParams
 
     RequestParser<'ctx, 'a>.Create(
       consumedFields,

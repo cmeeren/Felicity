@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.12.2</Version>
-    <PackageReleaseNotes>Fix DateTime and DateTimeOffset query parsing</PackageReleaseNotes>
+    <Version>0.12.3</Version>
+    <PackageReleaseNotes>Treat fields/params as consumed when using the one-off GetRequired/GetOptional</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>
