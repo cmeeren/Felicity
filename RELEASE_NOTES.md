@@ -1,6 +1,13 @@
 Release notes
 ==============
 
+### 0.13.0 (2020-10-27)
+
+* Breaking: Simplified and improved resource locking
+  * `CustomLockOther` is removed
+  * `LockOther` now simply delegates to the “parent” resource lock (recursively if needed), using the specified parameters to support POST collection operations (parent relationship) and/or all other operations (child-to-parent ID lookup)
+  * Allow locking resources without collection names (e.g. when locking parent resources that are only accessible through relationships)
+
 ### 0.12.3 (2020-10-16)
 
 * Treat fields/params as consumed when using the one-off `GetRequired`/`GetOptional`

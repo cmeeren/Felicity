@@ -100,7 +100,6 @@ module D =
         })
 
 
-
 type ResourceId = ResourceId of string with
   static member value (ResourceId x) = x
 
@@ -155,7 +154,7 @@ module F =
   let resDef =
     define.Resource("f", resId)
       .CollectionName("fs")
-      .CustomLockOther(E.resDef, ResourceId >> Some >> Job.result, (fun id -> customLock id), e)
+      .LockOther(E.resDef, ResourceId >> Some >> Job.result, e)
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()

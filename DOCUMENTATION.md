@@ -1355,9 +1355,9 @@ Even if you use preconditions as described above, resource operations may still 
 
 This becomes even more problematic if persisting resources involve other non-atomic operations such as deleting or moving files on disk: The first operation may remove a file reference from your resource and delete the file, and the second operation may overwrite the newly updated DB row with conflicting data that still references the file, corrupting the system state. (Yes, I have experienced this very problem.)
 
-To combat this problem, Felicity can easily take care of locking and queueing all write access to your resources. Only one non-safe (POST/PATCH/DELETE) request will be allowed at a time for any given resource; other requests are queued and will be executed in the order they arrived, or will get a 503 error if the lock times out.
+To combat this problem, Felicity can easily take care of locking all write access to your resources. Only one non-safe (POST/PATCH/DELETE) request will be allowed at a time for any given resource; other requests must wait and will get a 503 error if the lock times out.
 
-In the simplest sense, simply append `.Lock()` to your resource definition (after `CollectionName`):
+In the simplest case, simply append `.Lock()` to your resource definition:
 
 ```f#
 let resDef =
@@ -1368,15 +1368,21 @@ let resDef =
 
 `Lock()` optionally accepts a custom timeout. The default is 10 seconds.
 
+### External locking mechanisms
+
+The locking demonstrated above is handled entirely within Felicity. However, you may need to plug into external locking system, e.g. because there are background operations being triggered for the same resources that are modifiable through the API, or because you need distributed locking across multiple instances of an API (see e.g. [DistributedLock](https://github.com/madelson/DistributedLock)).
+
+In this case, use the `CustomLock` method. Here, you must pass a `getLock` function. This function accepts the (strongly typed) resource ID, and should return `None` if the lock times out, or `Some` with an `IDisposable` that releases the lock when disposed.
+
 ### Locking dependent resources
 
 You may have resources that are “child” entities and belong to another resource (see section TODO). In this case, it is generally the “parent” resource that should be locked. For example, when modifying an `orderline`, the shared state that should be locked may be the parent `order`.
 
-To set up this, simply use the `LockOther()` method and pass in the following three arguments:
+Felicity facilitates this by allowing you to easily delegate locking to the another resource. To set up this, simply use the `LockOther()` methods and pass in the following three arguments:
 
-* The parent resource definition
-* A function that, given the child ID, returns the parent ID
-* Optionally the relationship from the child to the parent resource (required in order to lock POST requests to create child resources)
+* The resource definition of the parent resource to lock (the resource must have a lock specified)
+* Optionally a function that, given the child ID, returns the parent ID. This is used for any child resource other than a POST collection operation to create a child resource. If not specified, these requests will not be locked.
+* Optionally the relationship from the child resource to the parent resource. This is used to lock POST requests to create child resources. If not specified, these requests will not be locked.
 
 Felicity then locks the specified parent resource instead of the child resource:
 
@@ -1389,19 +1395,13 @@ let resDef =
     .LockOther(Order.resDef, getOrderIdForOrderLine, order)
 ```
 
-Above, `getOrderIdForOrderLine` has the signature `OrderLineId -> Async<OrderLine option>`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
-
-### External locking mechanisms
-
-The locking demonstrated above is handled entirely within Felicity. However, you may need to plug into external locking system, e.g. because there are background operations being triggered for the same resources that are modifiable through the API, or because you need distributed locking across multiple instances of an API (see e.g. [DistributedLock](https://github.com/madelson/DistributedLock)).
-
-In this case, use the `CustomLock` or `CustomLockOther` methods. They correspond to the variants above, but you must pass a `getLock` function. This function accepts the (strongly typed) resource ID, and should return `None` if the lock times out, or `Some` with an `IDisposable` that releases the lock when disposed.
+Above, `getOrderIdForOrderLine` typically has the signature `OrderLineId -> Async<OrderLine option`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
 
 ### Limitations
 
-Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all queued operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
+Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all locked operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.
 
-Furthermore, if you use `LockOther` or `CustomLockOther`, it is assumed that the related ID returned by `getId` will never change. The `getId` function is first called to get the ID to lock. Then the operation is performed. If the output of `getId` changes between checking/locking and performing the operation, locking may not work:
+Furthermore, if you use `LockOther`, it is assumed that the related ID returned by `getOtherIdForResourceOperation` will never change. This function is first called to get the ID to lock. Then the operation is performed. If the output of the function changes between checking/locking and performing the operation, locking may not work:
 
 * If it changes between two different `Some` values, the incorrect resource is locked
 * If it changes from `None` to `Some`, no locking is performed
@@ -1420,7 +1420,7 @@ If you do need to use it though, Felicity has you covered. This is an advanced u
 
 Up until now, we have considered the resource module as the fundamental unit of Felicity. We have considered each resource module  in isolation, and an underlying assumption has been that each resource module has a unique collection name.
 
-This need not be the case. There are good reasons (namely, simplicity) for making the public API of Felicity resource-centered, but in the Felicity internals *collections* is the fundamental unit. This is needed since, generally, a collection may contain one or more resources.
+This need not be the case. There are good reasons (namely, simplicity) for making the public API of Felicity resource-centered, but in the Felicity internals, *collections* is the fundamental unit. This is needed since, generally, a collection may contain one or more resources.
 
 There are three places where polymorphism enters the picture in Felicity.
 

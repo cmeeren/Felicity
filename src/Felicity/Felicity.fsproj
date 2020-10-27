@@ -13,8 +13,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.12.3</Version>
-    <PackageReleaseNotes>Treat fields/params as consumed when using the one-off GetRequired/GetOptional</PackageReleaseNotes>
+    <Version>0.13.0</Version>
+    <PackageReleaseNotes>Breaking: Simplified and improved resource locking. See release notes in repo for details.</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup>

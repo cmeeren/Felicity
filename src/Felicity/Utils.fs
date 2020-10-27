@@ -419,10 +419,10 @@ type SemaphoreQueueFactory<'ctx>() =
     timer.Elapsed.Add (ignore >> cleanIdle)
     timer.Start()
 
-  member _.GetFor(collName, resourceId) =
-    match queues.TryGetValue ((collName, resourceId)) with
+  member _.GetFor(lockIdPrefix, resourceId) =
+    match queues.TryGetValue ((lockIdPrefix, resourceId)) with
     | true, q -> q
     | false, _ ->
         lock queues (fun () ->
-          queues.GetOrAdd((collName, resourceId), fun _ -> new SemaphoreQueue())
+          queues.GetOrAdd((lockIdPrefix, resourceId), fun _ -> new SemaphoreQueue())
         )
