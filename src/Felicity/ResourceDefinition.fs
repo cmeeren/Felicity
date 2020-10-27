@@ -284,8 +284,32 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
   /// specified. If a lock can not be acquired after the specified timeout (default 10
   /// seconds), an error will be returned.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.LockOther(
+      resDef,
+      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ -> getId))),
+      ?relationshipForPostOperation=relationshipForPostOperation)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  /// POST operations will only be locked if relationshipForPostOperation is specified.
+  /// Any other operation will only be locked if getOtherIdForResourceOperation is
+  /// specified. If a lock can not be acquired after the specified timeout (default 10
+  /// seconds), an error will be returned.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
       ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun ctx id -> getId ctx id |> Some))),
+      ?relationshipForPostOperation=relationshipForPostOperation)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  /// POST operations will only be locked if relationshipForPostOperation is specified.
+  /// Any other operation will only be locked if getOtherIdForResourceOperation is
+  /// specified. If a lock can not be acquired after the specified timeout (default 10
+  /// seconds), an error will be returned.
+  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
+    this.LockOther(
+      resDef,
+      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ id -> getId id |> Some))),
       ?relationshipForPostOperation=relationshipForPostOperation)

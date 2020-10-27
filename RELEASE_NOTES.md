@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.13.1 (2020-10-27)
+
+* Added more `LockOther` overloads
+
 ### 0.13.0 (2020-10-27)
 
 * Breaking: Simplified and improved resource locking
