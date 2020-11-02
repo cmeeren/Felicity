@@ -114,9 +114,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         [ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e)]
 
               | true, None | false, Some _ | false, None ->
+                  let! data = r.GetLinkageIfNotIncluded ctx entity
                   return
                     r.Name,
-                    { ToOne.links = links; data = Skip; meta = meta } :> IRelationship,
+                    { ToOne.links = links; data = data; meta = meta } :> IRelationship,
                     []
             }
         )
@@ -158,9 +159,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         [ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e)]
 
               | true, None | false, Some _ | false, None ->
+                  let! data = r.GetLinkageIfNotIncluded ctx entity
                   return
                     r.Name,
-                    { ToOneNullable.links = links; data = Skip; meta = meta } :> IRelationship,
+                    { ToOneNullable.links = links; data = data; meta = meta } :> IRelationship,
                     []
             }
         )
@@ -185,6 +187,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               | true, Some get ->
                   match! get ctx entity with
                   | Skip ->
+                      let! data = r.GetLinkageIfNotIncluded ctx entity
                       return
                         r.Name,
                         { ToMany.links = links; data = Skip; meta = meta } :> IRelationship,
@@ -198,9 +201,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         builders
 
               | true, None | false, Some _ | false, None ->
+                  let! data = r.GetLinkageIfNotIncluded ctx entity
                   return
                     r.Name,
-                    { ToMany.links = links; data = Skip; meta = meta } :> IRelationship,
+                    { ToMany.links = links; data = data; meta = meta } :> IRelationship,
                     []
             }
           )

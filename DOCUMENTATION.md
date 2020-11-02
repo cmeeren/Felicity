@@ -515,6 +515,24 @@ As always, simply define what you want to be available, and Felicity will take c
 
 As with attributes, relationships getters may return `Skippable`-wrapped values. However, an important caveat is that **you must never return Skip after a relationship has been updated**. If you do, and if the update happened via the relationship’s `self` link, no success response can be returned to the client, as required by JSON:API. Instead an error will be logged and an embarrassing 500 error will be returned to the client.
 
+### Including resource linkage by default
+
+There may be situations where the resource linkage itself (the relationship’s `data` member) provides valuable information even when the resource itself is not included using the `include` query parameter, and where it is much cheaper to display the linkage than the included resource. For example, for the `author` relationship above, the main `article` entity may have a “foreign key” property (in .NET, not in the API) that contains the author ID. Displaying the resource linkage alone does therefore not require an extra trip to the DB.
+
+If you want to always display resource linkage, simply use one of the `GetLinkageIfNotIncluded` overloads. For example:
+
+```f#
+let author =
+  define.Relationship
+    .ToOne(Person.resourceDef)
+    .GetLinkageIfNotIncluded(fun p -> p.AuthorId)
+    ...
+```
+
+The above will make the `author` relationship always contain the `data` member with the specified resource linkage, even when the `author` relationship is not included using the `include` query parameter.
+
+When you do this, you must ensure that the linkage is correct. It is possible to specify different linkage than would be present if the resource is included using `include`. This would be a bug in your API. (For the record, if the resource is included, the linkage specified in `GetLinkageIfNotIncluded` is ignored.)
+
 ### GET/PATCH/POST/DELETE relationship self
 
 Relationships have `self` links which support GET, PATCH, POST, and DELETE operations. As with other operations (detailed later), you can configure how these work.

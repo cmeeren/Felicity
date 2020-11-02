@@ -45,6 +45,24 @@ module Person =
   let bestFriend = define.Relationship.ToMany(resDef).Get(fun _ -> [bob])
   let emptyRel = define.Relationship.ToMany(resDef).Get(fun _ -> [])
 
+  let toOneWithLinkage =
+    define.Relationship
+      .ToOne(resDef)
+      .GetLinkageIfNotIncluded(fun _ _ -> bob.Id)
+      .Get(fun _ -> jane)
+
+  let toOneNullableWithLinkage =
+    define.Relationship
+      .ToOneNullable(resDef)
+      .GetLinkageIfNotIncluded(fun _ _ -> Some bob.Id)
+      .Get(fun _ -> Some jane)
+
+  let toManyWithLinkage =
+    define.Relationship
+      .ToMany(resDef)
+      .GetLinkageIfNotIncluded(fun _ _ -> [bob.Id])
+      .Get(fun _ -> [jane])
+
   let lookup = define.Operation.Lookup(fun _ -> Some alice)
   let get = define.Operation.GetResource()
 
@@ -127,6 +145,37 @@ let tests =
       response |> testSuccessStatusCode
       let! json = response |> Response.readBodyAsString
       test <@ json |> hasNoPath "included" @>
+    }
+
+    testJob "Linkage without ?include" {
+      let! response = Request.get Ctx "/persons/1" |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.relationships.toOneWithLinkage.data.type" = "person" @>
+      test <@ json |> getPath "data.relationships.toOneWithLinkage.data.id" = "2" @>
+      test <@ json |> getPath "data.relationships.toOneNullableWithLinkage.data.type" = "person" @>
+      test <@ json |> getPath "data.relationships.toOneNullableWithLinkage.data.id" = "2" @>
+      test <@ json |> getPath "data.relationships.toManyWithLinkage.data[0].type" = "person" @>
+      test <@ json |> getPath "data.relationships.toManyWithLinkage.data[0].id" = "2" @>
+      test <@ json |> hasNoPath "data.relationships.toManyWithLinkage.data.1" @>
+    }
+
+    testJob "Linkage with ?include overrides linkage without ?include" {
+      let! response =
+        Request.get Ctx "/persons/1"
+        |> Request.queryStringItem "include" "toOneWithLinkage,toOneNullableWithLinkage,toManyWithLinkage"
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.relationships.toOneWithLinkage.data.type" = "person" @>
+      test <@ json |> getPath "data.relationships.toOneWithLinkage.data.id" = "3" @>
+      test <@ json |> getPath "data.relationships.toOneNullableWithLinkage.data.type" = "person" @>
+      test <@ json |> getPath "data.relationships.toOneNullableWithLinkage.data.id" = "3" @>
+      test <@ json |> getPath "data.relationships.toManyWithLinkage.data[0].type" = "person" @>
+      test <@ json |> getPath "data.relationships.toManyWithLinkage.data[0].id" = "3" @>
+      test <@ json |> hasNoPath "data.relationships.toManyWithLinkage.data[1]" @>
+      test <@ json |> getPath "included[0].id" = "3" @>
+      test <@ json |> hasNoPath "included[1]" @>
     }
 
     (*

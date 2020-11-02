@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.1 (2020-11-02)
+
+* Resource linkage may now be included by default even if the actual resource is not included
+
 ### 0.14.0 (2020-11-02)
 
 * **Breaking:** `SimpleDateTimeOffset` attributes now require an offset (e.g. `Z` or `+02:00`) when parsed. The same goes for filter query parameters for these attributes. As a side-effect, `SimpleDateTimeOffset` attributes are now serialized/deserialized as `string`, not `DateTimeOffset`. Use `SimpleDateTimeOffsetAllowMissingOffset` to keep the old behavior where values without offset assume the server’s current offset.

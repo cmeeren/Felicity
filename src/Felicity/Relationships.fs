@@ -45,6 +45,7 @@ type internal ToOneRelationship<'ctx> =
   abstract SelfLink: bool
   abstract RelatedLink: bool
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Job<Skippable<ResourceDefinition<'ctx> * BoxedEntity>>) option
+  abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Job<Skippable<ResourceIdentifier>>
 
 
 type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -147,9 +148,11 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+  resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Job<'relatedEntity Skippable>) option
   set: ('ctx -> Pointer -> 'relatedId -> 'entity -> Job<Result<'entity, Error list>>) option
+  getLinkageIfNotIncluded: 'ctx -> 'entity -> Job<ResourceIdentifier Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
@@ -161,13 +164,15 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   patchSelfReturn202Accepted: bool
 } with
 
-  static member internal Create (name: string, resolveEntity, idParsers) : ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create (name: string, resolveEntity, resolveId, idParsers) : ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       resolveEntity = resolveEntity
+      resolveId = resolveId
       idParsers = idParsers
       get = None
       set = None
+      getLinkageIfNotIncluded = fun _ _ -> Job.result Skip
       hasConstraints = false
       getConstraints = fun _ _ -> Job.result []
       beforeModifySelf = fun _ e -> Ok e |> Job.result
@@ -300,6 +305,8 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             b.resourceDef, b.entity
           ))
       )
+    member this.GetLinkageIfNotIncluded ctx entity =
+      this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
 
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
@@ -505,6 +512,48 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.Get (get: Func<'entity, 'relatedEntity>) =
     this.GetJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
+
+  member this.GetLinkageIfNotIncludedJobSkip(get: Func<'ctx, 'entity, Job<'relatedId Skippable>>) =
+    if this.resolveId.IsNone then
+      failwithf "Can only add linkage getter if the polymorphic resource definition contains an ID resolver."
+    { this with
+        getLinkageIfNotIncluded =
+          fun ctx e ->
+            job {
+              match! get.Invoke(ctx, e) with
+              | Skip -> return Skip
+              | Include relatedId ->
+                  let resDef = this.resolveId.Value relatedId
+                  return Include {
+                    ``type`` = resDef.name
+                    id = resDef.id.fromDomain relatedId
+                  }
+            }
+    }
+
+  member this.GetLinkageIfNotIncludedAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedId Skippable>>) =
+    this.GetLinkageIfNotIncludedJobSkip(Job.liftAsyncFunc2 get)
+
+  member this.GetLinkageIfNotIncludedJob (get: Func<'ctx, 'entity, Job<'relatedId>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Job.map Include)
+
+  member this.GetLinkageIfNotIncludedJob (get: Func<'entity, Job<'relatedId>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Job.map Include)
+
+  member this.GetLinkageIfNotIncludedAsync (get: Func<'ctx, 'entity, Async<'relatedId>>) =
+    this.GetLinkageIfNotIncludedJob(Job.liftAsyncFunc2 get)
+
+  member this.GetLinkageIfNotIncludedAsync (get: Func<'entity, Async<'relatedId>>) =
+    this.GetLinkageIfNotIncludedJob(Job.liftAsyncFunc get)
+
+  member this.GetLinkageIfNotIncludedSkip (get: Func<'ctx, 'entity, Skippable<'relatedId>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Job.result)
+
+  member this.GetLinkageIfNotIncluded (get: Func<'ctx, 'entity, 'relatedId>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Include |> Job.result)
+
+  member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
 
   member private this.SetJobRes (set: Func<'ctx, Pointer, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
@@ -879,6 +928,7 @@ type internal ToOneNullableRelationship<'ctx> =
   abstract SelfLink: bool
   abstract RelatedLink: bool
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Job<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) option>>) option
+  abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Job<Skippable<ResourceIdentifier option>>
 
 
 
@@ -1006,9 +1056,11 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+  resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Job<'relatedEntity option Skippable>) option
   set: ('ctx -> Pointer -> 'relatedId option -> 'entity -> Job<Result<'entity, Error list>>) option
+  getLinkageIfNotIncluded: 'ctx -> 'entity -> Job<ResourceIdentifier option Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
@@ -1020,13 +1072,15 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   patchSelfReturn202Accepted: bool
 } with
 
-  static member internal Create (name: string, resolveEntity, idParsers) : ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create (name: string, resolveEntity, resolveId, idParsers) : ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       resolveEntity = resolveEntity
+      resolveId = resolveId
       idParsers = idParsers
       get = None
       set = None
+      getLinkageIfNotIncluded = fun _ _ -> Job.result Skip
       hasConstraints = false
       getConstraints = fun _ _ -> Job.result []
       beforeModifySelf = fun _ e -> Ok e |> Job.result
@@ -1168,6 +1222,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
             b.resourceDef, b.entity
           )))
       )
+    member this.GetLinkageIfNotIncluded ctx entity =
+      this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
 
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
@@ -1381,6 +1437,49 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
   member this.Get (get: Func<'entity, 'relatedEntity option>) =
     this.GetJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
+
+  member this.GetLinkageIfNotIncludedJobSkip(get: Func<'ctx, 'entity, Job<'relatedId option Skippable>>) =
+    if this.resolveId.IsNone then
+      failwithf "Can only add linkage getter if the polymorphic resource definition contains an ID resolver."
+    { this with
+        getLinkageIfNotIncluded =
+          fun ctx e ->
+            job {
+              match! get.Invoke(ctx, e) with
+              | Skip -> return Skip
+              | Include None -> return Include None
+              | Include (Some relatedId) ->
+                  let resDef = this.resolveId.Value relatedId
+                  return Include <| Some {
+                    ``type`` = resDef.name
+                    id = resDef.id.fromDomain relatedId
+                  }
+            }
+    }
+
+  member this.GetLinkageIfNotIncludedAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedId option Skippable>>) =
+    this.GetLinkageIfNotIncludedJobSkip(Job.liftAsyncFunc2 get)
+
+  member this.GetLinkageIfNotIncludedJob (get: Func<'ctx, 'entity, Job<'relatedId option>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Job.map Include)
+
+  member this.GetLinkageIfNotIncludedJob (get: Func<'entity, Job<'relatedId option>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Job.map Include)
+
+  member this.GetLinkageIfNotIncludedAsync (get: Func<'ctx, 'entity, Async<'relatedId option>>) =
+    this.GetLinkageIfNotIncludedJob(Job.liftAsyncFunc2 get)
+
+  member this.GetLinkageIfNotIncludedAsync (get: Func<'entity, Async<'relatedId option>>) =
+    this.GetLinkageIfNotIncludedJob(Job.liftAsyncFunc get)
+
+  member this.GetLinkageIfNotIncludedSkip (get: Func<'ctx, 'entity, Skippable<'relatedId option>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Job.result)
+
+  member this.GetLinkageIfNotIncluded (get: Func<'ctx, 'entity, 'relatedId option>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Include |> Job.result)
+
+  member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId option>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
 
   member private this.SetJobRes (set: Func<'ctx, Pointer, 'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
@@ -1837,6 +1936,7 @@ type internal ToManyRelationship<'ctx> =
   abstract SelfLink: bool
   abstract RelatedLink: bool
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Job<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) list>>) option
+  abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Job<Skippable<ResourceIdentifier list>>
 
 
 type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -1949,11 +2049,13 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+  resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Job<'relatedEntity list Skippable>) option
   setAll: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
   add: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
   remove: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
+  getLinkageIfNotIncluded: 'ctx -> 'entity -> Job<ResourceIdentifier list Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
   beforeModifySelf: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
@@ -1969,15 +2071,17 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   modifySelfReturn202Accepted: bool
 } with
 
-  static member internal Create(name: string, resolveEntity, idParsers) : ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create(name: string, resolveEntity, resolveId, idParsers) : ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       resolveEntity = resolveEntity
       idParsers = idParsers
+      resolveId = resolveId
       get = None
       setAll = None
       add = None
       remove = None
+      getLinkageIfNotIncluded = fun _ _ -> Job.result Skip
       hasConstraints = false
       getConstraints = fun _ _ -> Job.result []
       beforeModifySelf = fun _ e -> Ok e |> Job.result
@@ -2136,6 +2240,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             b.resourceDef, b.entity
           )))
       )
+    member this.GetLinkageIfNotIncluded ctx entity =
+      this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
 
 
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
@@ -2360,6 +2466,53 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   member this.Get (get: Func<'entity, 'relatedEntity list>) =
     this.GetJob(Job.liftFunc get)
+
+  member this.GetLinkageIfNotIncludedJobSkip(get: Func<'ctx, 'entity, Job<'relatedId list Skippable>>) =
+    if this.resolveId.IsNone then
+      failwithf "Can only add linkage getter if the polymorphic resource definition contains an ID resolver."
+    { this with
+        getLinkageIfNotIncluded =
+          fun ctx e ->
+            job {
+              match! get.Invoke(ctx, e) with
+              | Skip -> return Skip
+              | Include relatedIds ->
+                  return
+                    relatedIds
+                    |> List.map (fun relId ->
+                        let resDef = this.resolveId.Value relId
+                        {
+                          ``type`` = resDef.name
+                          id = resDef.id.fromDomain relId
+                        }
+                    )
+                    |> Include
+            }
+    }
+
+  member this.GetLinkageIfNotIncludedAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedId list Skippable>>) =
+    this.GetLinkageIfNotIncludedJobSkip(Job.liftAsyncFunc2 get)
+
+  member this.GetLinkageIfNotIncludedJob (get: Func<'ctx, 'entity, Job<'relatedId list>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Job.map Include)
+
+  member this.GetLinkageIfNotIncludedJob (get: Func<'entity, Job<'relatedId list>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Job.map Include)
+
+  member this.GetLinkageIfNotIncludedAsync (get: Func<'ctx, 'entity, Async<'relatedId list>>) =
+    this.GetLinkageIfNotIncludedJob(Job.liftAsyncFunc2 get)
+
+  member this.GetLinkageIfNotIncludedAsync (get: Func<'entity, Async<'relatedId list>>) =
+    this.GetLinkageIfNotIncludedJob(Job.liftAsyncFunc get)
+
+  member this.GetLinkageIfNotIncludedSkip (get: Func<'ctx, 'entity, Skippable<'relatedId list>>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Job.result)
+
+  member this.GetLinkageIfNotIncluded (get: Func<'ctx, 'entity, 'relatedId list>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun ctx r -> get.Invoke(ctx, r) |> Include |> Job.result)
+
+  member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId list>) =
+    this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
 
   member private this.SetAllJobRes (setAll: Func<'ctx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
@@ -2889,11 +3042,12 @@ module ToManyRelationshipExtensions =
 
 type PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+  resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
 } with
 
   static member internal Create () : PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> =
-    { resolveEntity = None; idParsers = None }
+    { resolveEntity = None; idParsers = None; resolveId = None }
 
   member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'relatedId>) =
     { this with
@@ -2918,13 +3072,13 @@ type PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> = 
     { this with resolveEntity = Some getPolyBuilder }
 
   member this.ToOne([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.idParsers)
+    ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
 
   member this.ToOneNullable([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.idParsers)
+    ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
 
   member this.ToMany([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.idParsers)
+    ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
 
 
 
@@ -2935,14 +3089,17 @@ type RelationshipHelper<'ctx, 'entity> internal () =
   member _.ToOne(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain
     let resolveEntity = resourceDef.PolymorphicFor
-    ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some idParsers)
+    let resolveId = fun _ -> resourceDef
+    ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some resolveId, Some idParsers)
 
   member _.ToOneNullable(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain
     let resolveEntity = resourceDef.PolymorphicFor
-    ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some idParsers)
+    let resolveId = fun _ -> resourceDef
+    ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some resolveId, Some idParsers)
 
   member _.ToMany(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain
     let resolveEntity = resourceDef.PolymorphicFor
-    ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some idParsers)
+    let resolveId = fun _ -> resourceDef
+    ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some resolveId, Some idParsers)
