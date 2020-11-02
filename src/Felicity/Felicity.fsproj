@@ -60,7 +60,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="FSharp.SystemTextJson" Version="[0.12.12]" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="[0.14.8]" />
     <PackageReference Include="Giraffe" Version="4.1.0" />
     <PackageReference Include="Hopac" Version="0.4.1" />
   </ItemGroup>
