@@ -107,6 +107,14 @@ module X =
       .ParsedOpt(NonEmptyString.value, NonEmptyString.create)
       .Get(fun _ -> None)
 
+  let dateTimeOffset =
+    define.Attribute
+      .SimpleDateTimeOffset()
+
+  let dateTimeOffsetAllowMissingOffset =
+    define.Attribute
+      .SimpleDateTimeOffsetAllowMissingOffset()
+
   let alternativeALookup = Define<Ctx,string,NonEmptyString>().Operation.Lookup(fun (NonEmptyString id) -> Some id)
 
   let a = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> A)
@@ -292,6 +300,50 @@ let tests =
       response |> testSuccessStatusCode
       let calledWith' = calledWith
       test <@ calledWith' = Some (NonEmptyString "val") @>
+    }
+
+    testJob "Can parse a DateTimeOffset filter with Z for a field that requires offset" {
+      let mutable calledWith = None
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- Some x), Filter.Field(X.dateTimeOffset))
+      )
+      let! response = Request.get ctx "/xs?filter[dateTimeOffset]=2000-01-01T15:49:52Z" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some (DateTimeOffset(2000, 1, 1, 15, 49, 52, TimeSpan.Zero)) @>
+    }
+
+    testJob "Can parse a DateTimeOffset filter with offset for a field that requires offset" {
+      let mutable calledWith = None
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- Some x), Filter.Field(X.dateTimeOffset))
+      )
+      let! response = Request.get ctx "/xs?filter[dateTimeOffset]=2000-01-01T15:49:52%2B04:00" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some (DateTimeOffset(2000, 1, 1, 15, 49, 52, TimeSpan.FromHours 4.)) @>
+    }
+
+    testJob "Returns 400 for a DateTimeOffset filter without offset for a field that requires offset" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(X.dateTimeOffset)))
+      let! response = Request.get ctx "/xs?filter[dateTimeOffset]=2000-01-01T15:49:52" |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Received invalid value for attribute 'dateTimeOffset': Missing offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "filter[dateTimeOffset]" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Can parse a DateTimeOffset filter without offset for a field that does not require offset" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(X.dateTimeOffsetAllowMissingOffset)))
+      let! response = Request.get ctx "/xs?filter[dateTimeOffsetAllowMissingOffset]=2000-01-01T15:49:52" |> getResponse
+      response |> testSuccessStatusCode
     }
 
     testJob "Can parse a required nullable field" {
@@ -681,7 +733,7 @@ let tests =
       test <@ calledWith' = Some (DateTime(2020, 1, 1, 0, 0, 0)) @>
     }
 
-    testJob "Can parse DateTimeOffset" {
+    testJob "Can parse DateTimeOffset with Z" {
       let mutable calledWith = None
       let ctx = Ctx.Create (fun parser ->
         parser
@@ -692,6 +744,33 @@ let tests =
       response |> testSuccessStatusCode
       let calledWith' = calledWith
       test <@ calledWith' = Some (DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero)) @>
+    }
+
+    testJob "Can parse DateTimeOffset with offset" {
+      let mutable calledWith = None
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- Some x), Query.DateTimeOffset("customParam"))
+      )
+      let! response = Request.get ctx "/xs?customParam=2020-01-01T00:00:00%2B03:00" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some (DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.FromHours 3.)) @>
+    }
+
+    testJob "Returns error if DateTimeOffset does not have offset" {
+      let ctx = Ctx.Create (fun parser ->
+        parser.For(ignore, Query.DateTimeOffset("customParam"))
+      )
+      let! response = Request.get ctx "/xs?customParam=2020-01-01T00:00:00" |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "The value '2020-01-01T00:00:00' is not valid: Expected a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "customParam" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "Can parse a custom query filter parameter" {
@@ -758,7 +837,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "This is not a valid value for attribute 'nonEmptyString'" @>
+      test <@ json |> getPath "errors[0].detail" = "Received invalid value for attribute 'nonEmptyString'" @>
       test <@ json |> getPath "errors[0].source.parameter" = "filter[nonEmptyString]" @>
       test <@ json |> getPath "errors[1].status" = "400" @>
       test <@ json |> getPath "errors[1].detail" = "Attribute 'nonNegativeFloat' is required for this operation" @>
@@ -770,7 +849,7 @@ let tests =
       test <@ json |> getPath "errors[3].detail" = "Query parameter 'customParam1' is required for this operation" @>
       test <@ json |> getPath "errors[3].source.parameter" = "customParam1" @>
       test <@ json |> getPath "errors[4].status" = "400" @>
-      test <@ json |> getPath "errors[4].detail" = "This is not a valid value for attribute 'nonNegativeInt'" @>
+      test <@ json |> getPath "errors[4].detail" = "Received invalid value for attribute 'nonNegativeInt'" @>
       test <@ json |> getPath "errors[4].source.parameter" = "filter[nonNegativeInt]" @>
       test <@ json |> getPath "errors[5].status" = "400" @>
       test <@ json |> getPath "errors[5].detail" = "Query parameter 'page[offset]' has minimum value 0, but got -1" @>

@@ -220,13 +220,13 @@
   let attrInvalidParsedNone attrName =
     Error.create 400
     |> Error.setTitle "Invalid attribute value"
-    |> Error.setDetailf "This is not a valid value for attribute '%s'" attrName
+    |> Error.setDetailf "Received invalid value for attribute '%s'" attrName
 
   // Must also make sense when used in a filter query parameter
   let attrInvalidParsedErrMsg attrName errMsg =
     Error.create 400
     |> Error.setTitle "Invalid attribute value"
-    |> Error.setDetailf "This is not a valid value for attribute '%s': %s" attrName errMsg
+    |> Error.setDetailf "Received invalid value for attribute '%s': %s" attrName errMsg
 
   // Must also make sense when used in a filter query parameter
   let attrInvalidEnum attrName invalidValue allowedValues =
@@ -294,11 +294,6 @@
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
     |> Error.setDetailf "Expected a number, but got '%s'" invalidValue
-
-  let queryInvalidDateTimeUnnamed invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Expected a valid ISO 8601-1:2019 date-time, but got '%s'" invalidValue
 
   let queryInvalidParsedNone queryParamName invalidValue =
     Error.create 400

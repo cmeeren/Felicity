@@ -329,6 +329,50 @@ module A7 =
       .AfterUpdate(fun (Ctx7 db) a -> db.SaveA a)
 
 
+type D = {
+  NonNullable: DateTimeOffset
+  Nullable: DateTimeOffset option
+}
+
+type Ctx8 = Ctx8 of D ref
+
+module A8 =
+
+  let define = Define<Ctx8, D, string>()
+  let resId = define.Id.Simple(fun a -> "d1")
+  let resDef = define.Resource("d", resId).CollectionName("ds")
+  let lookup = define.Operation.Lookup(fun (Ctx8 d) _ -> Some !d)
+
+  let nonNullable =
+    define.Attribute
+      .SimpleDateTimeOffset()
+      .Get(fun d -> d.NonNullable)
+      .Set(fun v d -> { d with NonNullable = v })
+
+  let nonNullableAllowMissingOffset =
+    define.Attribute
+      .SimpleDateTimeOffsetAllowMissingOffset()
+      .Get(fun d -> d.NonNullable)
+      .Set(fun v d -> { d with NonNullable = v })
+
+  let nullable =
+    define.Attribute
+      .Nullable
+      .SimpleDateTimeOffset()
+      .Get(fun d -> d.Nullable)
+      .Set(fun v (d: D) -> { d with Nullable = v })
+
+  let nullableAllowMissingOffset =
+    define.Attribute
+      .Nullable
+      .SimpleDateTimeOffsetAllowMissingOffset()
+      .Get(fun d -> d.Nullable)
+      .Set(fun v (d: D) -> { d with Nullable = v })
+
+  let get = define.Operation.GetResource()
+  let patch = define.Operation.Patch().AfterUpdate(fun (Ctx8 d) res -> d := res)
+
+
 [<Tests>]
 let tests =
   testList "PATCH resource" [
@@ -992,6 +1036,104 @@ let tests =
             |}
         |> getResponse
       response |> testStatusCode 200
+    }
+
+    testJob "Returns 400 when setting a non-nullable DateTimeOffset attribute without offset" {
+      let d = {
+        NonNullable = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        Nullable = None
+      }
+      let ctx = Ctx8 (ref d)
+      let! response =
+        Request.patch ctx "/ds/d1"
+        |> Request.bodySerialized
+            {| data =
+                {| ``type`` = "d"
+                   id = "d1"
+                   attributes = {| nonNullable = "2000-01-01T15:49:23" |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Received invalid value for attribute 'nonNullable': Missing offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullable" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns 400 when setting a nullable DateTimeOffset attribute without offset" {
+      let d = {
+        NonNullable = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        Nullable = None
+      }
+      let ctx = Ctx8 (ref d)
+      let! response =
+        Request.patch ctx "/ds/d1"
+        |> Request.bodySerialized
+            {| data =
+                {| ``type`` = "d"
+                   id = "d1"
+                   attributes = {| nullable = "2000-01-01T15:49:23" |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Received invalid value for attribute 'nullable': Missing offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullable" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Can set DateTimeOffset attributes with offset" {
+      let d = {
+        NonNullable = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        Nullable = None
+      }
+      let dRef = ref d
+      let ctx = Ctx8 dRef
+      let! response =
+        Request.patch ctx "/ds/d1"
+        |> Request.bodySerialized
+            {| data =
+                {| ``type`` = "d"
+                   id = "d1"
+                   attributes =
+                    {|
+                      nonNullable = "2000-01-01T15:49:23Z"
+                      nullable = "2000-01-01T15:49:23+05:00"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testSuccessStatusCode
+      test <@ (!dRef).NonNullable = DateTimeOffset(2000, 1, 1, 15, 49, 23, TimeSpan.Zero) @>
+      test <@ (!dRef).Nullable = Some (DateTimeOffset(2000, 1, 1, 15, 49, 23, TimeSpan.FromHours 5.)) @>
+    }
+
+    testJob "Can set DateTimeOffset attributes without offset if allowed" {
+      let d = {
+        NonNullable = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        Nullable = None
+      }
+      let dRef = ref d
+      let ctx = Ctx8 dRef
+      let! response =
+        Request.patch ctx "/ds/d1"
+        |> Request.bodySerialized
+            {| data =
+                {| ``type`` = "d"
+                   id = "d1"
+                   attributes =
+                    {|
+                      nonNullableAllowMissingOffset = "2000-01-01T15:49:23"
+                      nullableAllowMissingOffset = "2000-01-01T15:49:23"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testSuccessStatusCode
     }
 
     testJob "Returns 409 when type is incorrect" {

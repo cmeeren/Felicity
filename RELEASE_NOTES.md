@@ -1,13 +1,18 @@
 Release notes
 ==============
 
+### vNext
+
+* **Breaking:** `SimpleDateTimeOffset` attributes now require an offset (e.g. `Z` or `+02:00`) when parsed. The same goes for filter query parameters for these attributes. As a side-effect, `SimpleDateTimeOffset` attributes are now serialized/deserialized as `string`, not `DateTimeOffset`. Use `SimpleDateTimeOffsetAllowMissingOffset` to keep the old behavior where values without offset assume the server’s current offset.
+* **Breaking:** `Query.DateTimeOffset` now requires an offset when parsed. Use `Query.DateTimeOffsetAllowMissingOffset` for the old behavior where values without offset use the server’s current offset.
+
 ### 0.13.1 (2020-10-27)
 
 * Added more `LockOther` overloads
 
 ### 0.13.0 (2020-10-27)
 
-* Breaking: Simplified and improved resource locking
+* **Breaking:** Simplified and improved resource locking
   * `CustomLockOther` is removed
   * `LockOther` now simply delegates to the “parent” resource lock (recursively if needed), using the specified parameters to support POST collection operations (parent relationship) and/or all other operations (child-to-parent ID lookup)
   * Allow locking resources without collection names (e.g. when locking parent resources that are only accessible through relationships)

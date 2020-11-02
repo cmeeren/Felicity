@@ -16,7 +16,7 @@ open Domain
 
 
 // Here we define any custom errors we need to return. Felicity already returns helpful
-// errors for almost 100 common error conditions, which you don't need to think about.
+// errors for over 100 common error conditions, which you don't need to think about.
 //
 // You do not need to set the Error object's source pointer/parameter. Felicity will take
 // care of that wherever relevant, even for your custom errors.
@@ -40,16 +40,6 @@ module Errors =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
     |> Error.setDetailf "Could not parse '%s' as a date-time value" invalidValue
-
-
-[<AutoOpen>]
-module Converters =
-
-  let parseDateTimeOffset str =
-    match DateTimeOffset.tryParse str with
-    | None -> Error [invalidDateTimeOffset str]
-    | Some dto -> Ok dto
-
 
 
 // Felicity allows you to map the ASP.NET Core HttpContext to a value you can access in
@@ -193,8 +183,8 @@ module Article =
           // needed here.) Secondly, we add an operator "ge" (greater-equals) to the
           // query parameter name. This means the query parameter will be called
           // filter[createdAt][ge]. The operator only affects the name of the parameter.
-          .Add(ArticleSearchArgs.setCreatedAfter, Filter.Field(createdAt, parseDateTimeOffset).Operator("ge"))
-          .Add(ArticleSearchArgs.setCreatedBefore, Filter.Field(createdAt, parseDateTimeOffset).Operator("le"))
+          .Add(ArticleSearchArgs.setCreatedAfter, Filter.Field(createdAt).Operator("ge"))
+          .Add(ArticleSearchArgs.setCreatedBefore, Filter.Field(createdAt).Operator("le"))
           // The Sort class is used to parse the 'sort' query parameter. For example, it
           // can be parsed to a DU representing the fields available for sorting. It is
           // parsed to 'a * bool where 'a is the domain type and the bool indicates
