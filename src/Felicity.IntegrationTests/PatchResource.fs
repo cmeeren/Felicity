@@ -1110,6 +1110,9 @@ let tests =
       response |> testSuccessStatusCode
       test <@ (!dRef).NonNullable = DateTimeOffset(2000, 1, 1, 15, 49, 23, TimeSpan.Zero) @>
       test <@ (!dRef).Nullable = Some (DateTimeOffset(2000, 1, 1, 15, 49, 23, TimeSpan.FromHours 5.)) @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.attributes.nonNullable" = DateTimeOffset(2000, 1, 1, 15, 49, 23, TimeSpan.Zero) @>
+      test <@ json |> getPath "data.attributes.nullable" = DateTimeOffset(2000, 1, 1, 15, 49, 23, TimeSpan.FromHours 5.) @>
     }
 
     testJob "Can set DateTimeOffset attributes without offset if allowed" {

@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.2 (2020-11-05)
+
+* Fixed bug introduced in 0.14.0 where SimpleDateTimeOffset attributes were surrounded by extra double quotes during serialization
+
 ### 0.14.1 (2020-11-02)
 
 * Resource linkage may now be included by default even if the actual resource is not included

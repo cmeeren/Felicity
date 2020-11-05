@@ -522,7 +522,9 @@ module private AttributeParsers =
         else Error "Missing offset (e.g. 'Z' or '+01:00')"
       with _ -> Error "Invalid ISO 8601-1:2019 date-time"
 
-  let serializeDateTimeOffset = JsonSerializer.Serialize<DateTimeOffset>
+  let stringifyDateTimeOffset =
+    JsonSerializer.Serialize<DateTimeOffset>
+    >> fun s -> s.Trim('"')
 
 
 
@@ -564,7 +566,7 @@ type NullableAttributeHelper<'ctx, 'entity> internal () =
 
   member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, DateTimeOffset, string> =
     NullableAttribute<'ctx, 'entity, DateTimeOffset, string>.Create(
-      name, serializeDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
+      name, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
 
   member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, Guid, Guid> =
     this.SimpleUnsafe(name)
@@ -720,7 +722,7 @@ type AttributeHelper<'ctx, 'entity> internal () =
 
   member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, DateTimeOffset, string> =
     NonNullableAttribute<'ctx, 'entity, DateTimeOffset, string>.Create(
-      name, serializeDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
+      name, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
 
   member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, Guid, Guid> =
     this.SimpleUnsafe(name)
