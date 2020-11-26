@@ -21,7 +21,7 @@ module A =
 
   let define = Define<Ctx, string, string>()
   let resId = define.Id.Simple(id)
-  let resDef = define.Resource("a", resId) .CollectionName("as")
+  let resDef = define.Resource("a", resId).CollectionName("as")
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()
@@ -107,20 +107,25 @@ type ResourceId = ResourceId of string with
 let customLock =
   let semaphores = ConcurrentDictionary<string, SemaphoreSlim>()
   fun (ResourceId id) ->
-    let sem =
-      lock semaphores (fun () ->
-        semaphores.GetOrAdd(id, fun _ -> new SemaphoreSlim(1))
-      )
-    sem.Wait()
-    Some { new IDisposable with member _.Dispose () = sem.Release () |> ignore }
+    async {
+      let sem =
+        lock semaphores (fun () ->
+          semaphores.GetOrAdd(id, fun _ -> new SemaphoreSlim(1))
+        )
+      do! sem.WaitAsync() |> Async.AwaitTask
+      return Some { new IDisposable with member _.Dispose () = sem.Release () |> ignore }
+    }
 
 
 let customLockTimeout =
   let semaphore = new SemaphoreSlim(1)
   fun (_id: string) ->
-    if semaphore.Wait(TimeSpan.FromMilliseconds 10.) then
-      Some { new IDisposable with member _.Dispose () = semaphore.Release () |> ignore }
-    else None
+    async {
+      let! success = semaphore.WaitAsync(TimeSpan.FromMilliseconds 10.) |> Async.AwaitTask
+      if success then
+        return Some { new IDisposable with member _.Dispose () = semaphore.Release () |> ignore }
+      else return None
+    }
 
 
 module E =
@@ -193,7 +198,105 @@ module G =
 
 
 
-[<PTests>]  // TODO: These tests often fail on CI, find out why or make them less flaky
+type MultiLockResult =
+  | Success of ms:int
+  | Timeout of ms:int
+  | Exn of ms:int
+
+
+type MultiLockState = {
+  Result: MultiLockResult
+  mutable LockTaken: bool
+  mutable IsLocked: bool
+}
+
+module MultiLockState =
+
+  let success ms = {
+    Result = Success ms
+    LockTaken = false
+    IsLocked = false
+  }
+
+  let timeout ms = {
+    Result = Timeout ms
+    LockTaken = false
+    IsLocked = false
+  }
+
+  let exn ms = {
+    Result = Exn ms
+    LockTaken = false
+    IsLocked = false
+  }
+
+
+type MultiLockCtx =
+  MultiLockCtx of MultiLockState * MultiLockState * MultiLockState * int ref
+
+
+
+let multiLock (state: MultiLockState) (semaphores: ConcurrentDictionary<string, SemaphoreSlim>) =
+  fun (ResourceId id) ->
+    async  {
+      let sem =
+        lock semaphores (fun () ->
+          semaphores.GetOrAdd(id, fun _ -> new SemaphoreSlim(1))
+        )
+      match state.Result with
+      | Success waitMs ->
+          do! Async.Sleep waitMs
+          do! sem.WaitAsync() |> Async.AwaitTask
+          state.LockTaken <- true
+          state.IsLocked <- true
+          return Some {
+            new IDisposable with
+              member _.Dispose () =
+                sem.Release () |> ignore
+                state.IsLocked <- false
+          }
+      | Timeout waitMs ->
+          do! Async.Sleep waitMs
+          return None
+      | Exn waitMs ->
+          do! Async.Sleep waitMs
+          return failwith "test lock error"
+    }
+    
+
+
+let multiLock1Semaphores = ConcurrentDictionary<string, SemaphoreSlim>()
+let multiLock2Semaphores = ConcurrentDictionary<string, SemaphoreSlim>()
+let multiLock3Semaphores = ConcurrentDictionary<string, SemaphoreSlim>()
+
+let multiLock1 (MultiLockCtx (x, _, _, _)) = multiLock x multiLock1Semaphores
+let multiLock2 (MultiLockCtx (_, x, _, _)) = multiLock x multiLock2Semaphores
+let multiLock3 (MultiLockCtx (_, _, x, _)) = multiLock x multiLock3Semaphores
+
+
+module H =
+
+  let define = Define<MultiLockCtx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+  let resDef =
+    define.Resource("h", resId)
+      .CollectionName("hs")
+      .CustomLock(multiLock1)
+      .CustomLock(multiLock2)
+      .CustomLock(multiLock3)
+      .MultiLockTotalTimeout(TimeSpan.FromSeconds 1.)
+  let lookup = define.Operation.Lookup(ResourceId.value >> Some)
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .PostAsync(fun (MultiLockCtx (_, _, _, i)) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
+
+
+
+[<PTests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
 let tests =
   testSequenced <| testList "Resource locking" [
 
@@ -369,21 +472,314 @@ let tests =
       test <@ !i = 1000 @>
     }
 
-    testJob "Custom-locked resources return 503 if lock times out" {
+    testAsync "Custom-locked resources return 503 if lock times out" {
       let testClient = startTestServer (Ctx (ref 0))
       let getJob () =
         Request.createWithClient testClient Post (Uri("http://example.com/gs/someId/customOp"))
         |> Request.jsonApiHeaders
         |> getResponse
+        |> Alt.toAsync
 
-      do! getJob () |> Job.toAsync |> Async.StartChild |> Async.Ignore 
+      getJob () |> Async.Ignore<Response> |> Async.Start
+      do! Async.Sleep 100
       let! secondResp = getJob ()
       secondResp |> testStatusCode 503
       test <@ secondResp.headers.ContainsKey LastModified = false @>
-      let! json = secondResp |> Response.readBodyAsString
+      let! json = secondResp |> Response.readBodyAsString |> Job.toAsync
       test <@ json |> getPath "errors[0].status" = "503" @>
       test <@ json |> getPath "errors[0].detail" = "Timed out waiting for the completion of other operations on the requested resource" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources are thread-safe" {
+      let i = ref 0
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.success 0,
+          MultiLockState.success 0,
+          MultiLockState.success 0,
+          i
+        )
+      let testClient = startTestServer ctx
+      do!
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+        |> Array.replicate 1000
+        |> Array.map Job.toAsync
+        |> Async.Parallel
+        |> Async.Ignore<Response []>
+      test <@ !i = 1000 @>
+    }
+
+    testJob "Multi-locked resources returns error if any lock times out - 1" {
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.timeout 0,
+          MultiLockState.success 0,
+          MultiLockState.success 0,
+          ref 0
+        )
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 503
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "503" @>
+      test <@ json |> getPath "errors[0].detail" = "Timed out waiting for the completion of other operations on the requested resource" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources returns error if any lock times out - 2" {
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.success 0,
+          MultiLockState.timeout 0,
+          MultiLockState.success 0,
+          ref 0
+        )
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 503
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "503" @>
+      test <@ json |> getPath "errors[0].detail" = "Timed out waiting for the completion of other operations on the requested resource" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources returns error if any lock times out - 3" {
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.success 0,
+          MultiLockState.success 0,
+          MultiLockState.timeout 0,
+          ref 0
+        )
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 503
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "503" @>
+      test <@ json |> getPath "errors[0].detail" = "Timed out waiting for the completion of other operations on the requested resource" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources returns error if any lock throws - 1" {
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.exn 0,
+          MultiLockState.success 0,
+          MultiLockState.success 0,
+          ref 0
+        )
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 500
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "500" @>
+      test <@ json |> getPath "errors[0].detail" = "An unknown error has occurred" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources returns error if any lock throws - 2" {
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.success 0,
+          MultiLockState.exn 0,
+          MultiLockState.success 0,
+          ref 0
+        )
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 500
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "500" @>
+      test <@ json |> getPath "errors[0].detail" = "An unknown error has occurred" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources returns error if any lock throws - 3" {
+      let ctx =
+        MultiLockCtx (
+          MultiLockState.success 0,
+          MultiLockState.success 0,
+          MultiLockState.exn 0,
+          ref 0
+        )
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 500
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "500" @>
+      test <@ json |> getPath "errors[0].detail" = "An unknown error has occurred" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Multi-locked resources take locks in order, and dispose all existing locks and does not take existing locks after the first timeout - 1" {
+      let state1 = MultiLockState.success 0
+      let state2 = MultiLockState.timeout 0
+      let state3 = MultiLockState.success 0
+      let ctx = MultiLockCtx (state1, state2, state3, ref 0)
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 503
+
+      test <@ state1.LockTaken = true @>
+      test <@ state1.IsLocked = false @>
+      test <@ state2.LockTaken = false @>
+      test <@ state2.IsLocked = false @>
+      test <@ state3.LockTaken = false @>
+      test <@ state3.IsLocked = false @>
+    }
+
+    testJob "Multi-locked resources take locks in order, dispose all existing locks and does not take existing locks after the first timeout - 2" {
+      let state1 = MultiLockState.success 0
+      let state2 = MultiLockState.success 0
+      let state3 = MultiLockState.timeout 0
+      let ctx = MultiLockCtx (state1, state2, state3, ref 0)
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 503
+
+      test <@ state1.LockTaken = true @>
+      test <@ state1.IsLocked = false @>
+      test <@ state2.LockTaken = true @>
+      test <@ state2.IsLocked = false @>
+      test <@ state3.LockTaken = false @>
+      test <@ state3.IsLocked = false @>
+    }
+
+    testJob "Multi-locked resources take locks in order, dispose all existing locks and does not take existing locks after the first exception - 1" {
+      let state1 = MultiLockState.success 0
+      let state2 = MultiLockState.exn 0
+      let state3 = MultiLockState.success 0
+      let ctx = MultiLockCtx (state1, state2, state3, ref 0)
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 500
+
+      test <@ state1.LockTaken = true @>
+      test <@ state1.IsLocked = false @>
+      test <@ state2.LockTaken = false @>
+      test <@ state2.IsLocked = false @>
+      test <@ state3.LockTaken = false @>
+      test <@ state3.IsLocked = false @>
+    }
+
+    testJob "Multi-locked resources take locks in order, dispose all existing locks and does not take existing locks after the first exception - 2" {
+      let state1 = MultiLockState.success 0
+      let state2 = MultiLockState.success 0
+      let state3 = MultiLockState.exn 0
+      let ctx = MultiLockCtx (state1, state2, state3, ref 0)
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 500
+
+      test <@ state1.LockTaken = true @>
+      test <@ state1.IsLocked = false @>
+      test <@ state2.LockTaken = true @>
+      test <@ state2.IsLocked = false @>
+      test <@ state3.LockTaken = false @>
+      test <@ state3.IsLocked = false @>
+    }
+
+    testJob "Multi-locked resources, after the total timeout, give up without waiting for in-progress locks" {
+      let state1 = MultiLockState.success 500
+      let state2 = MultiLockState.success 3000
+      let state3 = MultiLockState.success 0
+      let ctx = MultiLockCtx (state1, state2, state3, ref 0)
+      let testClient = startTestServer ctx
+
+      let sw = Diagnostics.Stopwatch.StartNew()
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      sw.Stop()
+
+      resp |> testStatusCode 503
+
+      test <@ sw.ElapsedMilliseconds >= 1000L @>
+      test <@ sw.ElapsedMilliseconds < 1500L @>
+    }
+
+    testJob "Multi-locked resources, after the total timeout, return error, release existing locks, and do not take additional locks" {
+      let state1 = MultiLockState.success 500
+      let state2 = MultiLockState.success 1500
+      let state3 = MultiLockState.success 0
+      let ctx = MultiLockCtx (state1, state2, state3, ref 0)
+      let testClient = startTestServer ctx
+
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/hs/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      // Wait so that all in-progress locks are taken and released
+      do! Async.Sleep 2000
+
+      resp |> testStatusCode 503
+      let! json = resp |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "503" @>
+      test <@ json |> getPath "errors[0].detail" = "Timed out waiting for the completion of other operations on the requested resource" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      test <@ state1.LockTaken = true @>
+      test <@ state1.IsLocked = false @>
+      test <@ state2.LockTaken = true @>
+      test <@ state2.IsLocked = false @>
+      test <@ state3.LockTaken = false @>
+      test <@ state3.IsLocked = false @>
     }
 
   ]

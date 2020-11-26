@@ -1,7 +1,9 @@
 ﻿namespace Felicity
 
 open System
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open FSharp.Control.Tasks.V2.ContextInsensitive
 open Hopac
 open Giraffe
 open Errors
@@ -22,14 +24,14 @@ type internal FelicityLockSpec<'ctx> = {
 
 
 type internal CustomLockSpec<'ctx> = {
-  CustomLock: 'ctx -> ResourceId -> Job<IDisposable option>
+  CustomLock: 'ctx -> ResourceId -> Task<IDisposable option>
 }
 
 
 type internal OtherLockSpec<'ctx> = {
   GetOtherIdFromThisId: 'ctx -> ResourceId -> Job<ResourceId option>
   GetOtherIdFromRelationship: 'ctx -> Request -> Job<ResourceId option>
-  OtherLockSpec: LockSpecification<'ctx>
+  OtherLockSpecs: LockSpecification<'ctx> list
 }
 
 
@@ -42,37 +44,112 @@ and internal LockSpecification<'ctx> =
 module internal LockSpecification =
 
 
-  let rec lock (httpCtx: HttpContext) ctx req (resId: ResourceId option) (lockSpec: LockSpecification<'ctx>) =
-    job {
+  type MultiLockState () =
+
+    let disps = ResizeArray<IDisposable>()
+
+    let locker = obj ()
+
+    let mutable disposed = false
+    let mutable timedOut = false
+
+    member _.TimedOut = timedOut
+
+    member _.AddLock(disp: IDisposable) =
+      lock locker (fun () ->
+        if disposed then
+          disp.Dispose ()
+        else
+          disps.Add disp
+      )
+
+    member this.SetTimedOut() =
+      lock locker (fun () ->
+        if not timedOut then
+          timedOut <- true
+          (this :> IDisposable).Dispose ()
+      )
+
+    interface IDisposable with
+      member _.Dispose () =
+        lock locker (fun () ->
+          if not disposed then
+            disposed <- true
+            for disp in disps do
+              try disp.Dispose ()
+              with _ -> ()
+        )
+
+
+  let rec private lock
+      (state: MultiLockState)
+      (httpCtx: HttpContext)
+      ctx
+      req
+      (resId: ResourceId option)
+      (lockSpec: LockSpecification<'ctx>)
+      =
+    task {
       match lockSpec, resId with
-      | Felicity _, None ->
-          return Ok None
+      | Felicity _, None -> ()
       | Felicity lockSpec, Some resId ->
-          let queueFactory = httpCtx.GetService<SemaphoreQueueFactory<'ctx>>()
-          let queue = queueFactory.GetFor(lockSpec.CollName, resId)
-          match! queue.Lock lockSpec.Timeout with
-          | Some lock -> return lock |> Some |> Ok
-          | None -> return Error [lockTimeout]
-      | Custom _, None ->
-          return Ok None
+          if not state.TimedOut then
+            let queueFactory = httpCtx.GetService<SemaphoreQueueFactory<'ctx>>()
+            let queue = queueFactory.GetFor(lockSpec.CollName, resId)
+            match! queue.Lock lockSpec.Timeout with
+            | Some lock -> state.AddLock lock
+            | None -> state.SetTimedOut()
+      | Custom _, None -> ()
       | Custom lockSpec, Some resId ->
-          match! lockSpec.CustomLock ctx resId with
-          | Some lock -> return lock |> Some |> Ok
-          | None -> return Error [lockTimeout]
-      | Other lockSpec, None ->
-          let! otherId = lockSpec.GetOtherIdFromRelationship ctx req
-          return! lock httpCtx ctx req otherId lockSpec.OtherLockSpec
-      | Other lockSpec, Some resId ->
-          let! otherId = lockSpec.GetOtherIdFromThisId ctx resId
-          return! lock httpCtx ctx req otherId lockSpec.OtherLockSpec
+          if not state.TimedOut then
+            match! lockSpec.CustomLock ctx resId with
+            | Some lock -> state.AddLock lock
+            | None -> state.SetTimedOut ()
+      | Other lockSpec, resId ->
+          if not state.TimedOut then
+            let! otherId =
+              match resId with
+              | None -> lockSpec.GetOtherIdFromRelationship ctx req |> Job.startAsTask
+              | Some resId -> lockSpec.GetOtherIdFromThisId ctx resId |> Job.startAsTask
+            // Locks must be taken in sequence, not parallel, to avoid deadlocks.
+            for lockSpec in lockSpec.OtherLockSpecs do
+              if not state.TimedOut then
+                do! lock state httpCtx ctx req otherId lockSpec
     }
 
+
+  let lockAll httpCtx ctx req (totalTimeout: TimeSpan option) resId lockSpecs =
+    task {
+      let state = new MultiLockState()
+      let timeoutTask =
+        totalTimeout |> Option.map (fun ts ->
+          task {
+            do! Task.Delay ts
+            state.SetTimedOut ()
+          }
+        )
+      let lockTask =
+        task {
+          // Locks must be taken in sequence, not parallel, to avoid deadlocks.
+          for lockSpec in lockSpecs do
+            if not state.TimedOut then
+              do! lock state httpCtx ctx req resId lockSpec
+        }
+      try
+        let! completedTask = Task.WhenAny(lockTask :: Option.toList timeoutTask)
+        do! completedTask  // TODO: Is this needed?
+      with ex ->
+        (state :> IDisposable).Dispose ()
+        return ex.Reraise ()
+      return if state.TimedOut then Error [lockTimeout] else Ok state
+    }
 
 
 
 type internal ResourceDefinitionLockSpec<'ctx> =
   abstract CollName: CollectionName option
-  abstract LockSpec: LockSpecification<'ctx> option
+  abstract LockSpecs: LockSpecification<'ctx> list option
+  abstract TotalTimeout: TimeSpan option
 
 
 
@@ -92,14 +169,16 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   name: string
   collectionName: string option
   id: Id<'ctx, 'entity, 'id>
-  lockSpec: LockSpecification<'ctx> option
+  lockSpecs: LockSpecification<'ctx> list
+  lockTotalTimeout: TimeSpan option
 } with
   static member internal Create(name: string, id: Id<'ctx, 'entity, 'id>) : ResourceDefinition<'ctx, 'entity, 'id> =
     {
       name = name
       collectionName = None
       id = id
-      lockSpec = None
+      lockSpecs = []
+      lockTotalTimeout = None
     }
 
   interface ResourceDefinition<'ctx> with
@@ -112,7 +191,8 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
 
   interface ResourceDefinitionLockSpec<'ctx> with
     member this.CollName = this.collectionName
-    member this.LockSpec = this.lockSpec
+    member this.LockSpecs = this.lockSpecs |> Some |> Option.filter (not << List.isEmpty)
+    member this.TotalTimeout = this.lockTotalTimeout
 
   interface ResourceDefinition<'ctx, 'id> with
     member this.TypeName = this.name
@@ -132,12 +212,12 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
       Timeout = defaultArg timeout (TimeSpan.FromSeconds 10.)
     }
 
-  member private this.CreateCustomLockSpec(getLock: 'ctx -> 'id -> Job<IDisposable option>) =
+  member private this.CreateCustomLockSpec(getLock: 'ctx -> 'id -> Task<IDisposable option>) =
     Custom {
       CustomLock =
         fun ctx rawId ->
-          job {
-            match! this.id.toDomain ctx rawId with
+          task {
+            match! this.id.toDomain ctx rawId |> Job.startAsTask with
             | Error _ -> return None  // Request will fail anyway
             | Ok id -> return! getLock ctx id
           }
@@ -165,23 +245,26 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
                 | Error _ -> return None  
                 | Ok otherId -> return otherId |> Option.map resDef.id.fromDomain
           }
-      OtherLockSpec =
-        resDef.lockSpec
-        |> Option.defaultWith (fun () -> failwithf "Resource type '%s' can not lock other resource '%s' because the other resource does not have a lock specification" this.name resDef.name)
+      OtherLockSpecs =
+        match resDef.lockSpecs with
+        | [] -> failwithf "Resource type '%s' can not lock other resource '%s' because the other resource does not have a lock specification" this.name resDef.name
+        | xs -> xs
     }
 
   /// Lock this resource for the entirety of all modification operations to ensure there
   /// are no concurrent updates. If a lock can not be acquired after the specified timeout
   /// (default 10 seconds), an error will be returned.
   member this.Lock(?timeout) =
-    { this with lockSpec = this.CreateFelicityLockSpec(?timeout=timeout) |> Some }
+    let hasFelicityLockSpec = this.lockSpecs |> List.exists (function Felicity _ -> true | _ -> false)
+    if hasFelicityLockSpec then failwith "Cannot call multiple built-in locks using Lock()"
+    { this with lockSpecs = this.lockSpecs @ [this.CreateFelicityLockSpec(?timeout=timeout)] }
 
   /// Lock this resource for the entirety of all modification operations to ensure there
   /// are no concurrent updates, using an external lock mechanism. The getLock function
   /// is passed the resource ID, and should return None if the lock times out, or Some
   /// with an IDisposable that releases the lock when disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Job<IDisposable option>) =
-    { this with lockSpec = this.CreateCustomLockSpec(getLock) |> Some }
+    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(fun ctx id -> getLock ctx id |> Job.startAsTask)] }
 
   /// Lock this resource for the entirety of all modification operations to ensure there
   /// are no concurrent updates, using an external lock mechanism. The getLock function
@@ -194,29 +277,43 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// are no concurrent updates, using an external lock mechanism. The getLock function
   /// is passed the resource ID, and should return None if the lock times out, or Some
   /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'ctx -> 'id -> Task<IDisposable option>) =
+    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(getLock)] }
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
+  member this.CustomLock(getLock: 'id -> Task<IDisposable option>) =
+    this.CustomLock(fun _ id -> getLock id)
+
+  /// Lock this resource for the entirety of all modification operations to ensure there
+  /// are no concurrent updates, using an external lock mechanism. The getLock function
+  /// is passed the resource ID, and should return None if the lock times out, or Some
+  /// with an IDisposable that releases the lock when disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Async<IDisposable option>) =
-    this.CustomLock(Job.liftAsync2 getLock)
+    this.CustomLock(fun ctx id -> getLock ctx id |> Async.StartAsTask)
 
   /// Lock this resource for the entirety of all modification operations to ensure there
   /// are no concurrent updates, using an external lock mechanism. The getLock function
   /// is passed the resource ID, and should return None if the lock times out, or Some
   /// with an IDisposable that releases the lock when disposed.
   member this.CustomLock(getLock: 'id -> Async<IDisposable option>) =
-    this.CustomLock(Job.liftAsync getLock)
+    this.CustomLock(fun _ id -> getLock id |> Async.StartAsTask)
 
   /// Lock this resource for the entirety of all modification operations to ensure there
   /// are no concurrent updates, using an external lock mechanism. The getLock function
   /// is passed the resource ID, and should return None if the lock times out, or Some
   /// with an IDisposable that releases the lock when disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> IDisposable option) =
-    this.CustomLock(Job.lift2 getLock)
+    this.CustomLock(fun ctx id -> getLock ctx id |> Task.FromResult)
 
   /// Lock this resource for the entirety of all modification operations to ensure there
   /// are no concurrent updates, using an external lock mechanism. The getLock function
   /// is passed the resource ID, and should return None if the lock times out, or Some
   /// with an IDisposable that releases the lock when disposed.
   member this.CustomLock(getLock: 'id -> IDisposable option) =
-    this.CustomLock(Job.lift getLock)
+    this.CustomLock(fun _ id -> getLock id |> Task.FromResult)
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
@@ -227,7 +324,11 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     if getOtherIdForResourceOperation.IsNone && relationshipForPostOperation.IsNone then
       failwithf "At least one of 'getOtherIdForResourceOperation' and 'relationshipForPostOperation' must be specified in call to LockOther for resource '%s'" this.name
-    { this with lockSpec = this.CreateOtherLockSpec(resDef, ?getOtherIdForResourceOperation = getOtherIdForResourceOperation, ?relationshipForPostOperation = relationshipForPostOperation) |> Some }
+    { this with
+        lockSpecs =
+          this.lockSpecs
+          @ [this.CreateOtherLockSpec(resDef, ?getOtherIdForResourceOperation = getOtherIdForResourceOperation, ?relationshipForPostOperation = relationshipForPostOperation)]
+    }
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
@@ -313,3 +414,13 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
       resDef,
       ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ id -> getId id |> Some))),
       ?relationshipForPostOperation=relationshipForPostOperation)
+
+  /// When multiple locks are taken and this timeout is reached, Felicity will 1) return
+  /// an error to the client, 2) dispose any locks that were successfully taken (including
+  /// in-progress locks that complete after the timeout), and 3) not attempt to obtain any
+  /// additional further locks.
+  ///
+  /// Throws if less than two locks have been specified for this resource.
+  member this.MultiLockTotalTimeout(timeout: TimeSpan) =
+    if this.lockSpecs.Length < 2 then failwithf "At least two locks must be present in order to call MultiLockTotalTimeout for resource '%s'" this.name
+    { this with lockTotalTimeout = Some timeout }

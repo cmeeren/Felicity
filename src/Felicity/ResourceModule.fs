@@ -46,14 +46,14 @@ let lockSpec<'ctx> (collName: CollectionName) =
       |> Array.collect (fun m -> m.GetProperties(BindingFlags.Public ||| BindingFlags.Static))
       |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<ResourceDefinitionLockSpec<'ctx>>)
       |> Array.filter (fun x -> x.CollName = Some collName)
-      |> Array.choose (fun x -> x.LockSpec)
+      |> Array.choose (fun x -> x.LockSpecs |> Option.map (fun xs -> xs, x.TotalTimeout))
       |> function
           | [||] -> None
           | [|x|] -> Some x
           | xs -> failwithf "Collection name '%s' contains %i resources with lock definitions; only one lock definition per collection is allowed" collName xs.Length
-      |> box<LockSpecification<'ctx> option>
+      |> box<(LockSpecification<'ctx> list * TimeSpan option) option>
   )
-  |> unbox<LockSpecification<'ctx> option>
+  |> unbox<(LockSpecification<'ctx> list * TimeSpan option) option>
 
 
 let private fieldsDict = ConcurrentDictionary<Type * Type, obj>()

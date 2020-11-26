@@ -1415,6 +1415,14 @@ let resDef =
 
 Above, `getOrderIdForOrderLine` typically has the signature `OrderLineId -> Async<OrderLine option`. If the ID lookup function returns `None`, no locking is performed (it is then likely that the resource doesn’t exist, which means the request will fail anyway).
 
+### Multiple locks
+
+In certain cases, you may need to take multiple locks. You are able to specify as many locks as you want using `CustomLock` or `LockOther` (`Lock` may only be called once per resource). The locks will be taken sequentially (to avoid deadlocks) in the order they are specified.
+
+Note that if you take multiple locks, you will probably want to also call `MultiLockTotalTimeout` to set the total timeout across all locks. When multiple locks are taken and this timeout is reached, Felicity will 1) return an error to the client, 2) dispose any locks that were successfully taken (including in-progress locks that complete after the timeout), and 3) not attempt to obtain any additional further locks.
+
+Note that multiple locks is an advanced feature that shouldn’t be needed often, and should take good care to avoid deadlocks by making sure the locks play nice with each other everywhere they are used.
+
 ### Limitations
 
 Felicity locks the resource before fetching it from the database (to ensure that preconditions work correctly and that the up-to-date entity is used for all locked operations without requiring extra trips to the DB). Therefore, if you have polymorphic collections (see section TODO), Felicity doesn’t know which resource type any given ID corresponds to; it only knows the collection name and resource ID. As a consequence, you may only have one `Lock` or `LockOther` per collection name.

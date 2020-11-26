@@ -72,6 +72,18 @@ module Result =
     | Error _ -> valueIfError
 
 
+[<AutoOpen>]
+module ExceptionExtensions =
+
+  open System.Runtime.ExceptionServices
+
+
+  type Exception with
+    member this.Reraise () =
+      (ExceptionDispatchInfo.Capture this).Throw ()
+      Unchecked.defaultof<_>
+
+
 module Async =
 
   let map f asnc =

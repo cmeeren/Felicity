@@ -56,11 +56,10 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
       task {
         match ResourceModule.lockSpec<'ctx> collName with
         | None -> return! next httpCtx
-        | Some lockSpec ->
-            match! LockSpecification.lock httpCtx ctx req resId lockSpec |> Job.startAsTask with
+        | Some (lockSpecs, totalTimeout) ->
+            match! LockSpecification.lockAll httpCtx ctx req totalTimeout resId lockSpecs with
             | Error errs -> return! handleErrors errs next httpCtx
-            | Ok None -> return! next httpCtx
-            | Ok (Some locker) ->
+            | Ok locker ->
                 use _ = locker
                 return! next httpCtx
       }

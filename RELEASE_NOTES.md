@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.4 (2020-11-26)
+
+* Now supports taking multiple locks per resource (see documentation)
+
 ### 0.14.3 (2020-11-23)
 
 * Updated dependencies

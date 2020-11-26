@@ -29,7 +29,7 @@ Core features:
 
 ### Production readiness
 
-This framework contains over 500 end-to-end tests checking success-path and error-path functionality of all operations, and is used in several mission-critical production APIs at our company. I’m not claiming it’s perfect, or even bug-free, but it’s well tested, and I have a vested interest in keeping this framework working properly.
+This framework contains over 600 end-to-end tests checking success-path and error-path functionality of all operations, and is used in several mission-critical production APIs at our company. I’m not claiming it’s perfect, or even bug-free, but it’s well tested, and I have a vested interest in keeping this framework working properly.
 
 The framework is still at 0.x because it's still fairly new and I'm still discovering improvements that require breaking changes every now and then. However, do not take 0.x to mean that it’s a buggy mess, or that the API will radically change every other week.
 

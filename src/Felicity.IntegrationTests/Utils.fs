@@ -45,7 +45,11 @@ let startTestServer (ctx: 'ctx) =
               .GetCtx(fun _ -> SecondCtx)
               .Add()
           |> ignore)
-        .Configure(fun app -> app.UseGiraffe jsonApi<'ctx>)
+        .Configure(fun app ->
+          app
+            .UseGiraffeErrorHandler(fun _ _ -> returnUnknownError)
+            .UseGiraffe jsonApi<'ctx>
+        )
     )
   server.CreateClient ()
 
