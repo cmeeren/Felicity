@@ -108,7 +108,7 @@ module Program =
     // Uncomment for BenchmarkDotNet run
 
     BenchmarkRunner.Run<Benchmark>(
-      DefaultConfig.Instance.With(Job.Default.WithGcServer(true))
+      DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(true))
     )
     |> ignore
 
