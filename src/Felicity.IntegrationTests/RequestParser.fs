@@ -346,7 +346,7 @@ let tests =
       response |> testSuccessStatusCode
     }
 
-    testJob "Can parse a required nullable field" {
+    testJob "Can parse a required nullable attribute" {
       let mutable calledWith = ValueNone
       let ctx = Ctx.Create (fun parser ->
         parser
@@ -363,7 +363,7 @@ let tests =
       test <@ calledWith' = ValueSome (Some (NonEmptyString "val")) @>
     }
 
-    testJob "Can parse a required nullable field set to null" {
+    testJob "Can parse a required nullable attribute set to null" {
       let mutable calledWith = ValueNone
       let ctx = Ctx.Create (fun parser ->
         parser
@@ -380,7 +380,7 @@ let tests =
       test <@ calledWith' = ValueSome None @>
     }
 
-    testJob "Returns 400 if required nullable field is missing" {
+    testJob "Returns 400 if required nullable attribute is missing" {
       let ctx = Ctx.Create (fun parser -> parser.For(ignore, X.nullableNonEmptyString))
       let! response =
         Request.post ctx "/xs"
@@ -396,7 +396,58 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Can parse an optional nullable field" {
+    testJob "Can parse a required nullable attribute as non-nullable" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullable)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = "val" |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome (NonEmptyString "val") @>
+    }
+
+    testJob "Returns 403 if passing null to a required nullable attribute as non-nullable" {
+      let ctx = Ctx.Create (fun parser ->
+        parser.For(ignore, X.nullableNonEmptyString.AsNonNullable)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = null |} |} |}
+        |> getResponse
+
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableNonEmptyString' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableNonEmptyString" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns 400 if required nullable attribute as non-nullable is missing" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, X.nullableNonEmptyString.AsNonNullable))
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = obj() |} |}
+        |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableNonEmptyString' is required for this operation" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Can parse an optional nullable attribute" {
       let mutable calledWith = ValueNone
       let ctx = Ctx.Create (fun parser ->
         parser
@@ -413,7 +464,7 @@ let tests =
       test <@ calledWith' = ValueSome (Some (Some (NonEmptyString "val"))) @>
     }
 
-    testJob "Can parse an optional nullable field set to null" {
+    testJob "Can parse an optional nullable attribute set to null" {
       let mutable calledWith = ValueNone
       let ctx = Ctx.Create (fun parser ->
         parser
@@ -430,11 +481,64 @@ let tests =
       test <@ calledWith' = ValueSome (Some None) @>
     }
 
-    testJob "Can parse an optional nullable field that is not present" {
+    testJob "Can parse an optional nullable attribute that is not present" {
       let mutable calledWith = ValueNone
       let ctx = Ctx.Create (fun parser ->
         parser
           .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = obj () |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome None @>
+    }
+
+    testJob "Can parse an optional nullable attribute as non-nullable" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullableOptional)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = "val" |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome (Some (NonEmptyString "val")) @>
+    }
+
+    testJob "Returns 403 when passing null to an optional nullable attribute as non-nullable" {
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For(ignore, X.nullableNonEmptyString.AsNonNullableOptional)
+      )
+      let! response =
+        Request.post ctx "/xs"
+        |> Request.bodySerialized
+            {| data = {| ``type`` = "x"; attributes = {| nullableNonEmptyString = null |} |} |}
+        |> getResponse
+
+      response |> testStatusCode 403
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "403" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableNonEmptyString' may not be set to null" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableNonEmptyString" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Can parse an optional nullable attribute non-nullable that is not present" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullableOptional)
       )
       let! response =
         Request.post ctx "/xs"

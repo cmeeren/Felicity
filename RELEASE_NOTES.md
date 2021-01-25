@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.6 (2021-01-25)
+
+* Added `AsNonNullable` and `AsNonNullableOptional` to nullable attributes to require a non-null value in request parsing
+
 ### 0.14.5 (2021-01-25)
 
 * Added higher-arity request parser overloads

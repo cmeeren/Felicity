@@ -332,6 +332,38 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
               | false, _ -> None |> Ok |> Job.result
     }
 
+  member this.AsNonNullableOptional =
+    { new RequestGetter<'ctx, 'attr option> with
+        member _.FieldName = Some this.name
+        member _.QueryParamName = None
+        member _.Get(ctx, req, includedTypeAndId) =
+          match Request.getAttrAndPointer includedTypeAndId req with
+          | Error errs -> Error errs |> Job.result
+          | Ok None -> None |> Ok |> Job.result
+          | Ok (Some (attrVals, attrsPointer)) ->
+              match attrVals.TryGetValue this.name with
+              | true, (:? ('serialized option) as attr) ->
+                  match attr with
+                  | None -> Error [ setAttrNullNotAllowed this.name |> Error.setSourcePointer (attrsPointer + "/" + this.name) ] |> Job.result
+                  | Some attr ->
+                      attr
+                      |> this.toDomain ctx
+                      |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
+                      |> JobResult.map Some
+              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
+              | false, _ -> None |> Ok |> Job.result
+    }
+
+  member this.AsNonNullable =
+    { new RequestGetter<'ctx, 'attr> with
+        member _.FieldName = Some this.name
+        member _.QueryParamName = None
+        member _.Get(ctx, req, includedTypeAndId) =
+          let pointer = Request.pointerForMissingAttr includedTypeAndId req
+          this.AsNonNullableOptional.Get(ctx, req, includedTypeAndId)
+          |> JobResult.requireSome [reqParserMissingRequiredAttr this.name pointer]
+    }
+
   interface OptionalRequestGetter<'ctx, 'attr option> with
     member this.FieldName = Some this.name
     member this.QueryParamName = None
