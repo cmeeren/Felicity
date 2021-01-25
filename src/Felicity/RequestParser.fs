@@ -496,4 +496,128 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       p1, p2, p3, p4, p5, p6
     )
 
+  // Arity 7
+  
+  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>, p7: RequestGetter<'ctx, 'p7>) =
+    let consumedFields =
+      [|
+          p1.FieldName
+          p2.FieldName
+          p3.FieldName
+          p4.FieldName
+          p5.FieldName
+          p6.FieldName
+          p7.FieldName
+      |]
+      |> Array.choose id
+      |> Set.ofArray
+      |> Set.union consumedSingleFields
+
+    let consumedQueryParams =
+      [|
+        p1.QueryParamName
+        p2.QueryParamName
+        p3.QueryParamName
+        p4.QueryParamName
+        p5.QueryParamName
+        p6.QueryParamName
+        p7.QueryParamName
+      |]
+      |> Array.choose id
+      |> Set.ofArray
+      |> Set.union consumedSingleParams
+
+    RequestParser<'ctx, 'a>.Create(
+      consumedFields,
+      consumedQueryParams,
+      includedTypeAndId,
+      ctx,
+      req,
+      fun c r ->
+        create
+        <!> p1.Get(c, r, includedTypeAndId)
+        <*> p2.Get(c, r, includedTypeAndId)
+        <*> p3.Get(c, r, includedTypeAndId)
+        <*> p4.Get(c, r, includedTypeAndId)
+        <*> p5.Get(c, r, includedTypeAndId)
+        <*> p6.Get(c, r, includedTypeAndId)
+        <*> p7.Get(c, r, includedTypeAndId)
+        |> JobResult.bind id)
+  
+  member this.ForAsyncRes
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Async<Result<'a, Error list>>,
+        p1: RequestGetter<'ctx, 'p1>,
+        p2: RequestGetter<'ctx, 'p2>,
+        p3: RequestGetter<'ctx, 'p3>,
+        p4: RequestGetter<'ctx, 'p4>,
+        p5: RequestGetter<'ctx, 'p5>,
+        p6: RequestGetter<'ctx, 'p6>,
+        p7: RequestGetter<'ctx, 'p7>
+      ) =
+    this.ForJobRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.fromAsync),
+      p1, p2, p3, p4, p5, p6, p7
+    )
+
+  member this.ForJob
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Job<'a>,
+        p1: RequestGetter<'ctx, 'p1>,
+        p2: RequestGetter<'ctx, 'p2>,
+        p3: RequestGetter<'ctx, 'p3>,
+        p4: RequestGetter<'ctx, 'p4>,
+        p5: RequestGetter<'ctx, 'p5>,
+        p6: RequestGetter<'ctx, 'p6>,
+        p7: RequestGetter<'ctx, 'p7>
+        ) =
+    this.ForJobRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.map Ok),
+      p1, p2, p3, p4, p5, p6, p7
+    )
+
+  member this.ForAsync
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Async<'a>,
+        p1: RequestGetter<'ctx, 'p1>,
+        p2: RequestGetter<'ctx, 'p2>,
+        p3: RequestGetter<'ctx, 'p3>,
+        p4: RequestGetter<'ctx, 'p4>,
+        p5: RequestGetter<'ctx, 'p5>,
+        p6: RequestGetter<'ctx, 'p6>,
+        p7: RequestGetter<'ctx, 'p7>
+      ) =
+    this.ForJob(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.fromAsync),
+      p1, p2, p3, p4, p5, p6, p7
+    )
+  
+  member this.ForRes
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Result<'a, Error list>,
+        p1: RequestGetter<'ctx, 'p1>,
+        p2: RequestGetter<'ctx, 'p2>,
+        p3: RequestGetter<'ctx, 'p3>,
+        p4: RequestGetter<'ctx, 'p4>,
+        p5: RequestGetter<'ctx, 'p5>,
+        p6: RequestGetter<'ctx, 'p6>,
+        p7: RequestGetter<'ctx, 'p7>
+      ) =
+    this.ForJobRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.result),
+      p1, p2, p3, p4, p5, p6, p7
+    )
+  
+  member this.For
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> 'a,
+        p1: RequestGetter<'ctx, 'p1>,
+        p2: RequestGetter<'ctx, 'p2>,
+        p3: RequestGetter<'ctx, 'p3>,
+        p4: RequestGetter<'ctx, 'p4>,
+        p5: RequestGetter<'ctx, 'p5>,
+        p6: RequestGetter<'ctx, 'p6>,
+        p7: RequestGetter<'ctx, 'p7>
+      ) =
+    this.ForJobRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Ok |> Job.result),
+      p1, p2, p3, p4, p5, p6, p7
+    )
+
+
   // TODO: Higher arities

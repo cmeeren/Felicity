@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.5 (2021-01-25)
+
+* Added higher-arity request parser overloads
+
 ### 0.14.4 (2020-11-26)
 
 * Now supports taking multiple locks per resource (see documentation)
