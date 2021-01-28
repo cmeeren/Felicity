@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.7 (2021-01-28)
+
+* Added `SetOrder` method to all fields to allow specifying the order in which fields should be set during POST collection and PATCH resource requests
+
 ### 0.14.6 (2021-01-25)
 
 * Added `AsNonNullable` and `AsNonNullableOptional` to nullable attributes to require a non-null value in request parsing

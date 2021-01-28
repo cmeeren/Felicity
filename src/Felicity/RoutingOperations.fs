@@ -109,6 +109,7 @@ module internal RoutingOperations =
             Some {
               new FieldSetter<'ctx> with
                 member _.Name = "constraints"
+                member _.SetOrder = 0
                 member _.Set ctx req e =
                   match req.Document.Value with
                   | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey "constraints" ->
@@ -120,6 +121,7 @@ module internal RoutingOperations =
       resourceModule.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
       |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<FieldSetter<'ctx>>)
       |> Array.append (constraintsField |> Option.toArray)
+      |> Array.sortBy (fun f -> f.SetOrder)
 
     fun ctx req consumedFields entity ->
       job {

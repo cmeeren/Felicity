@@ -147,6 +147,7 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 
 type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
+  setOrder: int
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
@@ -167,6 +168,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   static member internal Create (name: string, resolveEntity, resolveId, idParsers) : ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
+      setOrder = 0
       resolveEntity = resolveEntity
       resolveId = resolveId
       idParsers = idParsers
@@ -256,6 +258,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   interface FieldSetter<'ctx> with
     member this.Name = this.name
+    member this.SetOrder = this.setOrder
     member this.Set ctx req entity =
       job {
         match req.Document.Value with
@@ -483,6 +486,13 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
 
   member this.Name = this.name
+
+  /// Specify the order in which this field will be set relative to other fields during
+  /// POST collection and PATCH resource requests. By default, all fields have SetOrder =
+  /// 0. Negative numbers are allowed. The order of fields with identical SetOrder is
+  /// unspecified.
+  member this.SetOrder (i: int) =
+    { this with setOrder = i }
 
   member this.GetJobSkip(get: Func<'ctx, 'entity, Job<'relatedEntity Skippable>>) =
     if this.resolveEntity.IsNone then
@@ -1055,6 +1065,7 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 
 type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
+  setOrder: int
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
@@ -1075,6 +1086,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   static member internal Create (name: string, resolveEntity, resolveId, idParsers) : ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
+      setOrder = 0
       resolveEntity = resolveEntity
       resolveId = resolveId
       idParsers = idParsers
@@ -1170,6 +1182,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
   interface FieldSetter<'ctx> with
     member this.Name = this.name
+    member this.SetOrder = this.setOrder
     member this.Set ctx req entity =
       job {
         match req.Document.Value with
@@ -1408,6 +1421,13 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 
 
   member this.Name = this.name
+
+  /// Specify the order in which this field will be set relative to other fields during
+  /// POST collection and PATCH resource requests. By default, all fields have SetOrder =
+  /// 0. Negative numbers are allowed. The order of fields with identical SetOrder is
+  /// unspecified.
+  member this.SetOrder (i: int) =
+    { this with setOrder = i }
 
   member this.GetJobSkip(get: Func<'ctx, 'entity, Job<'relatedEntity option Skippable>>) =
     if this.resolveEntity.IsNone then
@@ -2048,6 +2068,7 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 
 type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
+  setOrder: int
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
@@ -2074,6 +2095,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   static member internal Create(name: string, resolveEntity, resolveId, idParsers) : ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
+      setOrder = 0
       resolveEntity = resolveEntity
       idParsers = idParsers
       resolveId = resolveId
@@ -2182,6 +2204,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
   interface FieldSetter<'ctx> with
     member this.Name = this.name
+    member this.SetOrder = this.setOrder
     member this.Set ctx req entity =
       job {
         match req.Document.Value with
@@ -2437,6 +2460,13 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 
 
   member this.Name = this.name
+
+  /// Specify the order in which this field will be set relative to other fields during
+  /// POST collection and PATCH resource requests. By default, all fields have SetOrder =
+  /// 0. Negative numbers are allowed. The order of fields with identical SetOrder is
+  /// unspecified.
+  member this.SetOrder (i: int) =
+    { this with setOrder = i }
 
   member this.GetJobSkip(get: Func<'ctx, 'entity, Job<'relatedEntity list Skippable>>) =
     if this.resolveEntity.IsNone then

@@ -21,6 +21,7 @@ type internal ConstrainedField<'ctx> =
 
 type internal FieldSetter<'ctx> =
   abstract Name: FieldName
+  abstract SetOrder: int
   abstract Set: 'ctx -> Request -> BoxedEntity -> Job<Result<BoxedEntity, Error list>>
 
 
@@ -32,6 +33,7 @@ type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
 
 type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   name: string
+  setOrder: int
   fromDomain: 'attr -> 'serialized
   toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Job<'attr Skippable>) option
@@ -43,6 +45,7 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   static member internal Create(name: string, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> =
     {
       name = name
+      setOrder = 0
       fromDomain = fromDomain
       toDomain = toDomain
       get = None
@@ -53,6 +56,7 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
   interface FieldSetter<'ctx> with
     member this.Name = this.name
+    member this.SetOrder = this.setOrder
     member this.Set ctx req entity =
       job {
         match req.Document.Value with
@@ -143,6 +147,13 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
 
   member this.Name = this.name
+
+  /// Specify the order in which this field will be set relative to other fields during
+  /// POST collection and PATCH resource requests. By default, all fields have SetOrder =
+  /// 0. Negative numbers are allowed. The order of fields with identical SetOrder is
+  /// unspecified.
+  member this.SetOrder (i: int) =
+    { this with setOrder = i }
 
   member this.GetJobSkip (get: Func<'ctx, 'entity, Job<'attr Skippable>>) =
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
@@ -246,6 +257,7 @@ module NonNullableAttributeExtensions =
 
 type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   name: string
+  setOrder: int
   fromDomain: 'attr -> 'serialized
   toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Job<'attr option Skippable>) option
@@ -257,6 +269,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   static member internal Create(name: string, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'entity, 'attr, 'serialized> =
     {
       name = name
+      setOrder = 0
       fromDomain = fromDomain
       toDomain = toDomain
       get = None
@@ -273,6 +286,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
   interface FieldSetter<'ctx> with
     member this.Name = this.name
+    member this.SetOrder = this.setOrder
     member this.Set ctx req entity =
       job {
         match req.Document.Value with
@@ -396,6 +410,13 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 
 
   member this.Name = this.name
+
+  /// Specify the order in which this field will be set relative to other fields during
+  /// POST collection and PATCH resource requests. By default, all fields have SetOrder =
+  /// 0. Negative numbers are allowed. The order of fields with identical SetOrder is
+  /// unspecified.
+  member this.SetOrder (i: int) =
+    { this with setOrder = i }
 
   member this.GetJobSkip (get: Func<'ctx, 'entity, Job<'attr option Skippable>>) =
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
