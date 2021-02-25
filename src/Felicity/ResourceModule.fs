@@ -354,13 +354,13 @@ let private ensureHasModifyingOperationsIfPreconditionsDefined<'ctx> (m: Type) =
         match x.GetValue(null) with
         | :? PatchOperation<'ctx> -> true
         | :? DeleteOperation<'ctx> -> true
-        | :? CustomOperation<'ctx> as op -> op.Post.IsSome || op.Patch.IsSome || op.Delete.IsSome
-        | :? RelationshipHandlers<'ctx> as op -> op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome
+        | :? CustomOperation<'ctx> as op -> op.HasModifyingOperations
+        | :? RelationshipHandlers<'ctx> as op -> op.IsSettable
         | _ -> false
     )
     |> function
         | true -> ()
-        | false -> failwithf "Resource module '%s' contains a precondition definition that is unused because the module contains no resource setters" m.Name
+        | false -> failwithf "Resource module '%s' contains a precondition definition that is unused because the module contains no resource setters or other modifying operations" m.Name
 
 
 let private ensureNoRelLinkNameCollisions<'ctx> m =

@@ -31,6 +31,7 @@ type Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
 type internal RelationshipHandlers<'ctx> =
   abstract Name: string
   abstract IsToMany: bool
+  abstract IsSettable: bool
   abstract IsSettableButNotGettable: bool
   abstract IsSettableWithoutPersist: bool
   abstract GetRelated: ('ctx -> Request -> BoxedEntity -> ResponseBuilder<'ctx> -> HttpHandler) option
@@ -348,6 +349,8 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     member this.Name = this.name
 
     member _.IsToMany = false
+
+    member this.IsSettable = this.set.IsSome
 
     member this.IsSettableButNotGettable = this.set.IsSome && this.get.IsNone
 
@@ -1276,6 +1279,8 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     
     member _.IsToMany = false
     
+    member this.IsSettable = this.set.IsSome
+
     member this.IsSettableButNotGettable = this.set.IsSome && this.get.IsNone
 
     member this.IsSettableWithoutPersist = this.set.IsSome && this.afterModifySelf.IsNone
@@ -2382,6 +2387,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     member this.Name = this.name
     
     member _.IsToMany = true
+
+    member this.IsSettable = this.setAll.IsSome || this.add.IsSome || this.remove.IsSome
 
     member this.IsSettableButNotGettable = this.setAll.IsSome && this.get.IsNone
 

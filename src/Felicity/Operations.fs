@@ -1003,6 +1003,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
 type internal CustomOperation<'ctx> =
   abstract Name: LinkName
+  abstract HasModifyingOperations: bool
   abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Job<(string option * Map<string, obj> option)>
   abstract Get: ('ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Post: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
@@ -1056,6 +1057,9 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
   interface CustomOperation<'originalCtx> with
     member this.Name = this.name
+
+    member this.HasModifyingOperations =
+      this.post.IsSome || this.patch.IsSome || this.delete.IsSome
 
     member this.HrefAndMeta ctx selfUrl entity =
       job {

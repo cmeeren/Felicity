@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.8 (2021-02-25)
+
+* Improved certain error messages
+
 ### 0.14.7 (2021-01-28)
 
 * Added `SetOrder` method to all fields to allow specifying the order in which fields should be set during POST collection and PATCH resource requests
