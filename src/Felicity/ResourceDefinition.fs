@@ -28,6 +28,11 @@ type internal CustomLockSpec<'ctx> = {
 }
 
 
+type internal CustomResourceCreationLockSpec<'ctx> = {
+  CustomLock: 'ctx -> Task<IDisposable option>
+}
+
+
 type internal OtherLockSpec<'ctx> = {
   GetOtherIdFromThisId: 'ctx -> ResourceId -> Job<ResourceId option>
   GetOtherIdFromRelationship: 'ctx -> Request -> Job<ResourceId option>
@@ -38,6 +43,7 @@ type internal OtherLockSpec<'ctx> = {
 and internal LockSpecification<'ctx> =
   | Felicity of FelicityLockSpec<'ctx>
   | Custom of CustomLockSpec<'ctx>
+  | CustomResourceCreation of CustomResourceCreationLockSpec<'ctx>
   | Other of OtherLockSpec<'ctx>
 
 
@@ -105,6 +111,12 @@ module internal LockSpecification =
             match! lockSpec.CustomLock ctx resId with
             | Some lock -> state.AddLock lock
             | None -> state.SetTimedOut ()
+      | CustomResourceCreation lockSpec, None ->
+          if not state.TimedOut then
+            match! lockSpec.CustomLock ctx with
+            | Some lock -> state.AddLock lock
+            | None -> state.SetTimedOut ()
+      | CustomResourceCreation _, Some _ -> ()
       | Other lockSpec, resId ->
           if not state.TimedOut then
             let! otherId =
@@ -223,6 +235,9 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
           }
     }
 
+  member private _.CreateCustomResourceCreationLockSpec(getLock: 'ctx -> Task<IDisposable option>) =
+    CustomResourceCreation { CustomLock = getLock }
+
   member private this.CreateOtherLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     Other {
       GetOtherIdFromThisId =
@@ -259,61 +274,125 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     if hasFelicityLockSpec then failwith "Cannot call multiple built-in locks using Lock()"
     { this with lockSpecs = this.lockSpecs @ [this.CreateFelicityLockSpec(?timeout=timeout)] }
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Job<IDisposable option>) =
     { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(fun ctx id -> getLock ctx id |> Job.startAsTask)] }
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'id -> Job<IDisposable option>) =
     this.CustomLock(fun _ id -> getLock id)
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Task<IDisposable option>) =
     { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(getLock)] }
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'id -> Task<IDisposable option>) =
     this.CustomLock(fun _ id -> getLock id)
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Async<IDisposable option>) =
     this.CustomLock(fun ctx id -> getLock ctx id |> Async.StartAsTask)
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'id -> Async<IDisposable option>) =
     this.CustomLock(fun _ id -> getLock id |> Async.StartAsTask)
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> IDisposable option) =
     this.CustomLock(fun ctx id -> getLock ctx id |> Task.FromResult)
 
-  /// Lock this resource for the entirety of all modification operations to ensure there
-  /// are no concurrent updates, using an external lock mechanism. The getLock function
-  /// is passed the resource ID, and should return None if the lock times out, or Some
-  /// with an IDisposable that releases the lock when disposed.
+  /// Lock this resource for the entirety of all modification operations except resource
+  /// creation (POST) to ensure there are no concurrent updates, using an external lock
+  /// mechanism. The getLock function is passed the resource ID, and should return None if
+  /// the lock times out, or Some with an IDisposable that releases the lock when
+  /// disposed.
   member this.CustomLock(getLock: 'id -> IDisposable option) =
     this.CustomLock(fun _ id -> getLock id |> Task.FromResult)
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: 'ctx -> Job<IDisposable option>) =
+    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomResourceCreationLockSpec(fun ctx -> getLock ctx |> Job.startAsTask)] }
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: unit -> Job<IDisposable option>) =
+    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock () |> Job.startAsTask)
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: 'ctx -> Task<IDisposable option>) =
+    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomResourceCreationLockSpec(getLock)] }
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: unit -> Task<IDisposable option>) =
+    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock ())
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: 'ctx -> Async<IDisposable option>) =
+    this.CustomResourceCreationLock(fun ctx -> getLock ctx |> Async.StartAsTask)
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: unit -> Async<IDisposable option>) =
+    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock () |> Async.StartAsTask)
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: 'ctx -> IDisposable option) =
+    this.CustomResourceCreationLock(fun ctx -> getLock ctx |> Task.FromResult)
+
+  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
+  /// concurrent operations, using an external lock mechanism. The getLock function should
+  /// return None if the lock times out, or Some with an IDisposable that releases the
+  /// lock when disposed.
+  member this.CustomResourceCreationLock(getLock: unit -> IDisposable option) =
+    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock () |> Task.FromResult)
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.

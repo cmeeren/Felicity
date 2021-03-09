@@ -295,12 +295,31 @@ module H =
       .PostAsync(fun (MultiLockCtx (_, _, _, i)) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
+module I =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+  let resDef =
+    define.Resource("i", resId)
+      .CollectionName("is")
+      .CustomResourceCreationLock(fun () -> customLock (ResourceId ""))
+  let lookup = define.Operation.Lookup(ResourceId.value >> Some)
+
+  let get = define.Operation.GetResource()
+
+  let post =
+    define.Operation
+      .Post(fun (Ctx i) -> i := !i + 1; "")
+      .AfterCreate(ignore)
+
+
+
 
 [<PTests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
 let tests =
   testSequenced <| testList "Resource locking" [
 
-    testJob "Unlocked resources are not thread safe" {
+    testJob "Unlocked resources are not thread-safe" {
       let i = ref 0
       let ctx = Ctx i
       do!
@@ -780,6 +799,22 @@ let tests =
       test <@ state2.IsLocked = false @>
       test <@ state3.LockTaken = false @>
       test <@ state3.IsLocked = false @>
+    }
+
+    testJob "POST collection is thread-safe with CustomResourceCreationLock" {
+      let i = ref 0
+      let ctx = Ctx i
+      let testClient = startTestServer ctx
+      do!
+        Request.createWithClient testClient Post (Uri("http://example.com/is"))
+        |> Request.bodySerialized {| data = {| ``type`` = "i" |} |}
+        |> Request.jsonApiHeaders
+        |> getResponse
+        |> Array.replicate 1000
+        |> Array.map Job.toAsync
+        |> Async.Parallel
+        |> Async.Ignore<Response []>
+      test <@ !i = 1000 @>
     }
 
   ]
