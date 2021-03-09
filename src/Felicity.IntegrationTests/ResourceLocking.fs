@@ -312,6 +312,11 @@ module I =
       .Post(fun (Ctx i) -> i := !i + 1; "")
       .AfterCreate(ignore)
 
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
+
 
 
 
@@ -815,6 +820,22 @@ let tests =
         |> Async.Parallel
         |> Async.Ignore<Response []>
       test <@ !i = 1000 @>
+    }
+
+    testJob "Non-creation operations are not thread-safe with CustomResourceCreationLock" {
+      let i = ref 0
+      let ctx = Ctx i
+      let testClient = startTestServer ctx
+      do!
+        Request.createWithClient testClient Post (Uri("http://example.com/is/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+        |> Array.replicate 1000
+        |> Array.map Job.toAsync
+        |> Async.Parallel
+        |> Async.Ignore<Response []>
+      test <@ !i > 0 @>
+      test <@ !i < 1000 @>
     }
 
   ]
