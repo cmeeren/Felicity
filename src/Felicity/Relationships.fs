@@ -366,7 +366,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             job {
               let entity = unbox<'entity> entity
               match! getRelated ctx entity with
-              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
               | Include relatedEntity ->
                   let b = resolveEntity relatedEntity
                   let! doc = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
@@ -389,7 +389,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             job {
               let entity = unbox<'entity> entity
               match! getRelated ctx entity with
-              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
               | Include relatedEntity ->
                   let b = resolveEntity relatedEntity
                   let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
@@ -465,7 +465,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                         | Skip ->
                                             let logger = httpCtx.GetLogger("Felicity.Relationships")
                                             logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                            return! handleErrors [relModifySelfWhileSkip] next httpCtx
+                                            return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
                                         | Include relatedEntity ->
                                             let b = resolveEntity relatedEntity
                                             let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
@@ -1295,7 +1295,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
             job {
               let entity = unbox<'entity> entity
               match! getRelated ctx entity with
-              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
               | Include relatedEntity ->
                   let! doc = resp.WriteOpt httpCtx ctx req (relatedEntity |> Option.map (fun e ->
                     let b = resolveEntity e
@@ -1320,7 +1320,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
             job {
               let entity = unbox<'entity> entity
               match! getRelated ctx entity with
-              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
               | Include relatedEntity ->
                   let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
                   let doc : ResourceIdentifierDocument = {
@@ -1399,7 +1399,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
                                     | Skip ->
                                         let logger = httpCtx.GetLogger("Felicity.Relationships")
                                         logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                        return! handleErrors [relModifySelfWhileSkip] next httpCtx
+                                        return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
                                     | Include relatedEntity ->
                                         let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
                                         let doc : ResourceIdentifierDocument = {
@@ -2359,7 +2359,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                                   | Skip ->
                                       let logger = httpCtx.GetLogger("Felicity.Relationships")
                                       logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                      return! handleErrors [relModifySelfWhileSkip] next httpCtx
+                                      return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
                                   | Include relatedEntities ->
                                       let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
                                       let doc : ResourceIdentifierCollectionDocument = {
@@ -2404,11 +2404,11 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             job {
               // TODO: Support 'sort' query parameter
               if httpCtx.TryGetQueryStringValue "sort" |> Option.isSome then
-                return! handleErrors [sortNotSupported] next httpCtx
+                return! handleErrors [sortNotSupported ()] next httpCtx
               else
                 let entity = unbox<'entity> entity
                 match! getRelated ctx entity with
-                | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+                | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
                 | Include relatedEntities ->
                     let! doc = resp.WriteList httpCtx ctx req (relatedEntities |> List.map (fun e ->
                       let b = resolveEntity e
@@ -2433,7 +2433,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             job {
               let entity = unbox<'entity> entity
               match! getRelated ctx entity with
-              | Skip -> return! handleErrors [getRelWhileSkip] next httpCtx
+              | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
               | Include relatedEntities ->
                   let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
                   let doc : ResourceIdentifierCollectionDocument = {

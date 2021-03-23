@@ -153,7 +153,7 @@ module internal LockSpecification =
       with ex ->
         (state :> IDisposable).Dispose ()
         return ex.Reraise ()
-      return if state.TimedOut then Error [lockTimeout] else Ok state
+      return if state.TimedOut then Error [lockTimeout ()] else Ok state
     }
 
 

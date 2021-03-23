@@ -215,7 +215,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok (_, queryNames, entities) ->
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
-                  | Some _, false -> return! handleErrors [sortNotSupported] next httpCtx
+                  | Some _, false -> return! handleErrors [sortNotSupported ()] next httpCtx
                   | _ -> 
                       let! doc = resp.WriteList httpCtx ctx req (entities |> List.map (fun e -> resDef, e))
                       let handler =
@@ -266,7 +266,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok (_, queryNames, entities) ->
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
-                  | Some _, false -> return! handleErrors [sortNotSupported] next httpCtx
+                  | Some _, false -> return! handleErrors [sortNotSupported ()] next httpCtx
                   | _ -> 
                       let! doc = resp.WriteList httpCtx ctx req (entities |> List.map this.getPolyBuilder |> List.map (fun b -> b.resourceDef, b.entity))
                       let handler =
@@ -1114,10 +1114,10 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     this.ConditionJobRes(Job.liftFunc predicate)
 
   member this.Condition(predicate: Func<'ctx, 'entity, bool>) =
-    this.ConditionJobRes(fun ctx e -> (if predicate.Invoke(ctx, e) then Ok () else Error [customOpConditionFalse]) |> Job.result)
+    this.ConditionJobRes(fun ctx e -> (if predicate.Invoke(ctx, e) then Ok () else Error [customOpConditionFalse ()]) |> Job.result)
 
   member this.Condition(predicate: Func<'entity, bool>) =
-    this.ConditionJobRes(fun _ e -> (if predicate.Invoke e then Ok () else Error [customOpConditionFalse]) |> Job.result)
+    this.ConditionJobRes(fun _ e -> (if predicate.Invoke e then Ok () else Error [customOpConditionFalse ()]) |> Job.result)
 
   member this.AddMeta(key: string, getValue: 'ctx -> 'entity -> 'a, ?condition: 'ctx -> 'entity -> bool) =
     let condition = defaultArg condition (fun _ _ -> true)
@@ -1273,7 +1273,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     this.ForContextJobRes(Job.liftAsync mapCtx)
 
   member this.ForContextJobOpt (mapCtx: 'originalCtx -> Job<'mappedCtx option>) =
-    this.ForContextJobRes(mapCtx >> Job.map (Result.requireSome [opMapCtxFailedNone]))
+    this.ForContextJobRes(mapCtx >> Job.map (Result.requireSome [opMapCtxFailedNone ()]))
 
   member this.ForContextAsyncOpt (mapCtx: 'originalCtx -> Async<'mappedCtx option>) =
     this.ForContextJobOpt(Job.liftAsync mapCtx)

@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.10 (2021-03-23)
+
+* Fixed some internal errors being returned with the same error `id` for each occurrence
+
 ### 0.14.9 (2021-03-09)
 
 * Add `CustomResourceCreationLock` to support custom locking of resource creation operation (like `POST /articles`). This complements the existing `CustomLock`, which locks everything except resource creation.

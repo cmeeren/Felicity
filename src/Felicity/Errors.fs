@@ -4,12 +4,12 @@
    * Any request: Negotiation and basic request validation
   *)
 
-  let invalidAccept =
+  let invalidAccept () =
     Error.create 406
     |> Error.setTitle "Invalid Accept header"
     |> Error.setDetailf "The client must accept the JSON:API media type (%s)" Constants.jsonApiMediaType
 
-  let invalidAcceptParams =
+  let invalidAcceptParams () =
     // "Servers MUST respond with a 406 Not Acceptable status code if a request’s Accept
     // header contains the JSON:API media type and all instances of that media type are
     // modified with media type parameters."
@@ -17,12 +17,12 @@
     |> Error.setTitle "Invalid JSON:API Accept params"
     |> Error.setDetail "The JSON:API media type in the Accept header must not be modified with media type parameters"
 
-  let invalidContentType =
+  let invalidContentType () =
     Error.create 415
     |> Error.setTitle "Invalid content type"
     |> Error.setDetailf "Request content must be sent with Content-Type set to the JSON:API media type (%s)" Constants.jsonApiMediaType
 
-  let invalidContentTypeParams =
+  let invalidContentTypeParams () =
     // "Servers MUST respond with a 415 Unsupported Media Type status code if a request
     // specifies the header Content-Type: application/vnd.api+json with any media type
     // parameters."
@@ -41,12 +41,12 @@
    * Any request: Misc.
   *)
 
-  let unknownError =
+  let unknownError () =
     Error.create 500
     |> Error.setTitle "Unknown error"
     |> Error.setDetail "An unknown error has occurred"
 
-  let opMapCtxFailedNone =
+  let opMapCtxFailedNone () =
     Error.create 403
     |> Error.setTitle "Operation not available"
     |> Error.setDetail "This operation is currently not available"
@@ -73,7 +73,7 @@
     |> Error.setTitle "Precondition failed"
     |> Error.setDetail msg
 
-  let lockTimeout =
+  let lockTimeout () =
     Error.create 503
     |> Error.setTitle "Resource lock timeout"
     |> Error.setDetailf "Timed out waiting for the completion of other operations on the requested resource"
@@ -237,7 +237,7 @@
        | xs -> Error.setDetailf "Value '%s' is not valid for attribute '%s'; expected one of %s" invalidValue attrName (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
 
   // Must also make sense when used in a filter query parameter
-  let idInvalidParsedNone =
+  let idInvalidParsedNone () =
     Error.create 400
     |> Error.setTitle "Invalid ID"
     |> Error.setDetail "This is not a valid value for this resource ID"
@@ -390,7 +390,7 @@
     |> Error.setTitle "GET collection not allowed"
     |> Error.setDetailf "Collection '%s' does not support fetching resources" collName
 
-  let sortNotSupported =
+  let sortNotSupported () =
     // "If the server does not support sorting as specified in the query parameter sort,
     // it MUST return 400 Bad Request."
     Error.create 400
@@ -556,7 +556,7 @@
     |> Error.setTitle "GET relationship not supported"
     |> Error.setDetailf "Relationship '%s' is not readable for any resource in collection '%s'" relName collName
 
-  let getRelWhileSkip =
+  let getRelWhileSkip () =
     Error.create 403
     |> Error.setTitle "No relationship value"
     |> Error.setDetail "The server has chosen not to disclose the value of this relationship"
@@ -710,7 +710,7 @@
     |> Error.setDetail "The related resource does not exist"
     |> Error.setSourcePointer pointer
 
-  let relModifySelfWhileSkip =
+  let relModifySelfWhileSkip () =
     Error.create 500
     |> Error.setTitle "No relationship value"
     |> Error.setDetail "The relationship was updated, but the server has erroneously chosen not to disclose the value of the updated relationship"
@@ -720,7 +720,7 @@
    * Custom operations (links)
   *)
 
-  let customOpConditionFalse =
+  let customOpConditionFalse () =
     Error.create 403
     |> Error.setTitle "Operation not available"
     |> Error.setDetail "This operation is currently not available"

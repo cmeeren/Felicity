@@ -120,4 +120,4 @@ module HttpHandlers =
     handleErrors errors
 
   let returnUnknownError : HttpHandler =
-    returnErrorDocument [unknownError]
+    returnErrorDocument [unknownError ()]

@@ -37,10 +37,10 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
 
       let errs =
         [
-          if not <| RequestValidation.acceptsJsonApi httpCtx then invalidAccept
-          if RequestValidation.hasNonJsonApiContent httpCtx then invalidContentType
-          if RequestValidation.allJsonApiAcceptsHaveParams httpCtx then invalidAcceptParams
-          if RequestValidation.jsonApiContentTypeHasParams httpCtx then invalidContentTypeParams
+          if not <| RequestValidation.acceptsJsonApi httpCtx then invalidAccept ()
+          if RequestValidation.hasNonJsonApiContent httpCtx then invalidContentType ()
+          if RequestValidation.allJsonApiAcceptsHaveParams httpCtx then invalidAcceptParams ()
+          if RequestValidation.jsonApiContentTypeHasParams httpCtx then invalidContentTypeParams ()
 
           match RequestValidation.getIllegalQueryStringParams httpCtx with
           | [] -> ()
