@@ -130,7 +130,11 @@ let jsonApiHandler (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collec
                     |> String.concat ", "
 
                   fun next (httpCtx: HttpContext) ->
-                    let method = httpCtx.Request.Method
+                    let method =
+                      httpCtx.Request
+                      |> Option.ofObj
+                      |> Option.map (fun r -> r.Method)
+                      |> Option.defaultValue "<none>"
                     handleErrors [methodNotAllowed method allowedMethods] next httpCtx
                 ]
 
