@@ -16,6 +16,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
   baseUrl: string option
   relativeJsonApiRoot: string option
   getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
+  getMeta: 'ctx -> Map<string, obj>
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
 } with
 
@@ -24,6 +25,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     baseUrl = None
     relativeJsonApiRoot = None
     getCtx = None
+    getMeta = fun _ -> Map.empty
     configureSerializerOptions = None
   }
 
@@ -77,6 +79,9 @@ type JsonApiConfigBuilder<'ctx> = internal {
 
   member this.GetCtx(getCtx: HttpContext -> 'ctx) : JsonApiConfigBuilder<'ctx> =
     this.GetCtxJobRes(JobResult.lift getCtx)
+
+  member this.GetMeta(getMeta: 'ctx -> Map<string, obj>) : JsonApiConfigBuilder<'ctx> =
+    { this with getMeta = getMeta }
 
   member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> =
     { this with configureSerializerOptions = Some configure }
@@ -182,6 +187,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
       .AddSingleton<Serializer<'ctx>>(Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<Serializer<ErrorSerializerCtx>>(Serializer<ErrorSerializerCtx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
+      .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
     
   
 

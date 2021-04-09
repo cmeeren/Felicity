@@ -98,3 +98,8 @@ type internal Field<'ctx> =
   abstract Name: string
 
 type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> BoxedEntity -> Job<Result<BoxedEntity, Error list>>
+
+
+
+type internal MetaGetter<'ctx> (getMeta: 'ctx -> Map<string, obj>) =
+  member _.GetMeta ctx = getMeta ctx

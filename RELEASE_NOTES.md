@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.11 (2021-04-09)
+
+* Added possibility of supplying response-level meta by using `GetMeta` in `AddJsonApi` in startup code. This lets you specify a function `'ctx -> Map<obj, string>`, with the implication that `'ctx` should be mutable and the meta added during the request processing.
+
 ### 0.14.10 (2021-03-23)
 
 * Fixed some internal errors being returned with the same error `id` for each occurrence

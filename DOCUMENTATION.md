@@ -181,6 +181,14 @@ type Startup() =
       .UseGiraffe(mainHandler)
 ```
 
+#### Top-level meta
+
+You can return top-level meta for any response. To enable this, use the `.GetMeta` method after `.AddJsonApi()`. This lets you specify a function `'ctx -> Map<string, obj>`, where the map will be serialized as the response document’s top-level `meta`.
+
+This implies that `'ctx` should be mutable. You set the appropriate field(s) on `'ctx` during the request processing, and your function is called before writing the response to add `meta` to the document.
+
+Meta is only returned for success responses. If the map is empty, `meta` is omitted from the response.
+
 #### Base URLs
 
 JSON:API responses contain resource/relationship links. By default, Felicity infers these links from the HTTP request. For example, if your API is available both on `https://example.com` and `https://something-else.com`, then `GET https://example.com/articles` will return resources with `example.com` in their links, and for `GET https://something-else.com/articles` the resources will have `something-else.com` in their links.
