@@ -398,8 +398,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     if getOtherIdForResourceOperation.IsNone && relationshipForPostOperation.IsNone then
       failwithf "At least one of 'getOtherIdForResourceOperation' and 'relationshipForPostOperation' must be specified in call to LockOther for resource '%s'" this.name
@@ -413,8 +412,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
@@ -426,8 +424,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> Async<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
@@ -438,8 +435,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Async<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
@@ -450,8 +446,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
@@ -462,8 +457,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
@@ -474,8 +468,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
@@ -486,8 +479,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// on this resource to ensure there are no concurrent updates to the other resource.
   /// POST operations will only be locked if relationshipForPostOperation is specified.
   /// Any other operation will only be locked if getOtherIdForResourceOperation is
-  /// specified. If a lock can not be acquired after the specified timeout (default 10
-  /// seconds), an error will be returned.
+  /// specified.
   member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     this.LockOther(
       resDef,
