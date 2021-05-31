@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.12 (2021-05-31)
+
+* Relationship links are on longer present on resources with collection names but not GET resource operations
+
 ### 0.14.11 (2021-04-09)
 
 * Added possibility of supplying response-level meta by using `GetMeta` in `AddJsonApi` in startup code. This lets you specify a function `'ctx -> Map<obj, string>`, with the implication that `'ctx` should be mutable and the meta added during the request processing.

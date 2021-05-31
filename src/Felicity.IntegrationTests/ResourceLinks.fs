@@ -12,6 +12,7 @@ type A = A
 type B = B
 type C = C
 type X = X
+type Y = Y
 
 
 module A =
@@ -19,8 +20,6 @@ module A =
   let define = Define<Ctx, A, string>()
   let resId = define.Id.Simple(fun _ -> "someId")
   let resDef = define.Resource("a", resId)
-  // Include relationships to ensure that we can generate relationships correctly for
-  // related resources without collection names
   let toOne = define.Relationship.ToOne(resDef).Get(fun _ _ -> A)
   let toOneNullable = define.Relationship.ToOneNullable(resDef).Get(fun _ _ -> Some A)
   let toMany = define.Relationship.ToMany(resDef).Get(fun _ _ -> [A])
@@ -72,6 +71,17 @@ module X =
   let relToManyGetRemove = define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used").Remove(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
 
+module Y =
+
+  let define = Define<Ctx, Y, string>()
+  let resId = define.Id.Simple(fun _ -> "someId")
+  let resDef = define.Resource("y", resId).CollectionName("ys")
+  let getColl = define.Operation.GetCollection(fun () -> [Y])
+  let toOne = define.Relationship.ToOne(resDef).Get(fun _ _ -> Y)
+  let toOneNullable = define.Relationship.ToOneNullable(resDef).Get(fun _ _ -> Some Y)
+  let toMany = define.Relationship.ToMany(resDef).Get(fun _ _ -> [Y])
+
+
 
 
 [<Tests>]
@@ -103,16 +113,16 @@ let tests =
       test <@ json |> getPath "included[0].links.self" = "http://example.com/cs/someId" @>
     }
 
-    // Apart from requiring a collection name, relationship getter is both a necessary
-    // and sufficient condition for relationship self/related links:
+    // Apart from requiring a resource get operation, a relationship getter is both a
+    // necessary and sufficient condition for relationship self/related links:
     // - Necessary, because any operation on related/self requires getter
     //   (PATCH/POST/DELETE self also requires getter for proper response)
     // - Sufficient, because as long as it has a getter, you should be able to retrieve
     //   the relationship data through the related/self links
     //
-    // The collection name is a necessary additional condition because a relationship
-    // getter may be defined without a collection name, meaning that the relationship
-    // value may only be obtained through includes.
+    // The resource get operation is a necessary additional condition because a
+    // relationship getter may be defined without a resource getter, meaning that the
+    // relationship value may only be obtained through includes.
 
     testJob "To-one relationship self/related link should be present iff relationship has getter" {
       let! response = Request.get Ctx "/xs" |> getResponse
@@ -186,6 +196,18 @@ let tests =
       test <@ json |> hasPath "included[0].relationships.toOneNullable.data" @>
       test <@ json |> hasNoPath "included[0].relationships.toMany.links" @>
       test <@ json |> hasPath "included[0].relationships.toMany.data" @>
+    }
+
+    testJob "Relationships are present with data and not links if the resource has a collection name but not a get operation and the relationship is included" {
+      let! response = Request.get Ctx "/ys?include=toOne,toOneNullable,toMany" |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> hasPath "data[0].relationships.toOne.data" @>
+      test <@ json |> hasNoPath "data[0].relationships.toOne.links" @>
+      test <@ json |> hasPath "data[0].relationships.toOneNullable.data" @>
+      test <@ json |> hasNoPath "data[0].relationships.toOneNullable.links" @>
+      test <@ json |> hasPath "data[0].relationships.toMany.data" @>
+      test <@ json |> hasNoPath "data[0].relationships.toMany.links" @>
     }
 
     // Links for custom operations are tested together with other custom operation tests

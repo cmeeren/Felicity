@@ -8,7 +8,6 @@ open Hopac
 type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
 
   let identifier = { ``type`` = resourceDef.TypeName; id = resourceDef.GetIdBoxed entity }
-  let selfUrlOpt = resourceDef.CollectionName |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + identifier.id)
 
   let shouldUseField fieldName =
     match req.Fieldsets.TryFind resourceDef.TypeName with
@@ -25,6 +24,11 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     resourceModuleMap
     |> Map.tryFind resourceDef.TypeName
     |> Option.defaultWith (fun () -> failwithf "Framework bug: Attempted to build resource '%s', but no resource module was found" resourceDef.TypeName)
+
+  let selfUrlOpt =
+    resourceDef.CollectionName
+    |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + identifier.id)
+    |> Option.filter (fun _ -> ResourceModule.hasGetResourceOperation<'ctx> resourceModule)
 
   let constrainedFields = ResourceModule.constrainedFields<'ctx> resourceModule
 
@@ -249,8 +253,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               | hrefOpt, Some meta -> links |> Links.addOptWithMeta name hrefOpt meta
         )
         |> match selfUrlOpt with
-           | Some selfUrl when ResourceModule.hasGetResourceOperation<'ctx> resourceModule ->
-              Links.addOpt "self" (Some selfUrl)
+           | Some selfUrl -> Links.addOpt "self" (Some selfUrl)
            | _ -> id
     }
 
