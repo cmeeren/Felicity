@@ -3,7 +3,7 @@ Release notes
 
 ### 0.14.13 (2021-05-31)
 
-* Added missng method define.Resource.Polymorphic().ResolveId(), which is required when using the relationship’s `GetLinkageIfNotIncluded`.
+* Added missing method `define.Resource.Polymorphic().ResolveId()`, which is required when using `GetLinkageIfNotIncluded` with a polymorphic relationship.
 
 ### 0.14.12 (2021-05-31)
 
