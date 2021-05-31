@@ -3108,6 +3108,9 @@ type PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> = 
   member this.ResolveEntity(getPolyBuilder: 'relatedEntity -> PolymorphicBuilder<'ctx>) =
     { this with resolveEntity = Some getPolyBuilder }
 
+  member this.ResolveId(getResDef: 'relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) =
+    { this with resolveId = Some getResDef }
+
   member this.ToOne([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
 

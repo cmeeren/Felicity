@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.14.13 (2021-05-31)
+
+* Added missng method define.Resource.Polymorphic().ResolveId(), which is required when using the relationship’s `GetLinkageIfNotIncluded`.
+
 ### 0.14.12 (2021-05-31)
 
 * Relationship links are on longer present on resources with collection names but not GET resource operations

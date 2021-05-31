@@ -541,6 +541,8 @@ The above will make the `author` relationship always contain the `data` member w
 
 When you do this, you must ensure that the linkage is correct. It is possible to specify different linkage than would be present if the resource is included using `include`. This would be a bug in your API. (For the record, if the resource is included, the linkage specified in `GetLinkageIfNotIncluded` is ignored.)
 
+In order to use `GetLinkageIfNotIncluded` with polymorphic relationships, you must specify an ID resolver using `ResolveId` after `.Polymorphic()`.
+
 ### GET/PATCH/POST/DELETE relationship self
 
 Relationships have `self` links which support GET, PATCH, POST, and DELETE operations. As with other operations (detailed later), you can configure how these work.
