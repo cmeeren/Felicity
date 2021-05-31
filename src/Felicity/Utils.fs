@@ -6,7 +6,7 @@ open System.Collections.Concurrent
 open System.Threading
 open System.Threading.Tasks
 open System.Text.Json.Serialization
-open FSharp.Control.Tasks.V2.ContextInsensitive
+open FSharp.Control.Tasks
 open Hopac
 
 

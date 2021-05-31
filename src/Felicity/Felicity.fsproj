@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netcoreapp3.0</TargetFrameworks>
+    <TargetFrameworks>net5.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -13,7 +13,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.14.13</Version>
+    <Version>0.15.0</Version>
     <PackageReleaseNotes>https://github.com/cmeeren/Felicity/blob/master/RELEASE_NOTES.md</PackageReleaseNotes>
   </PropertyGroup>
 
@@ -55,18 +55,14 @@
     <Compile Include="IServiceCollectionExtensions.fs" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="System.Text.Json" Version="4.7.2" />
-  </ItemGroup>
-  
   <ItemGroup>
-    <PackageReference Include="FSharp.SystemTextJson" Version="0.15.14" />
-    <PackageReference Include="Giraffe" Version="4.1.0" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
+    <PackageReference Include="Giraffe" Version="5.0.0" />
     <PackageReference Include="Hopac" Version="0.5.0" />
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.7.1" />
+    <PackageReference Update="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
   
 </Project>

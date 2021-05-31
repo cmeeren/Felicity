@@ -2,7 +2,7 @@
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
   
@@ -46,11 +46,11 @@
     <PackageReference Include="Expecto" Version="9.0.2" />
     <PackageReference Include="Expecto.Hopac" Version="9.0.2" />
     <PackageReference Include="Http.fs" Version="5.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.8" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="Unquote" Version="5.0.0" />
-    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.9.2" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="5.0.6" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.10.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Unquote" Version="6.1.0" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.11.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -58,7 +58,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.7.1" />
+    <PackageReference Update="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
   
 </Project>

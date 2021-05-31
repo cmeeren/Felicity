@@ -3,7 +3,7 @@
 open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
-open FSharp.Control.Tasks.V2.ContextInsensitive
+open FSharp.Control.Tasks
 open Hopac
 open Giraffe
 open Errors

@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.15.0 (2021-05-31)
+
+* Updated for Giraffe 5.0. As a consequence, Felicity now only targets .NET 5.
+
 ### 0.14.13 (2021-05-31)
 
 * Added missing method `define.Resource.Polymorphic().ResolveId()`, which is required when using `GetLinkageIfNotIncluded` with a polymorphic relationship.

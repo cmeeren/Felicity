@@ -9,7 +9,7 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Primitives
 open Microsoft.Net.Http.Headers
 open Giraffe
-open FSharp.Control.Tasks.V2.ContextInsensitive
+open FSharp.Control.Tasks
 open Errors
 
 
@@ -44,7 +44,7 @@ module HttpHandlers =
           ctx.Response.StatusCode >= 200
           && ctx.Response.StatusCode < 300
           // Then validate preconditions, which sets ETag
-          && ctx.ValidatePreconditions (Some eTag) None = ResourceNotModified
+          && ctx.ValidatePreconditions(Some eTag, None) = ResourceNotModified
           // Method is checked last since ETag should be set regardless of method
           && (ctx.Request.Method = "GET" || ctx.Request.Method = "HEAD")
 
