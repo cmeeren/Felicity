@@ -3,7 +3,9 @@ Release notes
 
 ### 0.15.1 (2021-06-09)
 
-* Now allows using nullable relationships in `LockOther`
+* Now allows using nullable relationships in `LockOther`. Due to F# overload resolution
+  limitations, if your resource modules are recursive, you likely need to define the
+  relationships (whether nullable or not) above where you use them in `LockOther`.
 
 ### 0.15.0 (2021-05-31)
 
