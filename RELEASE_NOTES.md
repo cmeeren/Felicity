@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.15.1 (2021-06-09)
+
+* Now allows using nullable relationships in `LockOther`
+
 ### 0.15.0 (2021-05-31)
 
 * Updated for Giraffe 5.0. As a consequence, Felicity now only targets .NET 5.

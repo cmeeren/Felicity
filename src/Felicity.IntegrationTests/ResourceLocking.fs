@@ -78,6 +78,26 @@ module C =
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
+module C2 =
+
+  let define = Define<Ctx, string, string>()
+  let resId = define.Id.Simple(id)
+
+  let bNullable =
+    define.Relationship
+      .ToOneNullable(B.resDef)
+
+  let resDef =
+    define.Resource("c2", resId)
+      .CollectionName("c2s")
+      .LockOther(B.resDef, (fun _ -> None), bNullable)
+
+  let post =
+    define.Operation
+      .Post(fun (Ctx i) parser -> i := !i + 1; parser.For((fun _ -> ""), bNullable))
+      .AfterCreate(ignore)
+
+
 module D =
 
   let define = Define<Ctx, string, string>()
@@ -406,6 +426,42 @@ let tests =
         |> Async.Parallel
         |> Async.Ignore<Response []>
       test <@ !i = 1000 @>
+    }
+
+    testJob "Cross-locked resources are collectively thread-safe when using POST collection with nullable relationship" {
+      let i = ref 0
+      let ctx = Ctx i
+      let testClient = startTestServer ctx
+      do!
+        [|
+          Request.createWithClient testClient Post (Uri("http://example.com/c2s"))
+          |> Request.bodySerialized {| data = {| ``type``= "c2"; relationships = {| bNullable = {| data = {| ``type`` = "b"; id = "someId" |} |} |} |} |}
+        |]
+        |> Array.map (Request.jsonApiHeaders >> getResponse)
+        |> Array.replicate 1000
+        |> Array.collect id
+        |> Array.map Job.toAsync
+        |> Async.Parallel
+        |> Async.Ignore<Response []>
+      test <@ !i = 1000 @>
+    }
+
+    testJob "Cross-locked resources are not collectively thread-safe when using POST collection with nullable relationship set to null" {
+      let i = ref 0
+      let ctx = Ctx i
+      let testClient = startTestServer ctx
+      do!
+        [|
+          Request.createWithClient testClient Post (Uri("http://example.com/c2s"))
+          |> Request.bodySerialized {| data = {| ``type``= "c2"; relationships = {| bNullable = {| data = null |} |} |} |}
+        |]
+        |> Array.map (Request.jsonApiHeaders >> getResponse)
+        |> Array.replicate 1000
+        |> Array.collect id
+        |> Array.map Job.toAsync
+        |> Async.Parallel
+        |> Async.Ignore<Response []>
+      test <@ !i < 1000 @>
     }
 
     testJob "Locked resources return 503 if lock times out" {
