@@ -185,7 +185,7 @@ module internal RoutingOperations =
             let builder = responseBuilder resourceModuleMap getBaseUrl
             let prec =
               prec
-              |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
+              |> Option.defaultValue Preconditions.noop
             let patch =
               resourceModuleMap
               |> Map.tryFind resDef.TypeName
@@ -224,7 +224,7 @@ module internal RoutingOperations =
             let builder = responseBuilder resourceModuleMap getBaseUrl
             let prec =
               prec
-              |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
+              |> Option.defaultValue Preconditions.noop
             resDef.TypeName, fun ctx req entity -> op.Run resDef ctx req prec entity builder
         )
         |> dict
@@ -248,7 +248,7 @@ module internal RoutingOperations =
           opsAndResDefs
           |> Array.map (fun (op, preconditions, rDef) ->
               rDef.TypeName,
-              (op, preconditions |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }))
+              (op, preconditions |> Option.defaultValue Preconditions.noop))
           |> dict
         let builder = responseBuilder resourceModuleMap getBaseUrl
         let hasGetRelated = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.GetRelated.IsSome)
@@ -344,7 +344,7 @@ module internal RoutingOperations =
           |> Array.map (fun (op, prec, rDef) ->
               let prec =
                 prec
-                |> Option.defaultValue { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
+                |> Option.defaultValue Preconditions.noop
               rDef.TypeName, (op, prec))
           |> dict
         let getResponder ctx req = Responder(responseBuilder resourceModuleMap getBaseUrl, ctx, req)

@@ -1,5 +1,8 @@
 ﻿module ``POST collection backRef``
 
+open System
+open Microsoft.Net.Http.Headers
+open Giraffe
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote
@@ -13,6 +16,8 @@ type Child = {
 type Parent = {
   Id: string
   Children: Child list
+  LastModified: DateTimeOffset
+  ETag: string
 }
 
 
@@ -35,6 +40,8 @@ type Db () =
     {
       Id = "p1"
       Children = [ { Id = "c1" } ]
+      LastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+      ETag = "valid-etag"
     }
   ]
 
@@ -70,7 +77,6 @@ module rec ResourceModules =
     let parent =
       define.Relationship
         .ToOne(Parent.resDef)
-        //.Set(fun _ _ _ -> failwith "Should never be called")
 
     let post =
       define.Operation
@@ -146,6 +152,89 @@ module rec ResourceModules2 =
         .Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
 
+type Ctx3 = Ctx3
+
+
+module rec ResourceModulesPreconditions =
+
+  module Child =
+
+    let define = Define<Ctx3, Parent * Child, string>()
+    let resId = define.Id.Simple(fun (_, c) -> c.Id)
+    let resDef = define.Resource("child", resId).CollectionName("children")
+
+    let parent =
+      define.Relationship
+        .ToOne(Parent.resDef)
+
+    let post =
+      define.Operation
+        .PostBackRef(
+          parent.Related(Parent.lookup),
+          fun (ctx: Ctx3, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
+        )
+        .PeconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
+        .PeconditionsLastModified(fun (_, p) -> p.LastModified)
+        .AfterCreate(ignore)
+
+
+  module Parent =
+
+    let define = Define<Ctx3, Parent, string>()
+    let resId = define.Id.Simple(fun p -> p.Id)
+    let resDef = define.Resource("parent", resId).CollectionName("parents")
+    let lookup = define.Operation.Lookup(fun ctx pid -> Db().GetParentOrFail("p1") |> Some )
+
+    let get = define.Operation.GetResource()
+
+    let children =
+      define.Relationship
+        .ToMany(Child.resDef)
+        .Get(fun b -> b.Children |> List.map (fun a -> b, a))
+
+
+type Ctx4 = Ctx4
+
+
+module rec ResourceModulesPreconditionsOptional =
+
+  module Child =
+
+    let define = Define<Ctx4, Parent * Child, string>()
+    let resId = define.Id.Simple(fun (_, c) -> c.Id)
+    let resDef = define.Resource("child", resId).CollectionName("children")
+
+    let parent =
+      define.Relationship
+        .ToOne(Parent.resDef)
+
+    let post =
+      define.Operation
+        .PostBackRef(
+          parent.Related(Parent.lookup),
+          fun (ctx: Ctx4, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
+        )
+        .PeconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
+        .PeconditionsLastModified(fun (_, p) -> p.LastModified)
+        .PeconditionsOptional
+        .AfterCreate(ignore)
+
+
+  module Parent =
+
+    let define = Define<Ctx4, Parent, string>()
+    let resId = define.Id.Simple(fun p -> p.Id)
+    let resDef = define.Resource("parent", resId).CollectionName("parents")
+    let lookup = define.Operation.Lookup(fun ctx pid -> Db().GetParentOrFail("p1") |> Some )
+
+    let get = define.Operation.GetResource()
+
+    let children =
+      define.Relationship
+        .ToMany(Child.resDef)
+        .Get(fun b -> b.Children |> List.map (fun a -> b, a))
+
+
 [<Tests>]
 let tests =
   testList "POST collection backRef" [
@@ -169,8 +258,19 @@ let tests =
       test <@ json |> getPath "data.type" = "child" @>
       test <@ json |> getPath "data.id" = "c2" @>
 
-      let expectedOldParent = { Id = "p1"; Children = [ { Id = "c1" } ] }
-      let expectedNewParent = { Id = "p1"; Children = [ { Id = "c1" }; { Id = "c2" } ] }
+      let expectedOldParent = {
+        Id = "p1"
+        Children = [ { Id = "c1" } ]
+        LastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        ETag = "valid-etag"
+      }
+
+      let expectedNewParent = {
+        Id = "p1"
+        Children = [ { Id = "c1" }; { Id = "c2" } ]
+        LastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        ETag = "valid-etag"
+      }
 
       let parents' = parents
       test <@ parents' = Some (expectedOldParent, expectedNewParent) @>
@@ -215,6 +315,206 @@ let tests =
       test <@ json |> getPath "errors[0].detail" = "Relationship 'parent' is required for this operation" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Correctly handles precondition validation using ETag" {
+      let! response =
+        Request.post Ctx3 "/children"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 428
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "428" @>
+      test <@ json |> getPath "errors[0].detail" = "This operation requires a precondition to be specified using the If-Match or If-Unmodified-Since headers" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx3 "/children"
+        |> Request.setHeader (IfMatch "\"invalid-etag\"")
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey ETag = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx3 "/children"
+        |> Request.setHeader (IfMatch "\"valid-etag\"")
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      response |> testSuccessStatusCode
+    }
+
+    testJob "Correctly handles precondition validation using If-Unmodified-Since" {
+      let! response =
+        Request.post Ctx3 "/children"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 428
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "428" @>
+      test <@ json |> getPath "errors[0].detail" = "This operation requires a precondition to be specified using the If-Match or If-Unmodified-Since headers" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx3 "/children"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx3 "/children"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testSuccessStatusCode
+    }
+
+    testJob "Correctly handles optional precondition validation using ETag" {
+      let! response =
+        Request.post Ctx4 "/children"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      response |> testSuccessStatusCode
+
+      let! response =
+        Request.post Ctx4 "/children"
+        |> Request.setHeader (IfMatch "\"invalid-etag\"")
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey ETag = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx4 "/children"
+        |> Request.setHeader (IfMatch "\"valid-etag\"")
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      response |> testSuccessStatusCode
+    }
+
+    testJob "Correctly handles optional precondition validation using If-Unmodified-Since" {
+      let! response =
+        Request.post Ctx4 "/children"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testSuccessStatusCode
+
+      let! response =
+        Request.post Ctx4 "/children"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx4 "/children"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testSuccessStatusCode
     }
 
   ]

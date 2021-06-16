@@ -11,46 +11,65 @@ open Giraffe
 open Errors
 
 
+
+module private PreconditionHelpers =
+
+  
+  let validate (httpCtx: HttpContext) ctx getETag getLastModified isOptional =
+    let eTag = getETag ctx
+    let lastModified = getLastModified ctx
+    let res = httpCtx.ValidatePreconditions(eTag, lastModified)
+    // Clear headers because response-level ETag/Last-Modified headers don't
+    // necessarily make sense in JSON:API due to compound documents; these values
+    // should be communicated as attributes or meta.
+    httpCtx.Response.Headers.Remove "ETag" |> ignore
+    httpCtx.Response.Headers.Remove "Last-Modified" |> ignore
+    match res with
+    | ConditionFailed -> Error [preconditionFailed eTag.IsSome lastModified.IsSome]
+    | NoConditionsSpecified when not isOptional -> Error [preconditionRequired eTag.IsSome lastModified.IsSome]
+    | _ -> Ok ()
+
+
 type internal Preconditions<'ctx> =
   abstract Validate: HttpContext -> 'ctx -> BoxedEntity -> Result<unit, Error list>
 
 
+module internal Preconditions =
+
+  let noop = { new Preconditions<'ctx> with member _.Validate _ _ _ = Ok () }
+
+
 type Preconditions<'ctx, 'entity> = internal {
-  getETag: 'ctx -> 'entity -> EntityTagHeaderValue option
-  getLastModified: 'ctx -> 'entity -> DateTimeOffset option
+
+  getETag: 'ctx * 'entity -> EntityTagHeaderValue option
+  getLastModified: 'ctx * 'entity -> DateTimeOffset option
   isOptional: bool
 } with
 
   static member internal Create () : Preconditions<'ctx, 'entity> = {
-    getETag = fun _ _ -> None
-    getLastModified = fun _ _ -> None
+    getETag = fun _ -> None
+    getLastModified = fun _ -> None
     isOptional = false
   }
 
 
   interface Preconditions<'ctx> with
     member this.Validate httpCtx ctx entity =
-      let eTag = this.getETag ctx (unbox<'entity> entity)
-      let lastModified = this.getLastModified ctx (unbox<'entity> entity)
-      let res = httpCtx.ValidatePreconditions(eTag, lastModified)
-      // Clear headers because response-level ETag/Last-Modified headers don't
-      // necessarily make sense in JSON:API due to compound documents; these values
-      // should be communicated as attributes or meta.
-      httpCtx.Response.Headers.Remove "ETag" |> ignore
-      httpCtx.Response.Headers.Remove "Last-Modified" |> ignore
-      match res with
-      | ConditionFailed -> Error [preconditionFailed eTag.IsSome lastModified.IsSome]
-      | NoConditionsSpecified when not this.isOptional -> Error [preconditionRequired eTag.IsSome lastModified.IsSome]
-      | _ -> Ok ()
+      PreconditionHelpers.validate
+        httpCtx
+        (ctx, unbox<'entity> entity)
+        this.getETag
+        this.getLastModified
+        this.isOptional
 
   member this.ETag(getETag: Func<'ctx, 'entity, EntityTagHeaderValue>) =
-    { this with getETag = fun ctx e -> getETag.Invoke(ctx, e) |> Some }
+    { this with getETag = fun (ctx, e) -> getETag.Invoke(ctx, e) |> Some }
 
   member this.ETag(getETag: Func<'entity, EntityTagHeaderValue>) =
     this.ETag(fun _ e -> getETag.Invoke e)
 
   member this.LastModified(getLastModified: Func<'ctx, 'entity, DateTimeOffset>) =
-    { this with getLastModified = fun ctx e -> getLastModified.Invoke(ctx, e) |> Some }
+    { this with getLastModified = fun (ctx, e) -> getLastModified.Invoke(ctx, e) |> Some }
 
   member this.LastModified(getLastModified: Func<'entity, DateTimeOffset>) =
     this.LastModified(fun _ e -> getLastModified.Invoke e)
@@ -295,6 +314,10 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   afterCreate: ('ctx -> 'entity -> Job<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
+  validatePreconditions: bool
+  preconditionsOptional: bool
+  getETag: 'ctx -> EntityTagHeaderValue option
+  getLastModified: 'ctx -> DateTimeOffset option
 } with
 
   static member internal Create(mapCtx, create) : PostOperation<'originalCtx, 'ctx, 'entity> =
@@ -304,6 +327,10 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
       afterCreate = None
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
+      validatePreconditions = false
+      preconditionsOptional = false
+      getETag = fun _ -> None
+      getLastModified = fun _ -> None
     }
 
   interface PostOperation<'originalCtx> with
@@ -317,36 +344,43 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
           match! this.mapCtx ctx req with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              match! this.create ctx mappedCtx req |> JobResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> JobResult.map (fun e -> fieldNames, e)) with
+              let validatePreconditions () =
+                if this.validatePreconditions then
+                  PreconditionHelpers.validate httpCtx mappedCtx this.getETag this.getLastModified this.preconditionsOptional
+                else Ok ()
+              match validatePreconditions () with
               | Error errors -> return! handleErrors errors next httpCtx
-              | Ok (ns, entity0) ->
-                  match req.Document.Value with
-                  | Ok (Some { data = Some { id = Include _ } }) when not <| ns.Contains "id" ->
-                      return! handleErrors [collPostClientIdNotAllowed collName rDef.TypeName] next httpCtx
-                  | _ ->
-                      match! afterCreate mappedCtx (unbox<'entity> entity0) with
-                      | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok entity1 ->
-                          if this.return202Accepted then
-                            let handler =
-                              setStatusCode 202
-                              >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
-                            return! handler next httpCtx
-                          else
-                            let! doc = resp.Write httpCtx ctx req (rDef, entity1)
-                            let setLocationHeader =
-                              match doc with
-                              | { data = Some { links = Include links } } ->
-                                  match links.TryGetValue "self" with
-                                  | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
+              | Ok () ->
+                  match! this.create ctx mappedCtx req |> JobResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> JobResult.map (fun e -> fieldNames, e)) with
+                  | Error errors -> return! handleErrors errors next httpCtx
+                  | Ok (ns, entity0) ->
+                      match req.Document.Value with
+                      | Ok (Some { data = Some { id = Include _ } }) when not <| ns.Contains "id" ->
+                          return! handleErrors [collPostClientIdNotAllowed collName rDef.TypeName] next httpCtx
+                      | _ ->
+                          match! afterCreate mappedCtx (unbox<'entity> entity0) with
+                          | Error errors -> return! handleErrors errors next httpCtx
+                          | Ok entity1 ->
+                              if this.return202Accepted then
+                                let handler =
+                                  setStatusCode 202
+                                  >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
+                                return! handler next httpCtx
+                              else
+                                let! doc = resp.Write httpCtx ctx req (rDef, entity1)
+                                let setLocationHeader =
+                                  match doc with
+                                  | { data = Some { links = Include links } } ->
+                                      match links.TryGetValue "self" with
+                                      | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
+                                      | _ -> fun next ctx -> next ctx
                                   | _ -> fun next ctx -> next ctx
-                              | _ -> fun next ctx -> next ctx
-                            let handler =
-                              setStatusCode 201
-                              >=> setLocationHeader
-                              >=> this.modifyResponse mappedCtx entity1
-                              >=> jsonApiWithETag<'originalCtx> doc
-                            return! handler next httpCtx
+                                let handler =
+                                  setStatusCode 201
+                                  >=> setLocationHeader
+                                  >=> this.modifyResponse mappedCtx entity1
+                                  >=> jsonApiWithETag<'originalCtx> doc
+                                return! handler next httpCtx
         }
         |> Job.startAsTask
 
@@ -434,8 +468,24 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.ModifyResponse(handler: HttpHandler) =
     this.ModifyResponse(fun _ _ -> handler)
 
+  /// Validate preconditions using the specified function to get the ETag value. May be
+  /// combined with PeconditionsLastModified.
+  member this.PeconditionsETag(getETag: Func<'ctx, EntityTagHeaderValue>) =
+    { this with validatePreconditions = true; getETag = fun ctx -> getETag.Invoke(ctx) |> Some }
+
+  /// Validate preconditions using the specified function to get the LastModified value.
+  /// May be combined with PeconditionsETag.
+  member this.PeconditionsLastModified(getLastModified: Func<'ctx, DateTimeOffset>) =
+    { this with validatePreconditions = true; getLastModified = fun ctx -> getLastModified.Invoke(ctx) |> Some }
+
+  /// Make optional any preconditions supplied using PeconditionsETag or
+  /// PeconditionsLastModified. By default, any supplied preconditions are required.
+  member this.PeconditionsOptional =
+    { this with preconditionsOptional = true }
+
 type PostCustomHelper<'ctx, 'entity> internal
-    ( ctx: 'ctx,
+    ( httpCtx: HttpContext,
+      ctx: 'ctx,
       req: Request,
       collName: string,
       rDef: ResourceDefinition<'ctx>,
@@ -485,6 +535,36 @@ type PostCustomHelper<'ctx, 'entity> internal
       }
       |> Job.startAsTask
 
+  /// Validate preconditions using the specified ETag value. The preconditions are
+  /// required unless passing `isOptional = true`.
+  member _.ValidatePreconditions(eTag: EntityTagHeaderValue, ?isOptional: bool) =
+    PreconditionHelpers.validate
+      httpCtx
+      ctx
+      (fun _ -> Some eTag)
+      (fun _ -> None)
+      (defaultArg isOptional false)
+
+  /// Validate preconditions using the specified LastModified value. The preconditions are
+  /// required unless passing `isOptional = true`.
+  member _.ValidatePreconditions(lastModified: DateTimeOffset, ?isOptional: bool) =
+    PreconditionHelpers.validate
+      httpCtx
+      ctx
+      (fun _ -> None)
+      (fun _ -> Some lastModified)
+      (defaultArg isOptional false)
+
+  /// Validate preconditions using the specified ETag and LastModified values. The
+  /// preconditions are required unless passing `isOptional = true`.
+  member _.ValidatePreconditions(eTag: EntityTagHeaderValue, lastModified: DateTimeOffset, ?isOptional: bool) =
+    PreconditionHelpers.validate
+      httpCtx
+      ctx
+      (fun _ -> Some eTag)
+      (fun _ -> Some lastModified)
+      (defaultArg isOptional false)
+
 
 
 type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
@@ -506,7 +586,7 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              let helper = PostCustomHelper<'originalCtx, 'entity>(ctx, req, collName, rDef, patch, resp)
+              let helper = PostCustomHelper<'originalCtx, 'entity>(httpCtx, ctx, req, collName, rDef, patch, resp)
               match! this.operation ctx mappedCtx req helper with
               | Ok handler -> return! handler next httpCtx
               | Error errors -> return! handleErrors errors next httpCtx

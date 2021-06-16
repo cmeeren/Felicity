@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.15.2 (2021-06-16)
+
+* Now supports checking preconditions on resource creation requests. See new POST operation methods.
+
 ### 0.15.1 (2021-06-09)
 
 * Now allows using nullable relationships in `LockOther`. Due to F# overload resolution

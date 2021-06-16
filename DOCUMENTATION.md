@@ -674,13 +674,18 @@ If you need to modify the response, e.g. to add cache headers, use `ModifyRespon
 
 If you need the operation to return `202 Accepted`, simply add `Return202Accepted()` to the operation definition.
 
+### HTTP preconditions
+
+See section TODO for how to do precondition validation (using `ETag`/`Last-Modified` and `If-Match`/`If-Unmodified-Since`) for POST requests.
+
 ### Execution order
 
 1. Get the context
 2. Transform the context if specified (see section TODO)
-3. Create the entity (including any request parsing)
-4. `AfterCreate`
-5. `ModifyResponse`
+3. Validate resource creation preconditions
+4. Create the entity (including any request parsing)
+5. `AfterCreate`
+6. `ModifyResponse`
 
 Custom POST collection operation
 --------------------------------
@@ -753,6 +758,16 @@ Call `helper.RunSettersAsync(entity)` (or `RunSettersJob`). It optionally also a
 ### Returning 201 or 202
 
 Call `helper.ReturnCreatedEntity(entity)` to return a proper JSON:API `201 Created` response (automatically supporting sparse fieldsets and includes as usual), or `helper.Return202Accepted()` to return an empty `202 Accepted` response.
+
+### HTTP preconditions
+
+The helper shown in the examples above contains methods for checking preconditions (using `ETag`/`Last-Modified` and `If-Match`/`If-Unmodified-Since`). See section TODO for more details on precondition validation for POST requests.
+
+### Execution order
+
+1. Get the context
+2. Transform the context if specified (see section TODO)
+3. Run the custom operation
 
 ID lookup operation
 -------------------
@@ -1365,16 +1380,38 @@ You can define HTTP preconditions in a resource module:
 let preconditions =
   define.Preconditions
     .ETag(fun entity -> EntityTagHeaderValue.FromString false entity.ETag)
-    .LastModified(fun entity -> entity.LastModified)   
+    .LastModified(fun entity -> entity.LastModified)
 ```
 
-You can supply either one or both.
+You can supply either `ETag` or `LastModified` or both.
 
 Clients must then supply either the `If-Match` or the `If-Unmodified-Since` header in the request in order to perform requests that modify the resource.
 
 These values **must be communicated to the client as resource attributes** (or meta). They will not be set as HTTP headers, because headers apply to the whole response, and preconditions as shown above are resource-specific.
 
 You can also append `.Optional` in order to make the precondition validation optional. If so, clients may perform request without the precondition headers, but if present, they will be validated.
+
+Conditional resource creation (`If-Match`/`If-Unmodified-Since`)
+----------------------------------------------------------------
+
+The preconditions described above apply to any non-`GET` request except resource creation (`POST` collection operations). In some cases, you may want to validate preconditions for resource creation, too. For example, you may have a parent and a child resource, and when creating a new child resource, you may want to validate the preconditions for the parent.
+
+You can define preconditions for `POST` collection operations when using `PostBackRef` like this:
+
+```f#
+let post =
+  define.Operation
+    .PostBackRef(...)
+    .PeconditionsETag(fun (ctx, parent) -> ...)
+    .PeconditionsLastModified(fun (ctx, parent) -> ...)
+    .PeconditionsOptional
+```
+
+You can supply either `ETag` or `LastModified` or both. `.PeconditionsOptional` works the same way as `.Optional` as described in the previous section.
+
+### Custom POST operation
+
+
 
 Resource locking
 ----------------

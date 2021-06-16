@@ -1,6 +1,8 @@
 ﻿module ``POST collection custom``
 
+open System
 open Expecto
+open Microsoft.Net.Http.Headers
 open HttpFs.Client
 open Swensen.Unquote
 open Giraffe
@@ -120,6 +122,44 @@ module A2 =
   let define = Define<Ctx3, A, string>()
   let resId = define.Id.Simple(fun _ -> failwith "not used")
   let resDef = define.Resource("a", resId).CollectionName("abs")
+
+
+module D =
+
+  let define = Define<Ctx, unit, string>()
+  let resId = define.Id.Simple(fun () -> "notUsed")
+  let resDef = define.Resource("d", resId).CollectionName("ds")
+
+  let post =
+    define.Operation
+      .PostCustomAsync(fun ctx parser helper ->
+        async {
+          let eTag = EntityTagHeaderValue.FromString false "valid-etag"
+          let lastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+          match helper.ValidatePreconditions(eTag, lastModified) with
+          | Error errs -> return Error errs
+          | Ok () -> return helper.Return202Accepted() |> Ok
+        }
+      )
+
+
+module E =
+
+  let define = Define<Ctx, unit, string>()
+  let resId = define.Id.Simple(fun () -> "notUsed")
+  let resDef = define.Resource("e", resId).CollectionName("es")
+
+  let post =
+    define.Operation
+      .PostCustomAsync(fun ctx parser helper ->
+        async {
+          let eTag = EntityTagHeaderValue.FromString false "valid-etag"
+          let lastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+          match helper.ValidatePreconditions(eTag, lastModified, isOptional = true) with
+          | Error errs -> return Error errs
+          | Ok () -> return helper.Return202Accepted() |> Ok
+        }
+      )
 
 
 [<Tests>]
@@ -430,6 +470,134 @@ let tests =
       test <@ json |> getPath "errors[0].detail" = "Collection 'abs' does not support creating resources" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Correctly handles precondition validation using ETag" {
+      let! response =
+        Request.post Ctx "/ds"
+        |> Request.bodySerialized {| data = {|``type`` = "d" |} |}
+        |> getResponse
+      response |> testStatusCode 428
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "428" @>
+      test <@ json |> getPath "errors[0].detail" = "This operation requires a precondition to be specified using the If-Match or If-Unmodified-Since headers" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx "/ds"
+        |> Request.setHeader (IfMatch "\"invalid-etag\"")
+        |> Request.bodySerialized {| data = {|``type`` = "d" |} |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey ETag = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx "/ds"
+        |> Request.setHeader (IfMatch "\"valid-etag\"")
+        |> Request.bodySerialized {| data = {|``type`` = "d" |} |}
+        |> getResponse
+      test <@ response.headers.TryFind ETag <> Some "\"valid-etag\"" @>
+      response |> testSuccessStatusCode
+    }
+
+    testJob "Correctly handles precondition validation using If-Unmodified-Since" {
+      let! response =
+        Request.post Ctx "/ds"
+        |> Request.bodySerialized {| data = {|``type`` = "d" |} |}
+        |> getResponse
+      response |> testStatusCode 428
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "428" @>
+      test <@ json |> getPath "errors[0].detail" = "This operation requires a precondition to be specified using the If-Match or If-Unmodified-Since headers" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx "/ds"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> Request.bodySerialized {| data = {|``type`` = "d" |} |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx "/ds"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> Request.bodySerialized {| data = {|``type`` = "d" |} |}
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testSuccessStatusCode
+    }
+
+    testJob "Correctly handles optional precondition validation using ETag" {
+      let! response =
+        Request.post Ctx "/es"
+        |> Request.bodySerialized {| data = {|``type`` = "e" |} |}
+        |> getResponse
+      test <@ response.headers.TryFind ETag <> Some "\"valid-etag\"" @>
+      response |> testSuccessStatusCode
+
+      let! response =
+        Request.post Ctx "/es"
+        |> Request.setHeader (IfMatch "\"invalid-etag\"")
+        |> Request.bodySerialized {| data = {|``type`` = "e" |} |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey ETag = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx "/es"
+        |> Request.setHeader (IfMatch "\"valid-etag\"")
+        |> Request.bodySerialized {| data = {|``type`` = "e" |} |}
+        |> getResponse
+      test <@ response.headers.TryFind ETag <> Some "\"valid-etag\"" @>
+      response |> testSuccessStatusCode
+    }
+
+    testJob "Correctly handles optional precondition validation using If-Unmodified-Since" {
+      let! response =
+        Request.post Ctx "/es"
+        |> Request.bodySerialized {| data = {|``type`` = "e" |} |}
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testSuccessStatusCode
+
+      let! response =
+        Request.post Ctx "/es"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
+        |> Request.bodySerialized {| data = {|``type`` = "e" |} |}
+        |> getResponse
+      response |> testStatusCode 412
+      test <@ response.headers.ContainsKey LastModified = false @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "412" @>
+      test <@ json |> getPath "errors[0].detail" = "The precondition specified in the If-Match or If-Unmodified-Since header failed" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+
+      let! response =
+        Request.post Ctx "/es"
+        |> Request.setHeader (Custom ("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
+        |> Request.bodySerialized {| data = {|``type`` = "e" |} |}
+        |> getResponse
+      test <@ response.headers.ContainsKey LastModified = false @>
+      response |> testSuccessStatusCode
     }
 
   ]
