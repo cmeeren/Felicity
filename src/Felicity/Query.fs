@@ -178,15 +178,22 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error 
           | true, str ->
               str.Split(',')
               |> Array.toList
-              |> List.traverseJobResultA (fun str ->
-                  let sort, isDescending =
-                    if str.StartsWith("-")
-                    then str.Substring(1), true
-                    else str, false
-                  parse ctx sort
-                  |> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
-                  |> JobResult.map (fun s -> s, isDescending)
-                )
+              |> List.map (fun str ->
+                   if str.StartsWith("-")
+                   then str.Substring(1), true
+                   else str, false
+              )
+              // If a sort column appears more than once, only the first occurrence will
+              // influence the ordering (if the server is well-behaved). Furthermore,
+              // duplicate sort columns may cause errors in certain databases (e.g. SQL
+              // Server). Therefore, use List.distinctBy to only keep the first occurrence
+              // of each sort column.
+              |> List.distinctBy fst
+              |> List.traverseJobResultA (fun (sort, isDescending) ->
+                   parse ctx sort
+                   |> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
+                   |> JobResult.map (fun s -> s, isDescending)
+              )
               |> JobResult.map Some
     }
 

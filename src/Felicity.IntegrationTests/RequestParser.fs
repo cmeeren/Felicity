@@ -636,6 +636,19 @@ let tests =
       test <@ calledWith' = Some [(1, false); (2, true)] @>
     }
 
+    testJob "List sort discards duplicate columns" {
+      let mutable calledWith = None
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- Some x), Sort.Enum(["1", 1; "2", 2]).List)
+      )
+      let! response = Request.get ctx "/xs?sort=1,-1,-2,1,-2,2" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = Some [(1, false); (2, true)] @>
+    }
+
     testJob "Returns 400 if enum sort has invalid value" {
       let ctx = Ctx.Create (fun parser ->
         parser
