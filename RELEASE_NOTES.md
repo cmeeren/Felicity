@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.16.1 (2021-09-02)
+
+* Added higher-arity request parser overloads
+
 ### 0.16.0 (2021-09-02)
 
 * Split `LockOther` into `LockOtherForResourceCreation` and `LockOtherForModification` to avoid overload resolution problems when only using one of the optional arguments. This also made the API more composable.
