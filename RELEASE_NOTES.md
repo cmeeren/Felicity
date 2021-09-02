@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.16.0 (2021-09-02)
+
+* Split `LockOther` into `LockOtherForResourceCreation` and `LockOtherForModification` to avoid overload resolution problems when only using one of the optional arguments. This also made the API more composable.
+
 ### 0.15.3 (2021-06-25)
 
 * Will now remove duplicate sort columns in `sort` query parameters. For example, `sort=a,-a,-b,a,b` will be converted to `sort=a,-b` before parsing. This is done because 1) duplicate sort columns will logically never influence search results (for well-behaved servers), and 2) duplicate sort columns may cause errors in some databases, e.g. SQL Server. This is a non-breaking change unless the server does something weird based on duplicate sort columns.

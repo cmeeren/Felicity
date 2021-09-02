@@ -62,7 +62,8 @@ module C =
   let resDef =
     define.Resource("c", resId)
       .CollectionName("cs")
-      .LockOther(B.resDef, Some >> Job.result, b)
+      .LockOtherForResourceCreation(B.resDef, b)
+      .LockOtherForModification(B.resDef, id)
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()
@@ -90,7 +91,7 @@ module C2 =
   let resDef =
     define.Resource("c2", resId)
       .CollectionName("c2s")
-      .LockOther(B.resDef, (fun _ -> None), bNullable)
+      .LockOtherForResourceCreation(B.resDef, bNullable)
 
   let post =
     define.Operation
@@ -179,7 +180,8 @@ module F =
   let resDef =
     define.Resource("f", resId)
       .CollectionName("fs")
-      .LockOther(E.resDef, ResourceId >> Some >> Job.result, e)
+      .LockOtherForResourceCreation(E.resDef, e)
+      .LockOtherForModification(E.resDef, ResourceId)
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()

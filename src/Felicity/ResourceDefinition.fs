@@ -403,187 +403,67 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    if getOtherIdForResourceOperation.IsNone && relationshipForPostOperation.IsNone then
-      failwithf "At least one of 'getOtherIdForResourceOperation' and 'relationshipForPostOperation' must be specified in call to LockOther for resource '%s'" this.name
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>) =
     { this with
         lockSpecs =
           this.lockSpecs
-          @ [this.CreateOtherLockSpec(resDef, ?getOtherIdForResourceOperation = getOtherIdForResourceOperation, ?relationshipForPostOperation = relationshipForPostOperation)]
+          @ [this.CreateOtherLockSpec(resDef, getOtherIdForResourceOperation = getOtherIdForResourceOperation)]
     }
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    if getOtherIdForResourceOperation.IsNone && relationshipForPostOperation.IsNone then
-      failwithf "At least one of 'getOtherIdForResourceOperation' and 'relationshipForPostOperation' must be specified in call to LockOther for resource '%s'" this.name
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> Job<'otherId option>) =
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = fun _ -> getOtherIdForResourceOperation)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> Async<'otherId option>) =
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Job.liftAsync2 (fun _ -> getOtherIdForResourceOperation))
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Async<'otherId option>) =
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Job.liftAsync2 getOtherIdForResourceOperation)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId option) =
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Job.lift2 getOtherIdForResourceOperation)
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> 'otherId option) =
+    this.LockOtherForModification(resDef, Job.lift2 (fun _ -> getOtherIdForResourceOperation))
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId) =
+    this.LockOtherForModification(resDef, Job.lift2 (fun ctx id -> getOtherIdForResourceOperation ctx id |> Some))
+
+  /// Lock another (e.g. parent) resource for the entirety of all modification operations
+  /// on this resource to ensure there are no concurrent updates to the other resource.
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> 'otherId) =
+    this.LockOtherForModification(resDef, Job.lift2 (fun _ id -> getOtherIdForResourceOperation id |> Some))
+
+  /// Lock another (e.g. parent) resource for the entirety of all POST (resource creation)
+  /// operations for this resource type to ensure there are no concurrent updates to the
+  /// other resource.
+  member this.LockOtherForResourceCreation(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
     { this with
         lockSpecs =
           this.lockSpecs
-          @ [this.CreateOtherLockSpec(resDef, ?getOtherIdForResourceOperation = getOtherIdForResourceOperation, ?nullableRelationshipForPostOperation = relationshipForPostOperation)]
+          @ [this.CreateOtherLockSpec(resDef, relationshipForPostOperation = relationshipForPostOperation)]
     }
 
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> fun _ -> getId)),
-      ?relationshipForPostOperation=relationshipForPostOperation
-    )
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> fun _ -> getId)),
-      ?relationshipForPostOperation=relationshipForPostOperation
-    )
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> Async<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.liftAsync2 (fun _ -> getId))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> Async<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.liftAsync2 (fun _ -> getId))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Async<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.liftAsync2 getId)),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Async<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.liftAsync2 getId)),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 getId)),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 getId)),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ -> getId))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId option, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ -> getId))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun ctx id -> getId ctx id |> Some))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun ctx id -> getId ctx id |> Some))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// relationship data is supplied in the request. Any other operation will only be
-  /// locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ id -> getId id |> Some))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
-
-  /// Lock another (e.g. parent) resource for the entirety of all modification operations
-  /// on this resource to ensure there are no concurrent updates to the other resource.
-  /// POST operations will only be locked if relationshipForPostOperation is specified and
-  /// non-null relationship data is supplied in the request. Any other operation will only
-  /// be locked if getOtherIdForResourceOperation is specified.
-  member this.LockOther(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'id -> 'otherId, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    this.LockOther(
-      resDef,
-      ?getOtherIdForResourceOperation = (getOtherIdForResourceOperation |> Option.map (fun getId -> Job.lift2 (fun _ id -> getId id |> Some))),
-      ?relationshipForPostOperation=relationshipForPostOperation)
+  /// Lock another (e.g. parent) resource for the entirety of all POST (resource creation)
+  /// operations for this resource type to ensure there are no concurrent updates to the
+  /// other resource.
+  member this.LockOtherForResourceCreation(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
+    { this with
+        lockSpecs =
+          this.lockSpecs
+          @ [this.CreateOtherLockSpec(resDef, nullableRelationshipForPostOperation = relationshipForPostOperation)]
+    }
 
   /// When multiple locks are taken and this timeout is reached, Felicity will 1) return
   /// an error to the client, 2) dispose any locks that were successfully taken (including
