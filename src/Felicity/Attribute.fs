@@ -31,21 +31,23 @@ type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
 
 
 
-type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
+type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   name: string
   setOrder: int
+  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
   fromDomain: 'attr -> 'serialized
   toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Job<'attr Skippable>) option
-  set: ('ctx -> 'attr -> 'entity -> Job<Result<'entity, Error list>>) option
+  set: ('setCtx -> 'attr -> 'entity -> Job<Result<'entity, Error list>>) option
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
 } with
 
-  static member internal Create(name: string, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> =
+  static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     {
       name = name
       setOrder = 0
+      mapSetCtx = mapSetCtx
       fromDomain = fromDomain
       toDomain = toDomain
       get = None
@@ -66,11 +68,14 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
             | _, None -> return Ok entity  // not provided in request
             | None, Some _ -> return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, Some attrValue ->
-                return!
-                  this.toDomain ctx (unbox<'serialized> attrValue)
-                  |> JobResult.bind (fun domain -> set ctx domain (unbox<'entity> entity))
-                  |> JobResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
-                  |> JobResult.map box
+                match! this.mapSetCtx ctx with
+                | Error errs -> return Error errs
+                | Ok setCtx ->
+                    return!
+                      this.toDomain ctx (unbox<'serialized> attrValue)
+                      |> JobResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
+                      |> JobResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
+                      |> JobResult.map box
         | _ -> return Ok entity  // no attributes provided
       }
 
@@ -182,37 +187,37 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.Get (get: Func<'entity, 'attr>) =
     this.GetJobSkip (fun _ r -> get.Invoke r |> Include |> Job.result)
 
-  member this.SetJobRes (set: 'ctx -> 'attr -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.SetJobRes (set: 'setCtx -> 'attr -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with set = Some set }
 
   member this.SetJobRes (set: 'attr -> 'entity -> Job<Result<'entity, Error list>>) =
     this.SetJobRes (fun _ x e -> set x e)
 
-  member this.SetAsyncRes (set: 'ctx -> 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.SetAsyncRes (set: 'setCtx -> 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftAsync3 set)
 
   member this.SetAsyncRes (set: 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
     this.SetJobRes (Job.liftAsync2 set)
 
-  member this.SetJob (set: 'ctx -> 'attr -> 'entity -> Job<'entity>) =
+  member this.SetJob (set: 'setCtx -> 'attr -> 'entity -> Job<'entity>) =
     this.SetJobRes (fun ctx x e -> set ctx x e |> Job.map Ok)
 
   member this.SetJob (set: 'attr -> 'entity -> Job<'entity>) =
     this.SetJobRes (fun _ x e -> set x e |> Job.map Ok)
 
-  member this.SetAsync (set: 'ctx -> 'attr -> 'entity -> Async<'entity>) =
+  member this.SetAsync (set: 'setCtx -> 'attr -> 'entity -> Async<'entity>) =
     this.SetJob (Job.liftAsync3 set)
 
   member this.SetAsync (set: 'attr -> 'entity -> Async<'entity>) =
     this.SetJob (Job.liftAsync2 set)
 
-  member this.SetRes (set: 'ctx -> 'attr -> 'entity -> Result<'entity, Error list>) =
+  member this.SetRes (set: 'setCtx -> 'attr -> 'entity -> Result<'entity, Error list>) =
     this.SetJobRes (Job.lift3 set)
 
   member this.SetRes (set: 'attr -> 'entity -> Result<'entity, Error list>) =
     this.SetJobRes (Job.lift2 set)
 
-  member this.Set (set: 'ctx -> 'attr -> 'entity -> 'entity) =
+  member this.Set (set: 'setCtx -> 'attr -> 'entity -> 'entity) =
     this.SetJobRes (JobResult.lift3 set)
 
   member this.Set (set: 'attr -> 'entity -> 'entity) =
@@ -247,7 +252,7 @@ type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 [<AutoOpen>]
 module NonNullableAttributeExtensions =
 
-  type NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized> with
+  type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> with
 
     member this.AddConstraint (name: string, value: 'a) =
       this.AddConstraint(name, fun _ -> value)
@@ -255,21 +260,23 @@ module NonNullableAttributeExtensions =
 
 
 
-type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
+type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   name: string
   setOrder: int
+  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
   fromDomain: 'attr -> 'serialized
   toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Job<'attr option Skippable>) option
-  set: ('ctx -> 'attr option -> 'entity -> Job<Result<'entity, Error list>>) option
+  set: ('setCtx -> 'attr option -> 'entity -> Job<Result<'entity, Error list>>) option
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
 } with
 
-  static member internal Create(name: string, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'entity, 'attr, 'serialized> =
+  static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     {
       name = name
       setOrder = 0
+      mapSetCtx = mapSetCtx
       fromDomain = fromDomain
       toDomain = toDomain
       get = None
@@ -296,11 +303,14 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
             | _, None -> return Ok entity  // not provided in request
             | None, Some _ -> return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, Some attrValue ->
-                return!
-                  this.nullableToDomain ctx (unbox<'serialized option> attrValue)
-                  |> JobResult.bind (fun domain -> set ctx domain (unbox<'entity> entity))
-                  |> JobResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
-                  |> JobResult.map box
+                match! this.mapSetCtx ctx with
+                | Error errs -> return Error errs
+                | Ok setCtx ->
+                    return!
+                      this.nullableToDomain ctx (unbox<'serialized option> attrValue)
+                      |> JobResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
+                      |> JobResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
+                      |> JobResult.map box
         | _ -> return Ok entity  // no attributes provided
       }
 
@@ -342,7 +352,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
                   |> Option.traverseJobResult (this.toDomain ctx)
                   |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
+              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized option>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -364,7 +374,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
                       |> this.toDomain ctx
                       |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
+              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized option>.FullName (x.GetType().FullName)
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -445,43 +455,43 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.Get (get: Func<'entity, 'attr option>) =
     this.GetJobSkip (fun _ r -> get.Invoke r |> Include |> Job.result)
 
-  member this.SetJobRes (set: 'ctx -> 'attr option -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.SetJobRes (set: 'setCtx -> 'attr option -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with set = Some set }
 
   member this.SetJobRes (set: 'attr option -> 'entity -> Job<Result<'entity, Error list>>) =
     this.SetJobRes (fun _ x e -> set x e)
 
-  member this.SetAsyncRes (set: 'ctx -> 'attr option -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.SetAsyncRes (set: 'setCtx -> 'attr option -> 'entity -> Async<Result<'entity, Error list>>) =
     this.SetJobRes (Job.liftAsync3 set)
 
   member this.SetAsyncRes (set: 'attr option -> 'entity -> Async<Result<'entity, Error list>>) =
     this.SetJobRes (Job.liftAsync2 set)
 
-  member this.SetJob (set: 'ctx -> 'attr option -> 'entity -> Job<'entity>) =
+  member this.SetJob (set: 'setCtx -> 'attr option -> 'entity -> Job<'entity>) =
     this.SetJobRes (JobResult.liftJob3 set)
 
   member this.SetJob (set: 'attr option -> 'entity -> Job<'entity>) =
     this.SetJobRes (JobResult.liftJob2 set)
 
-  member this.SetAsync (set: 'ctx -> 'attr option -> 'entity -> Async<'entity>) =
+  member this.SetAsync (set: 'setCtx -> 'attr option -> 'entity -> Async<'entity>) =
     this.SetJob (Job.liftAsync3 set)
 
   member this.SetAsync (set: 'attr option -> 'entity -> Async<'entity>) =
     this.SetJob (Job.liftAsync2 set)
 
-  member this.SetRes (set: 'ctx -> 'attr option -> 'entity -> Result<'entity, Error list>) =
+  member this.SetRes (set: 'setCtx -> 'attr option -> 'entity -> Result<'entity, Error list>) =
     this.SetJobRes (Job.lift3 set)
 
   member this.SetRes (set: 'attr option -> 'entity -> Result<'entity, Error list>) =
     this.SetJobRes (Job.lift2 set)
 
-  member this.Set (set: 'ctx -> 'attr option -> 'entity -> 'entity) =
+  member this.Set (set: 'setCtx -> 'attr option -> 'entity -> 'entity) =
     this.SetJobRes (JobResult.lift3 set)
 
   member this.Set (set: 'attr option -> 'entity -> 'entity) =
     this.SetJobRes (JobResult.lift2 set)
 
-  member this.SetNonNullJobRes (set: 'ctx -> 'attr -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.SetNonNullJobRes (set: 'setCtx -> 'attr -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with
         set = Some (fun ctx attr e ->
           attr
@@ -493,31 +503,31 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
   member this.SetNonNullJobRes (set: 'attr -> 'entity -> Job<Result<'entity, Error list>>) =
     this.SetNonNullJobRes (fun _ x e -> set x e)
 
-  member this.SetNonNullAsyncRes (set: 'ctx -> 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.SetNonNullAsyncRes (set: 'setCtx -> 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
     this.SetNonNullJobRes (Job.liftAsync3 set)
 
   member this.SetNonNullAsyncRes (set: 'attr -> 'entity -> Async<Result<'entity, Error list>>) =
     this.SetNonNullJobRes (Job.liftAsync2 set)
 
-  member this.SetNonNullJob (set: 'ctx -> 'attr -> 'entity -> Job<'entity>) =
+  member this.SetNonNullJob (set: 'setCtx -> 'attr -> 'entity -> Job<'entity>) =
     this.SetNonNullJobRes (fun ctx x e -> set ctx x e |> Job.map Ok)
 
   member this.SetNonNullJob (set: 'attr -> 'entity -> Job<'entity>) =
     this.SetNonNullJobRes (fun _ x e -> set x e |> Job.map Ok)
 
-  member this.SetNonNullAsync (set: 'ctx -> 'attr -> 'entity -> Async<'entity>) =
+  member this.SetNonNullAsync (set: 'setCtx -> 'attr -> 'entity -> Async<'entity>) =
     this.SetNonNullJob (Job.liftAsync3 set)
 
   member this.SetNonNullAsync (set: 'attr -> 'entity -> Async<'entity>) =
     this.SetNonNullJob (Job.liftAsync2 set)
 
-  member this.SetNonNullRes (set: 'ctx -> 'attr -> 'entity -> Result<'entity, Error list>) =
+  member this.SetNonNullRes (set: 'setCtx -> 'attr -> 'entity -> Result<'entity, Error list>) =
     this.SetNonNullJobRes (Job.lift3 set)
 
   member this.SetNonNullRes (set: 'attr -> 'entity -> Result<'entity, Error list>) =
     this.SetNonNullJobRes (Job.lift2 set)
 
-  member this.SetNonNull (set: 'ctx -> 'attr -> 'entity -> 'entity) =
+  member this.SetNonNull (set: 'setCtx -> 'attr -> 'entity -> 'entity) =
     this.SetNonNullJobRes (JobResult.lift3 set)
 
   member this.SetNonNull (set: 'attr -> 'entity -> 'entity) =
@@ -552,7 +562,7 @@ type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> = internal {
 [<AutoOpen>]
 module NullableAttributeExtensions =
 
-  type NullableAttribute<'ctx, 'entity, 'attr, 'serialized> with
+  type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> with
 
     member this.AddConstraint (name: string, value: 'a) =
       this.AddConstraint(name, fun _ -> value)
@@ -581,54 +591,72 @@ module private AttributeParsers =
 
 
 
-type NullableAttributeHelper<'ctx, 'entity> internal () =
+type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) =
+
+  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+    NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
+  
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
+  
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift mapSetCtx)
+  
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
 
   member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    NullableAttribute<'ctx, 'entity, 'serialized, 'serialized>.Create(
-      name, id, fun _ -> Ok >> Job.result)
+    NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create(
+      name, mapSetCtx, id, fun _ -> Ok >> Job.result)
 
-  member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, bool, bool> =
+  member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, bool, bool> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleByte([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, byte, byte> =
+  member this.SimpleByte([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, byte, byte> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleInt([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, int, int> =
+  member this.SimpleInt([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, int, int> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleInt64([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, int64, int64> =
+  member this.SimpleInt64([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, int64, int64> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleDecimal([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, decimal, decimal> =
+  member this.SimpleDecimal([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, decimal, decimal> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleFloat([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, float, float> =
+  member this.SimpleFloat([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, float, float> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleString([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, string, string> =
+  member this.SimpleString([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, string, string> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleChar([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, string, string> =
+  member this.SimpleChar([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, string, string> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleDateTime([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, DateTime, DateTime> =
+  member this.SimpleDateTime([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, DateTime, DateTime> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleDateTimeOffsetAllowMissingOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, DateTimeOffset, DateTimeOffset> =
+  member this.SimpleDateTimeOffsetAllowMissingOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, DateTimeOffset> =
     this.SimpleUnsafe(name)
 
-  member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, DateTimeOffset, string> =
-    NullableAttribute<'ctx, 'entity, DateTimeOffset, string>.Create(
-      name, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
+  member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string> =
+    NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>.Create(
+      name, mapSetCtx, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
 
-  member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, Guid, Guid> =
+  member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, Guid, Guid> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'entity, Uri, Uri> =
+  member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, Uri, Uri> =
     this.SimpleUnsafe(name)
 
   member private _.ParsedJobRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    NullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create(name, fromDomain, toDomain)
+    NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create(name, mapSetCtx, fromDomain, toDomain)
 
   member this.ParsedJobRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     this.ParsedJobRes'(fromDomain, toDomain, name)
@@ -729,62 +757,80 @@ type NullableAttributeHelper<'ctx, 'entity> internal () =
       |> function
           | false, _ -> Error [attrInvalidEnum name serialized allowed]
           | true, attr -> Ok attr
-    NullableAttribute<'ctx, 'entity, 'attr, string>.Create(
-      name, fromDomain, fun _ -> toDomain >> Job.result)
+    NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>.Create(
+      name, mapSetCtx, fromDomain, fun _ -> toDomain >> Job.result)
 
 
 
 
-type AttributeHelper<'ctx, 'entity> internal () =
+type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) =
 
-  member _.Nullable = NullableAttributeHelper<'ctx, 'entity>()
+  member _.Nullable = NullableAttributeHelper<'ctx, 'setCtx, 'entity>(mapSetCtx)
+
+  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+    AttributeHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
+  
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
+  
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift mapSetCtx)
+  
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
 
   member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    NonNullableAttribute<'ctx, 'entity, 'serialized, 'serialized>.Create(
-      name, id, fun _ -> Ok >> Job.result)
+    NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create(
+      name, mapSetCtx, id, fun _ -> Ok >> Job.result)
 
-  member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, bool, bool> =
+  member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, bool, bool> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleByte([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, byte, byte> =
+  member this.SimpleByte([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, byte, byte> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleInt([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, int, int> =
+  member this.SimpleInt([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, int, int> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleInt64([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, int64, int64> =
+  member this.SimpleInt64([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, int64, int64> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleDecimal([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, decimal, decimal> =
+  member this.SimpleDecimal([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, decimal, decimal> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleFloat([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, float, float> =
+  member this.SimpleFloat([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, float, float> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleString([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, string, string> =
+  member this.SimpleString([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, string, string> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleChar([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, string, string> =
+  member this.SimpleChar([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, string, string> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleDateTime([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, DateTime, DateTime> =
+  member this.SimpleDateTime([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTime, DateTime> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleDateTimeOffsetAllowMissingOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, DateTimeOffset, DateTimeOffset> =
+  member this.SimpleDateTimeOffsetAllowMissingOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, DateTimeOffset> =
     this.SimpleUnsafe(name)
 
-  member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, DateTimeOffset, string> =
-    NonNullableAttribute<'ctx, 'entity, DateTimeOffset, string>.Create(
-      name, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
+  member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string> =
+    NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>.Create(
+      name, mapSetCtx, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Job.result))
 
-  member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, Guid, Guid> =
+  member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, Guid, Guid> =
     this.SimpleUnsafe(name)
 
-  member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'entity, Uri, Uri> =
+  member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, Uri, Uri> =
     this.SimpleUnsafe(name)
 
   member private _.ParsedJobRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    NonNullableAttribute<'ctx, 'entity, 'attr, 'serialized>.Create(name, fromDomain, toDomain)
+    NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create(name, mapSetCtx, fromDomain, toDomain)
 
   member this.ParsedJobRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     this.ParsedJobRes'(fromDomain, toDomain, name)
@@ -883,5 +929,5 @@ type AttributeHelper<'ctx, 'entity> internal () =
       match d.TryGetValue serialized with
       | false, _ -> Error [attrInvalidEnum name serialized allowed]
       | true, attr -> Ok attr
-    NonNullableAttribute<'ctx, 'entity, 'attr, string>.Create(
-      name, fromDomain, fun _ -> toDomain >> Job.result)
+    NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>.Create(
+      name, mapSetCtx, fromDomain, fun _ -> toDomain >> Job.result)

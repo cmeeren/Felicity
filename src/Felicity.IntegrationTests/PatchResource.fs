@@ -122,6 +122,13 @@ module A =
       .Get(fun a -> a.A)
       .SetRes(fun ctx -> ctx.SetA)
 
+  let aMapped =
+    define.Attribute
+      .MapSetContextRes(fun ctx -> ctx.MapCtx ctx)
+      .SimpleBool()
+      .Get(fun a -> a.A)
+      .SetRes(fun (ctx: MappedCtx) -> ctx.SetA)
+
   let x =
     define.Attribute
       .SimpleString()
@@ -134,6 +141,14 @@ module A =
       .SimpleString()
       .Get(fun a -> a.Nullable)
       .Set(ADomain.setNullable)
+
+  let nullableMapped =
+    define.Attribute
+      .Nullable
+      .MapSetContextRes(fun ctx -> ctx.MapCtx ctx)
+      .SimpleString()
+      .Get(fun a -> a.Nullable)
+      .Set(fun (ctx: MappedCtx) x a -> ADomain.setNullable x a)
   
   let nullableNotNullWhenSet =
     define.Attribute
@@ -418,6 +433,72 @@ let tests =
       test <@ a.X = "abc" @>
       test <@ a.Nullable = None @>
       test <@ a.NullableNotNullWhenSet = Some "bar" @>
+    }
+
+    testJob "Update A mapped: Succeeds if mapping succeeds" {
+      let db = Db ()
+      let ctx = Ctx.WithDb db
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {|data = {|``type`` = "a"; id = "a1"; attributes = {| aMapped = true |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+
+      let a = 
+        match db.GetAOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+
+      test <@ a.A = true @>
+    }
+
+    testJob "Update A mapped: Returns errors returned by mapSetCtx" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtx = fun _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "a1"; attributes = {| aMapped = true |} |} |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Update nullable mapped: Succeeds if mapping succeeds" {
+      let db = Db ()
+      let ctx = Ctx.WithDb db
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {|data = {|``type`` = "a"; id = "a1"; attributes = {| nullableMapped = "foobar" |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+
+      let a = 
+        match db.GetAOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+
+      test <@ a.Nullable = Some "foobar" @>
+    }
+
+    testJob "Update nullable mapped: Returns errors returned by mapSetCtx" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtx = fun _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "a1"; attributes = {| nullableMapped = "foobar" |} |} |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "Update B: Returns 202, runs setters and returns correct data if successful" {

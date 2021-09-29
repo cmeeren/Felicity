@@ -292,7 +292,7 @@ module Parent5 =
   let resDef = define.Resource("p5", resId).CollectionName("parents")
   let lookup = define.Operation.Lookup(fun _ -> Some { Parent4.Id = "a1" })
 
-  let child : ToOneNullableRelationship<Ctx2, Parent4, obj, string> =
+  let child : ToOneNullableRelationship<Ctx2, Ctx2, Parent4, obj, string> =
     define.Relationship
       .Polymorphic()
       .ToOneNullable()
@@ -362,6 +362,30 @@ module Parent9 =  // Optional precondition
       .Get(fun ctx -> None)
       .Set(fun ctx e -> e)
       .AfterModifySelf(ignore)
+
+
+type Ctx7 = Ctx7
+type MappedCtx = MappedCtx
+
+
+module MapCtxCompileTest =
+
+  let define = Define<Ctx7, string, string>()
+  let resId = define.Id.Simple(id)
+  let resDef = define.Resource("x", resId).CollectionName("xs")
+  let lookup = define.Operation.Lookup(fun _ -> failwith "never called")
+  let get = define.Operation.GetResource()
+
+  let rel =
+    define.Relationship
+      .MapSetContext(fun _ -> MappedCtx)
+      .ToOneNullable(resDef)
+      .Get(fun _ _ -> failwith "never called")
+      .Set(fun (ctx: MappedCtx) _ _ -> failwith "never called")
+      .BeforeModifySelf(fun (_: MappedCtx) _ -> ())
+      .AfterModifySelf(fun (_: MappedCtx) _ -> ())
+      .ModifyPatchSelfAcceptedResponse(fun (_: MappedCtx) _ _ -> ())
+      .ModifyPatchSelfOkResponse(fun (_: MappedCtx) _ _ _ -> ())
 
 
 

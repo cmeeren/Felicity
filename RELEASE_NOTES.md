@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.16.2 (2021-09-29)
+
+* Added `MapSetContext` to attributes and relationships
+
 ### 0.16.1 (2021-09-02)
 
 * Added higher-arity request parser overloads

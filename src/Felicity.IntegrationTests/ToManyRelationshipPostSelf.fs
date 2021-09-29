@@ -173,7 +173,7 @@ module Parent1 =  // add and get - POST self OK
       .ModifySelfReturn202Accepted()
       .ModifyPostSelfAcceptedResponse(fun ctx -> ctx.ModifyPostSelfAcceptedResponse)
 
-  let supportsPatch : ToManyRelationship<Ctx, Parent1, Child1, string> =
+  let supportsPatch : ToManyRelationship<Ctx, Ctx, Parent1, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
@@ -181,7 +181,7 @@ module Parent1 =  // add and get - POST self OK
       .Add(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsDelete : ToManyRelationship<Ctx, Parent1, Child1, string> =
+  let supportsDelete : ToManyRelationship<Ctx, Ctx, Parent1, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
@@ -189,7 +189,7 @@ module Parent1 =  // add and get - POST self OK
       .Remove(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsPatchAndDelete : ToManyRelationship<Ctx, Parent1, Child1, string> =
+  let supportsPatchAndDelete : ToManyRelationship<Ctx, Ctx, Parent1, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
@@ -218,21 +218,21 @@ module Parent3 =  // no add - POST self error
       .ToMany()
       .Get(fun _ -> [])
 
-  let supportsPatch : ToManyRelationship<Ctx, Parent3, Child1, string> =
+  let supportsPatch : ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsDelete : ToManyRelationship<Ctx, Parent3, Child1, string> =
+  let supportsDelete : ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .Remove(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsPatchAndDelete : ToManyRelationship<Ctx, Parent3, Child1, string> =
+  let supportsPatchAndDelete : ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
@@ -240,21 +240,21 @@ module Parent3 =  // no add - POST self error
       .Remove(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsPatchUnique : ToManyRelationship<Ctx, Parent3, Child1, string> =
+  let supportsPatchUnique : ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .SetAll(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsDeleteUnique : ToManyRelationship<Ctx, Parent3, Child1, string> =
+  let supportsDeleteUnique : ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
       .Remove(fun (_: string list) _ -> failwith "not used")
       .AfterModifySelf(ignore)
 
-  let supportsPatchAndDeleteUnique : ToManyRelationship<Ctx, Parent3, Child1, string> =
+  let supportsPatchAndDeleteUnique : ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
     define.Relationship
       .ToMany(Child1.resDef)
       .Get(fun _ _ -> failwith "not used")
@@ -301,7 +301,7 @@ module Parent5 =
   let resDef = define.Resource("p5", resId).CollectionName("parents")
   let lookup = define.Operation.Lookup(fun _ -> Some { Parent4.Id = "a1" })
 
-  let children : ToManyRelationship<Ctx2, Parent4, obj, string> =
+  let children : ToManyRelationship<Ctx2, Ctx2, Parent4, obj, string> =
     define.Relationship
       .Polymorphic()
       .ToMany()
@@ -352,6 +352,30 @@ module Parent8 =  // LastModified precondition
       .Get(fun ctx -> [])
       .Add(fun ctx e -> e)
       .AfterModifySelf(ignore)
+
+
+type Ctx6 = Ctx6
+type MappedCtx = MappedCtx
+
+
+module MapCtxCompileTest =
+
+  let define = Define<Ctx6, string, string>()
+  let resId = define.Id.Simple(id)
+  let resDef = define.Resource("x", resId).CollectionName("xs")
+  let lookup = define.Operation.Lookup(fun _ -> failwith "never called")
+  let get = define.Operation.GetResource()
+
+  let rel =
+    define.Relationship
+      .MapSetContext(fun _ -> MappedCtx)
+      .ToMany(resDef)
+      .Get(fun _ _ -> failwith "never called")
+      .Add(fun (_: MappedCtx) _ _ -> failwith "never called")
+      .BeforeModifySelf(fun (_: MappedCtx) _ -> ())
+      .AfterModifySelf(fun (_: MappedCtx) _ -> ())
+      .ModifyPostSelfAcceptedResponse(fun (_: MappedCtx) _ _ -> ())
+      .ModifyPostSelfOkResponse (fun (_: MappedCtx) (_: string) _ _ -> ())
 
 
 [<Tests>]

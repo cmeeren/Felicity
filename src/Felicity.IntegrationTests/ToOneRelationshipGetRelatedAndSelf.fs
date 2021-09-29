@@ -208,7 +208,7 @@ module Parent5 =
   let resDef = define.Resource("p5", resId).CollectionName("parents")
   let lookup = define.Operation.Lookup(fun _ -> Some { Parent4.Id = "a1" })
 
-  let child : ToOneRelationship<Ctx2, Parent4, obj, string> =
+  let child : ToOneRelationship<Ctx2, Ctx2, Parent4, obj, string> =
     define.Relationship
       .Polymorphic()
       .ToOne()

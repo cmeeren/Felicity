@@ -587,7 +587,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 3. `BeforeModifySelf`
 4. Parse ID(s) of relationship data
 5. Related resource lookup (if using related setter and not ID setter)
-6. `Set`/`SetAll`/`Add`/`Remove`
+6. `Set`/`SetAll`/`Add`/`Remove`, including transforming the context, if specified (see section TODO)
 7. `AfterModifySelf`
 8. `Modify*Response`
 
@@ -888,7 +888,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 4. Validate preconditions
 5. `BeforeUpdate`
 6. Custom setters
-7. Normal field setters (only those not already used in custom setters)
+7. Normal field setters (only those not already used in custom setters), including setter-specific context transformations, if specified (see section TODO)
 8. `AfterUpdate`
 9. `ModifyResponse`
 
@@ -1029,6 +1029,24 @@ let patch =
 ```
 
 `ForContext` has several variants, including one allowing you to return an `Option`-wrapped value, where Felicity will return a generic “operation not available” error message if it returns None.
+
+Field-specific modification authorization
+-----------------------------------------
+
+A limitation of the above is that if you need a different context type for attribute and relationship setters, this must be defined per attribute. You can use `MapSetContext` for this:
+
+```f#
+let title =
+  define.Attribute
+    .MapSetContext(toAdminCtx)
+    .Parsed(ArticleTitle.toString, ArticleTitle.fromString)
+    .Get(fun a -> a.Title)
+    .Set(Article.setTitleUsingAdminContext)
+```
+
+In the example above, before `title` is set during a `PATCH` resource operation, the context will be transformed according to the specified function. This works similarly to what is described in the previous section.
+
+When used with relationships, the transformed context is also used for the `POST`, `PATCH`, and `DELETE` operations to the relationship’s `self` URL.
 
 Request parser
 --------------

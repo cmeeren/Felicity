@@ -114,23 +114,23 @@ type JsonApiConfigBuilder<'ctx> = internal {
             let rDef = ResourceModule.resourceDefinition<'ctx> m
             let nonNullableAttrTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
-              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NonNullableAttribute<_, _, _, _>>)
-              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments().[3])
+              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NonNullableAttribute<_, _, _, _, _>>)
+              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments().[4])
             let nullableAttrTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
-              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NullableAttribute<_, _, _, _>>)
-              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments().[3]))
+              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NullableAttribute<_, _, _, _, _>>)
+              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments().[4]))
             let toOneRelTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
-              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneRelationship<_, _, _, _>>)
+              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneRelationship<_, _, _, _, _>>)
               |> Array.map (fun pi -> (pi.GetValue(null) :?> ToOneRelationship<'ctx>).Name, typeof<InternalDeserializationModelDoNotUse.DToOneRelationship>)
             let toOneNullableRelTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
-              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneNullableRelationship<_, _, _, _>>)
+              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneNullableRelationship<_, _, _, _, _>>)
               |> Array.map (fun pi -> (pi.GetValue(null) :?> ToOneNullableRelationship<'ctx>).Name, typeof<InternalDeserializationModelDoNotUse.DToOneNullableRelationship>)
             let toManyRelTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
-              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToManyRelationship<_, _, _, _>>)
+              |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToManyRelationship<_, _, _, _, _>>)
               |> Array.map (fun pi -> (pi.GetValue(null) :?> ToManyRelationship<'ctx>).Name, typeof<InternalDeserializationModelDoNotUse.DToManyRelationship>)
             let constraintsFieldByName =
               let hasConstrainedFields =

@@ -146,30 +146,32 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
       |> JobResult.requireSome [reqParserMissingRequiredRel this.name pointer]
 
 
-type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   setOrder: int
+  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Job<'relatedEntity Skippable>) option
-  set: ('ctx -> Pointer -> 'relatedId -> 'entity -> Job<Result<'entity, Error list>>) option
+  set: ('ctx -> 'setCtx -> Pointer -> 'relatedId -> 'entity -> Job<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Job<ResourceIdentifier Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
-  beforeModifySelf: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  afterModifySelf: ('ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
+  beforeModifySelf: 'setCtx -> 'entity -> Job<Result<'entity, Error list>>
+  afterModifySelf: ('setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
-  modifyPatchSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
-  modifyPatchSelfAcceptedResponse: 'ctx -> 'entity -> HttpHandler
+  modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler
+  modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
   patchSelfReturn202Accepted: bool
 } with
 
-  static member internal Create (name: string, resolveEntity, resolveId, idParsers) : ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create (name: string, mapSetCtx, resolveEntity, resolveId, idParsers) : ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       setOrder = 0
+      mapSetCtx = mapSetCtx
       resolveEntity = resolveEntity
       resolveId = resolveId
       idParsers = idParsers
@@ -188,12 +190,12 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
     }
 
   member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
-    fun ctx (dataPointer: Pointer) relatedId entity ->
+    fun ctx setCtx (dataPointer: Pointer) relatedId entity ->
       getRelated.GetById ctx relatedId
       |> JobResult.mapError (List.map (Error.setSourcePointer dataPointer))
       |> JobResult.requireSome [relatedResourceNotFound dataPointer]
       |> JobResult.bind (fun r ->
-          entitySetter ctx r entity
+          entitySetter setCtx r entity
           |> JobResult.mapError (List.map (Error.setSourcePointer dataPointer))
       )
 
@@ -269,26 +271,29 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
             | _, None -> return Ok entity // not provided in request
             | None, Some _ -> return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, Some (:? ToOne as rel) ->
-                let idParsers =
-                  this.idParsers
-                  |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
-                match rel.data with
-                | Skip -> return Error [relMissingData this.name ("/data/relationships/" + this.name)]
-                | Include identifier ->
-                    match idParsers.TryGetValue identifier.``type`` with
-                    | false, _ ->
-                        let allowedTypes = idParsers |> Map.toList |> List.map fst
-                        let pointer = "/data/relationships/" + this.name + "/data/type"
-                        return Error [relInvalidType this.name identifier.``type`` allowedTypes pointer]
-                    | true, parseId ->
-                        return!
-                          parseId ctx identifier.id
-                          // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                          // this just means that the resource does not exist, which is a more helpful result.
-                          |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
-                          |> JobResult.bind (fun domain ->
-                              set ctx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
-                          |> JobResult.map box<'entity>
+                match! this.mapSetCtx ctx with
+                | Error errs -> return Error errs
+                | Ok setCtx ->
+                    let idParsers =
+                      this.idParsers
+                      |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                    match rel.data with
+                    | Skip -> return Error [relMissingData this.name ("/data/relationships/" + this.name)]
+                    | Include identifier ->
+                        match idParsers.TryGetValue identifier.``type`` with
+                        | false, _ ->
+                            let allowedTypes = idParsers |> Map.toList |> List.map fst
+                            let pointer = "/data/relationships/" + this.name + "/data/type"
+                            return Error [relInvalidType this.name identifier.``type`` allowedTypes pointer]
+                        | true, parseId ->
+                            return!
+                              parseId ctx identifier.id
+                              // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                              // this just means that the resource does not exist, which is a more helpful result.
+                              |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
+                              |> JobResult.bind (fun domain ->
+                                  set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
+                              |> JobResult.map box<'entity>
             | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (rel.GetType().FullName)
         | _ -> return Ok entity  // no relationships provided
       }
@@ -425,62 +430,65 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
         fun ctx req parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
-              match req.IdentifierDocument.Value with
+              match! this.mapSetCtx ctx with
               | Error errs -> return! handleErrors errs next httpCtx
-              | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
-              | Ok (Some { data = None }) -> return! handleErrors [relInvalidNull parentTypeName this.name "/data"] next httpCtx
-              | Ok (Some { data = Some id }) ->
-                  match preconditions.Validate httpCtx ctx entity0 with
-                  | Error errors -> return! handleErrors errors next httpCtx
-                  | Ok () ->
-                      match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
+              | Ok setCtx ->
+                  match req.IdentifierDocument.Value with
+                  | Error errs -> return! handleErrors errs next httpCtx
+                  | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
+                  | Ok (Some { data = None }) -> return! handleErrors [relInvalidNull parentTypeName this.name "/data"] next httpCtx
+                  | Ok (Some { data = Some id }) ->
+                      match preconditions.Validate httpCtx ctx entity0 with
                       | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok entity1 ->
-                          match idParsers.TryGetValue id.``type`` with
-                          | false, _ ->
-                              let allowedTypes = idParsers |> Map.toList |> List.map fst
-                              return! handleErrors [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] next httpCtx
-                          | true, parseId ->
-                              let! entity2Res =
-                                parseId ctx id.id
-                                // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                // this just means that the resource does not exist, which is a more helpful result.
-                                |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
-                                |> JobResult.bind (fun domain ->
-                                    set ctx "/data" domain (unbox<'entity> entity1)
-                                )
-                              match entity2Res with
-                              | Error errs -> return! handleErrors errs next httpCtx
-                              | Ok entity2 ->
-                                  match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
-                                  | Error errors -> return! handleErrors errors next httpCtx
-                                  | Ok entity3 ->
-                                      if this.patchSelfReturn202Accepted then
-                                        let handler =
-                                          setStatusCode 202
-                                          >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity2)
-                                        return! handler next httpCtx
-                                      else
-                                        match! getRelated ctx (unbox<'entity> entity3) with
-                                        | Skip ->
-                                            let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                            logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                            return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
-                                        | Include relatedEntity ->
-                                            let b = resolveEntity relatedEntity
-                                            let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
-                                            let doc : ResourceIdentifierDocument = {
-                                              jsonapi = Skip
-                                              links = Skip
-                                              meta = Skip
-                                              data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                              included = included
-                                            }
+                      | Ok () ->
+                          match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                          | Error errors -> return! handleErrors errors next httpCtx
+                          | Ok entity1 ->
+                              match idParsers.TryGetValue id.``type`` with
+                              | false, _ ->
+                                  let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                  return! handleErrors [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] next httpCtx
+                              | true, parseId ->
+                                  let! entity2Res =
+                                    parseId ctx id.id
+                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                    // this just means that the resource does not exist, which is a more helpful result.
+                                    |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
+                                    |> JobResult.bind (fun domain ->
+                                        set ctx setCtx "/data" domain (unbox<'entity> entity1)
+                                    )
+                                  match entity2Res with
+                                  | Error errs -> return! handleErrors errs next httpCtx
+                                  | Ok entity2 ->
+                                      match! afterModifySelf setCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                                      | Error errors -> return! handleErrors errors next httpCtx
+                                      | Ok entity3 ->
+                                          if this.patchSelfReturn202Accepted then
                                             let handler =
-                                              setStatusCode 200
-                                              >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
-                                              >=> jsonApiWithETag<'ctx> doc
+                                              setStatusCode 202
+                                              >=> this.modifyPatchSelfAcceptedResponse setCtx (unbox<'entity> entity2)
                                             return! handler next httpCtx
+                                          else
+                                            match! getRelated ctx (unbox<'entity> entity3) with
+                                            | Skip ->
+                                                let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                                logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                                return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
+                                            | Include relatedEntity ->
+                                                let b = resolveEntity relatedEntity
+                                                let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
+                                                let doc : ResourceIdentifierDocument = {
+                                                  jsonapi = Skip
+                                                  links = Skip
+                                                  meta = Skip
+                                                  data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                                  included = included
+                                                }
+                                                let handler =
+                                                  setStatusCode 200
+                                                  >=> this.modifyPatchSelfOkResponse setCtx (unbox<'entity> entity3) relatedEntity
+                                                  >=> jsonApiWithETag<'ctx> doc
+                                                return! handler next httpCtx
             }
             |> Job.startAsTask
       )
@@ -568,78 +576,78 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId>) =
     this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
 
-  member private this.SetJobRes (set: Func<'ctx, Pointer, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
+  member private this.SetJobRes (set: Func<'ctx, 'setCtx, Pointer, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
-    { this with set = Some (fun ctx ptr relId e -> set.Invoke(ctx, ptr, relId, e)) }
+    { this with set = Some (fun ctx setCtx ptr relId e -> set.Invoke(ctx, setCtx, ptr, relId, e)) }
 
-  member this.SetJobRes (set: Func<'ctx, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
-    this.SetJobRes(fun ctx pointer relId e -> set.Invoke(ctx, relId, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
+  member this.SetJobRes (set: Func<'setCtx, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
+    this.SetJobRes(fun _ ctx pointer relId e -> set.Invoke(ctx, relId, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.SetJobRes (set: Func<'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(fun _ id e -> set.Invoke(id, e))
 
-  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun ctx relId e -> set.Invoke(ctx, relId, e)))
 
   member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun _ id e -> set.Invoke(id, e)))
 
-  member this.SetAsyncRes (set: Func<'ctx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (set: Func<'setCtx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(Job.liftAsyncFunc3 set)
 
   member this.SetAsyncRes (set: Func<'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(Job.liftAsyncFunc2 set)
 
-  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc3 set)
 
   member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc2 set)
 
-  member this.SetJob (set: Func<'ctx, 'relatedId, 'entity, Job<'entity>>) =
+  member this.SetJob (set: Func<'setCtx, 'relatedId, 'entity, Job<'entity>>) =
     this.SetJobRes(fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.SetJob (set: Func<'relatedId, 'entity, Job<'entity>>) =
     this.SetJobRes(fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<'entity>>) =
+  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok))
 
   member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok))
 
-  member this.SetAsync (set: Func<'ctx, 'relatedId, 'entity, Async<'entity>>) =
+  member this.SetAsync (set: Func<'setCtx, 'relatedId, 'entity, Async<'entity>>) =
     this.SetJob(Job.liftAsyncFunc3 set)
 
   member this.SetAsync (set: Func<'relatedId, 'entity, Async<'entity>>) =
     this.SetJob(Job.liftAsyncFunc2 set)
 
-  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<'entity>>) =
+  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc3 set)
 
   member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc2 set)
 
-  member this.SetRes (set: Func<'ctx, 'relatedId, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (set: Func<'setCtx, 'relatedId, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftFunc3 set)
 
   member this.SetRes (set: Func<'relatedId, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftFunc2 set)
 
-  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc3 set)
 
   member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc2 set)
 
-  member this.Set (set: Func<'ctx, 'relatedId, 'entity, 'entity>) =
+  member this.Set (set: Func<'setCtx, 'relatedId, 'entity, 'entity>) =
     this.SetJobRes(JobResult.liftFunc3 set)
 
   member this.Set (set: Func<'relatedId, 'entity, 'entity>) =
     this.SetJobRes(JobResult.liftFunc2 set)
 
-  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, 'entity>) =
+  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc3 set)
 
   member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, 'entity>) =
@@ -669,10 +677,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.BeforeModifySelfJobRes(f: Func<'setCtx, 'entity, Job<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
+  member this.BeforeModifySelfJobRes(f: Func<'setCtx, 'entity, Job<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
 
   member this.BeforeModifySelfJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
@@ -681,10 +689,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.BeforeModifySelfAsyncRes(f: Func<'setCtx, 'entity, Async<Result<'entity, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc2 f)
 
-  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+  member this.BeforeModifySelfAsyncRes(f: Func<'setCtx, 'entity, Async<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc2 f)
 
   member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
@@ -693,10 +701,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc f)
 
-  member this.BeforeModifySelfJob(f: Func<'ctx, 'entity, Job<'entity>>) =
+  member this.BeforeModifySelfJob(f: Func<'setCtx, 'entity, Job<'entity>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
 
-  member this.BeforeModifySelfJob(f: Func<'ctx, 'entity, Job<unit>>) =
+  member this.BeforeModifySelfJob(f: Func<'setCtx, 'entity, Job<unit>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
 
   member this.BeforeModifySelfJob(f: Func<'entity, Job<'entity>>) =
@@ -705,10 +713,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfJob(f: Func<'entity, Job<unit>>) =
     this.BeforeModifySelfJobRes(fun e -> f.Invoke e |> Job.map Ok)
 
-  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+  member this.BeforeModifySelfAsync(f: Func<'setCtx, 'entity, Async<'entity>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc2 f)
 
-  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+  member this.BeforeModifySelfAsync(f: Func<'setCtx, 'entity, Async<unit>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc2 f)
 
   member this.BeforeModifySelfAsync(f: Func<'entity, Async<'entity>>) =
@@ -717,10 +725,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfAsync(f: Func<'entity, Async<unit>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc f)
 
-  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+  member this.BeforeModifySelfRes(f: Func<'setCtx, 'entity, Result<'entity, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc2 f)
 
-  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
+  member this.BeforeModifySelfRes(f: Func<'setCtx, 'entity, Result<unit, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc2 f)
 
   member this.BeforeModifySelfRes(f: Func<'entity, Result<'entity, Error list>>) =
@@ -729,10 +737,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfRes(f: Func<'entity, Result<unit, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc f)
 
-  member this.BeforeModifySelf(f: Func<'ctx, 'entity, 'entity>) =
+  member this.BeforeModifySelf(f: Func<'setCtx, 'entity, 'entity>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc2 f)
 
-  member this.BeforeModifySelf(f: Func<'ctx, 'entity, unit>) =
+  member this.BeforeModifySelf(f: Func<'setCtx, 'entity, unit>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc2 f)
 
   member this.BeforeModifySelf(f: Func<'entity, 'entity>) =
@@ -741,16 +749,16 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelf(f: Func<'entity, unit>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc f)
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx _ e -> f ctx e) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<unit, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
@@ -765,10 +773,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun _ _ e -> f e |> JobResult.map (fun () -> e))
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
@@ -777,10 +785,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsyncRes(f: 'entity -> Async<Result<'entity, Error list>>) =
@@ -789,10 +797,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsyncRes(f: 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync f)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<'entity>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<unit>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
   member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<'entity>) =
@@ -801,10 +809,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<'entity>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<unit>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
   member this.AfterModifySelfJob(f: 'entity -> Job<'entity>) =
@@ -813,10 +821,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJob(f: 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun e -> f e |> Job.map Ok)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<'entity>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<unit>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<'entity>) =
@@ -825,10 +833,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<'entity>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<unit>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsync(f: 'entity -> Async<'entity>) =
@@ -837,10 +845,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsync(f: 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<'entity, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<unit, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
   member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<'entity, Error list>) =
@@ -849,10 +857,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<'entity, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<unit, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
   member this.AfterModifySelfRes(f: 'entity -> Result<'entity, Error list>) =
@@ -861,10 +869,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfRes(f: 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> 'entity) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> unit) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
 
   member this.AfterModifySelf(f: 'entity -> 'entity -> 'entity) =
@@ -873,10 +881,10 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelf(f: 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> unit) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
   member this.AfterModifySelf(f: 'entity -> 'entity) =
@@ -906,19 +914,19 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.ModifyGetSelfResponse(handler: HttpHandler) =
     this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPatchSelfOkResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) =
+  member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler) =
     { this with modifyPatchSelfOkResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPatchSelfOkResponse(f: 'ctx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
+  member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
     this.ModifyPatchSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
 
   member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
     this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPatchSelfAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+  member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
     { this with modifyPatchSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPatchSelfAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+  member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPatchSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
   member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
@@ -929,7 +937,7 @@ type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 [<AutoOpen>]
 module ToOneRelationshipExtensions =
 
-  type ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+  type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> with
 
     member this.AddConstraint (name: string, value: 'a) =
       this.AddConstraint(name, fun _ -> value)
@@ -1066,30 +1074,32 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 
 
 
-type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   setOrder: int
+  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Job<'relatedEntity option Skippable>) option
-  set: ('ctx -> Pointer -> 'relatedId option -> 'entity -> Job<Result<'entity, Error list>>) option
+  set: ('ctx -> 'setCtx -> Pointer -> 'relatedId option -> 'entity -> Job<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Job<ResourceIdentifier option Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
-  beforeModifySelf: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  afterModifySelf: ('ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
+  beforeModifySelf: 'setCtx -> 'entity -> Job<Result<'entity, Error list>>
+  afterModifySelf: ('setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
-  modifyPatchSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
-  modifyPatchSelfAcceptedResponse: 'ctx -> 'entity -> HttpHandler
+  modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler
+  modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
   patchSelfReturn202Accepted: bool
 } with
 
-  static member internal Create (name: string, resolveEntity, resolveId, idParsers) : ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create (name: string, mapSetCtx, resolveEntity, resolveId, idParsers) : ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       setOrder = 0
+      mapSetCtx = mapSetCtx
       resolveEntity = resolveEntity
       resolveId = resolveId
       idParsers = idParsers
@@ -1108,7 +1118,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
     }
 
   member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
-    fun ctx (dataPointer: Pointer) relatedId entity ->
+    fun ctx setCtx (dataPointer: Pointer) relatedId entity ->
       relatedId
       |> Option.traverseJobResult (
           getRelated.GetById ctx
@@ -1116,7 +1126,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
           >> JobResult.requireSome [relatedResourceNotFound dataPointer]
       )
       |> JobResult.bind (fun r ->
-        entitySetter ctx r entity
+        entitySetter setCtx r entity
         |> JobResult.mapError (List.map (Error.setSourcePointer dataPointer))
       )
 
@@ -1195,29 +1205,32 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
             | _, None -> return Ok entity // not provided in request
             | None, Some _ -> return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, Some (:? ToOneNullable as rel) ->
-                let idParsers =
-                  this.idParsers
-                  |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
-                match rel.data with
-                | Skip -> return Error [relMissingData this.name ("/data/relationships/" + this.name)]
-                | Include identifier ->
-                    return!
-                      identifier
-                      |> Option.traverseJobResult (fun id ->
-                          match idParsers.TryGetValue id.``type`` with
-                          | false, _ ->
-                              let allowedTypes = idParsers |> Map.toList |> List.map fst
-                              let pointer = "/data/relationships/" + this.name + "/data/type"
-                              Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Job.result
-                          | true, parseId ->
-                            parseId ctx id.id
-                            // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                            // this just means that the resource does not exist, which is a more helpful result.
-                            |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
-                      )
-                      |> JobResult.bind (fun domain ->
-                          set ctx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
-                      |> JobResult.map box<'entity>
+              match! this.mapSetCtx ctx with
+              | Error errs -> return Error errs
+              | Ok setCtx ->
+                  let idParsers =
+                    this.idParsers
+                    |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                  match rel.data with
+                  | Skip -> return Error [relMissingData this.name ("/data/relationships/" + this.name)]
+                  | Include identifier ->
+                      return!
+                        identifier
+                        |> Option.traverseJobResult (fun id ->
+                            match idParsers.TryGetValue id.``type`` with
+                            | false, _ ->
+                                let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                let pointer = "/data/relationships/" + this.name + "/data/type"
+                                Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Job.result
+                            | true, parseId ->
+                              parseId ctx id.id
+                              // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                              // this just means that the resource does not exist, which is a more helpful result.
+                              |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
+                        )
+                        |> JobResult.bind (fun domain ->
+                            set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
+                        |> JobResult.map box<'entity>
             | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (rel.GetType().FullName)
         | _ -> return Ok entity  // no relationships provided
       }
@@ -1359,65 +1372,68 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
         fun ctx req parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
-              match req.IdentifierDocument.Value with
+              match! this.mapSetCtx ctx with
               | Error errs -> return! handleErrors errs next httpCtx
-              | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
-              | Ok (Some { data = identifier }) ->
-                  match preconditions.Validate httpCtx ctx entity0 with
-                  | Error errors -> return! handleErrors errors next httpCtx
-                  | Ok () ->
-                      match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
+              | Ok setCtx ->
+                  match req.IdentifierDocument.Value with
+                  | Error errs -> return! handleErrors errs next httpCtx
+                  | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
+                  | Ok (Some { data = identifier }) ->
+                      match preconditions.Validate httpCtx ctx entity0 with
                       | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok entity1 ->
-                          let! entity2Res =
-                            identifier
-                            |> Option.traverseJobResult (fun id ->
-                                match idParsers.TryGetValue id.``type`` with
-                                | false, _ ->
-                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                    Error [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] |> Job.result
-                                | true, parseId ->
-                                    parseId ctx id.id
-                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                    // this just means that the resource does not exist, which is a more helpful result.
-                                    |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
-                            )
-                            |> JobResult.bind (fun domain -> set ctx "/data" domain (unbox<'entity> entity1))
-                          match entity2Res with
-                          | Error errs -> return! handleErrors errs next httpCtx
-                          | Ok entity2 ->
-                              match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
-                              | Error errors -> return! handleErrors errors next httpCtx
-                              | Ok entity3 ->
-                                  if this.patchSelfReturn202Accepted then
-                                    let handler =
-                                      setStatusCode 202
-                                      >=> this.modifyPatchSelfAcceptedResponse ctx (unbox<'entity> entity3)
-                                    return! handler next httpCtx
-                                  else
-                                    match! getRelated ctx (unbox<'entity> entity3) with
-                                    | Skip ->
-                                        let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                        logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                        return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
-                                    | Include relatedEntity ->
-                                        let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
-                                        let doc : ResourceIdentifierDocument = {
-                                          jsonapi = Skip
-                                          links = Skip
-                                          meta = Skip
-                                          data =
-                                            relatedEntity |> Option.map (fun e ->
-                                              let b = resolveEntity e
-                                              { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                            )
-                                          included = included
-                                        }
+                      | Ok () ->
+                          match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                          | Error errors -> return! handleErrors errors next httpCtx
+                          | Ok entity1 ->
+                              let! entity2Res =
+                                identifier
+                                |> Option.traverseJobResult (fun id ->
+                                    match idParsers.TryGetValue id.``type`` with
+                                    | false, _ ->
+                                        let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                        Error [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] |> Job.result
+                                    | true, parseId ->
+                                        parseId ctx id.id
+                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                        // this just means that the resource does not exist, which is a more helpful result.
+                                        |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
+                                )
+                                |> JobResult.bind (fun domain -> set ctx setCtx "/data" domain (unbox<'entity> entity1))
+                              match entity2Res with
+                              | Error errs -> return! handleErrors errs next httpCtx
+                              | Ok entity2 ->
+                                  match! afterModifySelf setCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                                  | Error errors -> return! handleErrors errors next httpCtx
+                                  | Ok entity3 ->
+                                      if this.patchSelfReturn202Accepted then
                                         let handler =
-                                          setStatusCode 200
-                                          >=> this.modifyPatchSelfOkResponse ctx (unbox<'entity> entity3) relatedEntity
-                                          >=> jsonApiWithETag<'ctx> doc
+                                          setStatusCode 202
+                                          >=> this.modifyPatchSelfAcceptedResponse setCtx (unbox<'entity> entity3)
                                         return! handler next httpCtx
+                                      else
+                                        match! getRelated ctx (unbox<'entity> entity3) with
+                                        | Skip ->
+                                            let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                            logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                            return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
+                                        | Include relatedEntity ->
+                                            let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
+                                            let doc : ResourceIdentifierDocument = {
+                                              jsonapi = Skip
+                                              links = Skip
+                                              meta = Skip
+                                              data =
+                                                relatedEntity |> Option.map (fun e ->
+                                                  let b = resolveEntity e
+                                                  { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                                )
+                                              included = included
+                                            }
+                                            let handler =
+                                              setStatusCode 200
+                                              >=> this.modifyPatchSelfOkResponse setCtx (unbox<'entity> entity3) relatedEntity
+                                              >=> jsonApiWithETag<'ctx> doc
+                                            return! handler next httpCtx
             }
             |> Job.startAsTask
       )
@@ -1506,84 +1522,84 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId option>) =
     this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
 
-  member private this.SetJobRes (set: Func<'ctx, Pointer, 'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
+  member private this.SetJobRes (set: Func<'ctx, 'setCtx, Pointer, 'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
-    { this with set = Some (fun ctx ptr relId e -> set.Invoke(ctx, ptr, relId, e)) }
+    { this with set = Some (fun ctx setCtx ptr relId e -> set.Invoke(ctx, setCtx, ptr, relId, e)) }
 
-  member this.SetJobRes (set: Func<'ctx, 'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
-    this.SetJobRes(fun ctx pointer relId e -> set.Invoke(ctx, relId, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
+  member this.SetJobRes (set: Func<'setCtx, 'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
+    this.SetJobRes(fun _ ctx pointer relId e -> set.Invoke(ctx, relId, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.SetJobRes (set: Func<'relatedId option, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(fun _ id e -> set.Invoke(id, e))
 
-  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType option, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun ctx relId e -> set.Invoke(ctx, relId, e)))
 
   member this.SetJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(this.toIdSetter getRelated (fun _ id e -> set.Invoke(id, e)))
 
-  member this.SetAsyncRes (set: Func<'ctx, 'relatedId option, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (set: Func<'setCtx, 'relatedId option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(Job.liftAsyncFunc3 set)
 
   member this.SetAsyncRes (set: Func<'relatedId option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(Job.liftAsyncFunc2 set)
 
-  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc3 set)
 
   member this.SetAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, Job.liftAsyncFunc2 set)
 
-  member this.SetJob (set: Func<'ctx, 'relatedId option, 'entity, Job<'entity>>) =
+  member this.SetJob (set: Func<'setCtx, 'relatedId option, 'entity, Job<'entity>>) =
     this.SetJobRes(fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.SetJob (set: Func<'relatedId option, 'entity, Job<'entity>>) =
     this.SetJobRes(fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Job<'entity>>) =
+  member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType option, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok))
 
   member this.SetJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Job<'entity>>) =
     this.SetJobRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok))
 
-  member this.SetAsync (set: Func<'ctx, 'relatedId option, 'entity, Async<'entity>>) =
+  member this.SetAsync (set: Func<'setCtx, 'relatedId option, 'entity, Async<'entity>>) =
     this.SetJob(Job.liftAsyncFunc3 set)
 
   member this.SetAsync (set: Func<'relatedId option, 'entity, Async<'entity>>) =
     this.SetJob(Job.liftAsyncFunc2 set)
 
-  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Async<'entity>>) =
+  member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType option, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc3 set)
 
   member this.SetAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Async<'entity>>) =
     this.SetJob(getRelated, Job.liftAsyncFunc2 set)
 
-  member this.SetRes (set: Func<'ctx, 'relatedId option, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (set: Func<'setCtx, 'relatedId option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftFunc3 set)
 
   member this.SetRes (set: Func<'relatedId option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(Job.liftFunc2 set)
 
-  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, Result<'entity, Error list>>) =
+  member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc3 set)
 
   member this.SetRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, Result<'entity, Error list>>) =
     this.SetJobRes(getRelated, Job.liftFunc2 set)
 
-  member this.Set (set: Func<'ctx, 'relatedId option, 'entity, 'entity>) =
+  member this.Set (set: Func<'setCtx, 'relatedId option, 'entity, 'entity>) =
     this.SetJobRes(JobResult.liftFunc3 set)
 
   member this.Set (set: Func<'relatedId option, 'entity, 'entity>) =
     this.SetJobRes(JobResult.liftFunc2 set)
 
-  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType option, 'entity, 'entity>) =
+  member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType option, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc3 set)
 
   member this.Set (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, 'entity>) =
     this.SetJobRes(getRelated, JobResult.liftFunc2 set)
 
-  member this.SetNonNullJobRes (set: Func<'ctx, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetNonNullJobRes (set: Func<'setCtx, 'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(fun ctx relId e ->
       relId
       |> Result.requireSome [setRelNullNotAllowed this.name]
@@ -1594,7 +1610,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullJobRes (set: Func<'relatedId, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(fun _ id e -> set.Invoke(id, e))
 
-  member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetJobRes(getRelated, fun ctx relId e ->
       relId
       |> Result.requireSome [setRelNullNotAllowed this.name]
@@ -1605,61 +1621,61 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.SetNonNullJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(getRelated, fun _ id e -> set.Invoke(id, e))
 
-  member this.SetNonNullAsyncRes (set: Func<'ctx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetNonNullAsyncRes (set: Func<'setCtx, 'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(Job.liftAsyncFunc3 set)
 
   member this.SetNonNullAsyncRes (set: Func<'relatedId, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(Job.liftAsyncFunc2 set)
 
-  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(getRelated, Job.liftAsyncFunc3 set)
 
   member this.SetNonNullAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetNonNullJobRes(getRelated, Job.liftAsyncFunc2 set)
 
-  member this.SetNonNullJob (set: Func<'ctx, 'relatedId, 'entity, Job<'entity>>) =
+  member this.SetNonNullJob (set: Func<'setCtx, 'relatedId, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.SetNonNullJob (set: Func<'relatedId, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Job<'entity>>) =
+  member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Job.map Ok))
 
   member this.SetNonNullJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Job<'entity>>) =
     this.SetNonNullJobRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Job.map Ok))
 
-  member this.SetNonNullAsync (set: Func<'ctx, 'relatedId, 'entity, Async<'entity>>) =
+  member this.SetNonNullAsync (set: Func<'setCtx, 'relatedId, 'entity, Async<'entity>>) =
     this.SetNonNullJob(Job.liftAsyncFunc3 set)
 
   member this.SetNonNullAsync (set: Func<'relatedId, 'entity, Async<'entity>>) =
     this.SetNonNullJob(Job.liftAsyncFunc2 set)
 
-  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Async<'entity>>) =
+  member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Async<'entity>>) =
     this.SetNonNullJob(getRelated, Job.liftAsyncFunc3 set)
 
   member this.SetNonNullAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<'entity>>) =
     this.SetNonNullJob(getRelated, Job.liftAsyncFunc2 set)
 
-  member this.SetNonNullRes (set: Func<'ctx, 'relatedId, 'entity, Result<'entity, Error list>>) =
+  member this.SetNonNullRes (set: Func<'setCtx, 'relatedId, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(Job.liftFunc3 set)
 
   member this.SetNonNullRes (set: Func<'relatedId, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(Job.liftFunc2 set)
 
-  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, Result<'entity, Error list>>) =
+  member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(getRelated, Job.liftFunc3 set)
 
   member this.SetNonNullRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Result<'entity, Error list>>) =
     this.SetNonNullJobRes(getRelated, Job.liftFunc2 set)
 
-  member this.SetNonNull (set: Func<'ctx, 'relatedId, 'entity, 'entity>) =
+  member this.SetNonNull (set: Func<'setCtx, 'relatedId, 'entity, 'entity>) =
     this.SetNonNullJobRes(JobResult.liftFunc3 set)
 
   member this.SetNonNull (set: Func<'relatedId, 'entity, 'entity>) =
     this.SetNonNullJobRes(JobResult.liftFunc2 set)
 
-  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'ctx, 'lookupType, 'entity, 'entity>) =
+  member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, 'entity>) =
     this.SetNonNullJobRes(getRelated, JobResult.liftFunc3 set)
 
   member this.SetNonNull (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, 'entity>) =
@@ -1689,10 +1705,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
-  member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.BeforeModifySelfJobRes(f: Func<'setCtx, 'entity, Job<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
+  member this.BeforeModifySelfJobRes(f: Func<'setCtx, 'entity, Job<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
 
   member this.BeforeModifySelfJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
@@ -1701,10 +1717,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.BeforeModifySelfJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.BeforeModifySelfAsyncRes(f: Func<'setCtx, 'entity, Async<Result<'entity, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc2 f)
 
-  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+  member this.BeforeModifySelfAsyncRes(f: Func<'setCtx, 'entity, Async<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc2 f)
 
   member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
@@ -1713,10 +1729,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc f)
 
-  member this.BeforeModifySelfJob(f: Func<'ctx, 'entity, Job<'entity>>) =
+  member this.BeforeModifySelfJob(f: Func<'setCtx, 'entity, Job<'entity>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
 
-  member this.BeforeModifySelfJob(f: Func<'ctx, 'entity, Job<unit>>) =
+  member this.BeforeModifySelfJob(f: Func<'setCtx, 'entity, Job<unit>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
 
   member this.BeforeModifySelfJob(f: Func<'entity, Job<'entity>>) =
@@ -1725,10 +1741,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.BeforeModifySelfJob(f: Func<'entity, Job<unit>>) =
     this.BeforeModifySelfJobRes(fun e -> f.Invoke e |> Job.map Ok)
 
-  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+  member this.BeforeModifySelfAsync(f: Func<'setCtx, 'entity, Async<'entity>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc2 f)
 
-  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+  member this.BeforeModifySelfAsync(f: Func<'setCtx, 'entity, Async<unit>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc2 f)
 
   member this.BeforeModifySelfAsync(f: Func<'entity, Async<'entity>>) =
@@ -1737,10 +1753,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.BeforeModifySelfAsync(f: Func<'entity, Async<unit>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc f)
 
-  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+  member this.BeforeModifySelfRes(f: Func<'setCtx, 'entity, Result<'entity, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc2 f)
 
-  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
+  member this.BeforeModifySelfRes(f: Func<'setCtx, 'entity, Result<unit, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc2 f)
 
   member this.BeforeModifySelfRes(f: Func<'entity, Result<'entity, Error list>>) =
@@ -1749,10 +1765,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.BeforeModifySelfRes(f: Func<'entity, Result<unit, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc f)
 
-  member this.BeforeModifySelf(f: Func<'ctx, 'entity, 'entity>) =
+  member this.BeforeModifySelf(f: Func<'setCtx, 'entity, 'entity>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc2 f)
 
-  member this.BeforeModifySelf(f: Func<'ctx, 'entity, unit>) =
+  member this.BeforeModifySelf(f: Func<'setCtx, 'entity, unit>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc2 f)
 
   member this.BeforeModifySelf(f: Func<'entity, 'entity>) =
@@ -1761,10 +1777,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.BeforeModifySelf(f: Func<'entity, unit>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc f)
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
 
   member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
@@ -1773,10 +1789,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun _ eOld eNew -> f eOld eNew |> JobResult.map (fun () -> eNew)) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx _ e -> f ctx e) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<unit, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<'entity, Error list>>) =
@@ -1785,10 +1801,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun _ _ e -> f e |> JobResult.map (fun () -> e))
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
@@ -1797,10 +1813,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsyncRes(f: 'entity -> Async<Result<'entity, Error list>>) =
@@ -1809,10 +1825,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfAsyncRes(f: 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync f)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<'entity>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<unit>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
   member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<'entity>) =
@@ -1821,10 +1837,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<'entity>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<unit>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
   member this.AfterModifySelfJob(f: 'entity -> Job<'entity>) =
@@ -1833,10 +1849,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfJob(f: 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun e -> f e |> Job.map Ok)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<'entity>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<unit>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<'entity>) =
@@ -1845,10 +1861,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<'entity>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<unit>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsync(f: 'entity -> Async<'entity>) =
@@ -1857,10 +1873,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfAsync(f: 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<'entity, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<unit, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
   member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<'entity, Error list>) =
@@ -1869,10 +1885,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<'entity, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<unit, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
   member this.AfterModifySelfRes(f: 'entity -> Result<'entity, Error list>) =
@@ -1881,10 +1897,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelfRes(f: 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> 'entity) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> unit) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
 
   member this.AfterModifySelf(f: 'entity -> 'entity -> 'entity) =
@@ -1893,10 +1909,10 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.AfterModifySelf(f: 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> unit) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
   member this.AfterModifySelf(f: 'entity -> 'entity) =
@@ -1926,19 +1942,19 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
   member this.ModifyGetSelfResponse(handler: HttpHandler) =
     this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPatchSelfOkResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) =
+  member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler) =
     { this with modifyPatchSelfOkResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPatchSelfOkResponse(f: 'ctx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
+  member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
     this.ModifyPatchSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
 
   member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
     this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPatchSelfAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+  member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
     { this with modifyPatchSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPatchSelfAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+  member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPatchSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
   member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
@@ -1949,7 +1965,7 @@ type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = inte
 [<AutoOpen>]
 module ToOneNullableRelationshipExtensions =
 
-  type ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+  type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> with
 
     member this.AddConstraint (name: string, value: 'a) =
       this.AddConstraint(name, fun _ -> value)
@@ -2071,36 +2087,38 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 
 
 
-type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   setOrder: int
+  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Job<'relatedEntity list Skippable>) option
-  setAll: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
-  add: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
-  remove: ('ctx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
+  setAll: ('ctx -> 'setCtx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
+  add: ('ctx -> 'setCtx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
+  remove: ('ctx -> 'setCtx -> Pointer -> 'relatedId list -> 'entity -> Job<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Job<ResourceIdentifier list Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Job<(string * obj) list>
-  beforeModifySelf: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  afterModifySelf: ('ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
+  beforeModifySelf: 'setCtx -> 'entity -> Job<Result<'entity, Error list>>
+  afterModifySelf: ('setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
   modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
   modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
-  modifyPostSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
-  modifyPostSelfAcceptedResponse: 'ctx -> 'entity -> HttpHandler
-  modifyPatchSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
-  modifyPatchSelfAcceptedResponse: 'ctx -> 'entity -> HttpHandler
-  modifyDeleteSelfOkResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
-  modifyDeleteSelfAcceptedResponse: 'ctx -> 'entity -> HttpHandler
+  modifyPostSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
+  modifyPostSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+  modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
+  modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+  modifyDeleteSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
+  modifyDeleteSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
   modifySelfReturn202Accepted: bool
 } with
 
-  static member internal Create(name: string, resolveEntity, resolveId, idParsers) : ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create(name: string, mapSetCtx, resolveEntity, resolveId, idParsers) : ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       setOrder = 0
+      mapSetCtx = mapSetCtx
       resolveEntity = resolveEntity
       idParsers = idParsers
       resolveId = resolveId
@@ -2124,8 +2142,8 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       modifySelfReturn202Accepted = false
     }
 
-  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) (entitySetter: 'ctx -> 'lookupType list -> 'entity -> Job<Result<'entity, Error list>>) =
-    fun ctx (dataPointer: Pointer) relatedIds entity ->
+  member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) (entitySetter: 'setCtx -> 'lookupType list -> 'entity -> Job<Result<'entity, Error list>>) =
+    fun ctx setCtx (dataPointer: Pointer) relatedIds entity ->
       relatedIds
       |> List.map (getRelated.GetById ctx)
       |> Job.conCollect
@@ -2139,7 +2157,7 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
           )
       )
       |> JobResult.bind (fun r ->
-          entitySetter ctx r entity
+          entitySetter setCtx r entity
           |> JobResult.mapError (List.map (Error.setSourcePointer dataPointer))
       )
 
@@ -2223,31 +2241,34 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
                 else
                   return Error [setToManyRelReplacementNotSupported this.name t ("/data/relationships/" + this.name) this.add.IsSome this.remove.IsSome]
             | Some set, Some (:? ToMany as rel) ->
-                let idParsers =
-                  this.idParsers
-                  |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
-                match rel.data with
-                | Skip -> return Error [relMissingData this.name ("/data/relationships/" + this.name)]
-                | Include identifiers ->
-                    return!
-                      identifiers
-                      |> List.indexed
-                      |> List.traverseJobResultA (fun (i, id) ->
-                          match idParsers.TryGetValue id.``type`` with
-                          | false, _ ->
-                              let allowedTypes = idParsers |> Map.toList |> List.map fst
-                              let pointer = "/data/relationships/" + this.name + "/data/" + string i + "/type"
-                              Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Job.result
-                          | true, parseId ->
-                              parseId ctx id.id
-                              // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                              // this just means that the resource does not exist, which is a more helpful result.
-                              |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data/" + string i)])
-                      )
-                      |> JobResult.bind (fun domain ->
-                          set ctx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity)
-                      )
-                      |> JobResult.map box<'entity>
+              match! this.mapSetCtx ctx with
+              | Error errs -> return Error errs
+              | Ok setCtx ->
+                  let idParsers =
+                    this.idParsers
+                    |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                  match rel.data with
+                  | Skip -> return Error [relMissingData this.name ("/data/relationships/" + this.name)]
+                  | Include identifiers ->
+                      return!
+                        identifiers
+                        |> List.indexed
+                        |> List.traverseJobResultA (fun (i, id) ->
+                            match idParsers.TryGetValue id.``type`` with
+                            | false, _ ->
+                                let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                let pointer = "/data/relationships/" + this.name + "/data/" + string i + "/type"
+                                Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Job.result
+                            | true, parseId ->
+                                parseId ctx id.id
+                                // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                // this just means that the resource does not exist, which is a more helpful result.
+                                |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data/" + string i)])
+                        )
+                        |> JobResult.bind (fun domain ->
+                            set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity)
+                        )
+                        |> JobResult.map box<'entity>
             | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (rel.GetType().FullName)
         | _ -> return Ok entity  // no relationships provided
       }
@@ -2317,66 +2338,69 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
       fun ctx req (preconditions: Preconditions<'ctx>) entity0 resDef (resp: ResponseBuilder<'ctx>) ->
         fun next httpCtx ->
           job {
-            match req.IdentifierCollectionDocument.Value with
+            match! this.mapSetCtx ctx with
             | Error errs -> return! handleErrors errs next httpCtx
-            | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
-            | Ok (Some { data = ids }) ->
-                match preconditions.Validate httpCtx ctx entity0 with
-                | Error errors -> return! handleErrors errors next httpCtx
-                | Ok () ->
-                    match! this.beforeModifySelf ctx (unbox<'entity> entity0) with
+            | Ok setCtx ->
+                match req.IdentifierCollectionDocument.Value with
+                | Error errs -> return! handleErrors errs next httpCtx
+                | Ok None -> return! handleErrors [modifyRelSelfMissingData ""] next httpCtx
+                | Ok (Some { data = ids }) ->
+                    match preconditions.Validate httpCtx ctx entity0 with
                     | Error errors -> return! handleErrors errors next httpCtx
-                    | Ok entity1 ->
-                        let! entity2Res =
-                          ids
-                          |> List.indexed
-                          |> List.traverseJobResultA (fun (i, id) ->
-                              match idParsers.TryGetValue id.``type`` with
-                              | false, _ ->
-                                  let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                  let pointer = "/data/" + string i + "/type"
-                                  Error [relInvalidTypeSelf id.``type`` allowedTypes pointer] |> Job.result
-                              | true, parseId ->
-                                  parseId ctx id.id
-                                  // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                  // this just means that the resource does not exist, which is a more helpful result.
-                                  |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
-                          )
-                          |> JobResult.bind (fun domain -> f ctx "/data" domain (unbox<'entity> entity1))
-                        match entity2Res with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok entity2 ->
-                            match! afterModifySelf ctx (unbox<'entity> entity0) (unbox<'entity> entity2) with
-                            | Error errors -> return! handleErrors errors next httpCtx
-                            | Ok entity3 ->
-                                if this.modifySelfReturn202Accepted then
-                                  let handler =
-                                    setStatusCode 202
-                                    >=> modifyAcceptedResponse ctx (unbox<'entity> entity3)
-                                  return! handler next httpCtx
-                                else
-                                  match! getRelated ctx (unbox<'entity> entity3) with
-                                  | Skip ->
-                                      let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                      logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
-                                      return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
-                                  | Include relatedEntities ->
-                                      let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
-                                      let doc : ResourceIdentifierCollectionDocument = {
-                                        jsonapi = Skip
-                                        links = Skip
-                                        meta = Skip
-                                        data = relatedEntities |> List.map (fun e ->
-                                          let b = resolveEntity e
-                                          { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                        )
-                                        included = included
-                                      }
+                    | Ok () ->
+                        match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                        | Error errors -> return! handleErrors errors next httpCtx
+                        | Ok entity1 ->
+                            let! entity2Res =
+                              ids
+                              |> List.indexed
+                              |> List.traverseJobResultA (fun (i, id) ->
+                                  match idParsers.TryGetValue id.``type`` with
+                                  | false, _ ->
+                                      let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                      let pointer = "/data/" + string i + "/type"
+                                      Error [relInvalidTypeSelf id.``type`` allowedTypes pointer] |> Job.result
+                                  | true, parseId ->
+                                      parseId ctx id.id
+                                      // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                      // this just means that the resource does not exist, which is a more helpful result.
+                                      |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
+                              )
+                              |> JobResult.bind (fun domain -> f ctx setCtx "/data" domain (unbox<'entity> entity1))
+                            match entity2Res with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok entity2 ->
+                                match! afterModifySelf setCtx (unbox<'entity> entity0) (unbox<'entity> entity2) with
+                                | Error errors -> return! handleErrors errors next httpCtx
+                                | Ok entity3 ->
+                                    if this.modifySelfReturn202Accepted then
                                       let handler =
-                                        setStatusCode 200
-                                        >=> modifyOkResponse ctx (unbox<'entity> entity3) relatedEntities
-                                        >=> jsonApiWithETag<'ctx> doc
+                                        setStatusCode 202
+                                        >=> modifyAcceptedResponse setCtx (unbox<'entity> entity3)
                                       return! handler next httpCtx
+                                    else
+                                      match! getRelated ctx (unbox<'entity> entity3) with
+                                      | Skip ->
+                                          let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                          logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                          return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
+                                      | Include relatedEntities ->
+                                          let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
+                                          let doc : ResourceIdentifierCollectionDocument = {
+                                            jsonapi = Skip
+                                            links = Skip
+                                            meta = Skip
+                                            data = relatedEntities |> List.map (fun e ->
+                                              let b = resolveEntity e
+                                              { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                            )
+                                            included = included
+                                          }
+                                          let handler =
+                                            setStatusCode 200
+                                            >=> modifyOkResponse setCtx (unbox<'entity> entity3) relatedEntities
+                                            >=> jsonApiWithETag<'ctx> doc
+                                          return! handler next httpCtx
           }
           |> Job.startAsTask
     )
@@ -2551,200 +2575,200 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId list>) =
     this.GetLinkageIfNotIncludedJobSkip(fun _ r -> get.Invoke r |> Include |> Job.result)
 
-  member private this.SetAllJobRes (setAll: Func<'ctx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
+  member private this.SetAllJobRes (setAll: Func<'ctx, 'setCtx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
-    { this with setAll = Some (fun ctx ptr relIds e -> setAll.Invoke(ctx, ptr, relIds, e)) }
+    { this with setAll = Some (fun ctx setCtx ptr relIds e -> setAll.Invoke(ctx, setCtx, ptr, relIds, e)) }
 
-  member this.SetAllJobRes (setAll: Func<'ctx, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
-    this.SetAllJobRes(fun ctx pointer relIds e -> setAll.Invoke(ctx, relIds, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
+  member this.SetAllJobRes (setAll: Func<'setCtx, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
+    this.SetAllJobRes(fun _ ctx pointer relIds e -> setAll.Invoke(ctx, relIds, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.SetAllJobRes (setAll: Func<'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetAllJobRes(fun _ ids e -> setAll.Invoke(ids, e))
 
-  member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'setCtx, 'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetAllJobRes(this.toIdSetter getRelated (fun ctx rels e -> setAll.Invoke(ctx, rels, e)))
 
   member this.SetAllJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.SetAllJobRes(this.toIdSetter getRelated (fun _ ids e -> setAll.Invoke(ids, e)))
 
-  member this.SetAllAsyncRes (setAll: Func<'ctx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAllAsyncRes (setAll: Func<'setCtx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(Job.liftAsyncFunc3 setAll)
 
   member this.SetAllAsyncRes (setAll: Func<'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(Job.liftAsyncFunc2 setAll)
 
-  member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'setCtx, 'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(getRelated, Job.liftAsyncFunc3 setAll)
 
   member this.SetAllAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.SetAllJobRes(getRelated, Job.liftAsyncFunc2 setAll)
 
-  member this.SetAllJob (setAll: Func<'ctx, 'relatedId list, 'entity, Job<'entity>>) =
+  member this.SetAllJob (setAll: Func<'setCtx, 'relatedId list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(fun ctx related entity -> setAll.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.SetAllJob (setAll: Func<'relatedId list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(fun _ related entity -> setAll.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Job<'entity>>) =
+  member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'setCtx, 'lookupType list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(getRelated, fun ctx related entity -> setAll.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.SetAllJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Job<'entity>>) =
     this.SetAllJobRes(getRelated, fun _ related entity -> setAll.Invoke(related, entity) |> Job.map Ok)
 
-  member this.SetAllAsync (setAll: Func<'ctx, 'relatedId list, 'entity, Async<'entity>>) =
+  member this.SetAllAsync (setAll: Func<'setCtx, 'relatedId list, 'entity, Async<'entity>>) =
     this.SetAllJob(Job.liftAsyncFunc3 setAll)
 
   member this.SetAllAsync (setAll: Func<'relatedId list, 'entity, Async<'entity>>) =
     this.SetAllJob(Job.liftAsyncFunc2 setAll)
 
-  member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Async<'entity>>) =
+  member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'setCtx, 'lookupType list, 'entity, Async<'entity>>) =
     this.SetAllJob(getRelated, Job.liftAsyncFunc3 setAll)
 
   member this.SetAllAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Async<'entity>>) =
     this.SetAllJob(getRelated, Job.liftAsyncFunc2 setAll)
 
-  member this.SetAllRes (setAll: Func<'ctx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
+  member this.SetAllRes (setAll: Func<'setCtx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(Job.liftFunc3 setAll)
 
   member this.SetAllRes (setAll: Func<'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(Job.liftFunc2 setAll)
 
-  member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, Result<'entity, Error list>>) =
+  member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'setCtx, 'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(getRelated, Job.liftFunc3 setAll)
 
   member this.SetAllRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.SetAllJobRes(getRelated, Job.liftFunc2 setAll)
 
-  member this.SetAll (setAll: Func<'ctx, 'relatedId list, 'entity, 'entity>) =
+  member this.SetAll (setAll: Func<'setCtx, 'relatedId list, 'entity, 'entity>) =
     this.SetAllJobRes(JobResult.liftFunc3 setAll)
 
   member this.SetAll (setAll: Func<'relatedId list, 'entity, 'entity>) =
     this.SetAllJobRes(JobResult.liftFunc2 setAll)
 
-  member this.SetAll (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'ctx, 'lookupType list, 'entity, 'entity>) =
+  member this.SetAll (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'setCtx, 'lookupType list, 'entity, 'entity>) =
     this.SetAllJobRes(getRelated, JobResult.liftFunc3 setAll)
 
   member this.SetAll (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, 'entity>) =
     this.SetAllJobRes(getRelated, JobResult.liftFunc2 setAll)
 
-  member private this.AddJobRes (add: Func<'ctx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
+  member private this.AddJobRes (add: Func<'ctx, 'setCtx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwith "Can only add setter if the polymorphic resource definition contains ID parsers."
     if this.get.IsNone then
       failwith "Can only add POST to relationship if it contains a getter."
-    { this with add = Some (fun ctx ptr relIds e -> add.Invoke(ctx, ptr, relIds, e)) }
+    { this with add = Some (fun ctx setCtx ptr relIds e -> add.Invoke(ctx, setCtx, ptr, relIds, e)) }
 
-  member this.AddJobRes (add: Func<'ctx, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
-    this.AddJobRes(fun ctx pointer relIds e -> add.Invoke(ctx, relIds, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
+  member this.AddJobRes (add: Func<'setCtx, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
+    this.AddJobRes(fun _ ctx pointer relIds e -> add.Invoke(ctx, relIds, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.AddJobRes (add: Func<'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     this.AddJobRes(fun _ ids e -> add.Invoke(ids, e))
 
-  member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'setCtx, 'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.AddJobRes(this.toIdSetter getRelated (fun ctx rels e -> add.Invoke(ctx, rels, e)))
 
   member this.AddJobRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Job<Result<'entity, Error list>>>) =
     this.AddJobRes(this.toIdSetter getRelated (fun _ ids e -> add.Invoke(ids, e)))
 
-  member this.AddAsyncRes (add: Func<'ctx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.AddAsyncRes (add: Func<'setCtx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(Job.liftAsyncFunc3 add)
 
   member this.AddAsyncRes (add: Func<'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(Job.liftAsyncFunc2 add)
 
-  member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'setCtx, 'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(getRelated, Job.liftAsyncFunc3 add)
 
   member this.AddAsyncRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Async<Result<'entity, Error list>>>) =
     this.AddJobRes(getRelated, Job.liftAsyncFunc2 add)
 
-  member this.AddJob (add: Func<'ctx, 'relatedId list, 'entity, Job<'entity>>) =
+  member this.AddJob (add: Func<'setCtx, 'relatedId list, 'entity, Job<'entity>>) =
     this.AddJobRes(fun ctx related entity -> add.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.AddJob (add: Func<'relatedId list, 'entity, Job<'entity>>) =
     this.AddJobRes(fun _ related entity -> add.Invoke(related, entity) |> Job.map Ok)
 
-  member this.AddJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Job<'entity>>) =
+  member this.AddJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'setCtx, 'lookupType list, 'entity, Job<'entity>>) =
     this.AddJobRes(getRelated, fun ctx related entity -> add.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.AddJob (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Job<'entity>>) =
     this.AddJobRes(getRelated, fun _ related entity -> add.Invoke(related, entity) |> Job.map Ok)
 
-  member this.AddAsync (add: Func<'ctx, 'relatedId list, 'entity, Async<'entity>>) =
+  member this.AddAsync (add: Func<'setCtx, 'relatedId list, 'entity, Async<'entity>>) =
     this.AddJob(Job.liftAsyncFunc3 add)
 
   member this.AddAsync (add: Func<'relatedId list, 'entity, Async<'entity>>) =
     this.AddJob(Job.liftAsyncFunc2 add)
 
-  member this.AddAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Async<'entity>>) =
+  member this.AddAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'setCtx, 'lookupType list, 'entity, Async<'entity>>) =
     this.AddJob(getRelated, Job.liftAsyncFunc3 add)
 
   member this.AddAsync (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Async<'entity>>) =
     this.AddJob(getRelated, Job.liftAsyncFunc2 add)
 
-  member this.AddRes (add: Func<'ctx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
+  member this.AddRes (add: Func<'setCtx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(Job.liftFunc3 add)
 
   member this.AddRes (add: Func<'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(Job.liftFunc2 add)
 
-  member this.AddRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, Result<'entity, Error list>>) =
+  member this.AddRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'setCtx, 'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(getRelated, Job.liftFunc3 add)
 
   member this.AddRes (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Result<'entity, Error list>>) =
     this.AddJobRes(getRelated, Job.liftFunc2 add)
 
-  member this.Add (add: Func<'ctx, 'relatedId list, 'entity, 'entity>) =
+  member this.Add (add: Func<'setCtx, 'relatedId list, 'entity, 'entity>) =
     this.AddJobRes(JobResult.liftFunc3 add)
 
   member this.Add (add: Func<'relatedId list, 'entity, 'entity>) =
     this.AddJobRes(JobResult.liftFunc2 add)
 
-  member this.Add (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'ctx, 'lookupType list, 'entity, 'entity>) =
+  member this.Add (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'setCtx, 'lookupType list, 'entity, 'entity>) =
     this.AddJobRes(getRelated, JobResult.liftFunc3 add)
 
   member this.Add (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, 'entity>) =
     this.AddJobRes(getRelated, JobResult.liftFunc2 add)
 
-  member private this.RemoveJobRes (remove: Func<'ctx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
+  member private this.RemoveJobRes (remove: Func<'ctx, 'setCtx, Pointer, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
     if this.get.IsNone then
       failwith "Can only add DELETE to relationship if it contains a getter."
-    { this with remove = Some (fun ctx ptr relIds e -> remove.Invoke(ctx, ptr, relIds, e)) }
+    { this with remove = Some (fun ctx setCtx ptr relIds e -> remove.Invoke(ctx, setCtx, ptr, relIds, e)) }
 
-  member this.RemoveJobRes (remove: Func<'ctx, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
-    this.RemoveJobRes(fun ctx pointer relIds e -> remove.Invoke(ctx, relIds, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
+  member this.RemoveJobRes (remove: Func<'setCtx, 'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
+    this.RemoveJobRes(fun _ ctx pointer relIds e -> remove.Invoke(ctx, relIds, e) |> JobResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.RemoveJobRes (remove: Func<'relatedId list, 'entity, Job<Result<'entity, Error list>>>) =
     this.RemoveJobRes(fun _ ids e -> remove.Invoke(ids, e))
 
-  member this.RemoveAsyncRes (remove: Func<'ctx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.RemoveAsyncRes (remove: Func<'setCtx, 'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.RemoveJobRes(Job.liftAsyncFunc3 remove)
 
   member this.RemoveAsyncRes (remove: Func<'relatedId list, 'entity, Async<Result<'entity, Error list>>>) =
     this.RemoveJobRes(Job.liftAsyncFunc2 remove)
 
-  member this.RemoveJob (remove: Func<'ctx, 'relatedId list, 'entity, Job<'entity>>) =
+  member this.RemoveJob (remove: Func<'setCtx, 'relatedId list, 'entity, Job<'entity>>) =
     this.RemoveJobRes(fun ctx related entity -> remove.Invoke(ctx, related, entity) |> Job.map Ok)
 
   member this.RemoveJob (remove: Func<'relatedId list, 'entity, Job<'entity>>) =
     this.RemoveJobRes(fun _ related entity -> remove.Invoke(related, entity) |> Job.map Ok)
 
-  member this.RemoveAsync (remove: Func<'ctx, 'relatedId list, 'entity, Async<'entity>>) =
+  member this.RemoveAsync (remove: Func<'setCtx, 'relatedId list, 'entity, Async<'entity>>) =
     this.RemoveJob(Job.liftAsyncFunc3 remove)
 
   member this.RemoveAsync (remove: Func<'relatedId list, 'entity, Async<'entity>>) =
     this.RemoveJob(Job.liftAsyncFunc2 remove)
 
-  member this.RemoveRes (remove: Func<'ctx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
+  member this.RemoveRes (remove: Func<'setCtx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.RemoveJobRes(Job.liftFunc3 remove)
 
   member this.RemoveRes (remove: Func<'relatedId list, 'entity, Result<'entity, Error list>>) =
     this.RemoveJobRes(Job.liftFunc2 remove)
 
-  member this.Remove (remove: Func<'ctx, 'relatedId list, 'entity, 'entity>) =
+  member this.Remove (remove: Func<'setCtx, 'relatedId list, 'entity, 'entity>) =
     this.RemoveJobRes(JobResult.liftFunc3 remove)
 
   member this.Remove (remove: Func<'relatedId list, 'entity, 'entity>) =
@@ -2792,64 +2816,64 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.ModifyGetSelfResponse(handler: HttpHandler) =
     this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPostSelfOkResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
+  member this.ModifyPostSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
     { this with modifyPostSelfOkResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPostSelfOkResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
+  member this.ModifyPostSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyPostSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
 
   member this.ModifyPostSelfOkResponse(handler: HttpHandler) =
     this.ModifyPostSelfOkResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPostSelfAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+  member this.ModifyPostSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
     { this with modifyPostSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPostSelfAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+  member this.ModifyPostSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPostSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
   member this.ModifyPostSelfAcceptedResponse(handler: HttpHandler) =
     this.ModifyPostSelfAcceptedResponse(fun _ _ -> handler)
 
-  member this.ModifyPatchSelfOkResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
+  member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
     { this with modifyPatchSelfOkResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPatchSelfOkResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
+  member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyPatchSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
 
   member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
     this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
-  member this.ModifyPatchSelfAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+  member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
     { this with modifyPatchSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyPatchSelfAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+  member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPatchSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
   member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
     this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
 
-  member this.ModifyDeleteSelfOkResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
+  member this.ModifyDeleteSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
     { this with modifyDeleteSelfOkResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyDeleteSelfOkResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
+  member this.ModifyDeleteSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyDeleteSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
 
   member this.ModifyDeleteSelfOkResponse(handler: HttpHandler) =
     this.ModifyDeleteSelfOkResponse(fun _ _ _ -> handler)
 
-  member this.ModifyDeleteSelfAcceptedResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
+  member this.ModifyDeleteSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
     { this with modifyDeleteSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
 
-  member this.ModifyDeleteSelfAcceptedResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
+  member this.ModifyDeleteSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyDeleteSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
 
   member this.ModifyDeleteSelfAcceptedResponse(handler: HttpHandler) =
     this.ModifyDeleteSelfAcceptedResponse(fun _ _ -> handler)
 
-  member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.BeforeModifySelfJobRes(f: Func<'setCtx, 'entity, Job<Result<'entity, Error list>>>) =
     { this with beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeModifySelfJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
+  member this.BeforeModifySelfJobRes(f: Func<'setCtx, 'entity, Job<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
 
   member this.BeforeModifySelfJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
@@ -2858,10 +2882,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
+  member this.BeforeModifySelfAsyncRes(f: Func<'setCtx, 'entity, Async<Result<'entity, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc2 f)
 
-  member this.BeforeModifySelfAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+  member this.BeforeModifySelfAsyncRes(f: Func<'setCtx, 'entity, Async<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc2 f)
 
   member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
@@ -2870,10 +2894,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
     this.BeforeModifySelfJobRes(Job.liftAsyncFunc f)
 
-  member this.BeforeModifySelfJob(f: Func<'ctx, 'entity, Job<'entity>>) =
+  member this.BeforeModifySelfJob(f: Func<'setCtx, 'entity, Job<'entity>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
 
-  member this.BeforeModifySelfJob(f: Func<'ctx, 'entity, Job<unit>>) =
+  member this.BeforeModifySelfJob(f: Func<'setCtx, 'entity, Job<unit>>) =
     this.BeforeModifySelfJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
 
   member this.BeforeModifySelfJob(f: Func<'entity, Job<'entity>>) =
@@ -2882,10 +2906,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfJob(f: Func<'entity, Job<unit>>) =
     this.BeforeModifySelfJobRes(fun e -> f.Invoke e |> Job.map Ok)
 
-  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
+  member this.BeforeModifySelfAsync(f: Func<'setCtx, 'entity, Async<'entity>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc2 f)
 
-  member this.BeforeModifySelfAsync(f: Func<'ctx, 'entity, Async<unit>>) =
+  member this.BeforeModifySelfAsync(f: Func<'setCtx, 'entity, Async<unit>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc2 f)
 
   member this.BeforeModifySelfAsync(f: Func<'entity, Async<'entity>>) =
@@ -2894,10 +2918,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfAsync(f: Func<'entity, Async<unit>>) =
     this.BeforeModifySelfJob(Job.liftAsyncFunc f)
 
-  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
+  member this.BeforeModifySelfRes(f: Func<'setCtx, 'entity, Result<'entity, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc2 f)
 
-  member this.BeforeModifySelfRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
+  member this.BeforeModifySelfRes(f: Func<'setCtx, 'entity, Result<unit, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc2 f)
 
   member this.BeforeModifySelfRes(f: Func<'entity, Result<'entity, Error list>>) =
@@ -2906,10 +2930,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelfRes(f: Func<'entity, Result<unit, Error list>>) =
     this.BeforeModifySelfJobRes(Job.liftFunc f)
 
-  member this.BeforeModifySelf(f: Func<'ctx, 'entity, 'entity>) =
+  member this.BeforeModifySelf(f: Func<'setCtx, 'entity, 'entity>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc2 f)
 
-  member this.BeforeModifySelf(f: Func<'ctx, 'entity, unit>) =
+  member this.BeforeModifySelf(f: Func<'setCtx, 'entity, unit>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc2 f)
 
   member this.BeforeModifySelf(f: Func<'entity, 'entity>) =
@@ -2918,10 +2942,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.BeforeModifySelf(f: Func<'entity, unit>) =
     this.BeforeModifySelfJobRes(JobResult.liftFunc f)
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
 
   member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
@@ -2930,10 +2954,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJobRes(f: 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun _ eOld eNew -> f eOld eNew |> JobResult.map (fun () -> eNew)) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<'entity, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> Job<Result<'entity, Error list>>) =
     { this with afterModifySelf = Some (fun ctx _ e -> f ctx e) }
 
-  member this.AfterModifySelfJobRes(f: 'ctx -> 'entity -> Job<Result<unit, Error list>>) =
+  member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> JobResult.map (fun () -> e))
 
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<'entity, Error list>>) =
@@ -2942,10 +2966,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJobRes(f: 'entity -> Job<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(fun _ _ e -> f e |> JobResult.map (fun () -> e))
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<'entity, Error list>>) =
@@ -2954,10 +2978,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsyncRes(f: 'entity -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<'entity, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> Async<Result<'entity, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsyncRes(f: 'ctx -> 'entity -> Async<Result<unit, Error list>>) =
+  member this.AfterModifySelfAsyncRes(f: 'setCtx -> 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsyncRes(f: 'entity -> Async<Result<'entity, Error list>>) =
@@ -2966,10 +2990,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsyncRes(f: 'entity -> Async<Result<unit, Error list>>) =
     this.AfterModifySelfJobRes(Job.liftAsync f)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<'entity>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> 'entity -> Job<unit>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx eOld eNew -> f ctx eOld eNew |> Job.map Ok)
 
   member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<'entity>) =
@@ -2978,10 +3002,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJob(f: 'entity -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun _ eOld eNew -> f eOld eNew |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<'entity>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> Job<'entity>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
-  member this.AfterModifySelfJob(f: 'ctx -> 'entity -> Job<unit>) =
+  member this.AfterModifySelfJob(f: 'setCtx -> 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun ctx e -> f ctx e |> Job.map Ok)
 
   member this.AfterModifySelfJob(f: 'entity -> Job<'entity>) =
@@ -2990,10 +3014,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfJob(f: 'entity -> Job<unit>) =
     this.AfterModifySelfJobRes(fun e -> f e |> Job.map Ok)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<'entity>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> 'entity -> Async<unit>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync3 f)
 
   member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<'entity>) =
@@ -3002,10 +3026,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsync(f: 'entity -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<'entity>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> Async<'entity>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
-  member this.AfterModifySelfAsync(f: 'ctx -> 'entity -> Async<unit>) =
+  member this.AfterModifySelfAsync(f: 'setCtx -> 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync2 f)
 
   member this.AfterModifySelfAsync(f: 'entity -> Async<'entity>) =
@@ -3014,10 +3038,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfAsync(f: 'entity -> Async<unit>) =
     this.AfterModifySelfJob(Job.liftAsync f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<'entity, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> 'entity -> Result<unit, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift3 f)
 
   member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<'entity, Error list>) =
@@ -3026,10 +3050,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfRes(f: 'entity -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<'entity, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> Result<'entity, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
-  member this.AfterModifySelfRes(f: 'ctx -> 'entity -> Result<unit, Error list>) =
+  member this.AfterModifySelfRes(f: 'setCtx -> 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift2 f)
 
   member this.AfterModifySelfRes(f: 'entity -> Result<'entity, Error list>) =
@@ -3038,10 +3062,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelfRes(f: 'entity -> Result<unit, Error list>) =
     this.AfterModifySelfJobRes(Job.lift f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> 'entity) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity -> unit) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift3 f)
 
   member this.AfterModifySelf(f: 'entity -> 'entity -> 'entity) =
@@ -3050,10 +3074,10 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   member this.AfterModifySelf(f: 'entity -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> 'entity) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> 'entity) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
-  member this.AfterModifySelf(f: 'ctx -> 'entity -> unit) =
+  member this.AfterModifySelf(f: 'setCtx -> 'entity -> unit) =
     this.AfterModifySelfJobRes(JobResult.lift2 f)
 
   member this.AfterModifySelf(f: 'entity -> 'entity) =
@@ -3070,21 +3094,45 @@ type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
 [<AutoOpen>]
 module ToManyRelationshipExtensions =
 
-  type ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId> with
+  type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> with
 
     member this.AddConstraint (name: string, value: 'a) =
       this.AddConstraint(name, fun _ -> value)
 
 
 
-type PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
+  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
 } with
 
-  static member internal Create () : PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> =
-    { resolveEntity = None; idParsers = None; resolveId = None }
+  static member internal Create (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) : PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
+    { mapSetCtx = mapSetCtx; resolveEntity = None; idParsers = None; resolveId = None }
+
+  member this.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+    {
+      mapSetCtx = mapSetCtx
+      resolveEntity = this.resolveEntity
+      resolveId = this.resolveId
+      idParsers = this.idParsers
+    }
+  
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
+  
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift mapSetCtx)
+  
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
 
   member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'relatedId>) =
     { this with
@@ -3112,34 +3160,53 @@ type PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId> = 
     { this with resolveId = Some getResDef }
 
   member this.ToOne([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
+    ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
 
   member this.ToOneNullable([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
+    ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
 
   member this.ToMany([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.resolveEntity, this.resolveId, this.idParsers)
+    ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
 
 
 
-type RelationshipHelper<'ctx, 'entity> internal () =
+type RelationshipHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) =
 
-  member _.Polymorphic () = PolymorphicRelationshipHelper<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create()
+  member _.Polymorphic () =
+    PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(mapSetCtx)
+
+  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+    RelationshipHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
+  
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
+  
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync mapSetCtx)
+  
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift mapSetCtx)
+  
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
 
   member _.ToOne(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain
     let resolveEntity = resourceDef.PolymorphicFor
     let resolveId = fun _ -> resourceDef
-    ToOneRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some resolveId, Some idParsers)
+    ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
 
   member _.ToOneNullable(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain
     let resolveEntity = resourceDef.PolymorphicFor
     let resolveId = fun _ -> resourceDef
-    ToOneNullableRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some resolveId, Some idParsers)
+    ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
 
   member _.ToMany(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain
     let resolveEntity = resourceDef.PolymorphicFor
     let resolveId = fun _ -> resourceDef
-    ToManyRelationship<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create(name, Some resolveEntity, Some resolveId, Some idParsers)
+    ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
