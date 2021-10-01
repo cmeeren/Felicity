@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### 0.16.3 (2021-10-01)
+
+* Fixed bug where `LockOtherForModification` and `LockOtherForCreation` would be invoked when they should not
+* Fixed bug where `LockOtherForModification` and `LockOtherForCreation` would invoke incorrect locks on the other resource
+
 ### 0.16.2 (2021-09-29)
 
 * Added `MapSetContext` to attributes and relationships

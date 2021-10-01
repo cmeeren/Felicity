@@ -33,18 +33,24 @@ type internal CustomResourceCreationLockSpec<'ctx> = {
 }
 
 
-type internal OtherLockSpec<'ctx> = {
-  GetOtherIdFromThisId: 'ctx -> ResourceId -> Job<ResourceId option>
+type internal OtherForResourceCreationLockSpec<'ctx> = {
   GetOtherIdFromRelationship: 'ctx -> Request -> Job<ResourceId option>
+  OtherLockSpecs: LockSpecification<'ctx> list
+}
+
+
+and internal OtherForModificationLockSpec<'ctx> = {
+  GetOtherIdFromThisId: 'ctx -> ResourceId -> Job<ResourceId option>
   OtherLockSpecs: LockSpecification<'ctx> list
 }
 
 
 and internal LockSpecification<'ctx> =
   | Felicity of FelicityLockSpec<'ctx>
-  | Custom of CustomLockSpec<'ctx>
-  | CustomResourceCreation of CustomResourceCreationLockSpec<'ctx>
-  | Other of OtherLockSpec<'ctx>
+  | CustomForModification of CustomLockSpec<'ctx>
+  | CustomForResourceCreation of CustomResourceCreationLockSpec<'ctx>
+  | OtherForResourceCreation of OtherForResourceCreationLockSpec<'ctx>
+  | OtherForModification of OtherForModificationLockSpec<'ctx>
 
 
 module internal LockSpecification =
@@ -105,24 +111,34 @@ module internal LockSpecification =
             match! queue.Lock lockSpec.Timeout with
             | Some lock -> state.AddLock lock
             | None -> state.SetTimedOut()
-      | Custom _, None -> ()
-      | Custom lockSpec, Some resId ->
+      | CustomForModification _, None -> ()
+      | CustomForModification lockSpec, Some resId ->
           if not state.TimedOut then
             match! lockSpec.CustomLock ctx resId with
-            | Some lock -> state.AddLock lock
-            | None -> state.SetTimedOut ()
-      | CustomResourceCreation lockSpec, None ->
+            | Some lock ->
+                state.AddLock lock
+            | None ->
+                state.SetTimedOut ()
+      | CustomForResourceCreation lockSpec, None ->
           if not state.TimedOut then
             match! lockSpec.CustomLock ctx with
-            | Some lock -> state.AddLock lock
-            | None -> state.SetTimedOut ()
-      | CustomResourceCreation _, Some _ -> ()
-      | Other lockSpec, resId ->
+            | Some lock ->
+                state.AddLock lock
+            | None ->
+                state.SetTimedOut ()
+      | CustomForResourceCreation _, Some _ -> ()
+      | OtherForResourceCreation _, Some _ -> ()
+      | OtherForResourceCreation lockSpec, None ->
           if not state.TimedOut then
-            let! otherId =
-              match resId with
-              | None -> lockSpec.GetOtherIdFromRelationship ctx req |> Job.startAsTask
-              | Some resId -> lockSpec.GetOtherIdFromThisId ctx resId |> Job.startAsTask
+            let! otherId = lockSpec.GetOtherIdFromRelationship ctx req |> Job.startAsTask
+            // Locks must be taken in sequence, not parallel, to avoid deadlocks.
+            for lockSpec in lockSpec.OtherLockSpecs do
+              if not state.TimedOut then
+                do! lock state httpCtx ctx req otherId lockSpec
+      | OtherForModification _, None -> ()
+      | OtherForModification lockSpec, Some resId ->
+          if not state.TimedOut then
+            let! otherId = lockSpec.GetOtherIdFromThisId ctx resId |> Job.startAsTask
             // Locks must be taken in sequence, not parallel, to avoid deadlocks.
             for lockSpec in lockSpec.OtherLockSpecs do
               if not state.TimedOut then
@@ -225,7 +241,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     }
 
   member private this.CreateCustomLockSpec(getLock: 'ctx -> 'id -> Task<IDisposable option>) =
-    Custom {
+    CustomForModification {
       CustomLock =
         fun ctx rawId ->
           task {
@@ -236,20 +252,10 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     }
 
   member private _.CreateCustomResourceCreationLockSpec(getLock: 'ctx -> Task<IDisposable option>) =
-    CustomResourceCreation { CustomLock = getLock }
+    CustomForResourceCreation { CustomLock = getLock }
 
-  member private this.CreateOtherLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>, ?nullableRelationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
-    Other {
-      GetOtherIdFromThisId =
-        fun ctx resId ->
-          job {
-            match! this.id.toDomain ctx resId with
-            | Error _ -> return None  // Request will fail anyway
-            | Ok thisId ->
-                let getId = getOtherIdForResourceOperation |> Option.defaultValue (fun _ _ -> None |> Job.result)
-                let! otherId = getId ctx thisId
-                return otherId |> Option.map resDef.id.fromDomain
-          }
+  member private this.CreateOtherForResourceCreationLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, ?relationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId>, ?nullableRelationshipForPostOperation: OptionalRequestGetter<'ctx, 'otherId option>) =
+    OtherForResourceCreation {
       GetOtherIdFromRelationship =
         fun ctx req ->
           job {
@@ -266,6 +272,23 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
                 match! rel.Get(ctx, req, None) with
                 | Error _ -> return None  
                 | Ok otherId -> return otherId |> Option.map resDef.id.fromDomain
+          }
+      OtherLockSpecs =
+        match resDef.lockSpecs with
+        | [] -> failwithf "Resource type '%s' can not lock other resource '%s' because the other resource does not have a lock specification" this.name resDef.name
+        | xs -> xs
+    }
+
+  member private this.CreateOtherForModificationLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>) =
+    OtherForModification {
+      GetOtherIdFromThisId =
+        fun ctx resId ->
+          job {
+            match! this.id.toDomain ctx resId with
+            | Error _ -> return None  // Request will fail anyway
+            | Ok thisId ->
+                let! otherId = getOtherIdForResourceOperation ctx thisId
+                return otherId |> Option.map resDef.id.fromDomain
           }
       OtherLockSpecs =
         match resDef.lockSpecs with
@@ -407,7 +430,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     { this with
         lockSpecs =
           this.lockSpecs
-          @ [this.CreateOtherLockSpec(resDef, getOtherIdForResourceOperation = getOtherIdForResourceOperation)]
+          @ [this.CreateOtherForModificationLockSpec(resDef, getOtherIdForResourceOperation)]
     }
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
@@ -452,7 +475,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     { this with
         lockSpecs =
           this.lockSpecs
-          @ [this.CreateOtherLockSpec(resDef, relationshipForPostOperation = relationshipForPostOperation)]
+          @ [this.CreateOtherForResourceCreationLockSpec(resDef, relationshipForPostOperation = relationshipForPostOperation)]
     }
 
   /// Lock another (e.g. parent) resource for the entirety of all POST (resource creation)
@@ -462,7 +485,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     { this with
         lockSpecs =
           this.lockSpecs
-          @ [this.CreateOtherLockSpec(resDef, nullableRelationshipForPostOperation = relationshipForPostOperation)]
+          @ [this.CreateOtherForResourceCreationLockSpec(resDef, nullableRelationshipForPostOperation = relationshipForPostOperation)]
     }
 
   /// When multiple locks are taken and this timeout is reached, Felicity will 1) return

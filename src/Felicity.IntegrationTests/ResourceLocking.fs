@@ -125,7 +125,18 @@ type ResourceId = ResourceId of string with
   static member value (ResourceId x) = x
 
 
-let customLock =
+let customGlobalLock =
+  let semaphore = new SemaphoreSlim(1)
+  fun () ->
+    async {
+      let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5.) |> Async.AwaitTask
+      if success then
+        return Some { new IDisposable with member _.Dispose () = semaphore.Release () |> ignore }
+      else return None
+    }
+
+
+let customIdLock =
   let semaphores = ConcurrentDictionary<string, SemaphoreSlim>()
   fun (ResourceId id) ->
     async {
@@ -138,7 +149,7 @@ let customLock =
     }
 
 
-let customLockTimeout =
+let customIdLockTimeout =
   let semaphore = new SemaphoreSlim(1)
   fun (_id: string) ->
     async {
@@ -156,7 +167,7 @@ module E =
   let resDef =
     define.Resource("e", resId)
       .CollectionName("es")
-      .CustomLock(fun id -> customLock id)
+      .CustomLock(fun id -> customIdLock id)
   let lookup = define.Operation.Lookup(ResourceId.value >> Some)
 
   let get = define.Operation.GetResource()
@@ -204,7 +215,7 @@ module G =
   let resDef =
     define.Resource("g", resId)
       .CollectionName("gs")
-      .CustomLock(customLockTimeout)
+      .CustomLock(customIdLockTimeout)
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()
@@ -324,7 +335,7 @@ module I =
   let resDef =
     define.Resource("i", resId)
       .CollectionName("is")
-      .CustomResourceCreationLock(fun () -> customLock (ResourceId ""))
+      .CustomResourceCreationLock(fun () -> customIdLock (ResourceId ""))
   let lookup = define.Operation.Lookup(ResourceId.value >> Some)
 
   let get = define.Operation.GetResource()
@@ -340,9 +351,75 @@ module I =
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
+module J =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+
+  let resDef =
+    define.Resource("j", resId)
+      .CollectionName("js")
+      .CustomLock(customIdLock)
+      .CustomResourceCreationLock(fun () -> failwith<IDisposable option> "CustomResourceCreationLock should not be called")
 
 
-[<PTests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
+module K =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+
+  let resDef =
+    define.Resource("k", resId)
+      .CollectionName("ks")
+      .CustomLock(fun _ -> failwith<IDisposable option> "CustomLock should not be called")
+      .CustomResourceCreationLock(fun () -> failwith<IDisposable option> "CustomResourceCreationLock should not be called")
+
+
+module L =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+
+  let j = define.Relationship.ToOne(J.resDef)
+
+  let resDef =
+    define.Resource("l", resId)
+      .CollectionName("ls")
+      .LockOtherForResourceCreation(J.resDef, j)
+      .LockOtherForModification(K.resDef, id)
+
+  let post =
+    define.Operation
+      .Post(fun _ parser -> parser.For((fun _ -> ""), j))
+      .AfterCreate(ignore)
+
+
+module M =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+
+  let k = define.Relationship.ToOne(K.resDef)
+
+  let resDef =
+    define.Resource("m", resId)
+      .CollectionName("ms")
+      .LockOtherForResourceCreation(K.resDef, k)
+      .LockOtherForModification(J.resDef, id)
+
+  let lookup = define.Operation.Lookup(ResourceId.value >> Some)
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
+
+
+
+
+[<Tests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
 let tests =
   testSequenced <| testList "Resource locking" [
 
@@ -894,6 +971,27 @@ let tests =
         |> Async.Ignore<Response []>
       test <@ !i > 0 @>
       test <@ !i < 1000 @>
+    }
+
+    ftestJob "Should not lock using LockOtherForModification when creating resource, and should only use modification locks in LockOtherForResourceCreation" {
+      let testClient = startTestServer (Ctx (ref 0))
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/ls"))
+        |> Request.jsonApiHeaders
+        |> Request.bodySerialized {| data = {| ``type``= "l"; relationships = {| j = {| data = {| ``type`` = "j"; id = "someId" |} |} |} |} |}
+        |> getResponse
+
+      resp |> testSuccessStatusCode
+    }
+
+    testJob "Should not lock using LockOtherForResourceCreation when modifying (not creating) resource, and should only use modification locks in LockOtherForResourceCreation" {
+      let testClient = startTestServer (Ctx (ref 0))
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/ms/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testSuccessStatusCode
     }
 
   ]
