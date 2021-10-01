@@ -419,7 +419,7 @@ module M =
 
 
 
-[<Tests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
+[<PTests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
 let tests =
   testSequenced <| testList "Resource locking" [
 
@@ -973,7 +973,7 @@ let tests =
       test <@ !i < 1000 @>
     }
 
-    ftestJob "Should not lock using LockOtherForModification when creating resource, and should only use modification locks in LockOtherForResourceCreation" {
+    testJob "Should not lock using LockOtherForModification when creating resource, and should only use modification locks in LockOtherForResourceCreation" {
       let testClient = startTestServer (Ctx (ref 0))
       let! resp =
         Request.createWithClient testClient Post (Uri("http://example.com/ls"))
