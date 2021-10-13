@@ -417,6 +417,87 @@ module M =
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
+module N =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.ParsedRes(ResourceId.value, (fun _ -> Error "Invalid ID"), ResourceId)
+
+  let k = define.Relationship.ToOne(K.resDef)
+
+  let resDef =
+    define.Resource("n", resId)
+      .CollectionName("ns")
+      .Lock()
+
+  let lookup = define.Operation.Lookup(ResourceId.value >> Some)
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
+
+
+module O =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.ParsedRes(ResourceId.value, (fun _ -> Error "Invalid ID"), ResourceId)
+
+  let k = define.Relationship.ToOne(K.resDef)
+
+  let resDef =
+    define.Resource("o", resId)
+      .CollectionName("os")
+      .CustomLock(fun _ -> failwith<IDisposable option> "CustomLock should not be called")
+
+  let lookup = define.Operation.Lookup(ResourceId.value >> Some)
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
+
+
+module P =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.ParsedRes(ResourceId.value, (fun _ -> Error "Invalid ID"), ResourceId)
+
+  let resDef =
+    define.Resource("p", resId)
+      .CollectionName("ps")
+      .LockOtherForModification(K.resDef, id)
+
+  let lookup = define.Operation.Lookup(ResourceId.value >> Some)
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
+
+
+module Q =
+
+  let define = Define<Ctx, string, ResourceId>()
+  let resId = define.Id.Parsed(ResourceId.value, ResourceId, ResourceId)
+
+  let k = define.Relationship.ToOneNullable(K.resDef)
+
+  let resDef =
+    define.Resource("q", resId)
+      .CollectionName("qs")
+      .LockOtherForResourceCreation(K.resDef, k)
+
+  let post =
+    define.Operation
+      .Post(fun _ parser -> parser.For((fun _ -> ""), k))
+      .AfterCreate(ignore)
+
 
 
 [<PTests>]  // TODO: These tests often fail on CI (and some occasionally locally), find out why or make them less flaky
@@ -988,6 +1069,47 @@ let tests =
       let testClient = startTestServer (Ctx (ref 0))
       let! resp =
         Request.createWithClient testClient Post (Uri("http://example.com/ms/someId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testSuccessStatusCode
+    }
+
+    testJob "Returns correct error when resource ID fails to parse when using Lock" {
+      let testClient = startTestServer (Ctx (ref 0))
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/ns/invalidId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 404
+    }
+
+    testJob "Returns correct error when resource ID fails to parse when using CustomLock" {
+      let testClient = startTestServer (Ctx (ref 0))
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/os/invalidId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 404
+    }
+
+    testJob "Returns correct error when resource ID fails to parse when using LockOtherForModification" {
+      let testClient = startTestServer (Ctx (ref 0))
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/ps/invalidId/customOp"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+
+      resp |> testStatusCode 404
+    }
+
+    testJob "Does not lock other resource when using LockOtherForResourceCreation and relationship is null" {
+      let testClient = startTestServer (Ctx (ref 0))
+      let! resp =
+        Request.createWithClient testClient Post (Uri("http://example.com/qs"))
+        |> Request.bodySerialized {| data = {| ``type``= "q"; relationships = {| k = {| data = null |} |} |} |}
         |> Request.jsonApiHeaders
         |> getResponse
 

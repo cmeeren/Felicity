@@ -24,7 +24,8 @@ type internal FelicityLockSpec<'ctx> = {
 
 
 type internal CustomLockSpec<'ctx> = {
-  CustomLock: 'ctx -> ResourceId -> Task<IDisposable option>
+  // Outer None = no lock, inner None = timed out
+  CustomLock: 'ctx -> ResourceId -> Task<IDisposable option option>
 }
 
 
@@ -115,10 +116,11 @@ module internal LockSpecification =
       | CustomForModification lockSpec, Some resId ->
           if not state.TimedOut then
             match! lockSpec.CustomLock ctx resId with
-            | Some lock ->
+            | Some (Some lock) ->
                 state.AddLock lock
-            | None ->
+            | Some None ->
                 state.SetTimedOut ()
+            | None -> ()
       | CustomForResourceCreation lockSpec, None ->
           if not state.TimedOut then
             match! lockSpec.CustomLock ctx with
@@ -130,19 +132,23 @@ module internal LockSpecification =
       | OtherForResourceCreation _, Some _ -> ()
       | OtherForResourceCreation lockSpec, None ->
           if not state.TimedOut then
-            let! otherId = lockSpec.GetOtherIdFromRelationship ctx req |> Job.startAsTask
-            // Locks must be taken in sequence, not parallel, to avoid deadlocks.
-            for lockSpec in lockSpec.OtherLockSpecs do
-              if not state.TimedOut then
-                do! lock state httpCtx ctx req otherId lockSpec
+            match! lockSpec.GetOtherIdFromRelationship ctx req |> Job.startAsTask with
+            | None -> ()  // No other resource to lock
+            | Some otherId ->
+                // Locks must be taken in sequence, not parallel, to avoid deadlocks.
+                for lockSpec in lockSpec.OtherLockSpecs do
+                  if not state.TimedOut then
+                    do! lock state httpCtx ctx req (Some otherId) lockSpec
       | OtherForModification _, None -> ()
       | OtherForModification lockSpec, Some resId ->
           if not state.TimedOut then
-            let! otherId = lockSpec.GetOtherIdFromThisId ctx resId |> Job.startAsTask
-            // Locks must be taken in sequence, not parallel, to avoid deadlocks.
-            for lockSpec in lockSpec.OtherLockSpecs do
-              if not state.TimedOut then
-                do! lock state httpCtx ctx req otherId lockSpec
+            match! lockSpec.GetOtherIdFromThisId ctx resId |> Job.startAsTask with
+            | None -> ()  // No other resource to lock
+            | Some otherId ->
+                // Locks must be taken in sequence, not parallel, to avoid deadlocks.
+                for lockSpec in lockSpec.OtherLockSpecs do
+                  if not state.TimedOut then
+                    do! lock state httpCtx ctx req (Some otherId) lockSpec
     }
 
 
@@ -246,8 +252,10 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
         fun ctx rawId ->
           task {
             match! this.id.toDomain ctx rawId |> Job.startAsTask with
-            | Error _ -> return None  // Request will fail anyway
-            | Ok id -> return! getLock ctx id
+            | Error _ -> return None
+            | Ok id ->
+                let! locker = getLock ctx id
+                return Some locker
           }
     }
 
@@ -265,7 +273,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
                 | None -> return None
                 | Some rel ->
                     match! rel.Get(ctx, req, None) with
-                    | Error _ -> return None  
+                    | Error _ -> return None
                     | Ok otherId ->
                         return otherId |> Option.bind id |> Option.map resDef.id.fromDomain
             | Some rel ->
@@ -285,7 +293,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
         fun ctx resId ->
           job {
             match! this.id.toDomain ctx resId with
-            | Error _ -> return None  // Request will fail anyway
+            | Error _ -> return None  // Don't lock; request will fail anyway
             | Ok thisId ->
                 let! otherId = getOtherIdForResourceOperation ctx thisId
                 return otherId |> Option.map resDef.id.fromDomain

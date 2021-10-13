@@ -1,10 +1,16 @@
 Release notes
 ==============
 
+### 0.16.4 (2021-10-13)
+
+* Fixed a bug where `CustomLock` would cause a `503` lock timeout response to be returned instead of the correct `404` response when the URL contained an invalid resource ID.
+* Fixed a bug where `LockOtherForModification` would cause the other resource’s creation lock to be called when the URL contained an invalid resource ID.
+* Fixed a bug where `LockOtherForResourceCreation` would cause the other resource’s creation lock to be called when the relationship was null.
+
 ### 0.16.3 (2021-10-01)
 
-* Fixed bug where `LockOtherForModification` and `LockOtherForCreation` would be invoked when they should not
-* Fixed bug where `LockOtherForModification` and `LockOtherForCreation` would invoke incorrect locks on the other resource
+* Fixed a bug where `LockOtherForModification` and `LockOtherForCreation` would be invoked when they should not
+* Fixed a bug where `LockOtherForModification` and `LockOtherForCreation` would invoke incorrect locks on the other resource
 
 ### 0.16.2 (2021-09-29)
 
