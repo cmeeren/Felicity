@@ -200,7 +200,7 @@ module A6 =
 let tests =
   testList "DELETE resource" [
 
-    testJob "Create A: Returns 204 and returns correct data if successful" {
+    testJob "Delete A: Returns 204 and returns correct data if successful" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ModifyAResponse = setHttpHeader "Foo" "Bar" }
       let! response = Request.delete ctx "/abs/a1" |> getResponse
@@ -213,7 +213,7 @@ let tests =
       test <@ db.TryGet "a1" |> Option.isNone @>
     }
 
-    testJob "Create B: Returns 202, and returns correct data if successful" {
+    testJob "Delete B: Returns 202, and returns correct data if successful" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ModifyBResponse = setHttpHeader "Foo" "Bar" }
       let! response = Request.delete ctx "/abs/b2" |> getResponse
