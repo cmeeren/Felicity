@@ -887,4 +887,11 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
+    testJob "Falls through if collection case does not match" {
+      let! response = Request.post Ctx "/Parents" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json = "" @>
+    }
+
   ]

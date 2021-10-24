@@ -168,4 +168,11 @@ let tests =
       response |> testStatusCode 200
     }
 
+    testJob "Falls through if collection case does not match" {
+      let! response = Request.get Ctx.Default "/As" |> getResponse
+      response |> testStatusCode 404
+      let! body = response |> Response.readBodyAsString
+      test <@ body = "" @>
+    }
+
   ]

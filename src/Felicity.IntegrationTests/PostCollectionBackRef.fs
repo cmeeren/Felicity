@@ -517,4 +517,12 @@ let tests =
       response |> testSuccessStatusCode
     }
 
+    testJob "Falls through if collection case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.post ctx "/Children" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json = "" @>
+    }
+
   ]

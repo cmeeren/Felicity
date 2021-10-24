@@ -1014,4 +1014,80 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
+    testJob "GET falls through if collection case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.get ctx "/Entities/a1/customOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json = "" @>
+    }
+
+    testJob "GET returns error if link case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.get ctx "/entities/a1/CustomOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "POST falls through if collection case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.post ctx "/Entities/a1/customOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json = "" @>
+    }
+
+    testJob "POST returns error if link case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.post ctx "/entities/a1/CustomOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "PATCH falls through if collection case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.patch ctx "/Entities/a1/customOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json = "" @>
+    }
+
+    testJob "PATCH returns error if link case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.patch ctx "/entities/a1/CustomOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "DELETE falls through if collection case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.delete ctx "/Entities/a1/customOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json = "" @>
+    }
+
+    testJob "DELETE returns error if link case does not match" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.delete ctx "/entities/a1/CustomOp" |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
   ]
