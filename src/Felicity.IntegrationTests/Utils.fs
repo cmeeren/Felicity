@@ -2,8 +2,10 @@
 module Utils
 
 open System
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.TestHost
 open Microsoft.AspNetCore.Hosting
+open Microsoft.Extensions.DependencyInjection
 open Expecto
 open Giraffe
 open Hopac
@@ -38,6 +40,7 @@ let startTestServer (ctx: 'ctx) =
         .ConfigureServices(fun services ->
           services
             .AddGiraffe()
+            .AddRouting()
             .AddJsonApi()
               .GetCtx(fun _ -> ctx)
               .Add()
@@ -48,7 +51,9 @@ let startTestServer (ctx: 'ctx) =
         .Configure(fun app ->
           app
             .UseGiraffeErrorHandler(fun _ _ -> returnUnknownError)
-            .UseGiraffe jsonApi<'ctx>
+            .UseRouting()
+            .UseJsonApiEndpoints<'ctx>()
+          |> ignore
         )
     )
   server.CreateClient ()

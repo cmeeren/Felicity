@@ -1038,12 +1038,15 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "GET falls through if collection case does not match" {
+    testJob "GET returns error if collection case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.get ctx "/Entities/a1/customOp" |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Entities/a1/customOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "GET returns error if link case does not match" {
@@ -1052,17 +1055,20 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/entities/a1/CustomOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "POST falls through if collection case does not match" {
+    testJob "POST returns error if collection case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.post ctx "/Entities/a1/customOp" |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Entities/a1/customOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "POST returns error if link case does not match" {
@@ -1071,17 +1077,20 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/entities/a1/CustomOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "PATCH falls through if collection case does not match" {
+    testJob "PATCH returns error if collection case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.patch ctx "/Entities/a1/customOp" |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Entities/a1/customOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "PATCH returns error if link case does not match" {
@@ -1090,17 +1099,20 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/entities/a1/CustomOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "DELETE falls through if collection case does not match" {
+    testJob "DELETE returns error if collection case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.delete ctx "/Entities/a1/customOp" |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Entities/a1/customOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "DELETE returns error if link case does not match" {
@@ -1109,7 +1121,7 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'CustomOp' does not exist for any resource in collection 'entities'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/entities/a1/CustomOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }

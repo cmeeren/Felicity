@@ -240,16 +240,7 @@ module Article =
       .DeleteAsync(Db.Article.delete)
 ```
 
-#### 4. Place the JSON:API handler for your context type wherever you want in your Giraffe routing
-
-```f#
-let mainHandler : HttpHandler =
-  choose [
-    jsonApi<Context>
-  ]
-```
-
-#### 5. Register a JSON:API handler for the context type in `ConfigureServices`
+#### 5. Register a JSON:API handler for the context type in `ConfigureServices` and register/add the routes
 
 ```f#
 type Startup() =
@@ -257,6 +248,7 @@ type Startup() =
   member _.ConfigureServices(services: IServiceCollection) : unit =
     services
       .AddGiraffe()
+      .AddRouting()
       .AddJsonApi()
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
@@ -268,7 +260,9 @@ type Startup() =
         Log.Error(ex, "Unhandled exception while executing request")
         returnUnknownError
       )
-      .UseGiraffe(mainHandler)
+      .UseRouting()
+      .UseJsonApiEndpoints<Context>()
+    |> ignore
 ```
 
 #### 6. Enable server garbage collection

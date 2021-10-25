@@ -934,11 +934,17 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Falls through if collection case does not match" {
-      let! response = Request.post Ctx "/Parents" |> getResponse
+    testJob "Returns error if collection case does not match" {
+      let db = Db ()
+      let! response =
+        Request.post (Ctx db) "/Parents"
+        |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Parents' does not exist, but differs only by case from the existing path '/parents'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
   ]

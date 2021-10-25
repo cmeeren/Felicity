@@ -36,6 +36,16 @@
     |> Error.setDetailf "'%s' is not an allowed query parameter name according to the JSON:API specification" paramName
     |> Error.setSourceParam paramName
 
+  let incorrectPathCase invalidPath expectedPath =
+    Error.create 404
+    |> Error.setTitle "Incorrect path case"
+    |> Error.setDetailf "The path '%s' does not exist, but differs only by case from the existing path '%s'. Paths are case sensitive." invalidPath expectedPath
+
+  let incorrectPartialPathCase expectedPathPrefix =
+    Error.create 404
+    |> Error.setTitle "Incorrect path case"
+    |> Error.setDetailf "Expected path '%s'. Paths are case sensitive." expectedPathPrefix
+
 
   (*
    * Any request: Misc.
@@ -746,6 +756,11 @@
   (*
    * Misc.
   *)
+
+  let relationshipDoesNotExistForAnyResource relName collName =
+    Error.create 404
+    |> Error.setTitle "Unknown relationship"
+    |> Error.setDetailf "The relationship '%s' does not exist for any resource in collection '%s'" relName collName
 
   let linkOrRelationshipDoesNotExistForAnyResource linkOrRelName collName =
     Error.create 404

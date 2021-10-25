@@ -207,11 +207,14 @@ let tests =
       response |> testStatusCode 200
     }
 
-    testJob "Falls through if collection case does not match" {
+    testJob "Returns error if collection case does not match" {
       let! response = Request.get Ctx.Default "/Abs" |> getResponse
       response |> testStatusCode 404
-      let! body = response |> Response.readBodyAsString
-      test <@ body = "" @>
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Abs' does not exist, but differs only by case from the existing path '/abs'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
   ]

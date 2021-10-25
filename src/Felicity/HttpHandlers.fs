@@ -16,13 +16,6 @@ open Errors
 [<AutoOpen>]
 module HttpHandlers =
 
-  type internal JsonApiHandler<'ctx> = JsonApiHandler of HttpHandler
-
-  let jsonApi<'ctx> : HttpHandler =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-      let (JsonApiHandler handler) = ctx.GetService<JsonApiHandler<'ctx>> ()
-      handler next ctx
-
 
   let internal jsonApiWithETag<'ctx> (x: obj) : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
@@ -118,6 +111,7 @@ module HttpHandlers =
 
   let returnErrorDocument (errors: Error list) : HttpHandler =
     handleErrors errors
+
 
   let returnUnknownError : HttpHandler =
     returnErrorDocument [unknownError ()]

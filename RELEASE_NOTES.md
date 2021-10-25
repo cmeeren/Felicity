@@ -1,6 +1,18 @@
 Release notes
 ==============
 
+### 0.17.4 (2021-10-25)
+
+* **Breaking:** Felicity now uses Giraffe.EndpointRouting (and, by extension, ASP.NET Core’s built-in endpoint routing). To migrate:
+
+  * Remove the `jsonApi<'ctx>` handler from your Giraffe routes
+  * Call `.AddRouting()` in `ConfigureServices`
+  * Call `.UseRouting().UseJsonApiEndpoints<MyContextType>()` in `Configure`
+
+  You are of course free to continue using non-Felicity Giraffe routes/handlers or any other routes like before.
+
+* Added `Routing.verifyPathCase`; see the documentation for details
+
 ### 0.16.4 (2021-10-13)
 
 * Fixed a bug where `CustomLock` would cause a `503` lock timeout response to be returned instead of the correct `404` response when the URL contained an invalid resource ID.

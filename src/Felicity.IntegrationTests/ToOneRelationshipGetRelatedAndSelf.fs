@@ -338,12 +338,15 @@ let tests1 =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Falls through if collection case does not match" {
+    testJob "Returns error if collection case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.get ctx "/Parents/p1/child" |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Parents/p1/child' does not exist, but differs only by case from the existing path '/parents/p1/child'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "Returns error if relationship case does not match" {
@@ -352,7 +355,7 @@ let tests1 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'Child' does not exist for any resource in collection 'parents'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/parents/p1/Child' does not exist, but differs only by case from the existing path '/parents/p1/child'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -503,12 +506,15 @@ let tests2 =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Falls through if collection case does not match" {
+    testJob "Returns error if collection case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.get ctx "/Parents/p1/relationships/child" |> getResponse
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
-      test <@ json = "" @>
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Parents/p1/relationships/child' does not exist, but differs only by case from the existing path '/parents/p1/relationships/child'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
     testJob "Returns error if 'relationships' case does not match" {
@@ -517,7 +523,7 @@ let tests2 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The path 'Relationships/child' does not exist for resources in collection 'parents'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/parents/p1/Relationships/child' does not exist, but differs only by case from the existing path '/parents/p1/relationships/child'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -528,7 +534,7 @@ let tests2 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'Child' does not exist for any resource in collection 'parents'" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/parents/p1/relationships/Child' does not exist, but differs only by case from the existing path '/parents/p1/relationships/child'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }

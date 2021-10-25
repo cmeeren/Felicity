@@ -1,8 +1,10 @@
 ﻿module Meta
 
 open System
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.TestHost
+open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Expecto
 open HttpFs.Client
@@ -71,12 +73,18 @@ let getClient () =
         .ConfigureServices(fun services ->
           services
             .AddGiraffe()
+            .AddRouting()
             .AddJsonApi()
               .GetCtx(fun _ -> { Ctx1.Meta = Map.empty })
               .GetMeta(fun ctx -> ctx.Meta)
               .Add()
             |> ignore)
-        .Configure(fun app -> app.UseGiraffe jsonApi<Ctx1>)
+        .Configure(fun app ->
+          app
+            .UseRouting()
+            .UseJsonApiEndpoints<Ctx1>()
+          |> ignore
+        )
     )
   server.CreateClient ()
 

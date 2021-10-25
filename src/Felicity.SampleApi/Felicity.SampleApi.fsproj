@@ -15,7 +15,7 @@
     <Compile Include="Domain.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="JsonApi.fs" />
-    <Compile Include="Routes.fs" />
+    <Compile Include="Endpoints.fs" />
     <Compile Include="Startup.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

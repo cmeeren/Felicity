@@ -8,6 +8,7 @@ open Microsoft.Extensions.DependencyInjection
 open Hopac
 open Giraffe
 open RoutingOperations
+open Routing
 
 
 
@@ -89,10 +90,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
   member this.Add() =
     let getBaseUrl =
       match this.baseUrl with
-      | None -> fun (ctx: HttpContext) ->
-          let url = Uri(ctx.GetRequestUrl())
-          let baseUrl = url.Scheme + Uri.SchemeDelimiter + url.Authority
-          match this.relativeJsonApiRoot with None -> baseUrl | Some r -> baseUrl + "/" + r
+      | None ->
+          fun (ctx: HttpContext) ->
+            let url = Uri(ctx.GetRequestUrl())
+            let baseUrl = url.Scheme + Uri.SchemeDelimiter + url.Authority
+            match this.relativeJsonApiRoot with None -> baseUrl | Some r -> baseUrl + "/" + r
       | Some url ->
           fun _ -> url
     let getCtx = this.getCtx |> Option.defaultWith (fun () -> failwith "Must specify a context getter")
@@ -182,8 +184,15 @@ type JsonApiConfigBuilder<'ctx> = internal {
             map.Add(collName, collOperations)
       )
 
+    let relativeRootWithLeadingSlash =
+      match this.relativeJsonApiRoot, this.baseUrl with
+      | None, None -> ""
+      | Some _, Some _ -> failwith "Framework bug: Both relative root and base URL specified"
+      | Some root, None -> "/" + root
+      | None, Some url -> "/" + (Uri(url).PathAndQuery.Trim('/'))
+
     this.services
-      .AddSingleton<JsonApiHandler<'ctx>>(JsonApiHandler (Routing.jsonApiHandler getCtx collections))
+      .AddSingleton<JsonApiEndpoints<'ctx>>(JsonApiEndpoints (jsonApiEndpoints relativeRootWithLeadingSlash getCtx collections))
       .AddSingleton<Serializer<'ctx>>(Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<Serializer<ErrorSerializerCtx>>(Serializer<ErrorSerializerCtx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())

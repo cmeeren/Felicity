@@ -155,11 +155,11 @@ module Context =
     }
 ```
 
-You use the `getCtx` function when setting up Felicity in `ConfigureServices` as explained in the next section. IN the code above, `unauthorized` represents a JSON:API error object created using Felicity’s API, as shown further below.
+You use the `getCtx` function when setting up Felicity in `ConfigureServices` as explained in the next section. In the code above, `unauthorized` represents a JSON:API error object created using Felicity’s API, as shown further below.
 
 ### Startup configuration
 
-You need to set up Felicity in `ConfigureServices`. The below code shows an example of a `Startup` class. You must supply the function that creates your context.
+You need to set up Felicity in `ConfigureServices` and `Configure`. The below code shows an example of a `Startup` class. You must supply the function that creates your context.
 
 ```f#
 type Startup() =
@@ -167,6 +167,7 @@ type Startup() =
   member _.ConfigureServices(services: IServiceCollection) : unit =
     services
       .AddGiraffe()
+      .AddRouting()
       .AddJsonApi()
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
@@ -178,7 +179,9 @@ type Startup() =
         Log.Error(ex, "Unhandled exception while executing request")
         returnUnknownError
       )
-      .UseGiraffe(mainHandler)
+      .UseRouting()
+      .UseJsonApiEndpoints<Context>()
+    |> ignore
 ```
 
 #### Top-level meta
@@ -211,30 +214,13 @@ Felicity uses System.Text.Json and [FSharp.SystemTextJson](https://github.com/Ta
 
 ### Routing
 
-Use the `jsonApi<'ctx>` handler to insert the JSON:API endpoints for a specific context type wherever you want. Requests to unknown collections will fall through. For example, in the code below, if the only resource module that uses `Context` has collection name `articles`, then `jsonApi<Context>` will handle any request starting with `/articles`, but any other request will fall through to `someOtherHandler`.
+Felicity uses ASP.NET Core’s endpoint routing. The startup sample above shows how to configure and add Felicity to your pipeline.
 
-```f#
-let mainHandler : HttpHandler =
-  choose [
-    jsonApi<Context>
-    someOtherHandler
-  ]
-```
+Note that while ASP.NET Core’s endpoint routing is case insensitive, Felicity will check for correct casing of all JSON:API routes and return an error if the casing in the request is incorrect.
 
-#### Pacing the JSON:API routes in a subroute
+#### Placing the JSON:API routes in a subroute
 
-You can place the `jsonApi` in a subroute, too. For example, the following route
-
-```f#
-let mainHandler : HttpHandler =
-  choose [
-    subRoute "/foo" (subRoute "/bar" jsonApi<Context>)
-  ]
-```
-
-means that clients call `https://example.com/foo/bar/articles/1` to get the `article` with ID `1`.
-
-If you do this, you need to use the `.RelativeJsonApiRoot` method after `.AddJsonApi()` in your startup code to specify the relative root in order to get correct links in the JSON:API responses, like this (leading/trailing slashes doesn’t matter):
+If you want your JSON:API endpoints available within a subroute, e.g. `myapi.com/foo/bar/articles`, simply use `RelativeJsonApiRoot` (leading/trailing slashes doesn’t matter):
 
 ```f#
 member _.ConfigureServices(services: IServiceCollection) : unit =
@@ -248,6 +234,25 @@ member _.ConfigureServices(services: IServiceCollection) : unit =
 ```
 
 Alternatively you may use `.BaseUrl` to explicitly specify the whole base URL as described earlier.
+
+### Combining with other non-JSON:API routes
+
+You may trivially add other non-Felicity routes in `Configure`. For example, you can add a Giraffe HttpHandler using `UseGiraffe(...)`, Giraffe.EndpointRouting routes using `UseEndpoints(fun e -> e.MapGiraffeEndpoints ...)`, or any other routing method supported by ASP.NET Core. Simply add the routes to your pipeline as you normally do.
+
+### Enforce case sensitive custom routes
+
+If you use Giraffe.EndpointRouting for non-Felicity routes, you may find `verifyPathCase` useful. It is available in the  `Routing` module. It takes a single argument, which is the expected path (case sensitive), and returns an `HttpHandler` that will return an error if the request path does not match the expected path. Use this inside your endpoints:
+
+```f#
+let myEndpoints : Endpoint list = [
+  GET_HEAD [
+    routef "/%s/foo" (fun str ->
+      let expectedPath = $"/{str}/foo"
+      verifyPathCase expectedPath >=> myOtherHttpHandler
+    )
+  ]
+]
+```
 
 ### Errors
 

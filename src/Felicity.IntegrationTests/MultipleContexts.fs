@@ -1,8 +1,10 @@
 ﻿module ``Multiple contexts``
 
 open System
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.TestHost
+open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Expecto
 open HttpFs.Client
@@ -42,6 +44,7 @@ let tests =
             .ConfigureServices(fun services ->
               services
                 .AddGiraffe()
+                .AddRouting()
                 .AddJsonApi()
                   .GetCtxRes(fun _ -> (Error [Error.create 422]: Result<Ctx1, _>))
                   .Add()
@@ -49,7 +52,13 @@ let tests =
                   .GetCtx(fun _ -> Ctx2)
                   .Add()
                 |> ignore)
-            .Configure(fun app -> app.UseGiraffe (choose [jsonApi<Ctx1>; jsonApi<Ctx2>]))
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx1>()
+                .UseJsonApiEndpoints<Ctx2>()
+              |> ignore
+            )
         )
       let client = server.CreateClient ()
 

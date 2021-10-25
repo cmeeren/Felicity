@@ -1,15 +1,14 @@
 namespace Felicity.SampleApp
 
-open System
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Serilog
 open Serilog.Events
 open Giraffe
+open Giraffe.EndpointRouting
 open Felicity
 open JsonApi
-open Routes
 
 
 [<AutoOpen>]
@@ -57,6 +56,7 @@ type Startup() =
   member _.ConfigureServices(services: IServiceCollection) : unit =
     services
       .AddGiraffe()
+      .AddRouting()
       .AddJsonApi()
         .GetCtxAsyncRes(Context.getCtx)
         .Add()
@@ -77,4 +77,7 @@ type Startup() =
         (".png", "image/png")
         (".yaml", "application/x-yaml")
       ])
-      .UseGiraffe(mainHandler)
+      .UseRouting()
+      .UseJsonApiEndpoints<Context>()
+      .UseEndpoints(fun e -> e.MapGiraffeEndpoints Endpoints.endpoints)
+    |> ignore

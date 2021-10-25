@@ -1,8 +1,10 @@
 ﻿module Routing
 
 open System
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.TestHost
+open Microsoft.Extensions.DependencyInjection
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote
@@ -57,7 +59,7 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The link or relationship 'unknownRel' does not exist for any resource in collection 'as'" @>
+      test <@ json |> getPath "errors[0].detail" = "The relationship 'unknownRel' does not exist for any resource in collection 'as'" @>
       test <@ json |> hasNoPath "errors[0].source.pointer" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -118,11 +120,17 @@ let tests =
             .ConfigureServices(fun services ->
               services
                 .AddGiraffe()
+                .AddRouting()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .Add()
                 |> ignore)
-            .Configure(fun app -> app.UseGiraffe (jsonApi<Ctx>))
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
         )
       let client = server.CreateClient ()
 
@@ -152,12 +160,18 @@ let tests =
             .ConfigureServices(fun services ->
               services
                 .AddGiraffe()
+                .AddRouting()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("foo/bar")
                   .Add()
                 |> ignore)
-            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
         )
       let client = server.CreateClient ()
 
@@ -187,12 +201,18 @@ let tests =
             .ConfigureServices(fun services ->
               services
                 .AddGiraffe()
+                .AddRouting()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("/foo/bar")
                   .Add()
                 |> ignore)
-            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
         )
       let client = server.CreateClient ()
 
@@ -214,12 +234,18 @@ let tests =
             .ConfigureServices(fun services ->
               services
                 .AddGiraffe()
+                .AddRouting()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("foo/bar/")
                   .Add()
                 |> ignore)
-            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
         )
       let client = server.CreateClient ()
 
@@ -233,6 +259,42 @@ let tests =
     }
 
 
+    testJob "Relative root path is case sensitive" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddRouting()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .RelativeJsonApiRoot("foo/bar")
+                  .Add()
+                |> ignore)
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
+        )
+      let client = server.CreateClient ()
+
+      let! response =
+        Request.createWithClient client Get (Uri("http://example.com/Foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response |> testStatusCode 404
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "404" @>
+      test <@ json |> getPath "errors[0].detail" = "The path '/Foo/bar/as/1' does not exist, but differs only by case from the existing path '/foo/bar/as/1'. Paths are case sensitive." @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+
     testJob "If base URL is specified, uses the specified base URL in links regardless of actual request URL" {
 
       let server =
@@ -241,12 +303,18 @@ let tests =
             .ConfigureServices(fun services ->
               services
                 .AddGiraffe()
+                .AddRouting()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .BaseUrl("http://example.com/foo/bar")
                   .Add()
                 |> ignore)
-            .Configure(fun app -> app.UseGiraffe (subRoute "/foo" (subRoute "/bar" jsonApi<Ctx>)))
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
         )
       let client = server.CreateClient ()
 
