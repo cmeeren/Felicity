@@ -4,6 +4,7 @@ open System
 open System.Net.Http
 open Microsoft.AspNetCore.TestHost
 open Microsoft.AspNetCore.Hosting
+open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Felicity
 open BenchmarkDotNet.Attributes
@@ -61,12 +62,13 @@ type Benchmark () =
         .ConfigureServices(fun services ->
           services
             .AddGiraffe()
+            .AddRouting()
             .AddJsonApi()
               .GetCtx(fun _ -> context)
               .Add()
           |> ignore
         )
-        .Configure(fun app -> app.UseGiraffe jsonApi<Context>)
+        .Configure(fun app -> app.UseJsonApiEndpoints<Context>() |> ignore)
     )
 
   let client = server.CreateClient ()
