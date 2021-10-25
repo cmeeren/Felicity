@@ -279,6 +279,21 @@ let tests =
       test <@ p = expectedNewParent @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response =
+        Request.post ctx "/children/"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "child"
+                  id = "c2"
+                  relationships = {| parent = {| data = {| ``type`` = "parent"; id = "p1" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 201
+    }
+
     testJob "Does not run backRef setter" {
       let db = Db ()
       let ctx = Ctx2.WithDb db

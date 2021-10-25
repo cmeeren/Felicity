@@ -213,6 +213,12 @@ let tests =
       test <@ db.TryGet "a1" |> Option.isNone @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.delete ctx "/abs/a1/" |> getResponse
+      response |> testStatusCode 204
+    }
+
     testJob "Delete B: Returns 202, and returns correct data if successful" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ModifyBResponse = setHttpHeader "Foo" "Bar" }

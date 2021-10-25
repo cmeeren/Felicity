@@ -240,6 +240,12 @@ let tests1 =
       test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.get ctx "/parents/p1/child/" |> getResponse
+      response |> testStatusCode 200
+    }
+
     testJob "Correctly handles ETag and If-None-Match" {
       let db = Db ()
       let! response = Request.get (Ctx.WithDb db) "/parents/p1/child" |> getResponse
@@ -372,6 +378,12 @@ let tests2 =
       test <@ json |> hasNoPath "included" @>
 
       test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+    }
+
+    testJob "Insensitive to trailing slashes" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response = Request.get ctx "/parents/p1/relationships/child/" |> getResponse
+      response |> testStatusCode 200
     }
 
     testJob "Supports include parameter and ignores include paths not starting with relationship name" {

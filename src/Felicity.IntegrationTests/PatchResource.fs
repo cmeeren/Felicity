@@ -435,6 +435,27 @@ let tests =
       test <@ a.NullableNotNullWhenSet = Some "bar" @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
+      let! response =
+        Request.patch ctx "/abs/a1/"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "a1"
+                  attributes =
+                    {|a = true
+                      x = "abc"
+                      nullable = null
+                      nullableNotNullWhenSet = "bar"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
     testJob "Update A mapped: Succeeds if mapping succeeds" {
       let db = Db ()
       let ctx = Ctx.WithDb db

@@ -189,6 +189,22 @@ let tests =
       test <@ response.headers.[Location] = "http://example.com/abs/1" @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let! response =
+        Request.post Ctx "/abs/"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  attributes =
+                    {|a = true
+                      x = "abc"
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 201
+    }
+
     testJob "Create 2: Returns 202 and runs setters" {
       let! response =
         Request.post Ctx "/abs"

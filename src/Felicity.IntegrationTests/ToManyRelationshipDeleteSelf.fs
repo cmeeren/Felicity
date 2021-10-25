@@ -417,6 +417,19 @@ let tests =
       test <@ p.Children = [C2 { Id = "c2" }] @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response =
+        Request.delete ctx "/parents/p1/relationships/children/"
+        |> Request.bodySerialized
+            {|data = [
+                {|``type`` = "child1"; id = "c1" |}
+                {|``type`` = "child2"; id = "c22" |}
+            ] |}
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
     testJob "Supports include parameter and ignores include paths not starting with relationship name" {
       let db = Db ()
       let ctx = Ctx.WithDb db

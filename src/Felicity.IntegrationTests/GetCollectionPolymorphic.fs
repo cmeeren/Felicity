@@ -121,6 +121,11 @@ let tests =
       response |> testStatusCode 200
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let! response = Request.get Ctx.Default "/abs/" |> getResponse
+      response |> testStatusCode 200
+    }
+
     testJob "Correctly handles ETag and If-None-Match" {
       let! response = Request.get Ctx.Default "/abs" |> getResponse
       response |> testStatusCode 200

@@ -327,6 +327,12 @@ let tests =
       test <@ json |> getPath "included[0].links.customOp.meta.someValue" = 2 @>
     }
 
+    testJob "GET insensitive to trailing slashes" {
+      let ctx = { Ctx.WithDb (Db ()) with GetOperation = fun _ -> Ok (setStatusCode 201) }
+      let! response = Request.get ctx "/entities/a1/customOp/" |> getResponse
+      response |> testStatusCode 201
+    }
+
     testJob "POST returns correct response 1" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with PostOperation = fun respond -> Ok (setStatusCode 201 >=> respond.WithOptEntity(A.resDef, Some { Id = "foo" }) ) }
@@ -355,6 +361,12 @@ let tests =
       test <@ json |> getPath "data" = null @>
     }
 
+    testJob "POST insensitive to trailing slashes" {
+      let ctx = { Ctx.WithDb (Db ()) with PostOperation = fun _ -> Ok (setStatusCode 201) }
+      let! response = Request.post ctx "/entities/a1/customOp/" |> getResponse
+      response |> testStatusCode 201
+    }
+
     testJob "PATCH returns correct response" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with PatchOperation = fun respond -> Ok (setStatusCode 201 >=> respond.WithEntities(B.resDef, [{ Id = "foo" }; { Id = "bar" }]) ) }
@@ -367,6 +379,12 @@ let tests =
       test <@ json |> getPath "data[1].type" = "b" @>
       test <@ json |> getPath "data[1].id" = "bar" @>
       test <@ json |> getPath "data[1].attributes.x" = 2 @>
+    }
+
+    testJob "PATCH insensitive to trailing slashes" {
+      let ctx = { Ctx.WithDb (Db ()) with PatchOperation = fun _ -> Ok (setStatusCode 201) }
+      let! response = Request.patch ctx "/entities/a1/customOp/" |> getResponse
+      response |> testStatusCode 201
     }
 
     testJob "DELETE returns correct response" {
@@ -389,6 +407,12 @@ let tests =
       test <@ json |> getPath "included[0].links.self" = "http://example.com/entities/test" @>
       test <@ json |> getPath "included[0].links.customOp.href" = "http://example.com/entities/test/customOp" @>
       test <@ json |> getPath "included[0].links.customOp.meta.someValue" = 2 @>
+    }
+
+    testJob "DELETE insensitive to trailing slashes" {
+      let ctx = { Ctx.WithDb (Db ()) with DeleteOperation = fun _ -> Ok (setStatusCode 201) }
+      let! response = Request.delete ctx "/entities/a1/customOp/" |> getResponse
+      response |> testStatusCode 201
     }
 
     testJob "Simple link when no meta" {

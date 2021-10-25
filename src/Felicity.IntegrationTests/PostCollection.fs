@@ -278,6 +278,25 @@ let tests =
       test <@ a.NullableChildNotNullWhenCreated = Some { Id = "c" } @>
     }
 
+    testJob "Insensitive to trailing slashes" {
+      let ctx = Ctx.WithDb (Db ())
+      let! response =
+        Request.post ctx "/abs/"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  attributes = {| a = true |}
+                  relationships =
+                    {|nullableChild = {| data = null |}
+                      nullableChildNotNullWhenCreated =
+                        {| data = {| ``type`` = "child"; id = "c" |} |}
+                    |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 201
+    }
+
     testJob "Create B: Returns 202, runs setters and returns correct data if successful" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ModifyBResponse = fun _ -> setHttpHeader "Foo" "Bar" }

@@ -298,6 +298,53 @@ let tests =
       test <@ p = expected @>
     }
 
+
+    testJob "Insensitive to trailing slashes" {
+      let db = Db ()
+      let! response =
+        Request.post (Ctx db) "/parents/"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "parent"
+                  relationships =
+                    {|child =
+                        {|data =
+                            {|``type`` = "child"
+                              id = "ignoredId"
+                            |}
+                        |}
+                    |}
+                |}
+
+              included = [|
+
+                {|``type`` = "child"
+                  id = "ignoredId"
+                  attributes = {| name = "childName" |}
+                  relationships =
+                    {|child =
+                        {| data = null |}
+                    |}
+                |} |> box
+
+              |]
+            |}
+        |> getResponse
+      response |> testSuccessStatusCode
+
+      let p = db.GetParentOrFail "p1"
+      let expected =
+        { Id = "p1"
+          Child = {
+            Id = "c1"
+            Name = "childName"
+            Name2 = None
+            Child = None
+          }
+        }
+      test <@ p = expected @>
+    }
+
     testJob "Returns 400 when missing required to-one nullable, with relationships member" {
       let db = Db ()
       let! response =
