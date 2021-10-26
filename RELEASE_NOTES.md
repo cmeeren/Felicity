@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.3 (2021-10-26)
+
+* Improved error message if call to `IApplicationBuilder.UseJsonApiEndpoints` has no explicit type parameter, or if the context type is not registered using `IServiceCollection.AddJsonApi`
+
 ### 0.17.2 (2021-10-26)
 
 * `Set2` and `Set2SameNull` now works correctly with context mapping (`define.Operation.ForContext(...)`)
