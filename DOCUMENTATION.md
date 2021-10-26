@@ -843,7 +843,34 @@ The PATCH operation automatically runs all field setters, and returns suitable e
 let patch = define.Operation.Patch().AfterUpdateAsync(Db.Article.save)
 ```
 
+### Setting two fields together
+
+You may need to set two fields together. For this, you can use `define.Operation.Set2`. Alternatively, if both fields are nullable and you require that both fields must be either null or non-null, use `Set2SameNull`. Example:
+
+```f#
+// Illustration purposes only; you'd probably want to constrain valid lat/lon values
+let latitude = define.Attribute.Nullable.SimpleDecimal()
+let longitude = define.Attribute.Nullable.SimpleDecimal()
+
+let setLatitudeLongitude =
+  define.Operation
+    .Set2SameNull(MyEntity.setLatLon, latitude, longitude)
+```
+
+In the example above, `MyDomain.setLatLon` has type `(decimal * decimal) option -> MyEntity -> MyEntity`.
+
+If only one of the fields are present, an error will be returned. For `Set2SameNull`, an error will also be returned if one of the fields is `null` and the other is not.
+
+As with other setters, there are overloads that allow you to return errors and/or use `Async`, and the setters are run for both PATCH and POST requests.
+
+Important:
+
+* Only use fields without their own setters. If the fields you use in `Set2`/`Set2SameNull` have separate setters, the behavior is undefined.
+* Only fields (attributes and relationships) are supported. If you use query parameters or headers, an exception will be thrown at startup.
+
 ### Custom setters
+
+**Note: First consider using Set2 as described above if that meets your needs.**
 
 You may come across the need for PATCH requests that can not be cleanly described using separate field setters. For example, a set operation may require two fields simultaneously. There are several ways to accommodate this by adapting or wrapping your domain code, but the point of Felicity is to allow you to write write idiomatic, functional F# domain code and use that directly.
 
@@ -868,6 +895,11 @@ If you want to make the additional argument(s) optional, simply append `.Optiona
 The fields you parse in the manner shown above do not need their own setters. Any such setters, if defined, will be skipped if they are used in the custom setter.
 
 You can add as many custom setters as you want in a PATCH request.
+
+#### Limitations of custom setters
+
+* Custom setters run only for PATCH requests, not POST. If you have fields without their own setters and use them in a custom setter, then if the fields are supplied in POST, the request will fail with a “field read-only” error.
+* As mentioned above, the setter is only run if the first field is present. If only the second field is present, it is ignored.
 
 ### Modifying the response
 

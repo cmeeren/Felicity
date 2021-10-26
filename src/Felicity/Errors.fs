@@ -390,6 +390,16 @@
     |> Error.setDetailf "Relationship '%s' on type '%s' does not support complete replacement using PATCH%s" relName resType extraMessage
     |> Error.setSourcePointer pointer
 
+  let set2OneFieldMissing presentFieldName missingFieldName =
+    Error.create 400
+    |> Error.setTitle "Missing required field"
+    |> Error.setDetailf "Field '%s' can only be set together with field '%s', which was missing" presentFieldName missingFieldName
+
+  let set2DifferentNull field1Name field2Name =
+    Error.create 400
+    |> Error.setTitle "Invalid value combination"
+    |> Error.setDetailf "The fields '%s' and '%s' must both be either null or non-null" field1Name field2Name
+
 
   (*
    * GET collection

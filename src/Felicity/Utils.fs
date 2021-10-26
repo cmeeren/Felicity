@@ -349,6 +349,13 @@ module Array =
     if errs.IsEmpty then Ok resArray else Error errs
 
 
+module Set =
+
+
+  let intersects (set1: Set<_>) (set2: Set<_>) =
+    set1 |> Seq.exists (set2.Contains)
+
+
 
 module String =
 

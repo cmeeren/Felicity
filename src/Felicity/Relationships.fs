@@ -260,16 +260,21 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
 
   interface FieldSetter<'ctx> with
-    member this.Name = this.name
+    member this.Names = Set.singleton this.name
     member this.SetOrder = this.setOrder
-    member this.Set ctx req entity =
+    member this.Set ctx req entity numSetters =
       job {
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { relationships = Include rels } }) ->
             match this.set, rels.TryFind this.name with
             | _, None -> return Ok entity // not provided in request
-            | None, Some _ -> return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
+            | None, Some _ ->
+                if numSetters.[this.name] > 1 then
+                  // Provided in request and no setter, but there exists another setter, so ignore
+                  return Ok entity
+                else
+                  return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, Some (:? ToOne as rel) ->
                 match! this.mapSetCtx ctx with
                 | Error errs -> return Error errs
@@ -1194,16 +1199,21 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
 
   interface FieldSetter<'ctx> with
-    member this.Name = this.name
+    member this.Names = Set.singleton this.name
     member this.SetOrder = this.setOrder
-    member this.Set ctx req entity =
+    member this.Set ctx req entity numSetters =
       job {
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { relationships = Include rels } }) ->
             match this.set, rels.TryFind this.name with
             | _, None -> return Ok entity // not provided in request
-            | None, Some _ -> return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
+            | None, Some _ ->
+                if numSetters.[this.name] > 1 then
+                  // Provided in request and no setter, but there exists another setter, so ignore
+                  return Ok entity
+                else
+                  return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, Some (:? ToOneNullable as rel) ->
               match! this.mapSetCtx ctx with
               | Error errs -> return Error errs
@@ -2226,9 +2236,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
 
   interface FieldSetter<'ctx> with
-    member this.Name = this.name
+    member this.Names = Set.singleton this.name
     member this.SetOrder = this.setOrder
-    member this.Set ctx req entity =
+    member this.Set ctx req entity numSetters =
       job {
         match req.Document.Value with
         | Error errs -> return Error errs
@@ -2236,10 +2246,14 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             match this.setAll, rels.TryFind this.name with
             | _, None -> return Ok entity // not provided in request
             | None, Some _ ->
-                if this.add.IsNone && this.remove.IsNone then
-                  return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
+                if numSetters.[this.name] > 1 then
+                  // Provided in request and no setter, but there exists another setter, so ignore
+                  return Ok entity
                 else
-                  return Error [setToManyRelReplacementNotSupported this.name t ("/data/relationships/" + this.name) this.add.IsSome this.remove.IsSome]
+                  if this.add.IsNone && this.remove.IsNone then
+                    return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
+                  else
+                    return Error [setToManyRelReplacementNotSupported this.name t ("/data/relationships/" + this.name) this.add.IsSome this.remove.IsSome]
             | Some set, Some (:? ToMany as rel) ->
               match! this.mapSetCtx ctx with
               | Error errs -> return Error errs

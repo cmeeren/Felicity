@@ -19,10 +19,10 @@ type internal ConstrainedField<'ctx> =
   abstract BoxedGetConstraints: 'ctx -> BoxedEntity -> Job<(string * obj) list>
 
 
-type internal FieldSetter<'ctx> =
-  abstract Name: FieldName
+type FieldSetter<'ctx> =
+  abstract Names: Set<FieldName>
   abstract SetOrder: int
-  abstract Set: 'ctx -> Request -> BoxedEntity -> Job<Result<BoxedEntity, Error list>>
+  abstract Set: 'ctx -> Request -> BoxedEntity -> Map<FieldName, int> -> Job<Result<BoxedEntity, Error list>>
 
 
 type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
@@ -57,16 +57,21 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
     }
 
   interface FieldSetter<'ctx> with
-    member this.Name = this.name
+    member this.Names = Set.singleton this.name
     member this.SetOrder = this.setOrder
-    member this.Set ctx req entity =
+    member this.Set ctx req entity numSetters =
       job {
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { attributes = Include attrVals } }) ->
             match this.set, attrVals.TryFind this.name with
             | _, None -> return Ok entity  // not provided in request
-            | None, Some _ -> return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
+            | None, Some _ ->
+                if numSetters.[this.name] > 1 then
+                  // Provided in request and no setter, but there exists another setter, so ignore
+                  return Ok entity
+                else
+                  return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, Some attrValue ->
                 match! this.mapSetCtx ctx with
                 | Error errs -> return Error errs
@@ -292,16 +297,21 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
     fun ctx -> Option.traverseJobResult (this.toDomain ctx)
 
   interface FieldSetter<'ctx> with
-    member this.Name = this.name
+    member this.Names = Set.singleton this.name
     member this.SetOrder = this.setOrder
-    member this.Set ctx req entity =
+    member this.Set ctx req entity numSetters =
       job {
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { attributes = Include attrVals } }) ->
             match this.set, attrVals.TryFind this.name with
             | _, None -> return Ok entity  // not provided in request
-            | None, Some _ -> return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
+            | None, Some _ ->
+                if numSetters.[this.name] > 1 then
+                  // Provided in request and no setter, but there exists another setter, so ignore
+                  return Ok entity
+                else
+                  return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, Some attrValue ->
                 match! this.mapSetCtx ctx with
                 | Error errs -> return Error errs

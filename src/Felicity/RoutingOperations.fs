@@ -108,9 +108,9 @@ module internal RoutingOperations =
          | true ->
             Some {
               new FieldSetter<'ctx> with
-                member _.Name = "constraints"
+                member _.Names = Set.singleton "constraints"
                 member _.SetOrder = 0
-                member _.Set ctx req e =
+                member _.Set ctx req e _ =
                   match req.Document.Value with
                   | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey "constraints" ->
                       Error [setAttrReadOnly "constraints" ("/data/attributes/constraints")] |> Job.result
@@ -123,15 +123,21 @@ module internal RoutingOperations =
       |> Array.append (constraintsField |> Option.toArray)
       |> Array.sortBy (fun f -> f.SetOrder)
 
+    let numSetters =
+      fields
+      |> Array.collect (fun f -> f.Names |> Set.toArray)
+      |> Array.countBy id
+      |> Map.ofArray
+
     fun ctx req consumedFields entity ->
       job {
         let mutable result = Ok entity
         for field in fields do
-          if not <| consumedFields.Contains field.Name then
+          if not <| Set.intersects field.Names consumedFields then
             match result with
             | Error _ -> ()
             | Ok e ->
-                match! field.Set ctx req e with
+                match! field.Set ctx req e numSetters with
                 | Ok e -> result <- Ok e
                 | Error errs -> result <- Error errs
         return result

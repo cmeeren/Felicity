@@ -1,7 +1,12 @@
 Release notes
 ==============
 
-### 0.17.4 (2021-10-25)
+### 0.17.1 (2021-10-26)
+
+* Added `define.Operation.Set2` and Added `define.Operation.Set2SameNull` to set two fields at the same time. Use this as a better alternative to `CustomSetter` if the only thing you want is to set two fields simultaneously.
+* Documented important limitations of `CustomSetter`. See documentation for details.
+
+### 0.17.0 (2021-10-25)
 
 * **Breaking:** Felicity now uses Giraffe.EndpointRouting (and, by extension, ASP.NET Core’s built-in endpoint routing). To migrate:
 
