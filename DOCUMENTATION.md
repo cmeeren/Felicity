@@ -184,6 +184,15 @@ type Startup() =
     |> ignore
 ```
 
+#### Apply a `HttpHandler` before/after the endpoints, or perform other modifications
+
+`UseJsonApiEndpoints` accepts an optional function of type `Endpoint list -> Endpoint list`. You can for example use this together with `applyBefore` and `applyAfter` from `Giraffe.EndpointRouting` to apply a HTTP handler before/after the Felicity endpoints:
+
+```f#
+.UseJsonApiEndpoints<Context>(
+   List.map (applyBefore (setHttpHeader "Cache-Control" "no-cache, private")))
+```
+
 #### Top-level meta
 
 You can return top-level meta for any response. To enable this, use the `.GetMeta` method after `.AddJsonApi()`. This lets you specify a function `'ctx -> Map<string, obj>`, where the map will be serialized as the response document’s top-level `meta`.

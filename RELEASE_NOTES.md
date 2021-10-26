@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.4 (2021-10-26)
+
+* Added optional argument to `UseJsonApiEndpoints` to modify endpoints, e.g. using Giraffe’s `applyBefore` and `applyAfter`.
+
 ### 0.17.3 (2021-10-26)
 
 * Improved error message if call to `IApplicationBuilder.UseJsonApiEndpoints` has no explicit type parameter, or if the context type is not registered using `IServiceCollection.AddJsonApi`

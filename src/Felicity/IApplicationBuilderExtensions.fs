@@ -12,7 +12,7 @@ open Routing
 module IApplicationBuilderExtensions =
 
   type IApplicationBuilder with
-    member this.UseJsonApiEndpoints<'ctx>() =
+    member this.UseJsonApiEndpoints<'ctx>(?modifyEndpoints: Endpoint list -> Endpoint list) =
       let endpoints = this.ApplicationServices.GetService<JsonApiEndpoints<'ctx>> ()
 
       if isNull (box endpoints) then
@@ -22,4 +22,6 @@ module IApplicationBuilderExtensions =
           failwith $"Missing IServiceCollection.AddJsonApi call for context type {typeof<'ctx>.FullName}"
 
       let (JsonApiEndpoints endpoints) = endpoints
+      let modifyEndpoints = defaultArg modifyEndpoints id
+      let endpoints = modifyEndpoints endpoints
       this.UseEndpoints(fun b -> b.MapGiraffeEndpoints(endpoints))

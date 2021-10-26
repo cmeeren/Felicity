@@ -78,6 +78,6 @@ type Startup() =
         (".yaml", "application/x-yaml")
       ])
       .UseRouting()
-      .UseJsonApiEndpoints<Context>()
+      .UseJsonApiEndpoints<Context>(List.map (applyBefore (setHttpHeader "Cache-Control" "no-cache, private")))
       .UseEndpoints(fun e -> e.MapGiraffeEndpoints Endpoints.endpoints)
     |> ignore
