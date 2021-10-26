@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.2 (2021-10-26)
+
+* `Set2` and `Set2SameNull` now works correctly with context mapping (`define.Operation.ForContext(...)`)
+
 ### 0.17.1 (2021-10-26)
 
 * Added `define.Operation.Set2` and Added `define.Operation.Set2SameNull` to set two fields at the same time. Use this as a better alternative to `CustomSetter` if the only thing you want is to set two fields simultaneously.
