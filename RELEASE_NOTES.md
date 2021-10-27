@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.5 (2021-10-27)
+
+* Added `.AllowCommas` to single filters to allow commas in the query parameter value (can be useful for filters with user input)
+
 ### 0.17.4 (2021-10-26)
 
 * Added optional argument to `UseJsonApiEndpoints` to modify endpoints, e.g. using Giraffe’s `applyBefore` and `applyAfter`.

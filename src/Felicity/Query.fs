@@ -106,7 +106,7 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> 
 
 
 
-type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> Job<Result<'a, Error list>>, ?operator: string) =
+type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> Job<Result<'a, Error list>>, ?operator: string, ?allowCommas: bool) =
 
   let addOperator s =
     match operator with
@@ -120,10 +120,12 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
         member _.FieldName = None
         member _.QueryParamName = Some queryParamName
         member _.Get(ctx, req, _) =
+          let allowCommas = defaultArg allowCommas false
+
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> Job.result
           | true, str ->
-              if str.Contains "," then
+              if not allowCommas && (str.Contains ",") then
                 let numElements = str.Split(',').Length
                 Error [queryNotSingular queryParamName numElements] |> Job.result
               else
@@ -156,11 +158,14 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
   member _.Operator(operator) =
     SingleFilter<'ctx, 'a>(fieldName, parse, operator)
 
+  member _.AllowCommas =
+    SingleFilter<'ctx, 'a>(fieldName, parse, ?operator=operator, allowCommas=true)
+
   member _.List =
     ListFilter<'ctx, 'a>(fieldName, parse, ?operator=operator)
 
   member _.Bool =
-    SingleFilter<'ctx, bool>(fieldName, (fun _ s -> parseBool s |> Job.result), ?operator=operator)
+    SingleFilter<'ctx, bool>(fieldName, (fun _ s -> parseBool s |> Job.result), ?operator=operator, ?allowCommas=allowCommas)
 
 
 type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error list>>) =

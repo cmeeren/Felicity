@@ -584,6 +584,19 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
+    testJob "Can parse a single filter value containing comma if commas are allowed" {
+      let mutable calledWith = ValueNone
+      let ctx = Ctx.Create (fun parser ->
+        parser
+          .For((fun x -> calledWith <- ValueSome x), Filter.Field(X.nonEmptyString).AllowCommas)
+      )
+      let! response = Request.get ctx "/xs?filter[nonEmptyString]=val1,val2" |> getResponse
+
+      response |> testSuccessStatusCode
+      let calledWith' = calledWith
+      test <@ calledWith' = ValueSome (NonEmptyString "val1,val2") @>
+    }
+
     testJob "Can parse a required single parsed sort ascending" {
       let mutable calledWith = None
       let ctx = Ctx.Create (fun parser ->
