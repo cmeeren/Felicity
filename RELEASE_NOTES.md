@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.6 (2021-11-02)
+
+* `verifyPathCase` now correctly handles the path `/`
+
 ### 0.17.5 (2021-10-27)
 
 * Added `.AllowCommas` to single filters to allow commas in the query parameter value (can be useful for filters with user input)

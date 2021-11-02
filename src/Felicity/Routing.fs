@@ -15,7 +15,9 @@ type internal JsonApiEndpoints<'ctx> = JsonApiEndpoints of Endpoint list
 let verifyPathCase expectedPath : HttpHandler =
   fun next ctx ->
     task {
-      let actualPath = ctx.Request.Path.Value.TrimEnd('/')
+      let actualPath = ctx.Request.Path.Value
+      let actualPath = if actualPath = "/" then "/" else actualPath.TrimEnd('/')
+      let expectedPath = if expectedPath = "/" then "/" else expectedPath.TrimEnd('/')
       if actualPath = expectedPath then
         return! next ctx
       else
