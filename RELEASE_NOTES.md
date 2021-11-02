@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.7 (2021-11-02)
+
+* Fixed startup error when using `BaseUrl` with a URL without path
+
 ### 0.17.6 (2021-11-02)
 
 * `verifyPathCase` now correctly handles the path `/`

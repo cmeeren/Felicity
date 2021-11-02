@@ -189,7 +189,9 @@ type JsonApiConfigBuilder<'ctx> = internal {
       | None, None -> ""
       | Some _, Some _ -> failwith "Framework bug: Both relative root and base URL specified"
       | Some root, None -> "/" + root
-      | None, Some url -> "/" + (Uri(url).PathAndQuery.Trim('/'))
+      | None, Some url ->
+          let relativeRoot = Uri(url).PathAndQuery.Trim('/')
+          if relativeRoot = "" then "" else "/" + relativeRoot
 
     this.services
       .AddSingleton<JsonApiEndpoints<'ctx>>(JsonApiEndpoints (jsonApiEndpoints relativeRootWithLeadingSlash getCtx collections))
