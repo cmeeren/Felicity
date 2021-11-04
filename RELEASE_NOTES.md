@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.8 (2021-11-04)
+
+* It is now possible to use both `BaseUrl` and `RelativeJsonApiRoot` together in order to place the JSON:API endpoints at a different path than the one specified in the base URL. See the documentation for details.
+
 ### 0.17.7 (2021-11-02)
 
 * Fixed startup error when using `BaseUrl` with a URL without path

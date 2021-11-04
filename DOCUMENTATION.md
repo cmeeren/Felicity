@@ -201,15 +201,63 @@ This implies that `'ctx` should be mutable. You set the appropriate field(s) on 
 
 Meta is only returned for success responses. If the map is empty, `meta` is omitted from the response.
 
-#### Base URLs
+#### Placing the JSON:API routes in a subroute
+
+If you want your JSON:API endpoints available within a sub-route, e.g. `myapi.com/foo/bar/articles`, you can use `RelativeJsonApiRoot` (leading/trailing slashes don’t matter):
+
+```f#
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .RelativeJsonApiRoot("foo/bar")
+      .Add()
+    .AddOtherServices(..)
+```
+
+The subroute can also be configured using `BaseUrl` as described below.
+
+#### Custom base URL
 
 JSON:API responses contain resource/relationship links. By default, Felicity infers these links from the HTTP request. For example, if your API is available both on `https://example.com` and `https://something-else.com`, then `GET https://example.com/articles` will return resources with `example.com` in their links, and for `GET https://something-else.com/articles` the resources will have `something-else.com` in their links.
 
-If you want, you can use the `.BaseUrl` method after `.AddJsonApi()` to specify the base URL that will be used for all links.
+If you want, you can use the `.BaseUrl` method to specify the base URL that will be used for all links (trailing slashes don’t matter):
+
+```f#
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .BaseUrl("https://example.com/foo/bar")
+      .Add()
+    .AddOtherServices(..)
+```
+
+The specified URL will be used as the base URL for all links in the responses. This may be useful if your API is behind a reverse proxy.
+
+If the specified base URL contains a path (`/foo/bar` in the example above), this will also have the same effect as calling `RelativeJsonApiRoot` with that path, i.e., making the JSON:API endpoints available at the specified path.
+
+You can, however, override this by also calling `RelativeJsonApiRoot` with your desired path (which can be  `/` or empty if you want the endpoints available at the base of the domain). This may be needed e.g. if your API is behind a reverse proxy and the path of the public URL does not match the path used internally by the API/proxy. For example:
+
+```f#
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .BaseUrl("https://example.com/foo/bar")
+      .RelativeJsonApiRoot("/")
+      .Add()
+    .AddOtherServices(..)
+```
+
+With the configuration above, the links in the response would be like `https://example.com/foo/bar/articles/1`, but the actual calls to your API (e.g. the reverse proxy) would have to call `/articles` (and not `/foo/bar/articles`).
 
 #### Multiple context types
 
-You may call `AddJsonApi` multiple times for different context types. This may be useful if you have some collections/resource types that are only accessible to privileged users, which you can model with a different context type.
+You may call `AddJsonApi` and `UseJsonApiEndpoints` multiple times for different context types. This may be useful if you have some collections/resource types that are only accessible to privileged users, which you can model with a different context type.
 
 Note that Felicity also supports transforming the context (e.g. for authorization) for individual operations; see the section TODO for details.
 
@@ -226,23 +274,6 @@ Felicity uses System.Text.Json and [FSharp.SystemTextJson](https://github.com/Ta
 Felicity uses ASP.NET Core’s endpoint routing. The startup sample above shows how to configure and add Felicity to your pipeline.
 
 Note that while ASP.NET Core’s endpoint routing is case insensitive, Felicity will check for correct casing of all JSON:API routes and return an error if the casing in the request is incorrect.
-
-#### Placing the JSON:API routes in a subroute
-
-If you want your JSON:API endpoints available within a subroute, e.g. `myapi.com/foo/bar/articles`, simply use `RelativeJsonApiRoot` (leading/trailing slashes doesn’t matter):
-
-```f#
-member _.ConfigureServices(services: IServiceCollection) : unit =
-  services
-    .AddGiraffe()
-    .AddJsonApi()
-      .GetCtxAsyncRes(Context.getCtx)
-      .RelativeJsonApiRoot("foo/bar")
-      .Add()
-    .AddOtherServices(..)
-```
-
-Alternatively you may use `.BaseUrl` to explicitly specify the whole base URL as described earlier.
 
 #### Combining with other non-JSON:API routes
 

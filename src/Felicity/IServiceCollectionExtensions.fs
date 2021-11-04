@@ -30,39 +30,30 @@ type JsonApiConfigBuilder<'ctx> = internal {
     configureSerializerOptions = None
   }
 
-  /// Explicitly sets the base URL to be used in JSON:API responses. This is
-  /// optional; if not supplied, this will be inferred from the actual request
-  /// URL. (See also RelativeJsonApiRoot which you need to use then if your
-  /// jsonApi handler is not at the root level.)
-  ///
-  /// This may not be combined with RelativeJsonApiRoot.
+  /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
+  /// base URL will be inferred from the actual request URL. If the specified base URL
+  /// contains a path, this will also have the same effect as calling RelativeJsonApiRoot
+  /// with that path (unless RelativeJsonApiRoot is configured explicitly).
   ///
   /// Trailing slashes don't matter.
   member this.BaseUrl(url: Uri) : JsonApiConfigBuilder<'ctx> =
-    if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.ToString().TrimEnd('/')) }
 
-  /// Explicitly sets the base URL to be used in JSON:API responses. This is
-  /// optional; if not supplied, this will be inferred from the actual request
-  /// URL. (See also RelativeJsonApiRoot which you need to use then if your
-  /// jsonApi handler is not at the root level.)
-  ///
-  /// This may not be combined with RelativeJsonApiRoot.
+  /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
+  /// base URL will be inferred from the actual request URL. If the specified base URL
+  /// contains a path, this will also have the same effect as calling RelativeJsonApiRoot
+  /// with that path (unless RelativeJsonApiRoot is configured explicitly).
   ///
   /// Trailing slashes don't matter.
   member this.BaseUrl(url: string) : JsonApiConfigBuilder<'ctx> =
-    if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.TrimEnd('/')) }
 
   /// Sets the relative root path for the JSON:API routes. For example, supplying the
   /// value '/foo/bar' means that clients must call 'GET /foo/bar/articles' to query the
   /// /articles collection.
   ///
-  /// This may not be combined with BaseUrl.
-  ///
   /// Leading/trailing slashes don't matter.
   member this.RelativeJsonApiRoot(path: string) : JsonApiConfigBuilder<'ctx> =
-    if this.baseUrl.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with relativeJsonApiRoot = Some (path.Trim('/')) }
 
   member this.GetCtxJobRes(getCtx: HttpContext -> Job<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
@@ -90,16 +81,22 @@ type JsonApiConfigBuilder<'ctx> = internal {
     { this with configureSerializerOptions = Some configure }
 
   member this.Add() =
+
     let getBaseUrl =
-      match this.baseUrl with
-      | None ->
+      match this.baseUrl, this.relativeJsonApiRoot with
+      | None, None ->
           fun (ctx: HttpContext) ->
             let url = Uri(ctx.GetRequestUrl())
-            let baseUrl = url.Scheme + Uri.SchemeDelimiter + url.Authority
-            match this.relativeJsonApiRoot with None -> baseUrl | Some r -> baseUrl + "/" + r
-      | Some url ->
+            url.Scheme + Uri.SchemeDelimiter + url.Authority
+      | None, Some path ->
+          fun (ctx: HttpContext) ->
+            let url = Uri(ctx.GetRequestUrl())
+            url.Scheme + Uri.SchemeDelimiter + url.Authority + "/" + path
+      | Some url, _ ->
           fun _ -> url
+
     let getCtx = this.getCtx |> Option.defaultWith (fun () -> failwith "Must specify a context getter")
+
     let configureSerializerOptions = this.configureSerializerOptions |> Option.defaultValue ignore
     
     let resourceModules = ResourceModule.all<'ctx>
@@ -189,8 +186,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     let relativeRootWithLeadingSlash =
       match this.relativeJsonApiRoot, this.baseUrl with
       | None, None -> ""
-      | Some _, Some _ -> failwith "Framework bug: Both relative root and base URL specified"
-      | Some root, None -> "/" + root
+      | Some root, _ -> if root = "" then "" else "/" + root
       | None, Some url ->
           let relativeRoot = Uri(url).PathAndQuery.Trim('/')
           if relativeRoot = "" then "" else "/" + relativeRoot

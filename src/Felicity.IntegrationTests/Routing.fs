@@ -376,4 +376,49 @@ let tests =
       test <@ json2 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
     }
 
+
+    testJob "If both base URL and relative root path is specified, uses the specified base URL in links regardless of actual request URL and root path, and makes the endpoints available at the root path" {
+
+      for path in ["baz/qux"; "/"; ""] do
+        let server =
+          new TestServer(
+            WebHostBuilder()
+              .ConfigureServices(fun services ->
+                services
+                  .AddGiraffe()
+                  .AddRouting()
+                  .AddJsonApi()
+                    .GetCtx(fun _ -> Ctx)
+                    .BaseUrl("http://example.com/foo/bar")
+                    .RelativeJsonApiRoot(path)
+                    .Add()
+                  |> ignore)
+              .Configure(fun app ->
+                app
+                  .UseRouting()
+                  .UseJsonApiEndpoints<Ctx>()
+                |> ignore
+              )
+          )
+        let client = server.CreateClient ()
+
+        let urlBasePath = if path.Trim('/') = "" then "" else "/" + path.Trim('/')
+
+        let! response1 =
+          Request.createWithClient client Get (Uri($"http://example.com{urlBasePath}/as/1"))
+          |> Request.jsonApiHeaders
+          |> getResponse
+        response1 |> testSuccessStatusCode
+        let! json1 = response1 |> Response.readBodyAsString
+        test <@ json1 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+
+        let! response2 =
+          Request.createWithClient client Get (Uri($"http://something-else.com{urlBasePath}/as/1"))
+          |> Request.jsonApiHeaders
+          |> getResponse
+        response2 |> testSuccessStatusCode
+        let! json2 = response2 |> Response.readBodyAsString
+        test <@ json2 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+    }
+
 ]
