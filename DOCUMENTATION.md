@@ -244,11 +244,11 @@ member _.ConfigureServices(services: IServiceCollection) : unit =
 
 Alternatively you may use `.BaseUrl` to explicitly specify the whole base URL as described earlier.
 
-### Combining with other non-JSON:API routes
+#### Combining with other non-JSON:API routes
 
 You may trivially add other non-Felicity routes in `Configure`. For example, you can add a Giraffe HttpHandler using `UseGiraffe(...)`, Giraffe.EndpointRouting routes using `UseEndpoints(fun e -> e.MapGiraffeEndpoints ...)`, or any other routing method supported by ASP.NET Core. Simply add the routes to your pipeline as you normally do.
 
-### Enforce case sensitive custom routes
+#### Enforce case sensitive custom routes
 
 If you use Giraffe.EndpointRouting for non-Felicity routes, you may find `verifyPathCase` useful. It is available in the  `Routing` module. It takes a single argument, which is the expected path (case sensitive), and returns an `HttpHandler` that will return an error if the request path does not match the expected path. Use this inside your endpoints:
 
