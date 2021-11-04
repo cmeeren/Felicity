@@ -36,6 +36,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
   /// jsonApi handler is not at the root level.)
   ///
   /// This may not be combined with RelativeJsonApiRoot.
+  ///
+  /// Trailing slashes don't matter.
   member this.BaseUrl(url: Uri) : JsonApiConfigBuilder<'ctx> =
     if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.ToString().TrimEnd('/')) }
@@ -46,6 +48,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
   /// jsonApi handler is not at the root level.)
   ///
   /// This may not be combined with RelativeJsonApiRoot.
+  ///
+  /// Trailing slashes don't matter.
   member this.BaseUrl(url: string) : JsonApiConfigBuilder<'ctx> =
     if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.TrimEnd('/')) }

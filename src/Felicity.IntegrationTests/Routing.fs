@@ -335,4 +335,45 @@ let tests =
       test <@ json2 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
     }
 
+
+    testJob "Base URL works with trailing slash" {
+
+      let server =
+        new TestServer(
+          WebHostBuilder()
+            .ConfigureServices(fun services ->
+              services
+                .AddGiraffe()
+                .AddRouting()
+                .AddJsonApi()
+                  .GetCtx(fun _ -> Ctx)
+                  .BaseUrl("http://example.com/foo/bar/")
+                  .Add()
+                |> ignore)
+            .Configure(fun app ->
+              app
+                .UseRouting()
+                .UseJsonApiEndpoints<Ctx>()
+              |> ignore
+            )
+        )
+      let client = server.CreateClient ()
+
+      let! response1 =
+        Request.createWithClient client Get (Uri("http://example.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response1 |> testSuccessStatusCode
+      let! json1 = response1 |> Response.readBodyAsString
+      test <@ json1 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+
+      let! response2 =
+        Request.createWithClient client Get (Uri("http://something-else.com/foo/bar/as/1"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response2 |> testSuccessStatusCode
+      let! json2 = response2 |> Response.readBodyAsString
+      test <@ json2 |> getPath "data.links.self" = "http://example.com/foo/bar/as/1" @>
+    }
+
 ]
