@@ -54,11 +54,9 @@ type JsonApiConfigBuilder<'ctx> = internal {
     if this.relativeJsonApiRoot.IsSome then failwith "BaseUrl and RelativeJsonApiRoot can not be mixed."
     { this with baseUrl = Some (url.TrimEnd('/')) }
 
-  /// Sets the relative root path for the JSON:API routes. This must match the
-  /// placement of the jsonApi HttpHandler in your Giraffe routing. For example,
-  /// if the jsonApi handler is placed in a subroute 'foo', e.g. clients call
-  /// 'GET /foo/articles' to query the /articles collection, then you must pass
-  /// 'foo' as a parameter here.
+  /// Sets the relative root path for the JSON:API routes. For example, supplying the
+  /// value '/foo/bar' means that clients must call 'GET /foo/bar/articles' to query the
+  /// /articles collection.
   ///
   /// This may not be combined with BaseUrl.
   ///
