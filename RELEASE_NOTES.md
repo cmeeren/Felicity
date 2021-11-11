@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.9 (2021-11-11)
+
+* Added `Error.appendPointer` to append a value to an error's (current or future) `source.pointer`. This can be used e.g. to specify a sub-path for object- or array-valued attributes while still relying on Felicity's automatic error pointers. 
+
 ### 0.17.8 (2021-11-04)
 
 * It is now possible to use both `BaseUrl` and `RelativeJsonApiRoot` together in order to place the JSON:API endpoints at a different path than the one specified in the base URL. See the documentation for details.

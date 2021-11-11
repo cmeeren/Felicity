@@ -102,6 +102,7 @@ type Error =
     source: ErrorSource Skippable
     meta: Map<string, obj> Skippable
     headers: (string * string) list
+    appendPointer: string voption
   }
 
 
@@ -747,7 +748,8 @@ module Error =
   /// An empty Error object.
   let empty =
     { id = Skip; links = Skip; status = Skip; code = Skip;
-      title = Skip; detail = Skip; source = Skip; meta = Skip; headers = [] }
+      title = Skip; detail = Skip; source = Skip; meta = Skip
+      headers = []; appendPointer = ValueNone }
 
 
   /// Creates an Error object with the given status and with the id property set to a
@@ -800,7 +802,13 @@ module Error =
   /// Note that Felicity almost always sets/overrides the pointer/parameter, even on
   /// user-defined errors. You should very rarely need to use this.
   let setSourcePointer jsonPointer (err: Error) =
-    { err with source = Include { parameter = Skip; pointer = Include jsonPointer } }
+    { err with
+        source =
+          Include {
+            parameter = Skip
+            pointer = Include (jsonPointer + defaultValueArg err.appendPointer "")
+          }
+    }
 
 
   /// Adds the specified key-value pair to the error's Meta object.
@@ -822,6 +830,22 @@ module Error =
   /// Adds the specified header to responses containing this error.
   let addHeader key value (err: Error) =
     { err with headers = err.headers @ [key, value] }
+    
+    
+  /// Appends the specified value to the error's (current or future) pointer. The value should start with '/' for the 
+  /// pointer to be correct.
+  ///
+  /// This function can be useful for pointing to paths within object- or array-valued attributes, where the "base"
+  /// source pointer (the pointer to the attribute) is set automatically by Felicity. For example, Felicity will set the
+  /// pointer to the value '/data/attributes/myComplexAttr', and you can then call this function with the value
+  /// '/waffles/1/isTasty'. The error's pointer will then be '/data/attributes/myComplexAttr/waffles/1/isTasty'.
+  let appendPointer (value: string) (err: Error) =
+    { err with
+        appendPointer = ValueSome value
+        source =
+          err.source
+          |> Skippable.map (fun s -> { s with pointer = s.pointer |> Skippable.map (fun p -> p + value) })
+    }
 
 
   /// Transforms the error using the specified function on the inner value if opt is Some.

@@ -41,6 +41,7 @@
     <Compile Include="CustomLinks.fs" />
     <Compile Include="ResourceLocking.fs" />
     <Compile Include="RequestParser.fs" />
+    <Compile Include="Errors.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
