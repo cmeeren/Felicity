@@ -2,6 +2,7 @@
 
 open System
 open System.Net.Http
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.TestHost
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
@@ -68,7 +69,7 @@ type Benchmark () =
               .Add()
           |> ignore
         )
-        .Configure(fun app -> app.UseJsonApiEndpoints<Context>() |> ignore)
+        .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Context>() |> ignore)
     )
 
   let client = server.CreateClient ()
