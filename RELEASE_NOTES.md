@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### vNext (2021-11-24)
+
+* Removed ignored call to `GetLinkageIfNotIncluded` for to-many relationships that return `Skip`
+
 ### 0.17.9 (2021-11-11)
 
 * Added `Error.appendPointer` to append a value to an error's (current or future) `source.pointer`. This can be used e.g. to specify a sub-path for object- or array-valued attributes while still relying on Felicity's automatic error pointers. 

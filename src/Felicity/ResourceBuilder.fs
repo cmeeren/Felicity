@@ -191,7 +191,6 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               | true, Some get ->
                   match! get ctx entity with
                   | Skip ->
-                      let! data = r.GetLinkageIfNotIncluded ctx entity
                       return
                         r.Name,
                         { ToMany.links = links; data = Skip; meta = meta } :> IRelationship,
