@@ -350,7 +350,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// the lock times out, or Some with an IDisposable that releases the lock when
   /// disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Async<IDisposable option>) =
-    this.CustomLock(fun ctx id -> getLock ctx id |> Async.StartAsTask)
+    this.CustomLock(fun ctx id -> getLock ctx id |> Async.StartImmediateAsTask)
 
   /// Lock this resource for the entirety of all modification operations except resource
   /// creation (POST) to ensure there are no concurrent updates, using an external lock
@@ -358,7 +358,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// the lock times out, or Some with an IDisposable that releases the lock when
   /// disposed.
   member this.CustomLock(getLock: 'id -> Async<IDisposable option>) =
-    this.CustomLock(fun _ id -> getLock id |> Async.StartAsTask)
+    this.CustomLock(fun _ id -> getLock id |> Async.StartImmediateAsTask)
 
   /// Lock this resource for the entirety of all modification operations except resource
   /// creation (POST) to ensure there are no concurrent updates, using an external lock
@@ -409,14 +409,14 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// return None if the lock times out, or Some with an IDisposable that releases the
   /// lock when disposed.
   member this.CustomResourceCreationLock(getLock: 'ctx -> Async<IDisposable option>) =
-    this.CustomResourceCreationLock(fun ctx -> getLock ctx |> Async.StartAsTask)
+    this.CustomResourceCreationLock(fun ctx -> getLock ctx |> Async.StartImmediateAsTask)
 
   /// Locks for the entirety of resource creation (POST) operations to ensure there are no
   /// concurrent operations, using an external lock mechanism. The getLock function should
   /// return None if the lock times out, or Some with an IDisposable that releases the
   /// lock when disposed.
   member this.CustomResourceCreationLock(getLock: unit -> Async<IDisposable option>) =
-    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock () |> Async.StartAsTask)
+    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock () |> Async.StartImmediateAsTask)
 
   /// Locks for the entirety of resource creation (POST) operations to ensure there are no
   /// concurrent operations, using an external lock mechanism. The getLock function should
