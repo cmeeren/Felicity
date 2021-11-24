@@ -632,6 +632,7 @@ let tests =
         |> getResponse
 
       do! getJob () |> Job.toAsync |> Async.StartChild |> Async.Ignore 
+      do! timeOutMillis 100  // give the first job a chance to lock
       let! secondResp = getJob ()
       secondResp |> testStatusCode 503
       test <@ secondResp.headers.ContainsKey LastModified = false @>
