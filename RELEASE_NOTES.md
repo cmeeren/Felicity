@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### vNext (2021-11-24)
+### 0.17.10 (2021-11-24)
 
 * Removed ignored call to `GetLinkageIfNotIncluded` for to-many relationships that return `Skip`
 
