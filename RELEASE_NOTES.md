@@ -1,8 +1,9 @@
 Release notes
 ==============
 
-### 0.17.11 (2021-11-29)
+### 0.18.0 (2021-11-29)
 
+* Now targets only .NET 6
 * Updated Hopac from 0.5.0 to 0.5.1
 
 ### 0.17.10 (2021-11-24)
