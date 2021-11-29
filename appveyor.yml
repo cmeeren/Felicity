@@ -10,7 +10,7 @@ build_script:
   - cmd: dotnet build -c Release
 
 test_script:
-  - cmd: dotnet test -c Release --no-build
+  - cmd: dotnet test -c Release --no-build -- Expecto.fail-on-focused-tests=true
 
 deploy:
   - provider: NuGet
