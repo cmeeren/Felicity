@@ -61,5 +61,9 @@
     <PackageReference Include="Giraffe" Version="5.0.0" />
     <PackageReference Include="Hopac" Version="0.5.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="6.0.0" />
+  </ItemGroup>
   
 </Project>
