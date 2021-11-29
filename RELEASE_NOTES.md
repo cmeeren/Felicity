@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.17.11 (2021-11-29)
+
+* Updated Hopac from 0.5.0 to 0.5.1
+
 ### 0.17.10 (2021-11-24)
 
 * Removed ignored call to `GetLinkageIfNotIncluded` for to-many relationships that return `Skip`
