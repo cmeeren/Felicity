@@ -1,4 +1,4 @@
-﻿module ``Set2``
+﻿module Set2
 
 open Expecto
 open HttpFs.Client

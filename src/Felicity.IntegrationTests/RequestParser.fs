@@ -1,4 +1,4 @@
-﻿module ``RequestParser``
+﻿module RequestParser
 
 open System
 open Expecto

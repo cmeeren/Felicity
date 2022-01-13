@@ -1,4 +1,4 @@
-﻿module ``Errors``
+﻿module Errors
 
 open Expecto
 open HttpFs.Client
