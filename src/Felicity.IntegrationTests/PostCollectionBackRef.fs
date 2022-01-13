@@ -82,9 +82,9 @@ module rec ResourceModules =
       define.Operation
         .PostBackRef(
           parent.Related(Parent.lookup),
-          fun (ctx: Ctx, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
+          fun (_ctx: Ctx, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
         )
-        .AfterCreate(fun (ctx: Ctx, pOld: Parent) (pNew, c) -> ctx.AfterModifyParent pOld pNew)
+        .AfterCreate(fun (ctx: Ctx, pOld: Parent) (pNew, _c) -> ctx.AfterModifyParent pOld pNew)
 
 
 
@@ -131,9 +131,9 @@ module rec ResourceModules2 =
       define.Operation
         .PostBackRef(
           parent.Related(Parent2.lookup),
-          fun (ctx: Ctx2, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
+          fun (_ctx: Ctx2, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
         )
-        .AfterCreate(fun (ctx: Ctx2, pOld: Parent) (pNew, c) -> ctx.AfterModifyParent pOld pNew)
+        .AfterCreate(fun (ctx: Ctx2, pOld: Parent) (pNew, _c) -> ctx.AfterModifyParent pOld pNew)
 
 
 
@@ -171,7 +171,7 @@ module rec ResourceModulesPreconditions =
       define.Operation
         .PostBackRef(
           parent.Related(Parent.lookup),
-          fun (ctx: Ctx3, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
+          fun (_ctx: Ctx3, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
         )
         .PeconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
         .PeconditionsLastModified(fun (_, p) -> p.LastModified)
@@ -212,7 +212,7 @@ module rec ResourceModulesPreconditionsOptional =
       define.Operation
         .PostBackRef(
           parent.Related(Parent.lookup),
-          fun (ctx: Ctx4, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
+          fun (_ctx: Ctx4, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
         )
         .PeconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
         .PeconditionsLastModified(fun (_, p) -> p.LastModified)

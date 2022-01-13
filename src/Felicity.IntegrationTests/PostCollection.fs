@@ -41,7 +41,7 @@ module ADomain =
       NullableChildNotNullWhenCreated = Some child2
     }
 
-  let setA x a : A =
+  let setA _x _a : A =
     failwith "Should not set properties that are consumed using the request parser"
 
   let setX x a =

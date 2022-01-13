@@ -92,7 +92,7 @@ type Benchmark () =
 module Program =
 
   [<EntryPoint>]
-  let main argv =
+  let main _argv =
 
     // Uncomment for manual run, e.g. profiling
 

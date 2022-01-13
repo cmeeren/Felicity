@@ -148,7 +148,7 @@ module A =
       .MapSetContextRes(fun ctx -> ctx.MapCtx ctx)
       .SimpleString()
       .Get(fun a -> a.Nullable)
-      .Set(fun (ctx: MappedCtx) x a -> ADomain.setNullable x a)
+      .Set(fun (_ctx: MappedCtx) x a -> ADomain.setNullable x a)
   
   let nullableNotNullWhenSet =
     define.Attribute
@@ -354,7 +354,7 @@ type Ctx8 = Ctx8 of D ref
 module A8 =
 
   let define = Define<Ctx8, D, string>()
-  let resId = define.Id.Simple(fun a -> "d1")
+  let resId = define.Id.Simple(fun _a -> "d1")
   let resDef = define.Resource("d", resId).CollectionName("ds")
   let lookup = define.Operation.Lookup(fun (Ctx8 d) _ -> Some !d)
 

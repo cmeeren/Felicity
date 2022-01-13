@@ -44,7 +44,7 @@ module A =
   let get =
     define.Operation
       .GetResource()
-      .ModifyResponse(fun (ctx: Ctx1) a ->
+      .ModifyResponse(fun (ctx: Ctx1) _a ->
          ctx.Meta <- Map.empty
          fun next ctx -> next ctx
       )
@@ -52,7 +52,7 @@ module A =
   let patch =
     define.Operation
       .Patch()
-      .ModifyResponse(fun (ctx: Ctx1) a ->
+      .ModifyResponse(fun (ctx: Ctx1) _a ->
          ctx.Meta <- Map.empty
          fun next ctx -> next ctx
       )
