@@ -42,7 +42,7 @@ module ApplicationBuilderExtensions =
 
 module Setup =
 
-  let setupLogger hostingContext (loggerConfiguration: LoggerConfiguration) =
+  let setupLogger _hostingContext (loggerConfiguration: LoggerConfiguration) =
     loggerConfiguration
       .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
       .MinimumLevel.Override("Giraffe", LogEventLevel.Information)
@@ -62,7 +62,7 @@ type Startup() =
         .Add()
     |> ignore
 
-  member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) : unit =
+  member _.Configure(app: IApplicationBuilder, _env: IWebHostEnvironment) : unit =
     app
       .UseGiraffeErrorHandler(fun ex _ ->
         Log.Error(ex, "Unhandled exception while executing request")

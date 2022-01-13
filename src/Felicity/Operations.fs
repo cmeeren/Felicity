@@ -963,7 +963,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
 
   interface DeleteOperation<'originalCtx> with
-    member this.Run resDef ctx req preconditions entity0 resp =
+    member this.Run _resDef ctx req preconditions entity0 _resp =
       fun next httpCtx ->
         job {
           match! this.mapCtx ctx with
@@ -1277,7 +1277,7 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
     this.LookupJobRes(JobResult.liftFunc getById, getPolyBuilder)
 
   member _.GetCollectionJobRes(getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun origCtx ctx req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs)), getPolyBuilder)
+    PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun _origCtx ctx _req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs)), getPolyBuilder)
 
   member this.GetCollectionJobRes(getCollection: Func<unit, Job<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     this.GetCollectionJobRes((fun (_: 'ctx) -> getCollection.Invoke ()), getPolyBuilder)
@@ -1410,7 +1410,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx)
 
   member _.GetCollectionJobRes (getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>) =
-    GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun origCtx ctx req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs))
+    GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun _origCtx ctx _req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs))
 
   member this.GetCollectionJobRes (getCollection: Func<unit, Job<Result<'entity list, Error list>>>) =
     this.GetCollectionJobRes(fun (_: 'ctx) -> getCollection.Invoke ())
@@ -1469,7 +1469,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     this.GetCollectionJobRes(JobResult.liftFunc2 getRequestParser)
 
   member _.PostJobRes (createEntity: Func<'ctx, Job<Result<'entity, Error list>>>) =
-    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx res -> mapCtx ctx), fun origCtx ctx res -> createEntity.Invoke ctx |> JobResult.map (fun e -> Set.empty, Set.empty, e))
+    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx _res -> mapCtx ctx), fun _origCtx ctx _res -> createEntity.Invoke ctx |> JobResult.map (fun e -> Set.empty, Set.empty, e))
 
   member this.PostJobRes (createEntity: Func<unit, Job<Result<'entity, Error list>>>) =
     this.PostJobRes(fun (ctx: 'ctx) -> createEntity.Invoke ())
@@ -1535,10 +1535,10 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
           |> JobResult.map (fun e -> mappedCtx, e)
       )
     let consumedFieldNames = match backRef.FieldName with None -> Set.empty | Some fn -> Set.empty.Add fn
-    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun origCtx ctx res -> createEntity.Invoke ctx |> JobResult.map (fun e -> consumedFieldNames, Set.empty, e))
+    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun _origCtx ctx _res -> createEntity.Invoke ctx |> JobResult.map (fun e -> consumedFieldNames, Set.empty, e))
 
   member this.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Job<Result<'entity, Error list>>>) =
-    this.PostBackRefJobRes(backRef, fun (ctx: 'ctx, br: 'backRefEntity) -> createEntity.Invoke ())
+    this.PostBackRefJobRes(backRef, fun (_ctx: 'ctx, _br: 'backRefEntity) -> createEntity.Invoke ())
 
   member _.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     let mapCtxWithBackRef ctx req =
@@ -1614,7 +1614,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
     PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
 
   member _.DeleteJobRes(delete: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun origCtx ctx _ entity -> delete.Invoke(ctx, entity))
+    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity))
 
   member this.DeleteJobRes(delete: Func<'entity, Job<Result<unit, Error list>>>) =
     this.DeleteJobRes(fun _ e -> delete.Invoke e)

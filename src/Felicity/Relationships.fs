@@ -1379,7 +1379,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         let afterModifySelf =
           this.afterModifySelf
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
-        fun ctx req parentTypeName preconditions entity0 resDef resp ->
+        fun ctx req _parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
               match! this.mapSetCtx ctx with

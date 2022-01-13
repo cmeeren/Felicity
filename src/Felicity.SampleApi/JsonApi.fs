@@ -58,7 +58,7 @@ type Context =
 module Context =
 
   // Simulate asynchronous authentication (e.g. DB or external auth service)
-  let getCtx (ctx: HttpContext) =
+  let getCtx (_ctx: HttpContext) =
     async {
       if false then return Error [unauthorized]
       else return Ok { Principal = Anonymous }

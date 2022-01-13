@@ -18,7 +18,7 @@ module HttpHandlers =
 
 
   let internal jsonApiWithETag<'ctx> (x: obj) : HttpHandler =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
+    fun (_next : HttpFunc) (ctx : HttpContext) ->
       task {
         let serializer = ctx.GetService<Serializer<'ctx>> ()
         let bytes =
