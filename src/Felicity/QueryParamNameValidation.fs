@@ -7,11 +7,11 @@ module internal QueryParam =
 
   let private isKnownJsonApiName =
     let r = Regex("^sort$|^include$|^page\[|^filter\[|^fields\[.+?\]$", RegexOptions.Compiled)
-    fun s -> r.IsMatch s
+    r.IsMatch
 
   let private containsNonLowercase =
     let r = Regex("[^a-z]", RegexOptions.Compiled)
-    fun s -> r.IsMatch s
+    r.IsMatch
 
   let isValidName s =
     isKnownJsonApiName s

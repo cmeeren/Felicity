@@ -92,7 +92,7 @@ type Ctx = {
     ModifyBResponse = fun _ -> fun next ctx -> next ctx
     Db = db
     SetA = fun x a -> Ok { a with A = x }
-    BeforeUpdateA = fun x -> Ok x
+    BeforeUpdateA = Ok
     AfterUpdateA = fun _ a -> db.SaveA a
     MapCtx = fun ctx -> Ok {
       ModifyAResponse = ctx.ModifyAResponse

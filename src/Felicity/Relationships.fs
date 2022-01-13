@@ -755,7 +755,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     this.BeforeModifySelfJobRes(JobResult.liftFunc f)
 
   member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
-    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
+    { this with afterModifySelf = Some f }
 
   member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
@@ -902,7 +902,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     { this with patchSelfReturn202Accepted = true }
 
   member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) =
-    { this with modifyGetRelatedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyGetRelatedResponse = getHandler }
 
   member this.ModifyGetRelatedResponse(f: 'ctx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
     this.ModifyGetRelatedResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -911,7 +911,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
 
   member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) =
-    { this with modifyGetSelfResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyGetSelfResponse = getHandler }
 
   member this.ModifyGetSelfResponse(f: 'ctx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
     this.ModifyGetSelfResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -920,7 +920,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
   member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler) =
-    { this with modifyPatchSelfOkResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPatchSelfOkResponse = getHandler }
 
   member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
     this.ModifyPatchSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -929,7 +929,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
   member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-    { this with modifyPatchSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPatchSelfAcceptedResponse = getHandler }
 
   member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPatchSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -1788,7 +1788,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     this.BeforeModifySelfJobRes(JobResult.liftFunc f)
 
   member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
-    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
+    { this with afterModifySelf = Some f }
 
   member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }
@@ -1935,7 +1935,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     { this with patchSelfReturn202Accepted = true }
 
   member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) =
-    { this with modifyGetRelatedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyGetRelatedResponse = getHandler }
 
   member this.ModifyGetRelatedResponse(f: 'ctx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
     this.ModifyGetRelatedResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -1944,7 +1944,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
 
   member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) =
-    { this with modifyGetSelfResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyGetSelfResponse = getHandler }
 
   member this.ModifyGetSelfResponse(f: 'ctx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
     this.ModifyGetSelfResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -1953,7 +1953,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
   member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler) =
-    { this with modifyPatchSelfOkResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPatchSelfOkResponse = getHandler }
 
   member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
     this.ModifyPatchSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -1962,7 +1962,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
   member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-    { this with modifyPatchSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPatchSelfAcceptedResponse = getHandler }
 
   member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPatchSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -2813,7 +2813,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.AddConstraint(name, fun _ e -> getValue e)
 
   member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-    { this with modifyGetRelatedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyGetRelatedResponse = getHandler }
 
   member this.ModifyGetRelatedResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyGetRelatedResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -2822,7 +2822,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
 
   member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-    { this with modifyGetSelfResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyGetSelfResponse = getHandler }
 
   member this.ModifyGetSelfResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyGetSelfResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -2831,7 +2831,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
   member this.ModifyPostSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-    { this with modifyPostSelfOkResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPostSelfOkResponse = getHandler }
 
   member this.ModifyPostSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyPostSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -2840,7 +2840,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyPostSelfOkResponse(fun _ _ _ -> handler)
 
   member this.ModifyPostSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-    { this with modifyPostSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPostSelfAcceptedResponse = getHandler }
 
   member this.ModifyPostSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPostSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -2849,7 +2849,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyPostSelfAcceptedResponse(fun _ _ -> handler)
 
   member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-    { this with modifyPatchSelfOkResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPatchSelfOkResponse = getHandler }
 
   member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyPatchSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -2858,7 +2858,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
   member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-    { this with modifyPatchSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyPatchSelfAcceptedResponse = getHandler }
 
   member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyPatchSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -2867,7 +2867,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
 
   member this.ModifyDeleteSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-    { this with modifyDeleteSelfOkResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyDeleteSelfOkResponse = getHandler }
 
   member this.ModifyDeleteSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
     this.ModifyDeleteSelfOkResponse(fun ctx e related -> (fun next httpCtx -> f ctx e related httpCtx; next httpCtx))
@@ -2876,7 +2876,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.ModifyDeleteSelfOkResponse(fun _ _ _ -> handler)
 
   member this.ModifyDeleteSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-    { this with modifyDeleteSelfAcceptedResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyDeleteSelfAcceptedResponse = getHandler }
 
   member this.ModifyDeleteSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
     this.ModifyDeleteSelfAcceptedResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -2957,7 +2957,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     this.BeforeModifySelfJobRes(JobResult.liftFunc f)
 
   member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) =
-    { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew) }
+    { this with afterModifySelf = Some f }
 
   member this.AfterModifySelfJobRes(f: 'setCtx -> 'entity -> 'entity -> Job<Result<unit, Error list>>) =
     { this with afterModifySelf = Some (fun ctx eOld eNew -> f ctx eOld eNew |> JobResult.map (fun () -> eNew)) }

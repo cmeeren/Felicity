@@ -193,7 +193,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
         |> Job.startAsTask
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
-    { this with modifyResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyResponse = getHandler }
 
   member this.ModifyResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
     this.ModifyResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -243,7 +243,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
         |> Job.startAsTask
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) =
-    { this with modifyResponse = fun ctx es -> getHandler ctx es }
+    { this with modifyResponse = getHandler }
 
   member this.ModifyResponse(f: 'ctx -> 'entity list -> HttpContext -> unit) =
     this.ModifyResponse(fun ctx es -> (fun next httpCtx -> f ctx es httpCtx; next httpCtx))
@@ -294,7 +294,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
         |> Job.startAsTask
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) =
-    { this with modifyResponse = fun ctx es -> getHandler ctx es }
+    { this with modifyResponse = getHandler }
 
   member this.ModifyResponse(f: 'ctx -> 'entity list -> HttpContext -> unit) =
     this.ModifyResponse(fun ctx es -> (fun next httpCtx -> f ctx es httpCtx; next httpCtx))
@@ -460,7 +460,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
     { this with return202Accepted = true }
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
-    { this with modifyResponse = fun ctx entity -> getHandler ctx entity }
+    { this with modifyResponse = getHandler }
 
   member this.ModifyResponse(f: 'ctx -> 'entity -> HttpContext -> unit) =
     this.ModifyResponse(fun ctx e -> (fun next httpCtx -> f ctx e httpCtx; next httpCtx))
@@ -1085,7 +1085,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
     this.BeforeDeleteJobRes(JobResult.liftFunc f)
 
   member this.ModifyResponse(getHandler: 'ctx -> HttpHandler) =
-    { this with modifyResponse = fun ctx -> getHandler ctx }
+    { this with modifyResponse = getHandler }
 
   member this.ModifyResponse(f: 'ctx -> HttpContext -> unit) =
     this.ModifyResponse(fun ctx -> (fun next httpCtx -> f ctx httpCtx; next httpCtx))

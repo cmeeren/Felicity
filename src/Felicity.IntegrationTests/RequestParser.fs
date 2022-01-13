@@ -601,7 +601,7 @@ let tests =
       let mutable calledWith = None
       let ctx = Ctx.Create (fun parser ->
         parser
-          .For((fun x -> calledWith <- Some x), Sort.Parsed(fun x -> NonEmptyString x))
+          .For((fun x -> calledWith <- Some x), Sort.Parsed(NonEmptyString))
       )
       let! response = Request.get ctx "/xs?sort=val" |> getResponse
 
@@ -614,7 +614,7 @@ let tests =
       let mutable calledWith = None
       let ctx = Ctx.Create (fun parser ->
         parser
-          .For((fun x -> calledWith <- Some x), Sort.Parsed(fun x -> NonEmptyString x))
+          .For((fun x -> calledWith <- Some x), Sort.Parsed(NonEmptyString))
       )
       let! response = Request.get ctx "/xs?sort=-val" |> getResponse
 

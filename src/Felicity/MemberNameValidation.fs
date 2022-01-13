@@ -10,15 +10,15 @@ module internal MemberName =
 
   let private startsWithGloballyAllowed =
     let r = Regex("^" + globallyAllowed, RegexOptions.Compiled)
-    fun s -> r.IsMatch s
+    r.IsMatch
 
   let private endsWithGloballyAllowed =
     let r = Regex(globallyAllowed + "$", RegexOptions.Compiled)
-    fun s -> r.IsMatch s
+    r.IsMatch
 
   let private containsOnlyAllowed =
     let r = Regex(allowedInside + "+", RegexOptions.Compiled)
-    fun s -> r.IsMatch s
+    r.IsMatch
 
   /// Indicates whether the string is a valid member name
   let isValid s =

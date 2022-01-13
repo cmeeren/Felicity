@@ -399,7 +399,7 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Job
 type Filter =
 
   static member Field(id: Id<'ctx, 'entity, 'id>) =
-    SingleFilter<'ctx, 'id>("id", fun ctx str -> id.toDomain ctx str)
+    SingleFilter<'ctx, 'id>("id", id.toDomain)
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
@@ -907,7 +907,7 @@ type Header =
     Header.ParsedJobOpt(headerName, Job.liftAsync parse)
 
   static member ParsedJob(headerName, parse: 'ctx -> string -> Job<'a>) =
-    Header<'ctx, 'a>(headerName, JobResult.liftJob2 (fun ctx s -> parse ctx s))
+    Header<'ctx, 'a>(headerName, JobResult.liftJob2 parse)
 
   static member ParsedJob(headerName, parse: string -> Job<'a>) =
     Header<'ctx, 'a>(headerName, JobResult.liftJob2 (fun _ s -> parse s))

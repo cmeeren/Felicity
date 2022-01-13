@@ -787,7 +787,7 @@ module Error =
 
   /// Sets the error's detail property using a format string.
   let setDetailf format =
-    Printf.ksprintf (fun s -> setDetail s) format
+    Printf.ksprintf setDetail format
 
 
   /// Sets the error's source.parameter property (and removes any source.pointer value).

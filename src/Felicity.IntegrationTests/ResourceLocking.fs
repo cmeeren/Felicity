@@ -167,7 +167,7 @@ module E =
   let resDef =
     define.Resource("e", resId)
       .CollectionName("es")
-      .CustomLock(fun id -> customIdLock id)
+      .CustomLock(customIdLock)
   let lookup = define.Operation.Lookup(ResourceId.value >> Some)
 
   let get = define.Operation.GetResource()
