@@ -7,7 +7,7 @@
   let invalidAccept () =
     Error.create 406
     |> Error.setTitle "Invalid Accept header"
-    |> Error.setDetailf "The client must accept the JSON:API media type (%s)" Constants.jsonApiMediaType
+    |> Error.setDetail $"The client must accept the JSON:API media type (%s{Constants.jsonApiMediaType})"
 
   let invalidAcceptParams () =
     // "Servers MUST respond with a 406 Not Acceptable status code if a request’s Accept
@@ -20,7 +20,7 @@
   let invalidContentType () =
     Error.create 415
     |> Error.setTitle "Invalid content type"
-    |> Error.setDetailf "Request content must be sent with Content-Type set to the JSON:API media type (%s)" Constants.jsonApiMediaType
+    |> Error.setDetail $"Request content must be sent with Content-Type set to the JSON:API media type (%s{Constants.jsonApiMediaType})"
 
   let invalidContentTypeParams () =
     // "Servers MUST respond with a 415 Unsupported Media Type status code if a request
@@ -33,18 +33,18 @@
   let illegalQueryParamName paramName =
     Error.create 400
     |> Error.setTitle "Invalid query parameter name"
-    |> Error.setDetailf "'%s' is not an allowed query parameter name according to the JSON:API specification" paramName
+    |> Error.setDetail $"'%s{paramName}' is not an allowed query parameter name according to the JSON:API specification"
     |> Error.setSourceParam paramName
 
   let incorrectPathCase invalidPath expectedPath =
     Error.create 404
     |> Error.setTitle "Incorrect path case"
-    |> Error.setDetailf "The path '%s' does not exist, but differs only by case from the existing path '%s'. Paths are case sensitive." invalidPath expectedPath
+    |> Error.setDetail $"The path '%s{invalidPath}' does not exist, but differs only by case from the existing path '%s{expectedPath}'. Paths are case sensitive."
 
   let incorrectPartialPathCase expectedPathPrefix =
     Error.create 404
     |> Error.setTitle "Incorrect path case"
-    |> Error.setDetailf "Expected path '%s'. Paths are case sensitive." expectedPathPrefix
+    |> Error.setDetail $"Expected path '%s{expectedPathPrefix}'. Paths are case sensitive."
 
 
   (*
@@ -101,31 +101,31 @@
   let attrInvalidJson attrName msg pointer =
     Error.create 400
     |> Error.setTitle "Invalid request body"
-    |> Error.setDetailf "Invalid JSON for attribute '%s': %s" attrName msg
+    |> Error.setDetail $"Invalid JSON for attribute '%s{attrName}': %s{msg}"
     |> Error.setSourcePointer pointer
 
   let invalidNull memberName pointer =
     Error.create 400
     |> Error.setTitle "Null not allowed"
-    |> Error.setDetailf "Member '%s' may not be null" memberName
+    |> Error.setDetail $"Member '%s{memberName}' may not be null"
     |> Error.setSourcePointer pointer
 
   let requiredMemberMissing memberName pointer =
     Error.create 400
     |> Error.setTitle "Missing required member"
-    |> Error.setDetailf "Missing required member '%s'" memberName
+    |> Error.setDetail $"Missing required member '%s{memberName}'"
     |> Error.setSourcePointer pointer
 
   let attrInvalidNull resType attrName pointer =
     Error.create 400
     |> Error.setTitle "Null not allowed"
-    |> Error.setDetailf "Attribute '%s' on type '%s' is not nullable" attrName resType
+    |> Error.setDetail $"Attribute '%s{attrName}' on type '%s{resType}' is not nullable"
     |> Error.setSourcePointer pointer
 
   let relInvalidNull resType relName pointer =
     Error.create 400
     |> Error.setTitle "Null not allowed"
-    |> Error.setDetailf "Relationship '%s' on type '%s' is not nullable" relName resType
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' is not nullable"
     |> Error.setSourcePointer pointer
 
   let identifierTypeMissingOrNull pointer =
@@ -160,7 +160,7 @@
   let reqParserInvalidType expectedType invalidType pointer =
     Error.create 403
     |> Error.setTitle "Invalid type"
-    |> Error.setDetailf "Expected a resource object with type '%s', but got '%s'" expectedType invalidType
+    |> Error.setDetail $"Expected a resource object with type '%s{expectedType}', but got '%s{invalidType}'"
     |> Error.setSourcePointer pointer
 
   let reqParserMissingRequiredId pointer =
@@ -172,54 +172,54 @@
   let reqParserMissingRequiredAttr attrName pointer =
     Error.create 400
     |> Error.setTitle "Missing required attribute"
-    |> Error.setDetailf "Attribute '%s' is required for this operation" attrName
+    |> Error.setDetail $"Attribute '%s{attrName}' is required for this operation"
     |> Error.setSourcePointer pointer
 
   let reqParserMissingRequiredRel relName pointer =
     Error.create 400
     |> Error.setTitle "Missing required relationship"
-    |> Error.setDetailf "Relationship '%s' is required for this operation" relName
+    |> Error.setDetail $"Relationship '%s{relName}' is required for this operation"
     |> Error.setSourcePointer pointer
 
   let reqParserMissingIncludedResource resType resId pointer =
     Error.create 400
     |> Error.setTitle "Missing included resource"
-    |> Error.setDetailf "Expected to find referenced resource with type '%s' and ID '%s' in the 'included' part of the request" resType resId
+    |> Error.setDetail $"Expected to find referenced resource with type '%s{resType}' and ID '%s{resId}' in the 'included' part of the request"
     |> Error.setSourcePointer pointer
 
   let reqParserMissingRequiredHeader headerName =
     Error.create 400
     |> Error.setTitle "Missing required header"
-    |> Error.setDetailf "HTTP header '%s' is required for this operation" headerName
+    |> Error.setDetail $"HTTP header '%s{headerName}' is required for this operation"
 
   let reqParserMissingRequiredQueryParam paramName =
     Error.create 400
     |> Error.setTitle "Missing required query parameter"
-    |> Error.setDetailf "Query parameter '%s' is required for this operation" paramName
+    |> Error.setDetail $"Query parameter '%s{paramName}' is required for this operation"
     |> Error.setSourceParam paramName
 
   let reqParserProhibitedAttr attrName pointer =
     Error.create 400
     |> Error.setTitle "Attribute not allowed"
-    |> Error.setDetailf "Attribute '%s' is not allowed for this operation" attrName
+    |> Error.setDetail $"Attribute '%s{attrName}' is not allowed for this operation"
     |> Error.setSourcePointer pointer
 
   let reqParserProhibitedRel relName pointer =
     Error.create 400
     |> Error.setTitle "Relationship not allowed"
-    |> Error.setDetailf "Relationship '%s' is not allowed for this operation" relName
+    |> Error.setDetail $"Relationship '%s{relName}' is not allowed for this operation"
     |> Error.setSourcePointer pointer
 
   let reqParserProhibitedQueryParam paramName =
     Error.create 400
     |> Error.setTitle "Query parameter not allowed"
-    |> Error.setDetailf "Query parameter '%s' is not allowed for this operation" paramName
+    |> Error.setDetail $"Query parameter '%s{paramName}' is not allowed for this operation"
     |> Error.setSourceParam paramName
 
   let reqParserProhibitedHeader headerName =
     Error.create 400
     |> Error.setTitle "Header not allowed"
-    |> Error.setDetailf "Header '%s' is not allowed for this operation" headerName
+    |> Error.setDetail $"Header '%s{headerName}' is not allowed for this operation"
 
 
   (*
@@ -230,20 +230,20 @@
   let attrInvalidParsedNone attrName =
     Error.create 400
     |> Error.setTitle "Invalid attribute value"
-    |> Error.setDetailf "Received invalid value for attribute '%s'" attrName
+    |> Error.setDetail $"Received invalid value for attribute '%s{attrName}'"
 
   // Must also make sense when used in a filter query parameter
   let attrInvalidParsedErrMsg attrName errMsg =
     Error.create 400
     |> Error.setTitle "Invalid attribute value"
-    |> Error.setDetailf "Received invalid value for attribute '%s': %s" attrName errMsg
+    |> Error.setDetail $"Received invalid value for attribute '%s{attrName}': %s{errMsg}"
 
   // Must also make sense when used in a filter query parameter
   let attrInvalidEnum attrName invalidValue allowedValues =
     Error.create 400
     |> Error.setTitle "Invalid attribute value"
     |> match allowedValues with
-       | [x] -> Error.setDetailf "Value '%s' is not valid for attribute '%s'; expected '%s'" invalidValue attrName x
+       | [x] -> Error.setDetail $"Value '%s{invalidValue}' is not valid for attribute '%s{attrName}'; expected '%s{x}'"
        | xs -> Error.setDetailf "Value '%s' is not valid for attribute '%s'; expected one of %s" invalidValue attrName (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
 
   // Must also make sense when used in a filter query parameter
@@ -256,7 +256,7 @@
   let idInvalidErrMsg errMsg =
     Error.create 400
     |> Error.setTitle "Invalid ID"
-    |> Error.setDetailf "This is not a valid value for this resource ID: %s" errMsg
+    |> Error.setDetail $"This is not a valid value for this resource ID: %s{errMsg}"
 
   let queryInvalidEnum paramName invalidValue allowedValues =
     // This error is not specific to sorting, but it's used there, so this is relevant:
@@ -266,7 +266,7 @@
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
     |> match allowedValues with
-       | [x] -> Error.setDetailf "Query parameter '%s' got invalid value '%s'; expected '%s'" paramName invalidValue x
+       | [x] -> Error.setDetail $"Query parameter '%s{paramName}' got invalid value '%s{invalidValue}'; expected '%s{x}'"
        | xs -> Error.setDetailf "Query parameter '%s' got invalid value '%s'; expected one of %s" paramName invalidValue (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
     |> Error.setSourceParam paramName
 
@@ -274,72 +274,72 @@
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
     |> match allowedValues with
-       | [x] -> Error.setDetailf "Query parameter got invalid value '%s'; expected '%s'" invalidValue x
+       | [x] -> Error.setDetail $"Query parameter got invalid value '%s{invalidValue}'; expected '%s{x}'"
        | xs -> Error.setDetailf "Query parameter got invalid value '%s'; expected one of %s" invalidValue (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
 
   let queryInvalidInt paramName invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Query parameter '%s' expected an integer, but got '%s'" paramName invalidValue
+    |> Error.setDetail $"Query parameter '%s{paramName}' expected an integer, but got '%s{invalidValue}'"
     |> Error.setSourceParam paramName
 
   let queryIntTooSmall paramName invalidValue minValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Query parameter '%s' has minimum value %i, but got %i" paramName minValue invalidValue
+    |> Error.setDetail $"Query parameter '%s{paramName}' has minimum value %i{minValue}, but got %i{invalidValue}"
     |> Error.setSourceParam paramName
 
   let queryIntTooLarge paramName invalidValue maxValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Query parameter '%s' has maximum value %i, but got %i" paramName maxValue invalidValue
+    |> Error.setDetail $"Query parameter '%s{paramName}' has maximum value %i{maxValue}, but got %i{invalidValue}"
     |> Error.setSourceParam paramName
 
   let queryInvalidIntUnnamed invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Expected an integer, but got '%s'" invalidValue
+    |> Error.setDetail $"Expected an integer, but got '%s{invalidValue}'"
 
   let queryInvalidFloatUnnamed invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Expected a number, but got '%s'" invalidValue
+    |> Error.setDetail $"Expected a number, but got '%s{invalidValue}'"
 
   let queryInvalidParsedNone queryParamName invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Query parameter '%s' got invalid value '%s'" queryParamName invalidValue
+    |> Error.setDetail $"Query parameter '%s{queryParamName}' got invalid value '%s{invalidValue}'"
 
   let queryInvalidParsedNoneUnnamed invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "The value '%s' is not valid" invalidValue
+    |> Error.setDetail $"The value '%s{invalidValue}' is not valid"
 
   let queryInvalidParsedErrMsg queryParamName invalidValue errMsg =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Query parameter '%s' got invalid value '%s': %s" queryParamName invalidValue errMsg
+    |> Error.setDetail $"Query parameter '%s{queryParamName}' got invalid value '%s{invalidValue}': %s{errMsg}"
 
   let queryInvalidParsedErrMsgUnnamed invalidValue errMsg =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "The value '%s' is not valid: %s" invalidValue errMsg
+    |> Error.setDetail $"The value '%s{invalidValue}' is not valid: %s{errMsg}"
 
   let queryNotSingular paramName numValues =
     Error.create 400
     |> Error.setTitle "Multiple values not allowed"
-    |> Error.setDetailf "Query parameter '%s' only accepts a single value, but got %i comma-separated values" paramName numValues
+    |> Error.setDetail $"Query parameter '%s{paramName}' only accepts a single value, but got %i{numValues} comma-separated values"
     |> Error.setSourceParam paramName
 
   let headerInvalidParsedNone headerName invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid header value"
-    |> Error.setDetailf "Header '%s' got invalid value '%s'" headerName invalidValue
+    |> Error.setDetail $"Header '%s{headerName}' got invalid value '%s{invalidValue}'"
 
   let headerInvalidParsedErrMsg headerName invalidValue errMsg =
     Error.create 400
     |> Error.setTitle "Invalid header value"
-    |> Error.setDetailf "Header '%s' got invalid value '%s': %s" headerName invalidValue errMsg
+    |> Error.setDetail $"Header '%s{headerName}' got invalid value '%s{invalidValue}': %s{errMsg}"
 
 
   (*
@@ -351,26 +351,26 @@
     // update a resource or relationship."
     Error.create 403
     |> Error.setTitle "Attribute read-only"
-    |> Error.setDetailf "Attribute '%s' is read-only" attrName
+    |> Error.setDetail $"Attribute '%s{attrName}' is read-only"
     |> Error.setSourcePointer pointer
 
   let setAttrNullNotAllowed attrName =
     Error.create 403
     |> Error.setTitle "Null not allowed"
-    |> Error.setDetailf "Attribute '%s' may not be set to null" attrName
+    |> Error.setDetail $"Attribute '%s{attrName}' may not be set to null"
 
   let setRelReadOnly relName pointer =
     // "A server MUST return 403 Forbidden in response to an unsupported request to
     // update a resource or relationship."
     Error.create 403
     |> Error.setTitle "Relationship read-only"
-    |> Error.setDetailf "Relationship '%s' is read-only" relName
+    |> Error.setDetail $"Relationship '%s{relName}' is read-only"
     |> Error.setSourcePointer pointer
 
   let setRelNullNotAllowed relName =
     Error.create 403
     |> Error.setTitle "Null not allowed"
-    |> Error.setDetailf "Relationship '%s' may not be set to null" relName
+    |> Error.setDetail $"Relationship '%s{relName}' may not be set to null"
 
   let setToManyRelReplacementNotSupported relName resType pointer supportsPost supportsDelete =
     let extraMessage =
@@ -387,18 +387,18 @@
     // a 403 Forbidden response."
     Error.create 403
     |> Error.setTitle "Complete replacement not allowed"
-    |> Error.setDetailf "Relationship '%s' on type '%s' does not support complete replacement using PATCH%s" relName resType extraMessage
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' does not support complete replacement using PATCH%s{extraMessage}"
     |> Error.setSourcePointer pointer
 
   let set2OneFieldMissing presentFieldName missingFieldName =
     Error.create 400
     |> Error.setTitle "Missing required field"
-    |> Error.setDetailf "Field '%s' can only be set together with field '%s', which was missing" presentFieldName missingFieldName
+    |> Error.setDetail $"Field '%s{presentFieldName}' can only be set together with field '%s{missingFieldName}', which was missing"
 
   let set2DifferentNull field1Name field2Name =
     Error.create 400
     |> Error.setTitle "Invalid value combination"
-    |> Error.setDetailf "The fields '%s' and '%s' must both be either null or non-null" field1Name field2Name
+    |> Error.setDetail $"The fields '%s{field1Name}' and '%s{field2Name}' must both be either null or non-null"
 
 
   (*
@@ -408,7 +408,7 @@
   let collGetNotAllowed collName =
     Error.create 403
     |> Error.setTitle "GET collection not allowed"
-    |> Error.setDetailf "Collection '%s' does not support fetching resources" collName
+    |> Error.setDetail $"Collection '%s{collName}' does not support fetching resources"
 
   let sortNotSupported () =
     // "If the server does not support sorting as specified in the query parameter sort,
@@ -423,14 +423,14 @@
    * POST collection
   *)
 
-  // Some of the errors under PATCH resource is also relevant, since 
+  // Some of the errors under PATCH resource is also relevant, since
 
   let collPostNotAllowed collName =
     // "A server MAY return 403 Forbidden in response to an unsupported request to create
     // a resource."
     Error.create 403
     |> Error.setTitle "POST collection not allowed"
-    |> Error.setDetailf "Collection '%s' does not support creating resources" collName
+    |> Error.setDetail $"Collection '%s{collName}' does not support creating resources"
 
   let collPostMissingResourceObject pointer =
     Error.create 400
@@ -443,7 +443,7 @@
     // create a resource with a client-generated ID."
     Error.create 403
     |> Error.setTitle "Client-generated ID not supported"
-    |> Error.setDetailf "Collection '%s' does not support creating resource type '%s' with a client-generated ID" collName resType
+    |> Error.setDetail $"Collection '%s{collName}' does not support creating resource type '%s{resType}' with a client-generated ID"
     |> Error.setSourcePointer "/data/id"
 
   let collPostTypeNotAllowed collName invalidType allowedTypes pointer =
@@ -453,7 +453,7 @@
     Error.create 409
     |> Error.setTitle "Invalid resource type"
     |> match allowedTypes with
-       | [x] -> Error.setDetailf "Collection '%s' does not support creating resources with type '%s'; expected '%s'" collName invalidType x
+       | [x] -> Error.setDetail $"Collection '%s{collName}' does not support creating resources with type '%s{invalidType}'; expected '%s{x}'"
        | xs -> Error.setDetailf "Collection '%s' does not support creating resources with type '%s'; expected one of %s" collName invalidType (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
     |> Error.setSourcePointer pointer
 
@@ -467,7 +467,7 @@
     /// update a resource or relationship."
     Error.create 403
     |> Error.setTitle "Resource operations not supported"
-    |> Error.setDetailf "Collection '%s' does not support any resource-specific operations" collName
+    |> Error.setDetail $"Collection '%s{collName}' does not support any resource-specific operations"
 
 
   (*
@@ -477,17 +477,17 @@
   let resGetNotSupportedPolymorphic resType collName =
     Error.create 403
     |> Error.setTitle "GET not supported"
-    |> Error.setDetailf "GET is not supported for resource type '%s' (it may be supported for other resource types in collection '%s')" resType collName
+    |> Error.setDetail $"GET is not supported for resource type '%s{resType}' (it may be supported for other resource types in collection '%s{collName}')"
 
   let resGetNotSupportedForAnyResource collName =
     Error.create 403
     |> Error.setTitle "GET not supported"
-    |> Error.setDetailf "GET is not supported for any resource in collection '%s'" collName
+    |> Error.setDetail $"GET is not supported for any resource in collection '%s{collName}'"
 
   let resourceNotFound collName resId =
     Error.create 404
     |> Error.setTitle "Resource not found"
-    |> Error.setDetailf "Collection '%s' does not contain a resource with ID '%s'" collName resId
+    |> Error.setDetail $"Collection '%s{collName}' does not contain a resource with ID '%s{resId}'"
 
 
   (*
@@ -499,14 +499,14 @@
     // a resource or relationship.
     Error.create 403
     |> Error.setTitle "PATCH not supported"
-    |> Error.setDetailf "PATCH is not supported for resource type '%s' (it may be supported for other resource types in collection '%s')" resType collName
+    |> Error.setDetail $"PATCH is not supported for resource type '%s{resType}' (it may be supported for other resource types in collection '%s{collName}')"
 
   let resPatchNotSupportedForAnyResource collName =
     // A server MUST return 403 Forbidden in response to an unsupported request to update
     // a resource or relationship.
     Error.create 403
     |> Error.setTitle "PATCH not supported"
-    |> Error.setDetailf "PATCH is not supported for any resource in collection '%s'" collName
+    |> Error.setDetail $"PATCH is not supported for any resource in collection '%s{collName}'"
 
   let resPatchMissingResourceObject pointer =
     Error.create 400
@@ -525,14 +525,14 @@
     // resource object’s type and id do not match the server’s endpoint."
     Error.create 409
     |> Error.setTitle "Incorrect type"
-    |> Error.setDetailf "Expected resource type '%s', but got '%s'" expectedType invalidType
+    |> Error.setDetail $"Expected resource type '%s{expectedType}', but got '%s{invalidType}'"
 
   let resPatchIdMismatch invalidId expectedId =
     // "A server MUST return 409 Conflict when processing a PATCH request in which the
     // resource object’s type and id do not match the server’s endpoint."
     Error.create 409
     |> Error.setTitle "Incorrect ID"
-    |> Error.setDetailf "Expected resource ID '%s', but got '%s'" expectedId invalidId
+    |> Error.setDetail $"Expected resource ID '%s{expectedId}', but got '%s{invalidId}'"
 
 
   (*
@@ -542,12 +542,12 @@
   let resDeleteNotSupportedPolymorphic resType collName =
     Error.create 403  // 403 corresponds to unsupported PATCH
     |> Error.setTitle "DELETE not supported"
-    |> Error.setDetailf "DELETE is not supported for resource type '%s' (it may be supported for other resource types in collection '%s')" resType collName
+    |> Error.setDetail $"DELETE is not supported for resource type '%s{resType}' (it may be supported for other resource types in collection '%s{collName}')"
 
   let resDeleteNotSupportedForAnyResource collName =
     Error.create 403  // 403 corresponds to unsupported PATCH
     |> Error.setTitle "DELETE not supported"
-    |> Error.setDetailf "DELETE is not supported for any resource in collection '%s'" collName
+    |> Error.setDetail $"DELETE is not supported for any resource in collection '%s{collName}'"
 
 
   (*
@@ -559,7 +559,7 @@
     // relationship link URL that does not exist."
     Error.create 404
     |> Error.setTitle "Relationship does not exist"
-    |> Error.setDetailf "Relationship '%s' is not defined for resource type '%s' (other resource types in collection '%s' may have a relationship called '%s')" relName resType collName relName
+    |> Error.setDetail $"Relationship '%s{relName}' is not defined for resource type '%s{resType}' (other resource types in collection '%s{collName}' may have a relationship called '%s{relName}')"
 
 
   (*
@@ -569,12 +569,12 @@
   let getRelNotDefinedPolymorphic relName resType collName =
     Error.create 403
     |> Error.setTitle "GET relationship not supported"
-    |> Error.setDetailf "Relationship '%s' on type '%s' is not readable (other resource types in collection '%s' may have a readable relationship called '%s')" relName resType collName relName
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' is not readable (other resource types in collection '%s{collName}' may have a readable relationship called '%s{relName}')"
 
   let getRelNotDefinedForAnyResource relName collName =
     Error.create 403
     |> Error.setTitle "GET relationship not supported"
-    |> Error.setDetailf "Relationship '%s' is not readable for any resource in collection '%s'" relName collName
+    |> Error.setDetail $"Relationship '%s{relName}' is not readable for any resource in collection '%s{collName}'"
 
   let getRelWhileSkip () =
     Error.create 403
@@ -589,14 +589,14 @@
   let relMissingData relName pointer =
     Error.create 400
     |> Error.setTitle "Missing relationship data"
-    |> Error.setDetailf "Relationship '%s' was specified without relationship data" relName
+    |> Error.setDetail $"Relationship '%s{relName}' was specified without relationship data"
     |> Error.setSourcePointer pointer
 
   let relInvalidType relName invalidType allowedTypes pointer =
     Error.create 409  // 409 corresponds to PATCH type mismatch
     |> Error.setTitle "Invalid relationship type"
     |> match allowedTypes with
-       | [x] -> Error.setDetailf "Relationship '%s' contains data with invalid type '%s'; expected '%s'" relName invalidType x
+       | [x] -> Error.setDetail $"Relationship '%s{relName}' contains data with invalid type '%s{invalidType}'; expected '%s{x}'"
        | xs -> Error.setDetailf "Relationship '%s' contains data with invalid type '%s'; expected one of %s" relName invalidType (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
     |> Error.setSourcePointer pointer
 
@@ -609,7 +609,7 @@
     Error.create 409  // 409 corresponds to PATCH type mismatch
     |> Error.setTitle "Invalid relationship type"
     |> match allowedTypes with
-       | [x] -> Error.setDetailf "Data contains invalid type '%s'; expected '%s'" invalidType x
+       | [x] -> Error.setDetail $"Data contains invalid type '%s{invalidType}'; expected '%s{x}'"
        | xs -> Error.setDetailf "Data contains invalid type '%s'; expected one of %s" invalidType (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
     |> Error.setSourcePointer pointer
 
@@ -625,12 +625,12 @@
     // a 403 Forbidden response."
     Error.create 403
     |> Error.setTitle "Complete replacement not allowed"
-    |> Error.setDetailf "Relationship '%s' on type '%s' does not support complete replacement using PATCH%s (other resource types in collection '%s' may have a relationship called '%s' that supports PATCH)" relName resType extraMessage collName relName
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' does not support complete replacement using PATCH%s{extraMessage} (other resource types in collection '%s{collName}' may have a relationship called '%s{relName}' that supports PATCH)"
 
   let patchRelSelfSettableButNotGettablePolymorphic relName resType collName =
     Error.create 403
     |> Error.setTitle "PATCH relationship not supported"
-    |> Error.setDetailf "Relationship '%s' on type '%s' is write-only and may only be updated through PATCH requests to the parent resource (other resource types in collection '%s' may have a relationship called '%s' that supports this operation)" relName resType collName relName
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' is write-only and may only be updated through PATCH requests to the parent resource (other resource types in collection '%s{collName}' may have a relationship called '%s{relName}' that supports this operation)"
 
   let patchRelSelfNotAllowedForAnyResource relName collName supportsPost supportsDelete =
     let extraMessage =
@@ -647,7 +647,7 @@
     // a 403 Forbidden response."
     Error.create 403
     |> Error.setTitle "PATCH relationship not supported"
-    |> Error.setDetailf "Relationship '%s' does not support PATCH for any resource in collection '%s'%s" relName collName extraMessage
+    |> Error.setDetail $"Relationship '%s{relName}' does not support PATCH for any resource in collection '%s{collName}'%s{extraMessage}"
 
   let postToManyRelSelfNotAllowedPolymorphic relName resType supportsPatch supportsDelete collName =
     let extraMessage =
@@ -660,7 +660,7 @@
     // update a relationship."
     Error.create 403
     |> Error.setTitle "POST relationship not supported"
-    |> Error.setDetailf "Relationship '%s' on type '%s' does not support adding members using POST%s (other resource types in collection '%s' may have a relationship called '%s' that supports POST)" relName resType extraMessage collName relName
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' does not support adding members using POST%s{extraMessage} (other resource types in collection '%s{collName}' may have a relationship called '%s{relName}' that supports POST)"
 
   let postToManyRelSelfNotAllowedForAnyResource relName collName supportsPatch supportsDelete =
     let extraMessage =
@@ -673,7 +673,7 @@
     // update a relationship."
     Error.create 403
     |> Error.setTitle "POST relationship not supported"
-    |> Error.setDetailf "Relationship '%s' does not support adding members using POST for any resource in collection '%s'%s" relName collName extraMessage
+    |> Error.setDetail $"Relationship '%s{relName}' does not support adding members using POST for any resource in collection '%s{collName}'%s{extraMessage}"
 
   let deleteToManyRelSelfNotAllowedPolymorphic relName resType supportsPatch supportsPost collName =
     let extraMessage =
@@ -690,7 +690,7 @@
     // response."
     Error.create 403
     |> Error.setTitle "DELETE relationship not supported"
-    |> Error.setDetailf "Relationship '%s' on type '%s' does not support removing members using DELETE%s (other resource types in collection '%s' may have a relationship called '%s' that supports DELETE)" relName resType extraMessage collName relName
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' does not support removing members using DELETE%s{extraMessage} (other resource types in collection '%s{collName}' may have a relationship called '%s{relName}' that supports DELETE)"
 
   let deleteToManyRelSelfNotAllowedForAnyResource relName collName supportsPatch supportsPost =
     let extraMessage =
@@ -707,7 +707,7 @@
     // response."
     Error.create 403
     |> Error.setTitle "DELETE relationship not supported"
-    |> Error.setDetailf "Relationship '%s' does not support removing members using DELETE for any resource in collection '%s'%s" relName collName extraMessage
+    |> Error.setDetail $"Relationship '%s{relName}' does not support removing members using DELETE for any resource in collection '%s{collName}'%s{extraMessage}"
 
   let modifyRelSelfMissingData pointer =
     Error.create 400
@@ -720,8 +720,8 @@
     // update a resource or relationship."
     Error.create 403
     |> Error.setTitle "Relationship read-only"
-    |> Error.setDetailf "Relationship '%s' on type '%s' is read-only" relName resType
-  
+    |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' is read-only"
+
   let relatedResourceNotFound pointer =
     // "A server MUST return 404 Not Found when processing a request that references a
     // related resource that does not exist."
@@ -748,18 +748,18 @@
   let customOpNotDefinedPolymorphic linkName resType collName =
     Error.create 404
     |> Error.setTitle "Operation does not exist"
-    |> Error.setDetailf "Operation '%s' is not defined for resource type '%s' (it may exist for other resource types in collection '%s')" linkName resType collName
+    |> Error.setDetail $"Operation '%s{linkName}' is not defined for resource type '%s{resType}' (it may exist for other resource types in collection '%s{collName}')"
 
   let customOpVerbNotDefinedPolymorphic linkName resType invalidVerb allowHeader collName =
     Error.create 405
     |> Error.setTitle "Method not allowed"
-    |> Error.setDetailf "Operation '%s' on type '%s' does not support %s (other resource types in collection '%s' may have an operation '%s' supporting %s)" linkName resType invalidVerb collName linkName invalidVerb
+    |> Error.setDetail $"Operation '%s{linkName}' on type '%s{resType}' does not support %s{invalidVerb} (other resource types in collection '%s{collName}' may have an operation '%s{linkName}' supporting %s{invalidVerb})"
     |> Error.addHeader "Allow" allowHeader
 
   let customOpVerbNotDefinedForAnyResource linkName invalidVerb collName allowHeader =
     Error.create 405
     |> Error.setTitle "Method not allowed"
-    |> Error.setDetailf "Operation '%s' does not support %s for any resource in collection '%s'" linkName invalidVerb collName
+    |> Error.setDetail $"Operation '%s{linkName}' does not support %s{invalidVerb} for any resource in collection '%s{collName}'"
     |> Error.addHeader "Allow" allowHeader
 
 
@@ -770,20 +770,20 @@
   let relationshipDoesNotExistForAnyResource relName collName =
     Error.create 404
     |> Error.setTitle "Unknown relationship"
-    |> Error.setDetailf "The relationship '%s' does not exist for any resource in collection '%s'" relName collName
+    |> Error.setDetail $"The relationship '%s{relName}' does not exist for any resource in collection '%s{collName}'"
 
   let linkOrRelationshipDoesNotExistForAnyResource linkOrRelName collName =
     Error.create 404
     |> Error.setTitle "Unknown link or relationship"
-    |> Error.setDetailf "The link or relationship '%s' does not exist for any resource in collection '%s'" linkOrRelName collName
+    |> Error.setDetail $"The link or relationship '%s{linkOrRelName}' does not exist for any resource in collection '%s{collName}'"
 
   let invalidPath path collName =
     Error.create 404
     |> Error.setTitle "Invalid path"
-    |> Error.setDetailf "The path '%s' does not exist for resources in collection '%s'" path collName
+    |> Error.setDetail $"The path '%s{path}' does not exist for resources in collection '%s{collName}'"
 
   let methodNotAllowed method allowedHeaderValue =
     Error.create 405
     |> Error.setTitle "Method not allowed"
-    |> Error.setDetailf "%s is not a known method for this endpoint" method
+    |> Error.setDetail $"%s{method} is not a known method for this endpoint"
     |> Error.addHeader "Allow" allowedHeaderValue

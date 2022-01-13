@@ -179,7 +179,7 @@ module internal RoutingOperations =
             |> function
                 | [||] -> None
                 | [|x|] -> Some x
-                | xs -> failwithf "Resource module %s contains %i public PATCH operations; only one is allowed" collName xs.Length
+                | xs -> failwith $"Resource module %s{collName} contains %i{xs.Length} public PATCH operations; only one is allowed"
           patchOp |> Option.map (fun op -> op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m)
       )
     if opsAndResourceDefs.Length = 0 then
@@ -195,7 +195,7 @@ module internal RoutingOperations =
             let patch =
               resourceModuleMap
               |> Map.tryFind resDef.TypeName
-              |> Option.defaultWith (fun () -> failwithf "Framework bug: Resource module map does not contain entry for resource type %s" resDef.TypeName)
+              |> Option.defaultWith (fun () -> failwith $"Framework bug: Resource module map does not contain entry for resource type %s{resDef.TypeName}")
               |> boxedPatcher
             resDef.TypeName, fun ctx req entity -> patchOp.Run resDef ctx req prec entity patch builder
         )
@@ -218,7 +218,7 @@ module internal RoutingOperations =
             |> function
                 | [||] -> None
                 | [|x|] -> Some x
-                | xs -> failwithf "Resource module %s contains %i public DELETE operations; only one is allowed" collName xs.Length
+                | xs -> failwith $"Resource module %s{collName} contains %i{xs.Length} public DELETE operations; only one is allowed"
           op |> Option.map (fun op -> op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m)
       )
     if opsAndResourceDefs.Length = 0 then
@@ -471,7 +471,7 @@ module internal RoutingOperations =
     |> function
         | [||] -> None
         | [|x|] -> Some x
-        | xs -> failwithf "%i public GET resource operations specified for collection name %s; only one is allowed" xs.Length collName
+        | xs -> failwith $"%i{xs.Length} public GET resource operations specified for collection name %s{collName}; only one is allowed"
 
 
   let postCollection<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type []) =
@@ -491,7 +491,7 @@ module internal RoutingOperations =
             let patch =
               resourceModuleMap
               |> Map.tryFind resDef.TypeName
-              |> Option.defaultWith (fun () -> failwithf "Framework bug: Resource module map does not contain entry for resource type %s" resDef.TypeName)
+              |> Option.defaultWith (fun () -> failwith $"Framework bug: Resource module map does not contain entry for resource type %s{resDef.TypeName}")
               |> boxedPatcher
             resDef.TypeName, fun ctx req -> op.Run collName resDef ctx req patch builder
         )

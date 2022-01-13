@@ -283,7 +283,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
           }
       OtherLockSpecs =
         match resDef.lockSpecs with
-        | [] -> failwithf "Resource type '%s' can not lock other resource '%s' because the other resource does not have a lock specification" this.name resDef.name
+        | [] -> failwith $"Resource type '%s{this.name}' can not lock other resource '%s{resDef.name}' because the other resource does not have a lock specification"
         | xs -> xs
     }
 
@@ -300,7 +300,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
           }
       OtherLockSpecs =
         match resDef.lockSpecs with
-        | [] -> failwithf "Resource type '%s' can not lock other resource '%s' because the other resource does not have a lock specification" this.name resDef.name
+        | [] -> failwith $"Resource type '%s{this.name}' can not lock other resource '%s{resDef.name}' because the other resource does not have a lock specification"
         | xs -> xs
     }
 
@@ -503,5 +503,5 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   ///
   /// Throws if less than two locks have been specified for this resource.
   member this.MultiLockTotalTimeout(timeout: TimeSpan) =
-    if this.lockSpecs.Length < 2 then failwithf "At least two locks must be present in order to call MultiLockTotalTimeout for resource '%s'" this.name
+    if this.lockSpecs.Length < 2 then failwith $"At least two locks must be present in order to call MultiLockTotalTimeout for resource '%s{this.name}'"
     { this with lockTotalTimeout = Some timeout }

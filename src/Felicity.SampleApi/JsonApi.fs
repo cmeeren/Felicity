@@ -39,7 +39,7 @@ module Errors =
   let invalidDateTimeOffset invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetailf "Could not parse '%s' as a date-time value" invalidValue
+    |> Error.setDetail $"Could not parse '%s{invalidValue}' as a date-time value"
 
 
 // Felicity allows you to map the ASP.NET Core HttpContext to a value you can access in

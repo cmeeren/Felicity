@@ -121,7 +121,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
                   this.toDomain ctx attr
                   |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -362,7 +362,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                   |> Option.traverseJobResult (this.toDomain ctx)
                   |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized option>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -384,7 +384,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                       |> this.toDomain ctx
                       |> JobResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected attribute '%s' to be deserialized to %s, but was %s" this.name typeof<'serialized option>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
     }
 

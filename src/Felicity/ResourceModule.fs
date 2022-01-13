@@ -29,9 +29,9 @@ let resourceDefinition<'ctx> (m: Type) =
       m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
       |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<ResourceDefinition<'ctx>>)
       |> function
-          | [||] -> failwithf "Resource module '%s' does not contain a resource definition" m.Name
+          | [||] -> failwith $"Resource module '%s{m.Name}' does not contain a resource definition"
           | [|x|] -> x
-          | xs -> failwithf "Resource module '%s' contains %i public resource definitions; only one is allowed" m.Name xs.Length
+          | xs -> failwith $"Resource module '%s{m.Name}' contains %i{xs.Length} public resource definitions; only one is allowed"
       |> box<ResourceDefinition<'ctx>>
   )
   |> unbox<ResourceDefinition<'ctx>>
@@ -50,7 +50,7 @@ let lockSpec<'ctx> (collName: CollectionName) =
       |> function
           | [||] -> None
           | [|x|] -> Some x
-          | xs -> failwithf "Collection name '%s' contains %i resources with lock definitions; only one lock definition per collection is allowed" collName xs.Length
+          | xs -> failwith $"Collection name '%s{collName}' contains %i{xs.Length} resources with lock definitions; only one lock definition per collection is allowed"
       |> box<(LockSpecification<'ctx> list * TimeSpan option) option>
   )
   |> unbox<(LockSpecification<'ctx> list * TimeSpan option) option>
@@ -183,7 +183,7 @@ let resourceLookup<'ctx> collName (msInColl: Type []) =
   |> function
       | [||] -> None
       | [|x|] -> Some x
-      | xs -> failwithf "%i public resource lookup operations specified for collection name %s; only one is allowed" xs.Length collName
+      | xs -> failwith $"%i{xs.Length} public resource lookup operations specified for collection name %s{collName}; only one is allowed"
 
 
 let hasResourceLookup<'ctx> (collName, msInColl) =
@@ -196,7 +196,7 @@ let postOperation<'ctx> (m: Type) =
   |> function
       | [||] -> None
       | [|x|] -> Some x
-      | xs -> failwithf "Resource module '%s' contains %i public POST collection operations; only one is allowed" m.Name xs.Length
+      | xs -> failwith $"Resource module '%s{m.Name}' contains %i{xs.Length} public POST collection operations; only one is allowed"
 
 
 let preconditions<'ctx> (m: Type) =
@@ -205,7 +205,7 @@ let preconditions<'ctx> (m: Type) =
   |> function
       | [||] -> None
       | [|x|] -> Some x
-      | xs -> failwithf "Resource module '%s' contains %i public precondition definitions; only one is allowed" m.Name xs.Length
+      | xs -> failwith $"Resource module '%s{m.Name}' contains %i{xs.Length} public precondition definitions; only one is allowed"
 
 
 let hasPreconditions<'ctx> m =
@@ -222,7 +222,7 @@ let getResourceOperation<'ctx> (m: Type) =
       |> function
           | [||] -> None
           | [|x|] -> Some x
-          | xs -> failwithf "Resource module '%s' contains %i public GET resource operations; only one is allowed" m.Name xs.Length
+          | xs -> failwith $"Resource module '%s{m.Name}' contains %i{xs.Length} public GET resource operations; only one is allowed"
       |> box<GetResourceOperation<'ctx> option>
   )
   |> unbox<GetResourceOperation<'ctx> option>
@@ -238,13 +238,13 @@ let private ensureValidAndUniqueFieldNames<'ctx> (m: Type) =
   |> Array.countBy id
   |> Array.iter (fun (name, count) ->
       if name = "type" then
-        failwithf "Resource module '%s' contains a field named 'type', which is reserved by JSON:API" m.Name
+        failwith $"Resource module '%s{m.Name}' contains a field named 'type', which is reserved by JSON:API"
       elif name = "id" then
-        failwithf "Resource module '%s' contains a field named 'id', which is reserved by JSON:API" m.Name
+        failwith $"Resource module '%s{m.Name}' contains a field named 'id', which is reserved by JSON:API"
       elif not <| MemberName.isValid name then
-        failwithf "Resource module '%s' contains a field named '%s', which is not a valid JSON:API member name" m.Name name
+        failwith $"Resource module '%s{m.Name}' contains a field named '%s{name}', which is not a valid JSON:API member name"
       elif count > 1 then
-        failwithf "Resource module '%s' contains %i fields named '%s'; names must be unique" m.Name count name
+        failwith $"Resource module '%s{m.Name}' contains %i{count} fields named '%s{name}'; names must be unique"
   )
 
 
@@ -255,23 +255,23 @@ let private ensureCollectionNameIfNeeded<'ctx> (m: Type) =
         match x.GetValue(null) with
         | :? GetCollectionOperation<'ctx>
         | :? PolymorphicGetCollectionOperation<'ctx> ->
-            failwithf "Resource module '%s' has no collection name, but contains a public GET collection operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public GET collection operation, which requires a collection name"
         | :? PostOperation<'ctx> ->
-            failwithf "Resource module '%s' has no collection name, but contains a public POST collection operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public POST collection operation, which requires a collection name"
         | :? GetResourceOperation<'ctx> ->
-            failwithf "Resource module '%s' has no collection name, but contains a public GET resource operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public GET resource operation, which requires a collection name"
         | :? PatchOperation<'ctx> ->
-            failwithf "Resource module '%s' has no collection name, but contains a public PATCH resource operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public PATCH resource operation, which requires a collection name"
         | :? DeleteOperation<'ctx> ->
-            failwithf "Resource module '%s' has no collection name, but contains a public DELETE resource operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public DELETE resource operation, which requires a collection name"
         | :? CustomOperation<'ctx> ->
-            failwithf "Resource module '%s' has no collection name, but contains a public custom operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public custom operation, which requires a collection name"
         // getRelated/getSelf is not included since it is always present when the
         // relationship is gettable, and it may be possible to get related resources as
         // includes in a compound document even though the parent resource does not have a
         // self link.
         | :? RelationshipHandlers<'ctx> as op when op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome ->
-            failwithf "Resource module '%s' has no collection name, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a collection name" m.Name
+            failwith $"Resource module '%s{m.Name}' has no collection name, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a collection name"
         | _ -> ()
     )
 
@@ -284,17 +284,17 @@ let private ensureHasGetResourceOpIfNeeded<'ctx> (m: Type) =
         // the operations below
         match x.GetValue(null) with
         | :? PatchOperation<'ctx> ->
-            failwithf "Resource module '%s' has no GET resource operation, but contains a public PATCH resource operation, which requires a GET resource operation" m.Name
+            failwith $"Resource module '%s{m.Name}' has no GET resource operation, but contains a public PATCH resource operation, which requires a GET resource operation"
         | :? DeleteOperation<'ctx> ->
-            failwithf "Resource module '%s' has no GET resource operation, but contains a public DELETE resource operation, which requires a GET resource operation" m.Name
+            failwith $"Resource module '%s{m.Name}' has no GET resource operation, but contains a public DELETE resource operation, which requires a GET resource operation"
         | :? CustomOperation<'ctx> ->
-            failwithf "Resource module '%s' has no GET resource operation, but contains a public custom operation, which requires a GET resource operation" m.Name
+            failwith $"Resource module '%s{m.Name}' has no GET resource operation, but contains a public custom operation, which requires a GET resource operation"
         // getRelated/getSelf is not included since it is always present when the
         // relationship is gettable, and it may be possible to get related resources as
         // includes in a compound document even though the parent resource does not have a
         // self link.
         | :? RelationshipHandlers<'ctx> as op when op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome ->
-            failwithf "Resource module '%s' has no GET resource operation, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a GET resource operation" m.Name
+            failwith $"Resource module '%s{m.Name}' has no GET resource operation, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a GET resource operation"
         | _ -> ()
     )
 
@@ -304,11 +304,11 @@ let private ensureHasPersistFunction<'ctx> (m: Type) =
   |> Array.iter (fun x ->
       match x.GetValue(null) with
       | :? PostOperation<'ctx> as op when not op.HasPersist ->
-          failwithf "Resource module '%s' has a POST operation with no AfterCreate, which is required" m.Name
+          failwith $"Resource module '%s{m.Name}' has a POST operation with no AfterCreate, which is required"
       | :? PatchOperation<'ctx> as op when not op.HasPersist ->
-          failwithf "Resource module '%s' has a PATCH operation with no AfterUpdate, which is required" m.Name
+          failwith $"Resource module '%s{m.Name}' has a PATCH operation with no AfterUpdate, which is required"
       | :? RelationshipHandlers<'ctx> as op when op.IsSettableWithoutPersist ->
-          failwithf "Resource module '%s' has a settable relationship '%s' with no AfterModifySelf, which is required" m.Name op.Name
+          failwith $"Resource module '%s{m.Name}' has a settable relationship '%s{op.Name}' with no AfterModifySelf, which is required"
       | _ -> ()
   )
 
@@ -325,13 +325,13 @@ let private ensureHasLookupIfNeeded<'ctx> ms =
         |> Array.iter (fun x ->
             match x.GetValue(null) with
             | :? GetResourceOperation<'ctx> ->
-                failwithf "Collection '%s' has no lookup operation, but contains public GET resource operations, which requires a lookup operation" collName
+                failwith $"Collection '%s{collName}' has no lookup operation, but contains public GET resource operations, which requires a lookup operation"
             | :? PatchOperation<'ctx> ->
-                failwithf "Collection '%s' has no lookup operation, but contains public PATCH resource operations, which requires a lookup operation" collName
+                failwith $"Collection '%s{collName}' has no lookup operation, but contains public PATCH resource operations, which requires a lookup operation"
             | :? DeleteOperation<'ctx> ->
-                failwithf "Collection '%s' has no lookup operation, but contains public DELETE resource operations, which requires a lookup operation" collName
+                failwith $"Collection '%s{collName}' has no lookup operation, but contains public DELETE resource operations, which requires a lookup operation"
             | :? CustomOperation<'ctx> ->
-                failwithf "Collection '%s' has no lookup operation, but contains public custom operations, which requires a lookup operation" collName
+                failwith $"Collection '%s{collName}' has no lookup operation, but contains public custom operations, which requires a lookup operation"
             // getRelated/getSelf is not included since it is always present when the
             // relationship is gettable, and it may be possible to get related resources
             // as includes in a compound document without the parent resource having a
@@ -340,7 +340,7 @@ let private ensureHasLookupIfNeeded<'ctx> ms =
             // Also, PatchSelf is not included since it can be used when creating
             // resources, which does not require a lookup operation.
             | :? RelationshipHandlers<'ctx> as op when op.PostSelf.IsSome || op.DeleteSelf.IsSome ->
-                failwithf "Resource module '%s' has no lookup operation, but contains public relationships with a POST/DELETE operation, which requires a lookup operation" m.Name
+                failwith $"Resource module '%s{m.Name}' has no lookup operation, but contains public relationships with a POST/DELETE operation, which requires a lookup operation"
             | _ -> ()
         )
       )
@@ -360,7 +360,7 @@ let private ensureHasModifyingOperationsIfPreconditionsDefined<'ctx> (m: Type) =
     )
     |> function
         | true -> ()
-        | false -> failwithf "Resource module '%s' contains a precondition definition that is unused because the module contains no resource setters or other modifying operations" m.Name
+        | false -> failwith $"Resource module '%s{m.Name}' contains a precondition definition that is unused because the module contains no resource setters or other modifying operations"
 
 
 let private ensureNoRelLinkNameCollisions<'ctx> m =
@@ -375,28 +375,28 @@ let private ensureNoRelLinkNameCollisions<'ctx> m =
   |> Array.countBy id
   |> Array.iter (fun (name, count) ->
       if count > 1 then
-        failwithf "Resource module '%s' contains %i links named '%s'; names must be unique" m.Name count name
+        failwith $"Resource module '%s{m.Name}' contains %i{count} links named '%s{name}'; names must be unique"
       elif name = "relationships" then
         // This might actually be possible, though not recommended since it would be
         // confusing. Block it fow now, add test for it later if it should be supported.
-        failwithf "Resource module '%s' contains a link named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs" m.Name
+        failwith $"Resource module '%s{m.Name}' contains a link named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs"
   )
 
   rels
   |> Array.countBy id
   |> Array.iter (fun (name, count) ->
       if count > 1 then
-        failwithf "Resource module '%s' contains %i relationships named '%s'; names must be unique" m.Name count name
+        failwith $"Resource module '%s{m.Name}' contains %i{count} relationships named '%s{name}'; names must be unique"
       elif name = "relationships" then
         // This might actually be possible, though not recommended since it would be
         // confusing. Block it fow now, add test for it later if it should be supported.
-        failwithf "Resource module '%s' contains a relationship named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs" m.Name
+        failwith $"Resource module '%s{m.Name}' contains a relationship named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs"
   )
 
   for opName in ops do
   for relName in rels do
     if opName = relName then
-      failwithf "Resource module '%s' contains both a relationship and a link named '%s'; names must be unique among relationships and links" m.Name opName
+      failwith $"Resource module '%s{m.Name}' contains both a relationship and a link named '%s{opName}'; names must be unique among relationships and links"
 
 
 let private ensureNoConstraintsAttrIfAnyFieldHasConstraints<'ctx> m =
@@ -405,7 +405,7 @@ let private ensureNoConstraintsAttrIfAnyFieldHasConstraints<'ctx> m =
     |> Array.tryPick (fun f -> if f.HasConstraints then Some f.Name else None)
   let hasConstraintsField = fields<'ctx> m |> Array.exists(fun f -> f.Name = "constraints")
   match fieldWithConstraints, hasConstraintsField with
-  | Some fieldName, true -> failwithf "Resource module '%s' contains both a field '%s' with constraints and a separate field called 'constraints'; either rename the 'constraints' field or remove all constraints from all fields" m.Name fieldName
+  | Some fieldName, true -> failwith $"Resource module '%s{m.Name}' contains both a field '%s{fieldName}' with constraints and a separate field called 'constraints'; either rename the 'constraints' field or remove all constraints from all fields"
   | _ -> ()
 
 
@@ -418,15 +418,15 @@ let private ensurePolymorphicModuleHasOnlyPolymorphicOperations<'ctx> m =
     |> Array.iter (fun x ->
         match x.GetValue(null) with
         | :? Field<'ctx> ->
-            failwithf "Polymorphic resource module '%s' may only contain polymorphic GET collection and lookup operations, but contained a field" m.Name
+            failwith $"Polymorphic resource module '%s{m.Name}' may only contain polymorphic GET collection and lookup operations, but contained a field"
         | :? GetResourceOperation<'ctx> ->
-            failwithf "Polymorphic resource module '%s' may only contain polymorphic GET collection and lookup operations, but contained a GET resource operation" m.Name
+            failwith $"Polymorphic resource module '%s{m.Name}' may only contain polymorphic GET collection and lookup operations, but contained a GET resource operation"
         | :? PatchOperation<'ctx> ->
-            failwithf "Polymorphic resource module '%s' may only contain polymorphic GET collection and lookup operations, but contained a PATCH operation" m.Name
+            failwith $"Polymorphic resource module '%s{m.Name}' may only contain polymorphic GET collection and lookup operations, but contained a PATCH operation"
         | :? DeleteOperation<'ctx> ->
-            failwithf "Polymorphic resource module '%s' may only contain polymorphic GET collection and lookup operations, but contained a DELETE operation" m.Name
+            failwith $"Polymorphic resource module '%s{m.Name}' may only contain polymorphic GET collection and lookup operations, but contained a DELETE operation"
         | :? CustomOperation<'ctx> ->
-            failwithf "Polymorphic resource module '%s' may only contain polymorphic GET collection and lookup operations, but contained a custom link" m.Name
+            failwith $"Polymorphic resource module '%s{m.Name}' may only contain polymorphic GET collection and lookup operations, but contained a custom link"
         | _ -> ()
     )
 
@@ -434,7 +434,7 @@ let private ensurePolymorphicModuleHasOnlyPolymorphicOperations<'ctx> m =
 let private ensureTypeNameIsValid<'ctx> m =
   let resDef = resourceDefinition<'ctx> m
   if resDef.TypeName <> Constants.polymorphicTypeName && not (MemberName.isValid resDef.TypeName) then
-    failwithf "Resource module '%s' uses type name '%s', which is not a valid JSON:API member name" m.Name resDef.TypeName
+    failwith $"Resource module '%s{m.Name}' uses type name '%s{resDef.TypeName}', which is not a valid JSON:API member name"
 
 
 let private ensureNoDuplicateTypeNames<'ctx> ms =
@@ -443,7 +443,7 @@ let private ensureNoDuplicateTypeNames<'ctx> ms =
   |> Array.countBy id
   |> Array.iter (fun (name, count) ->
     if count > 1 && name <> Constants.polymorphicTypeName then
-      failwithf "Resource type name '%s' exists in %i resource modules; type names must be unique" name count
+      failwith $"Resource type name '%s{name}' exists in %i{count} resource modules; type names must be unique"
   )
 
 

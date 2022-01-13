@@ -98,8 +98,8 @@ let testSuccessStatusCode (resp: Response) =
   if not statusOk then
     let body =
       try resp |> Response.readBodyAsString |> run
-      with ex -> sprintf "[Failed to get response body with exception: %s: %s]" (ex.GetType().Name) ex.Message
-    failtestf "Expected success response code, but got %i. Message body:\n\n%s\n\nComplete response:\n\n%A" resp.statusCode body resp
+      with ex -> $"[Failed to get response body with exception: %s{ex.GetType().Name}: %s{ex.Message}]"
+    failtest $"Expected success response code, but got %i{resp.statusCode}. Message body:\n\n%s{body}\n\nComplete response:\n\n%A{resp}"
 
 
 /// Fails the test if the response is 2XX. If failed, prints the response and the
@@ -109,8 +109,8 @@ let testErrorStatusCode (resp: Response) =
   if statusOk then
     let body =
       try resp |> Response.readBodyAsString |> run
-      with ex -> sprintf "[Failed to get response body with exception: %s: %s]" (ex.GetType().Name) ex.Message
-    failtestf "Expected error response code, but got %i. Message body:\n\n%s\n\nComplete response:\n\n%A" resp.statusCode body resp
+      with ex -> $"[Failed to get response body with exception: %s{ex.GetType().Name}: %s{ex.Message}]"
+    failtest $"Expected error response code, but got %i{resp.statusCode}. Message body:\n\n%s{body}\n\nComplete response:\n\n%A{resp}"
 
 
 /// Fails the test if the response is the specified code. If failed, prints the response and the
@@ -119,5 +119,5 @@ let testStatusCode code (resp: Response) =
   if resp.statusCode <> code then
     let body =
       try resp |> Response.readBodyAsString |> run
-      with ex -> sprintf "[Failed to get response body with exception: %s: %s]" (ex.GetType().Name) ex.Message
-    failtestf "Expected response code %i, but got %i. Message body:\n\n%s\n\nComplete response:\n\n%A" code resp.statusCode body resp
+      with ex -> $"[Failed to get response body with exception: %s{ex.GetType().Name}: %s{ex.Message}]"
+    failtest $"Expected response code %i{code}, but got %i{resp.statusCode}. Message body:\n\n%s{body}\n\nComplete response:\n\n%A{resp}"

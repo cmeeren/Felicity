@@ -126,7 +126,7 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                       |> this.getParser
                       |> fun p -> p.ParseJob()
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
 
     }
@@ -207,7 +207,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         member _.Get(ctx, req, includedTypeAndId) =
           let idParsers =
             this.idParsers
-            |> Option.defaultWith (fun () -> failwithf "Attempted to parse resource ID for polymorphic relationship '%s', but no ID parsers have been specified." this.name)
+            |> Option.defaultWith (fun () -> failwith $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified.")
           match Request.getRelsAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> Job.result
           | Ok None -> None |> Ok |> Job.result
@@ -228,7 +228,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                           // this just means that the resource does not exist, which is a more helpful result.
                           |> JobResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + "/" + this.name + "/data")])
                           |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -299,7 +299,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                               |> JobResult.bind (fun domain ->
                                   set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
                               |> JobResult.map box<'entity>
-            | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOne>.FullName (rel.GetType().FullName)
+            | Some _, Some rel -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
       }
 
@@ -338,9 +338,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     member this.Name = this.name
     member this.ToDomain ctx str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
-      | [] -> failwithf "Relationship '%s' does not contain any ID parsers and may not be used to parse query IDs" this.name
+      | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
       | [_, parseId] -> parseId ctx str
-      | _::_::_ -> failwithf "Relationship '%s' contains ID parsers for several types and may therefore not be used to parse query IDs" this.name
+      | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
   interface Field<'ctx> with
@@ -1058,7 +1058,7 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                             |> fun p -> p.ParseJob()
                       )
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
 
     }
@@ -1143,7 +1143,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         member _.Get(ctx, req, includedTypeAndId) =
           let idParsers =
             this.idParsers
-            |> Option.defaultWith (fun () -> failwithf "Attempted to parse resource ID for polymorphic relationship '%s', but no ID parsers have been specified." this.name)
+            |> Option.defaultWith (fun () -> failwith $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified.")
           match Request.getRelsAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> Job.result
           | Ok None -> None |> Ok |> Job.result
@@ -1167,7 +1167,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                               |> JobResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data")])
                       )
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -1241,7 +1241,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                         |> JobResult.bind (fun domain ->
                             set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
                         |> JobResult.map box<'entity>
-            | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToOneNullable>.FullName (rel.GetType().FullName)
+            | Some _, Some rel -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
       }
 
@@ -1280,9 +1280,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.Name = this.name
     member this.ToDomain ctx str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
-      | [] -> failwithf "Relationship '%s' does not contain any ID parsers and may not be used to parse query IDs" this.name
+      | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
       | [_, parseId] -> parseId ctx str
-      | _::_::_ -> failwithf "Relationship '%s' contains ID parsers for several types and may therefore not be used to parse query IDs" this.name
+      | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
   interface Field<'ctx> with
@@ -2076,7 +2076,7 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                             |> fun p -> p.ParseJob()
                       )
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
 
     }
@@ -2179,7 +2179,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         member _.Get(ctx, req, includedTypeAndId) =
           let idParsers =
             this.idParsers
-            |> Option.defaultWith (fun () -> failwithf "Attempted to parse resource ID for polymorphic relationship '%s', but no ID parsers have been specified." this.name)
+            |> Option.defaultWith (fun () -> failwith $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified.")
           match Request.getRelsAndPointer includedTypeAndId req with
           | Error errs -> Error errs |> Job.result
           | Ok None -> None |> Ok |> Job.result
@@ -2204,7 +2204,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                               |> JobResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data/" + string i)])
                       )
                       |> JobResult.map Some
-              | true, x -> failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (x.GetType().FullName)
+              | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Job.result
     }
 
@@ -2283,7 +2283,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                             set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity)
                         )
                         |> JobResult.map box<'entity>
-            | Some _, Some rel -> return failwithf "Framework bug: Expected relationship '%s' to be deserialized to %s, but was %s" this.name typeof<ToMany>.FullName (rel.GetType().FullName)
+            | Some _, Some rel -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
       }
 
@@ -2322,9 +2322,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.Name = this.name
     member this.ToDomain ctx str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
-      | [] -> failwithf "Relationship '%s' does not contain any ID parsers and may not be used to parse query IDs" this.name
+      | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
       | [_, parseId] -> parseId ctx str
-      | _::_::_ -> failwithf "Relationship '%s' contains ID parsers for several types and may therefore not be used to parse query IDs" this.name
+      | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
   interface Field<'ctx> with

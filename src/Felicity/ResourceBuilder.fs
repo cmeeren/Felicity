@@ -23,7 +23,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
   let resourceModule: Type =
     resourceModuleMap
     |> Map.tryFind resourceDef.TypeName
-    |> Option.defaultWith (fun () -> failwithf "Framework bug: Attempted to build resource '%s', but no resource module was found" resourceDef.TypeName)
+    |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to build resource '%s{resourceDef.TypeName}', but no resource module was found")
 
   let selfUrlOpt =
     resourceDef.CollectionName
@@ -236,7 +236,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
         ResourceModule.customOps<'ctx> resourceModule
         |> Array.map (fun op ->
             job {
-              let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwithf "Framework bug: Attempted to use self URL of resource type '%s' which has no collection name. This error should be caught at startup." resourceDef.TypeName)
+              let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
               let! href, meta = op.HrefAndMeta ctx selfUrl entity
               return op.Name, href, meta
             }
@@ -383,7 +383,7 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list)
             allRels |> Map.add name (upcast { rOld with data = rOld.data |> Skippable.orElse rNew.data })
         | (true, (:? ToMany as rOld)), (:? ToMany as rNew) ->
             allRels |> Map.add name (upcast { rOld with data = rOld.data |> Skippable.orElse rNew.data })
-        | (true, rOld), rNew -> failwithf "Framework bug: Attempted to merge different relationship types %s and %s" (rOld.GetType().Name) (rNew.GetType().Name)
+        | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
       ))
     |> ignore
 

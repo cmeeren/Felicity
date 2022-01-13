@@ -65,7 +65,7 @@ type Db () =
     ABs.TryFind id
 
   member _.GetAOrFail id =
-    ABs.TryFind id |> Option.defaultWith (fun () -> failwithf "Could not find ID %s" id)
+    ABs.TryFind id |> Option.defaultWith (fun () -> failwith $"Could not find ID %s{id}")
 
 
 type MappedCtx = {

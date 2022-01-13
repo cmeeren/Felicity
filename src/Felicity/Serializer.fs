@@ -154,7 +154,7 @@ module private ToDocumentModel =
                       | :? DToManyRelationship as r ->
                           toManyRelationship (ptr + "/relationships/" + relName) r
                           |> Result.map (fun r -> r :> IRelationship)
-                      | _ -> failwithf "Framework bug: Relationship was serialized to unknown type %s" (dRel.GetType().FullName)
+                      | _ -> failwith $"Framework bug: Relationship was serialized to unknown type %s{dRel.GetType().FullName}"
                     rel |> Result.map (fun r -> relName, r)
                   with :? JsonException as ex ->
                     Error [attrInvalidJson relName (Exception.getInnerMsg ex) (ptr + "/relationships/" + relName)]

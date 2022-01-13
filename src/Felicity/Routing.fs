@@ -429,7 +429,7 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
               )
 
               route3 "/{id}/relationships/{relName}/{path}/{*restPath}" "id" "relName" "path" (fun _ linkOrRelName path ->
-                let path = sprintf "relationships/%s/%s" linkOrRelName path
+                let path = $"relationships/%s{linkOrRelName}/%s{path}"
                 verifyPartialPathCase expectedCollPath
                 >=> validateRequest
                 >=> handleErrors [invalidPath path collName]
@@ -448,7 +448,7 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
               )
 
               route3 "/{id}/{linkOrRelName}/{path}/{*restPath}" "id" "linkOrRelName" "path" (fun _ linkOrRelName path ->
-                let path = sprintf "%s/%s" linkOrRelName path
+                let path = $"%s{linkOrRelName}/%s{path}"
                 verifyPartialPathCase expectedCollPath
                 >=> validateRequest
                 >=> handleErrors [invalidPath path collName]
