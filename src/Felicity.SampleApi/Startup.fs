@@ -24,7 +24,7 @@ module ApplicationBuilderExtensions =
         StaticFileOptions(
           ContentTypeProvider =
             { new IContentTypeProvider with
-                member __.TryGetContentType(subpath, contentType) =
+                member _.TryGetContentType(subpath, contentType) =
                   let mimeType =
                     pathSuffixContentTypes
                     |> Seq.tryPick (fun (suffix, mimeType) ->
