@@ -378,10 +378,10 @@ module Exception =
 /// in the order they started waiting on the semaphore).
 type SemaphoreQueue() =
   let semaphore = new SemaphoreSlim 1
-  let queue = new ConcurrentQueue<TaskCompletionSource<bool>>()
+  let queue = ConcurrentQueue<TaskCompletionSource<bool>>()
 
   let waitAsync (timeout: TimeSpan) =
-    let tcs = new TaskCompletionSource<bool>()
+    let tcs = TaskCompletionSource<bool>()
     queue.Enqueue(tcs)
     semaphore.WaitAsync(timeout).ContinueWith(fun (t: Task<bool>) ->
       match queue.TryDequeue() with
