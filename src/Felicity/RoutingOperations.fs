@@ -113,7 +113,7 @@ module internal RoutingOperations =
                 member _.Set ctx req e _ =
                   match req.Document.Value with
                   | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey "constraints" ->
-                      Error [setAttrReadOnly "constraints" ("/data/attributes/constraints")] |> Job.result
+                      Error [setAttrReadOnly "constraints" "/data/attributes/constraints"] |> Job.result
                   | _ -> Ok e |> Job.result
             }
 

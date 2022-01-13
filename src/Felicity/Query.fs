@@ -250,13 +250,13 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Erro
                 |> JobResult.map (fun s -> Some (s, isDescending))
     }
 
-  interface OptionalRequestGetter<'ctx, ('a * bool)> with
+  interface OptionalRequestGetter<'ctx, 'a * bool> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
 
-  interface RequestGetter<'ctx, ('a * bool)> with
+  interface RequestGetter<'ctx, 'a * bool> with
     member _.FieldName = None
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =

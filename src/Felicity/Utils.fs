@@ -190,7 +190,7 @@ module AsyncResult =
 
   let bindResult f = Job.map (Result.bind f)
 
-  let apply (fAsyncRes: Async<Result<('a->'b), 'c list>>) (xAsyncRes: Async<Result<'a, 'c list>>) : Async<Result<'b, 'c list>> =
+  let apply (fAsyncRes: Async<Result<'a->'b, 'c list>>) (xAsyncRes: Async<Result<'a, 'c list>>) : Async<Result<'b, 'c list>> =
     async {
       let! f = fAsyncRes
       let! x = xAsyncRes
@@ -265,7 +265,7 @@ module JobResult =
 
   let bindResult f = Job.map (Result.bind f)
 
-  let apply (fJobRes: Job<Result<('a->'b), 'c list>>) (xJobRes: Job<Result<'a, 'c list>>) : Job<Result<'b, 'c list>> =
+  let apply (fJobRes: Job<Result<'a->'b, 'c list>>) (xJobRes: Job<Result<'a, 'c list>>) : Job<Result<'b, 'c list>> =
     job {
       let! f = fJobRes
       let! x = xJobRes
@@ -351,7 +351,7 @@ module Set =
 
 
   let intersects (set1: Set<_>) (set2: Set<_>) =
-    set1 |> Seq.exists (set2.Contains)
+    set1 |> Seq.exists set2.Contains
 
 
 
@@ -400,7 +400,7 @@ type SemaphoreQueue() =
   /// Queues a lock on the SemaphoreQueue. The lock is released when the returned object
   /// is disposed. ALWAYS remember to dispose, otherwise the order can not be edited. Use
   /// the "use" keyword to ensure disposal. Returns Error if the lock times out.
-  member _.Lock (timeout) =
+  member _.Lock(timeout) =
     task {
       let! locked = waitAsync timeout
       if not locked then return None

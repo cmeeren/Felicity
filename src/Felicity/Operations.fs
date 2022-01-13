@@ -629,7 +629,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   return202Accepted: bool
 } with
 
-  static member internal Create (mapCtx) : PatchOperation<'originalCtx, 'ctx, 'entity> =
+  static member internal Create mapCtx : PatchOperation<'originalCtx, 'ctx, 'entity> =
     {
       mapCtx = mapCtx
       beforeUpdate = fun _ x -> Ok x |> Job.result
@@ -1101,7 +1101,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 type internal CustomOperation<'ctx> =
   abstract Name: LinkName
   abstract HasModifyingOperations: bool
-  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Job<(string option * Map<string, obj> option)>
+  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Job<string option * Map<string, obj> option>
   abstract Get: ('ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Post: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Patch: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
@@ -1713,7 +1713,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
   member _.CustomLink([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     CustomOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, name)
 
-  member _.Set2JobRes(set: 'ctx -> ('field1 * 'field2) -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member _.Set2JobRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     match field1.FieldName, field2.FieldName with
     | Some fn1, Some fn2 ->
         {
@@ -1740,19 +1740,19 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         }
     | _ -> failwith "Can only be called with fields, not query parameters or headers"
 
-  member this.Set2AsyncRes(set: 'ctx -> ('field1 * 'field2) -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member this.Set2AsyncRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     this.Set2JobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
 
-  member this.Set2Job(set: 'ctx -> ('field1 * 'field2) -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member this.Set2Job(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
 
-  member this.Set2Async(set: 'ctx -> ('field1 * 'field2) -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member this.Set2Async(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     this.Set2Job(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
 
-  member this.Set2Res(set: 'ctx -> ('field1 * 'field2) -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member this.Set2Res(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
 
-  member this.Set2(set: 'ctx -> ('field1 * 'field2) -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member this.Set2(set: 'ctx -> 'field1 * 'field2 -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     this.Set2JobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)
 
   member _.Set2SameNullJobRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =

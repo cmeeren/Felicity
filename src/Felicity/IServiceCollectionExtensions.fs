@@ -172,7 +172,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
       resourceModules
       |> Array.groupBy ResourceModule.collectionName<'ctx>
       |> Array.choose (function
-          | (None, _) -> None
+          | None, _ -> None
           | Some collName, ms -> Some (collName, ms)
       )
 

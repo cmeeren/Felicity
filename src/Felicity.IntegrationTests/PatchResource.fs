@@ -319,7 +319,7 @@ module A7 =
 
   let lookup =
     define.Operation
-      .Lookup((fun (Ctx7 db) id -> match db.TryGet id with Some (A a) -> Some a | _ -> None))
+      .Lookup (fun (Ctx7 db) id -> match db.TryGet id with Some (A a) -> Some a | _ -> None)
   
   let get = define.Operation.GetResource()
 

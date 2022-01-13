@@ -247,7 +247,7 @@ let tests =
 
       response |> testSuccessStatusCode
       let calledWith' = calledWith
-      test <@ calledWith' = Some ([NonEmptyString "val1"; NonEmptyString "val2"]) @>
+      test <@ calledWith' = Some [NonEmptyString "val1"; NonEmptyString "val2"] @>
     }
 
     testJob "Can parse a required 1-level resource path filter" {

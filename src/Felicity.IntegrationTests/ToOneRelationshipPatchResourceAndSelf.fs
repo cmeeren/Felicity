@@ -1236,7 +1236,7 @@ let tests2 =
       let db = Db ()
       let! response =
         Request.patch (Ctx.WithDb db) "/parents/p1/relationships/child"
-        |> Request.bodySerialized ({| data = null |})
+        |> Request.bodySerialized {| data = null |}
         |> getResponse
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString

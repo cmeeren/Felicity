@@ -234,7 +234,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
       this.id.toDomain ctx rawId
 
 
-  member this.CollectionName (collectionName) =
+  member this.CollectionName(collectionName) =
     { this with collectionName = Some collectionName }
 
   member this.PolymorphicFor (entity: 'entity) =

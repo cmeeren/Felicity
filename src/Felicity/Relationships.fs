@@ -458,7 +458,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                     parseId ctx id.id
                                     // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                     // this just means that the resource does not exist, which is a more helpful result.
-                                    |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
+                                    |> JobResult.mapError (fun _ -> [relatedResourceNotFound "/data"])
                                     |> JobResult.bind (fun domain ->
                                         set ctx setCtx "/data" domain (unbox<'entity> entity1)
                                     )
@@ -1406,7 +1406,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                         parseId ctx id.id
                                         // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                         // this just means that the resource does not exist, which is a more helpful result.
-                                        |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data")])
+                                        |> JobResult.mapError (fun _ -> [relatedResourceNotFound "/data"])
                                 )
                                 |> JobResult.bind (fun domain -> set ctx setCtx "/data" domain (unbox<'entity> entity1))
                               match entity2Res with
