@@ -66,7 +66,7 @@ module A9 =
   let patch =
     define.Operation
       .Patch()
-      .AfterUpdate(fun (Ctx (_, _, _)) _ -> ())
+      .AfterUpdate(fun (Ctx _) _ -> ())
 
 
 [<Tests>]
