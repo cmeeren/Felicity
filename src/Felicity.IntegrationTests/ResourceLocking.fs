@@ -106,7 +106,7 @@ module D =
   let resDef =
     define.Resource("d", resId)
       .CollectionName("ds")
-      .Lock(TimeSpan.FromMilliseconds 10.)
+      .Lock(TimeSpan.FromMilliseconds 10)
   let lookup = define.Operation.Lookup(Some)
 
   let get = define.Operation.GetResource()
@@ -129,7 +129,7 @@ let customGlobalLock =
   let semaphore = new SemaphoreSlim(1)
   fun () ->
     async {
-      let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5.) |> Async.AwaitTask
+      let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5) |> Async.AwaitTask
       if success then
         return Some { new IDisposable with member _.Dispose () = semaphore.Release () |> ignore }
       else return None
@@ -153,7 +153,7 @@ let customIdLockTimeout =
   let semaphore = new SemaphoreSlim(1)
   fun (_id: string) ->
     async {
-      let! success = semaphore.WaitAsync(TimeSpan.FromMilliseconds 10.) |> Async.AwaitTask
+      let! success = semaphore.WaitAsync(TimeSpan.FromMilliseconds 10) |> Async.AwaitTask
       if success then
         return Some { new IDisposable with member _.Dispose () = semaphore.Release () |> ignore }
       else return None
@@ -317,7 +317,7 @@ module H =
       .CustomLock(multiLock1)
       .CustomLock(multiLock2)
       .CustomLock(multiLock3)
-      .MultiLockTotalTimeout(TimeSpan.FromSeconds 1.)
+      .MultiLockTotalTimeout(TimeSpan.FromSeconds 1)
   let lookup = define.Operation.Lookup(ResourceId.value >> Some)
 
   let get = define.Operation.GetResource()

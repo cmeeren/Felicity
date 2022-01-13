@@ -94,7 +94,7 @@ module X =
   let nonNegativeFloat =
     define.Attribute
       .ParsedOpt(NonNegativeFloat.value, NonNegativeFloat.create)
-      .Get(fun _ -> NonNegativeFloat 1.)
+      .Get(fun _ -> NonNegativeFloat 1)
 
   let trueBool =
     define.Attribute
@@ -182,7 +182,7 @@ let tests =
 
       response |> testSuccessStatusCode
       let calledWith' = calledWith
-      test <@ calledWith' = Some (NonNegativeFloat 2.) @>
+      test <@ calledWith' = Some (NonNegativeFloat 2) @>
     }
 
     testJob "Can parse a required single bool filter" {
@@ -325,7 +325,7 @@ let tests =
 
       response |> testSuccessStatusCode
       let calledWith' = calledWith
-      test <@ calledWith' = Some (DateTimeOffset(2000, 1, 1, 15, 49, 52, TimeSpan.FromHours 4.)) @>
+      test <@ calledWith' = Some (DateTimeOffset(2000, 1, 1, 15, 49, 52, TimeSpan.FromHours 4)) @>
     }
 
     testJob "Returns 400 for a DateTimeOffset filter without offset for a field that requires offset" {
