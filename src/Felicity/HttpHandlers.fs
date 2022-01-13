@@ -21,13 +21,12 @@ module HttpHandlers =
     fun (next : HttpFunc) (ctx : HttpContext) ->
       task {
         let serializer = ctx.GetService<Serializer<'ctx>> ()
-        use sha1 = SHA1.Create()
         let bytes =
           serializer.Serialize x
           |> Encoding.UTF8.GetBytes
         let eTag =
           bytes
-          |> sha1.ComputeHash
+          |> SHA1.HashData
           |> Convert.ToBase64String
           |> fun s -> s.TrimEnd('=')
           |> EntityTagHeaderValue.FromString false
