@@ -25,9 +25,6 @@ open Hopac
 //   - Tag by collection? And use type names for non-collection resources?
 
 
-let ignoreUnitArray (us: unit []) = ()
-
-
 let (|TryFindIndexed|_|) predicate seq =
   seq |> Seq.indexed |> Seq.tryFind (fun (_, x) -> predicate x)
 
