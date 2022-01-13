@@ -49,8 +49,9 @@ let isIncludedNull = function
 /// Matches null values. Boxes the value before checking so even types that
 /// cannot normally be null can be checked. Note that this will return true
 /// if the value is None.
+[<return: Struct>]
 let (|BoxedNull|_|) x =
-  if isBoxedNull x then Some () else None
+  if isBoxedNull x then ValueSome () else ValueNone
 
 
 module Result =
