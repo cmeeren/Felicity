@@ -72,7 +72,7 @@ module HttpHandlers =
         |> List.collect (fun e -> e.headers)
 
       for (name, values) in headers |> List.groupBy fst do
-        ctx.Response.Headers.Add(name, StringValues.op_Implicit (values |> List.map snd |> List.toArray))
+        ctx.Response.Headers.Add(name, StringValues (values |> List.map snd |> List.toArray))
 
       let logger = ctx.GetLogger("Felicity.ErrorHandler")
 
