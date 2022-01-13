@@ -173,8 +173,8 @@ module rec ResourceModulesPreconditions =
           parent.Related(Parent.lookup),
           fun (_ctx: Ctx3, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
         )
-        .PeconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
-        .PeconditionsLastModified(fun (_, p) -> p.LastModified)
+        .PreconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
+        .PreconditionsLastModified(fun (_, p) -> p.LastModified)
         .AfterCreate(ignore)
 
 
@@ -214,9 +214,9 @@ module rec ResourceModulesPreconditionsOptional =
           parent.Related(Parent.lookup),
           fun (_ctx: Ctx4, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
         )
-        .PeconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
-        .PeconditionsLastModified(fun (_, p) -> p.LastModified)
-        .PeconditionsOptional
+        .PreconditionsETag(fun (_, p) -> EntityTagHeaderValue.FromString false p.ETag)
+        .PreconditionsLastModified(fun (_, p) -> p.LastModified)
+        .PreconditionsOptional
         .AfterCreate(ignore)
 
 
