@@ -270,7 +270,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             match this.set, rels.TryFind this.name with
             | _, None -> return Ok entity // not provided in request
             | None, Some _ ->
-                if numSetters.[this.name] > 1 then
+                if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
@@ -1209,7 +1209,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             match this.set, rels.TryFind this.name with
             | _, None -> return Ok entity // not provided in request
             | None, Some _ ->
-                if numSetters.[this.name] > 1 then
+                if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
@@ -2246,7 +2246,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             match this.setAll, rels.TryFind this.name with
             | _, None -> return Ok entity // not provided in request
             | None, Some _ ->
-                if numSetters.[this.name] > 1 then
+                if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else

@@ -343,7 +343,7 @@ module Array =
     let resArray = Array.zeroCreate xs.Length
     xs |> Array.iteri (fun i x ->
       match x with
-      | Ok x -> resArray.[i] <- x
+      | Ok x -> resArray[i] <- x
       | Error newErrs -> errs <- errs @ newErrs
     )
     if errs.IsEmpty then Ok resArray else Error errs

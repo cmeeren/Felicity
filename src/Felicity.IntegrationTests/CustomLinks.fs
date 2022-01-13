@@ -866,7 +866,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOp' on type 'c' does not support GET (other resource types in collection 'entities' may have an operation 'customOp' supporting GET)" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "PATCH, DELETE" @>
+      test <@ response.headers[Allow] = "PATCH, DELETE" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -878,7 +878,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOp' on type 'c' does not support POST (other resource types in collection 'entities' may have an operation 'customOp' supporting POST)" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "PATCH, DELETE" @>
+      test <@ response.headers[Allow] = "PATCH, DELETE" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -890,7 +890,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOp' on type 'b' does not support PATCH (other resource types in collection 'entities' may have an operation 'customOp' supporting PATCH)" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "GET, HEAD, POST" @>
+      test <@ response.headers[Allow] = "GET, HEAD, POST" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -902,7 +902,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOp' on type 'b' does not support DELETE (other resource types in collection 'entities' may have an operation 'customOp' supporting DELETE)" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "GET, HEAD, POST" @>
+      test <@ response.headers[Allow] = "GET, HEAD, POST" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -913,7 +913,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOpWithPatchAndDelete' does not support GET for any resource in collection 'entities'" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "PATCH, DELETE" @>
+      test <@ response.headers[Allow] = "PATCH, DELETE" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -924,7 +924,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOpWithPatchAndDelete' does not support POST for any resource in collection 'entities'" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "PATCH, DELETE" @>
+      test <@ response.headers[Allow] = "PATCH, DELETE" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -935,7 +935,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOpWithGetAndPost' does not support PATCH for any resource in collection 'entities'" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "GET, HEAD, POST" @>
+      test <@ response.headers[Allow] = "GET, HEAD, POST" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
@@ -946,7 +946,7 @@ let tests =
       test <@ json |> getPath "errors[0].status" = "405" @>
       test <@ json |> getPath "errors[0].detail" = "Operation 'customOpWithGetAndPost' does not support DELETE for any resource in collection 'entities'" @>
       test <@ json |> hasNoPath "errors[0].source" @>
-      test <@ response.headers.[Allow] = "GET, HEAD, POST" @>
+      test <@ response.headers[Allow] = "GET, HEAD, POST" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 

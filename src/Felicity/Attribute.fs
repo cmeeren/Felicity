@@ -67,7 +67,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
             match this.set, attrVals.TryFind this.name with
             | _, None -> return Ok entity  // not provided in request
             | None, Some _ ->
-                if numSetters.[this.name] > 1 then
+                if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
@@ -307,7 +307,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
             match this.set, attrVals.TryFind this.name with
             | _, None -> return Ok entity  // not provided in request
             | None, Some _ ->
-                if numSetters.[this.name] > 1 then
+                if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else

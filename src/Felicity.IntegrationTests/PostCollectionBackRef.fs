@@ -380,7 +380,7 @@ let tests =
                 |}
             |}
         |> getResponse
-      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      test <@ response.headers[ETag] <> "\"valid-etag\"" @>
       response |> testSuccessStatusCode
     }
 
@@ -447,7 +447,7 @@ let tests =
                 |}
             |}
         |> getResponse
-      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      test <@ response.headers[ETag] <> "\"valid-etag\"" @>
       response |> testSuccessStatusCode
 
       let! response =
@@ -480,7 +480,7 @@ let tests =
                 |}
             |}
         |> getResponse
-      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      test <@ response.headers[ETag] <> "\"valid-etag\"" @>
       response |> testSuccessStatusCode
     }
 

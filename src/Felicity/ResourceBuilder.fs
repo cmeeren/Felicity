@@ -388,7 +388,7 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list)
     |> ignore
 
   let addMainResource idx res =
-    mainResources.[idx] <- res
+    mainResources[idx] <- res
 
   let addIncludedResource res =
     includedResources.Add res

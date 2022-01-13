@@ -237,7 +237,7 @@ let tests1 =
       test <@ json |> getPath "data.id" = "c1" @>
       test <@ json |> getPath "data.attributes.a" = 2 @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Insensitive to trailing slashes" {
@@ -250,7 +250,7 @@ let tests1 =
       let db = Db ()
       let! response = Request.get (Ctx.WithDb db) "/parents/p1/child" |> getResponse
       response |> testStatusCode 200
-      let eTag = response.headers.[ETag]
+      let eTag = response.headers[ETag]
 
       let! response =
         Request.get (Ctx.WithDb db) "/parents/p1/child"
@@ -269,7 +269,7 @@ let tests1 =
       test <@ json |> getPath "data.id" = "c2" @>
       test <@ json |> getPath "data.attributes.b" = true @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Returns 403 if Skip" {
@@ -380,7 +380,7 @@ let tests2 =
       test <@ json |> hasNoPath "data.links" @>
       test <@ json |> hasNoPath "included" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Insensitive to trailing slashes" {
@@ -415,7 +415,7 @@ let tests2 =
       let db = Db ()
       let! response = Request.get (Ctx.WithDb db) "/parents/p1/relationships/child" |> getResponse
       response |> testStatusCode 200
-      let eTag = response.headers.[ETag]
+      let eTag = response.headers[ETag]
 
       let! response =
         Request.get (Ctx.WithDb db) "/parents/p1/relationships/child"
@@ -437,7 +437,7 @@ let tests2 =
       test <@ json |> hasNoPath "data.links" @>
       test <@ json |> hasNoPath "included" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Returns 403 if Skip" {

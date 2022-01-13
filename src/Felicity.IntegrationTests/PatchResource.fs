@@ -421,7 +421,7 @@ let tests =
       test <@ json |> getPath "data.attributes.nullableNotNullWhenSet" = "bar" @>
       test <@ json |> getPath "data.links.self" = "http://example.com/abs/a1" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let a = 
         match db.GetAOrFail "a1" with
@@ -542,7 +542,7 @@ let tests =
       let! json = response |> Response.readBodyAsString
       test <@ json = "" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let b =
         match db.GetAOrFail "b2" with
@@ -731,7 +731,7 @@ let tests =
         |> Request.bodySerialized {| data = {|``type`` = "a"; id = "a1" |} |}
         |> Request.setHeader (IfMatch "\"valid-etag\"")
         |> getResponse
-      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      test <@ response.headers[ETag] <> "\"valid-etag\"" @>
       response |> testStatusCode 200
     }
 

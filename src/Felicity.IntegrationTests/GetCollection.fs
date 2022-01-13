@@ -95,7 +95,7 @@ let tests =
     testJob "Correctly handles ETag and If-None-Match" {
       let! response = Request.get Ctx.Default "/as" |> getResponse
       response |> testStatusCode 200
-      let eTag = response.headers.[ETag]
+      let eTag = response.headers[ETag]
 
       let! response =
         Request.get Ctx.Default "/as"
@@ -123,7 +123,7 @@ let tests =
       }
       let! response = Request.get ctx "/as" |> getResponse
       response |> testSuccessStatusCode
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Returns errors returned by GetColl" {

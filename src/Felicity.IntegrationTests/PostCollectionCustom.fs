@@ -186,7 +186,7 @@ let tests =
       test <@ json |> getPath "data.attributes.a" = true @>
       test <@ json |> getPath "data.attributes.x" = "abc" @>
 
-      test <@ response.headers.[Location] = "http://example.com/abs/1" @>
+      test <@ response.headers[Location] = "http://example.com/abs/1" @>
     }
 
     testJob "Insensitive to trailing slashes" {

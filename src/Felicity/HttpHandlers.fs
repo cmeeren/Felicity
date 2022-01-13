@@ -43,8 +43,8 @@ module HttpHandlers =
 
         if returnNotModified then return ctx.NotModifiedResponse ()
         else
-          ctx.Response.Headers.[HeaderNames.ContentType] <- Constants.jsonApiMediaType |> StringValues
-          ctx.Response.Headers.[HeaderNames.ContentLength] <- bytes.Length |> string |> StringValues
+          ctx.Response.Headers[HeaderNames.ContentType] <- Constants.jsonApiMediaType |> StringValues
+          ctx.Response.Headers[HeaderNames.ContentLength] <- bytes.Length |> string |> StringValues
           if ctx.Request.Method <> HttpMethods.Head then
             do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
           return Some ctx

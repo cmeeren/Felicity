@@ -36,7 +36,7 @@ let tests =
         |> getResponse
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
-      test <@ json |> getPath "errors.[0].source.pointer" = "/data/attributes/a/foo/bar" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/a/foo/bar" @>
     }
 
   ]

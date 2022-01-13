@@ -143,7 +143,7 @@ let tests =
     testJob "Correctly handles ETag and If-None-Match" {
       let! response = Request.get Ctx.Default "/abs/a1" |> getResponse
       response |> testStatusCode 200
-      let eTag = response.headers.[ETag]
+      let eTag = response.headers[ETag]
 
       let! response =
         Request.get Ctx.Default "/abs/a1"
@@ -177,14 +177,14 @@ let tests =
       let ctx = { Ctx.Default with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
       let! response = Request.get ctx "/abs/a1" |> getResponse
       response |> testSuccessStatusCode
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Modifies response if successful for B" {
       let ctx = { Ctx.Default with GetById = (fun _ -> Ok (Some b)); ModifyBResponse = fun _ -> setHttpHeader "Foo" "Bar" }
       let! response = Request.get ctx "/abs/b2" |> getResponse
       response |> testSuccessStatusCode
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
     testJob "Returns 404 if not found" {

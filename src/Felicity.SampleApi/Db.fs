@@ -112,7 +112,7 @@ module Person =
     }
 
   let save (p: Person) =
-    async { persons.[p.Id] <- p }
+    async { persons[p.Id] <- p }
 
   let delete (p: Person) =
     async { persons.TryRemove p.Id |> ignore }
@@ -163,7 +163,7 @@ module Article =
     }
 
   let save (a: Article) =
-    async { articles.[a.Id] <- a }
+    async { articles[a.Id] <- a }
 
   let delete (a: Article) =
     async { articles.TryRemove a.Id |> ignore }
@@ -205,7 +205,7 @@ module Comment =
     }
 
   let save (c: Comment) = 
-    async { comments.[c.Id] <- c }
+    async { comments[c.Id] <- c }
 
   let delete (c: Comment) =
     async { comments.TryRemove c.Id |> ignore }

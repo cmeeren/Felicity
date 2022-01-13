@@ -116,11 +116,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
             let nonNullableAttrTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
               |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NonNullableAttribute<_, _, _, _, _>>)
-              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments().[4])
+              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments()[4])
             let nullableAttrTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
               |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NullableAttribute<_, _, _, _, _>>)
-              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments().[4]))
+              |> Array.map (fun pi -> (pi.GetValue(null) :?> Attribute<'ctx>).Name, typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments()[4]))
             let toOneRelTypesByName =
               m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
               |> Array.filter (fun pi -> pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneRelationship<_, _, _, _, _>>)

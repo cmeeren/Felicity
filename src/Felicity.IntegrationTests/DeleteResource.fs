@@ -208,7 +208,7 @@ let tests =
       let! json = response |> Response.readBodyAsString
       test <@ json = "" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       test <@ db.TryGet "a1" |> Option.isNone @>
     }
@@ -227,7 +227,7 @@ let tests =
       let! json = response |> Response.readBodyAsString
       test <@ json = "" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       test <@ db.TryGet "b2" |> Option.isNone @>
     }

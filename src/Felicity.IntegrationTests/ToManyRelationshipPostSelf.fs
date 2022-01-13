@@ -412,7 +412,7 @@ let tests =
       test <@ json |> hasNoPath "data[2].links" @>
       test <@ json |> hasNoPath "included" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let p = 
         match db.TryGetParent "p1" with
@@ -493,7 +493,7 @@ let tests =
       let! json = response |> Response.readBodyAsString
       test <@ json = "" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let p = 
         match db.TryGetParent "p1" with
@@ -565,7 +565,7 @@ let tests =
         |> Request.bodySerialized {| data = [||] |}
         |> Request.setHeader (IfMatch "\"valid-etag\"")
         |> getResponse
-      test <@ response.headers.[ETag] <> "\"valid-etag\"" @>
+      test <@ response.headers[ETag] <> "\"valid-etag\"" @>
       response |> testStatusCode 200
     }
 

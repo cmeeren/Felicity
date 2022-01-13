@@ -266,8 +266,8 @@ let tests =
       test <@ json |> getPath "data.attributes.nullable" = "foo" @>
       test <@ json |> getPath "data.attributes.nullableNotNullWhenSet" = "bar" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
-      test <@ response.headers.[Location] = "http://example.com/abs/1" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[Location] = "http://example.com/abs/1" @>
 
       let a = db.GetAOrFail "1"
       test <@ a.Id = "1" @>
@@ -317,7 +317,7 @@ let tests =
       let! json = response |> Response.readBodyAsString
       test <@ json = "" @>
 
-      test <@ response.headers.[NonStandard "Foo"] = "Bar" @>
+      test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let b = db.GetBOrFail "123"
       test <@ b.Id = "123" @>
