@@ -236,7 +236,6 @@ module internal Resource' =
 module internal Json =
 
   open System.Text.Json
-  open System.Text.Json.Serialization
 
 
   type JsonApiConverter () =
