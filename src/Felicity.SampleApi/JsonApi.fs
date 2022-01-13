@@ -204,7 +204,7 @@ module Article =
   // A POST operation creates an entity using the specified function. Below, the related
   // author's ID, title, and body are all required when creating a person. We pass in the
   // relevant attributes and relationships, and everything is parsed and passed to the
-  // create function. (If no requried parameters are needed, Post also has simpler
+  // create function. (If no required parameters are needed, Post also has simpler
   // overloads.)
   //
   // After calling the 'create' function, the POST operation automatically runs all

@@ -59,7 +59,7 @@ module internal LockSpecification =
 
   type MultiLockState () =
 
-    let disps = ResizeArray<IDisposable>()
+    let disposables = ResizeArray<IDisposable>()
 
     let locker = obj ()
 
@@ -68,12 +68,12 @@ module internal LockSpecification =
 
     member _.TimedOut = timedOut
 
-    member _.AddLock(disp: IDisposable) =
+    member _.AddLock(d: IDisposable) =
       lock locker (fun () ->
         if disposed then
-          disp.Dispose ()
+          d.Dispose ()
         else
-          disps.Add disp
+          disposables.Add d
       )
 
     member this.SetTimedOut() =
@@ -88,8 +88,8 @@ module internal LockSpecification =
         lock locker (fun () ->
           if not disposed then
             disposed <- true
-            for disp in disps do
-              try disp.Dispose ()
+            for d in disposables do
+              try d.Dispose ()
               with _ -> ()
         )
 

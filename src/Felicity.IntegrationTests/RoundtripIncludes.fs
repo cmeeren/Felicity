@@ -56,7 +56,7 @@ module A =
 
 [<Tests>]
 let tests =
-  testList "Rountrip includes" [
+  testList "Roundtrip includes" [
 
     testJob "Returns correct relationship data, and each resource is only included once" {
       let! response = Request.get Ctx "/as?include=parent.child.child,parent.child.children" |> getResponse

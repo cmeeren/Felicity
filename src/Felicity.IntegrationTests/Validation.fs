@@ -109,13 +109,13 @@ let tests =
 
     testJob "Returns 400 if a query parameter is invalid" {
       let! response =
-        Request.post Ctx "/as/1?invalidparam"
+        Request.post Ctx "/as/1?invalid"
         |> getResponse
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].source.parameter" = "invalidparam" @>
-      test <@ json |> getPath "errors[0].detail" = "'invalidparam' is not an allowed query parameter name according to the JSON:API specification" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "invalid" @>
+      test <@ json |> getPath "errors[0].detail" = "'invalid' is not an allowed query parameter name according to the JSON:API specification" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
 

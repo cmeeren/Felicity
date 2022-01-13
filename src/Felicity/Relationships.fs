@@ -477,7 +477,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                             match! getRelated ctx (unbox<'entity> entity3) with
                                             | Skip ->
                                                 let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                                logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                                logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
                                                 return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
                                             | Include relatedEntity ->
                                                 let b = resolveEntity relatedEntity
@@ -1424,7 +1424,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                         match! getRelated ctx (unbox<'entity> entity3) with
                                         | Skip ->
                                             let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                            logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                            logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
                                             return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
                                         | Include relatedEntity ->
                                             let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3
@@ -2396,7 +2396,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                       match! getRelated ctx (unbox<'entity> entity3) with
                                       | Skip ->
                                           let logger = httpCtx.GetLogger("Felicity.Relationships")
-                                          logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned becuase the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
+                                          logger.LogError("Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.", this.name)
                                           return! handleErrors [relModifySelfWhileSkip ()] next httpCtx
                                       | Include relatedEntities ->
                                           let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity3

@@ -1034,7 +1034,7 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Retuns error if relationship case does not match" {
+    testJob "Returns error if relationship case does not match" {
       let ctx = Ctx.WithDb (Db ())
       let! response = Request.delete ctx "/parents/p1/relationships/Children" |> getResponse
       response |> testStatusCode 404
