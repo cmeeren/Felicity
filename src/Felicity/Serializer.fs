@@ -265,8 +265,8 @@ type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configu
 
       configureOptions options
 
-    member _.Serialize x =
-      JsonSerializer.Serialize(x, options)
+    member _.SerializeToUtf8Bytes x =
+      JsonSerializer.SerializeToUtf8Bytes(x, options)
 
     member _.DeserializeResourceDocument (json: string) =
       if String.IsNullOrEmpty json then Ok None

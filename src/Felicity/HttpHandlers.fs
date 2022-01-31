@@ -21,9 +21,7 @@ module HttpHandlers =
     fun (_next : HttpFunc) (ctx : HttpContext) ->
       task {
         let serializer = ctx.GetService<Serializer<'ctx>> ()
-        let bytes =
-          serializer.Serialize x
-          |> Encoding.UTF8.GetBytes
+        let bytes = serializer.SerializeToUtf8Bytes x
         let eTag =
           bytes
           |> SHA1.HashData
