@@ -51,10 +51,10 @@ module Resource =
 [<MemoryDiagnoser>]
 type Benchmark () =
 
-  [<DefaultValue; Params(10, 100, 1000, 10000)>]
+  [<DefaultValue; Params(10, 10000)>]
   val mutable NRes : int
 
-  [<DefaultValue; Params(1, 5)>]
+  [<DefaultValue; Params(5)>]
   val mutable NInc : int
 
   let mutable context : Context = Unchecked.defaultof<Context>
