@@ -97,24 +97,23 @@ module Program =
   let main _argv =
 
     // Uncomment for manual run, e.g. profiling
+    let manualProfile = false
 
-    //let b = Benchmark()
-    //b.NRes <- 10000
-    //b.NInc <- 5
-    //b.Setup()
-    //while true do
-    //  Console.WriteLine("Press Enter to run")
-    //  Console.ReadLine() |> ignore
-    //  Console.WriteLine("Running...")
-    //  b.GetCollection().Result |> ignore
-    //  Console.WriteLine("Done")
-
-
-    // Uncomment for BenchmarkDotNet run
-
-    BenchmarkRunner.Run<Benchmark>(
-      DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(true))
-    )
-    |> ignore
+    if manualProfile then
+      let b = Benchmark()
+      b.NRes <- 10000
+      b.NInc <- 5
+      b.Setup()
+      while true do
+        Console.WriteLine("Press Enter to run")
+        Console.ReadLine() |> ignore
+        Console.WriteLine("Running...")
+        b.GetCollection().Result |> ignore
+        Console.WriteLine("Done")
+    else
+      BenchmarkRunner.Run<Benchmark>(
+        DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(true))
+      )
+      |> ignore
 
     0
