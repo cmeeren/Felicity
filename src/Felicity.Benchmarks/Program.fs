@@ -44,6 +44,8 @@ module Resource =
   let related = define.Relationship.ToMany(resDef).Get(fun ctx _ -> ctx.Related)
 
   let getColl = define.Operation.GetCollection(fun ctx -> ctx.Resources)
+  let lookup = define.Operation.Lookup(fun ctx resId -> ctx.Resources |> List.tryFind (fun r -> r.Id = resId))
+  let get = define.Operation.GetResource()
 
 
 [<MemoryDiagnoser>]
