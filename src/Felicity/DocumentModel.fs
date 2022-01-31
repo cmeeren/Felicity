@@ -168,7 +168,7 @@ type internal ResourceDocument =
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
     data: Resource option
-    included: Resource list Skippable
+    included: Resource [] Skippable
   }
 
 
@@ -179,8 +179,8 @@ type internal ResourceCollectionDocument =
     jsonapi: JsonApi Skippable
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
-    data: Resource list
-    included: Resource list Skippable
+    data: Resource []
+    included: Resource [] Skippable
   }
 
 
@@ -191,7 +191,7 @@ type internal ResourceIdentifierDocument =
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
     data: ResourceIdentifier option
-    included: Resource list Skippable
+    included: Resource [] Skippable
   }
 
 
@@ -201,8 +201,8 @@ type internal ResourceIdentifierCollectionDocument =
     jsonapi: JsonApi Skippable
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
-    data: ResourceIdentifier list
-    included: Resource list Skippable
+    data: ResourceIdentifier []
+    included: Resource [] Skippable
   }
 
 

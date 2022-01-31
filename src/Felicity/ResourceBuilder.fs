@@ -324,8 +324,7 @@ let rec internal buildRecursive
 /// Builds the specified main resources and returns the built resources along
 /// with any included resources. Included resources are deterministically
 /// sorted (but the actual sorting is an implementation detail).
-let internal build (mainBuilders: ResourceBuilder<'ctx> list)
-    : Job<Resource list * Resource list> =
+let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
 
   /// We only build each resource once, but different builders for the same
   /// resource may have different relationships included, so we add all
@@ -386,25 +385,26 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list)
       |> Job.conCollect
       |> Job.map ignore<ResizeArray<unit>>
 
-    return
+    let mains =
       mainResources
       |> Array.map (setRelationships getRelationships)
-      |> Array.toList,
 
+    let included =
       includedResources.ToArray()
       |> Array.map (setRelationships getRelationships)
-      // Included resource order should be deterministic in order to support
-      // hashing the response body for ETag
-      |> Array.sortBy (fun r -> r.``type``, r.id)
-      |> Array.toList
+
+    // Included resource order should be deterministic in order to support
+    // hashing the response body for ETag
+    included |> Array.sortInPlaceBy (fun r -> r.``type``, r.id)
+
+    return mains, included
   }
 
 /// Builds the specified main resource and returns the built resource along
 /// with any included resources. Included resources are deterministically
 /// sorted (but the actual sorting is an implementation detail).
-let internal buildOne (mainBuilder: ResourceBuilder<'ctx>)
-    : Job<Resource * Resource list> =
+let internal buildOne (mainBuilder: ResourceBuilder<'ctx>) =
   job {
     let! main, included = build [mainBuilder]
-    return main.Head, included
+    return main[0], included
   }

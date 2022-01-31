@@ -83,8 +83,7 @@ module private ToDocumentModel =
       }
     else
       d.data
-      |> Array.mapi (fun i d -> resourceIdentifier (ptr + "/data/" + string i) d)
-      |> Array.sequenceResultA
+      |> Array.traverseResultAIndexed (fun i d -> resourceIdentifier (ptr + "/data/" + string i) d)
       |> Result.map (fun data ->
           {
             links = Skip
@@ -112,7 +111,7 @@ module private ToDocumentModel =
         else
           d.attributes
           |> Seq.toArray
-          |> Array.map (fun kvp ->
+          |> Array.traverseResultA (fun kvp ->
               let attrName = kvp.Key
               let jsonEl = kvp.Value
               getFieldType d.``type`` attrName
@@ -127,7 +126,6 @@ module private ToDocumentModel =
                       Error [attrInvalidJson attrName (Exception.getInnerMsg ex) (ptr + "/attributes/" + attrName)]
               )
           )
-          |> Array.sequenceResultA
           |> Result.map (Array.choose id >> dict >> Include)
 
       let rels =
@@ -135,7 +133,7 @@ module private ToDocumentModel =
         else
           d.relationships
           |> Seq.toArray
-          |> Array.map (fun kvp ->
+          |> Array.traverseResultA (fun kvp ->
               let relName = kvp.Key
               let jsonEl = kvp.Value
               getFieldType d.``type`` relName
@@ -160,7 +158,6 @@ module private ToDocumentModel =
                     Error [attrInvalidJson relName (Exception.getInnerMsg ex) (ptr + "/relationships/" + relName)]
               )
           )
-          |> Array.sequenceResultA
           |> Result.map (Array.choose id >> dict >> Include)
 
       match attrs, rels with
@@ -188,8 +185,7 @@ module private ToDocumentModel =
       else
         d.included
         |> Array.indexed
-        |> Array.toList
-        |> List.traverseResultA (fun (i, r) ->
+        |> Array.traverseResultA (fun (i, r) ->
             resource getFieldType options ("/included/" + string i) r
         )
         |> Result.map Include
@@ -226,13 +222,13 @@ module private ToDocumentModel =
     let data =
       if LanguagePrimitives.PhysicalEquality d.data skippedResourceIdentifierArray then Error [requiredMemberMissing "data" ""]
       elif isNull d.data then Error [invalidNull "data" "/data"]
-      else d.data |> Array.mapi (fun i d -> resourceIdentifier ("/data/" + string i) d) |> Array.sequenceResultA
+      else d.data |> Array.traverseResultAIndexed (fun i d -> resourceIdentifier ("/data/" + string i) d)
     data |> Result.map (fun d ->
       {
         jsonapi = Skip
         links = Skip
         meta = Skip
-        data = Array.toList d
+        data = d
         included = Skip
       }
     )

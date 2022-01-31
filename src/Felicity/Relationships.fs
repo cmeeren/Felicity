@@ -2367,8 +2367,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                         | Ok entity1 ->
                             let! entity2Res =
                               ids
-                              |> List.indexed
-                              |> List.traverseJobResultA (fun (i, id) ->
+                              |> Array.traverseJobResultAIndexed (fun i id ->
                                   match idParsers.TryGetValue id.``type`` with
                                   | false, _ ->
                                       let allowedTypes = idParsers |> Map.toList |> List.map fst
@@ -2380,7 +2379,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                       // this just means that the resource does not exist, which is a more helpful result.
                                       |> JobResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
                               )
-                              |> JobResult.bind (fun domain -> f ctx setCtx "/data" domain (unbox<'entity> entity1))
+                              |> JobResult.bind (fun domain -> f ctx setCtx "/data" (Array.toList domain) (unbox<'entity> entity1))
                             match entity2Res with
                             | Error errs -> return! handleErrors errs next httpCtx
                             | Ok entity2 ->
@@ -2404,10 +2403,13 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                             jsonapi = Skip
                                             links = Skip
                                             meta = Skip
-                                            data = relatedEntities |> List.map (fun e ->
-                                              let b = resolveEntity e
-                                              { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                                            )
+                                            data =
+                                              relatedEntities
+                                              |> Seq.map (fun e ->
+                                                  let b = resolveEntity e
+                                                  { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                                              )
+                                              |> Seq.toArray
                                             included = included
                                           }
                                           let handler =
@@ -2478,10 +2480,13 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                     jsonapi = Skip
                     links = Skip
                     meta = Skip
-                    data = relatedEntities |> List.map (fun e ->
-                      let b = resolveEntity e
-                      { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                    )
+                    data =
+                      relatedEntities
+                      |> Seq.map (fun e ->
+                          let b = resolveEntity e
+                          { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                      )
+                      |> Seq.toArray
                     included = included
                   }
                   let handler =

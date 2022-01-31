@@ -87,7 +87,7 @@ module internal RoutingOperations =
                   |> ResourceBuilder.buildOne
                   |> Job.map (fun (res, inc) -> Some res, inc)
               )
-              |> Option.defaultValue (Job.result (None, []))
+              |> Option.defaultValue (Job.result (None, [||]))
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive

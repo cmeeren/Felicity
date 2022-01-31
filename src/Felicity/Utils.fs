@@ -336,15 +336,43 @@ module Array =
     xs |> Array.iter f
     xs
 
-  let sequenceResultA (xs: Result<'a, 'b list> []) : Result<'a [], 'b list> =
-    let mutable errs = []
-    let resArray = Array.zeroCreate xs.Length
+  let traverseResultA f (xs: _ []) =
+    let errors = ResizeArray()
+    let out = Array.zeroCreate xs.Length
+
     xs |> Array.iteri (fun i x ->
-      match x with
-      | Ok x -> resArray[i] <- x
-      | Error newErrs -> errs <- errs @ newErrs
+      match f x with
+      | Ok x -> out[i] <- x
+      | Error errs -> errors.AddRange errs
     )
-    if errs.IsEmpty then Ok resArray else Error errs
+    if errors.Count > 0 then errors |> Seq.toList |> Error else Ok out
+
+  let traverseResultAIndexed f (xs: _ []) =
+    let errors = ResizeArray()
+    let out = Array.zeroCreate xs.Length
+
+    xs |> Array.iteri (fun i x ->
+      match f i x with
+      | Ok x -> out[i] <- x
+      | Error errs -> errors.AddRange errs
+    )
+    if errors.Count > 0 then errors |> Seq.toList |> Error else Ok out
+
+  let traverseJobResultAIndexed f (xs: _ []) =
+    job {
+      let! results = xs |> Array.mapi f |> Job.conCollect
+
+      let errors = ResizeArray()
+      let out = Array.zeroCreate xs.Length
+
+      results |> Seq.iteri (fun i x ->
+        match x with
+        | Ok x -> out[i] <- x
+        | Error errs -> errors.AddRange errs
+      )
+
+      return if errors.Count > 0 then errors |> Seq.toList |> Error else Ok out
+    }
 
 
 module Set =
