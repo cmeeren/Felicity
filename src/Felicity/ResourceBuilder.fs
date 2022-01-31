@@ -102,8 +102,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 | None -> Skip
                 | Some u when r.SelfLink || r.RelatedLink ->
                     let links = Dictionary()
-                    if r.SelfLink then links.["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
-                    if r.RelatedLink then links.["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
+                    if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
+                    if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
                     Include links
                 | Some _ -> Skip
 
@@ -114,17 +114,17 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   match! get ctx entity with
                   | Skip ->
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToOne.links = links; data = Skip; meta = meta }
+                        relationships[r.Name] <- { ToOne.links = links; data = Skip; meta = meta }
                   | Include (rDef, e) ->
                       let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToOne.links = links; data = Include id; meta = meta }
+                        relationships[r.Name] <- { ToOne.links = links; data = Include id; meta = meta }
                       builders.Add(ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
                   if shouldUseField r.Name then
-                    relationships.[r.Name] <- { ToOne.links = links; data = data; meta = meta }
+                    relationships[r.Name] <- { ToOne.links = links; data = data; meta = meta }
             }
         )
         |> Job.conIgnore
@@ -139,8 +139,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 | None -> Skip
                 | Some u when r.SelfLink || r.RelatedLink ->
                     let links = Dictionary()
-                    if r.SelfLink then links.["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
-                    if r.RelatedLink then links.["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
+                    if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
+                    if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
                     Include links
                 | Some _ -> Skip
 
@@ -151,20 +151,20 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   match! get ctx entity with
                   | Skip ->
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToOneNullable.links = links; data = Skip; meta = meta }
+                        relationships[r.Name] <- { ToOneNullable.links = links; data = Skip; meta = meta }
                   | Include None ->
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToOneNullable.links = links; data = Include None; meta = meta }
+                        relationships[r.Name] <- { ToOneNullable.links = links; data = Include None; meta = meta }
                   | Include (Some (rDef, e)) ->
                       let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToOneNullable.links = links; data = Include (Some id); meta = meta }
+                        relationships[r.Name] <- { ToOneNullable.links = links; data = Include (Some id); meta = meta }
                       builders.Add(ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
                   if shouldUseField r.Name then
-                    relationships.[r.Name] <- { ToOneNullable.links = links; data = data; meta = meta }
+                    relationships[r.Name] <- { ToOneNullable.links = links; data = data; meta = meta }
             }
         )
         |> Job.conIgnore
@@ -179,8 +179,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 | None -> Skip
                 | Some u when r.SelfLink || r.RelatedLink ->
                     let links = Dictionary()
-                    if r.SelfLink then links.["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
-                    if r.RelatedLink then links.["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
+                    if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
+                    if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
                     Include links
                 | Some _ -> Skip
 
@@ -191,18 +191,18 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   match! get ctx entity with
                   | Skip ->
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToMany.links = links; data = Skip; meta = meta }
+                        relationships[r.Name] <- { ToMany.links = links; data = Skip; meta = meta }
                   | Include xs ->
                       let data = xs |> List.map (fun (rDef, e) -> { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e })
                       if shouldUseField r.Name then
-                        relationships.[r.Name] <- { ToMany.links = links; data = Include data; meta = meta }
+                        relationships[r.Name] <- { ToMany.links = links; data = Include data; meta = meta }
                       for rDef, e in xs do
                         builders.Add(ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
                   if shouldUseField r.Name then
-                    relationships.[r.Name] <- { ToMany.links = links; data = data; meta = meta }
+                    relationships[r.Name] <- { ToMany.links = links; data = data; meta = meta }
             }
           )
           |> Job.conIgnore
@@ -356,13 +356,13 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
           let name = kvp.Key
           let newRel = kvp.Value
           match existingRels.TryGetValue name, newRel with
-          | (false, _), _ -> existingRels.[name] <- newRel
+          | (false, _), _ -> existingRels[name] <- newRel
           | (true, (:? ToOne as rOld)), (:? ToOne as rNew) ->
-              existingRels.[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
+              existingRels[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
           | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) ->
-              existingRels.[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
+              existingRels[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
           | (true, (:? ToMany as rOld)), (:? ToMany as rNew) ->
-              existingRels.[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
+              existingRels[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
           | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
 
   let addMainResource idx res =
