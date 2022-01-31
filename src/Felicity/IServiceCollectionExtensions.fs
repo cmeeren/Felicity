@@ -1,6 +1,7 @@
 ﻿namespace Felicity
 
 open System
+open System.Collections.Generic
 open System.Reflection
 open System.Text.Json
 open Microsoft.AspNetCore.Http
@@ -17,7 +18,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
   baseUrl: string option
   relativeJsonApiRoot: string option
   getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
-  getMeta: 'ctx -> Map<string, obj>
+  getMeta: 'ctx -> IDictionary<string, obj>
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
 } with
 
@@ -74,8 +75,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
   member this.GetCtx(getCtx: HttpContext -> 'ctx) : JsonApiConfigBuilder<'ctx> =
     this.GetCtxJobRes(JobResult.lift getCtx)
 
-  member this.GetMeta(getMeta: 'ctx -> Map<string, obj>) : JsonApiConfigBuilder<'ctx> =
+  member this.GetMeta(getMeta: 'ctx -> IDictionary<string, obj>) : JsonApiConfigBuilder<'ctx> =
     { this with getMeta = getMeta }
+
+  member this.GetMeta(getMeta: 'ctx -> Map<string, obj>) : JsonApiConfigBuilder<'ctx> =
+    { this with getMeta = getMeta >> Map.toSeq >> dict }
 
   member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> =
     { this with configureSerializerOptions = Some configure }

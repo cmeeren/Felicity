@@ -1,6 +1,7 @@
 ﻿namespace Felicity
 
 open System
+open System.Collections.Generic
 open System.Text.Json.Serialization
 open Hopac
 open Errors
@@ -101,5 +102,5 @@ type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> 
 
 
 
-type internal MetaGetter<'ctx> (getMeta: 'ctx -> Map<string, obj>) =
+type internal MetaGetter<'ctx> (getMeta: 'ctx -> IDictionary<string, obj>) =
   member _.GetMeta ctx = getMeta ctx

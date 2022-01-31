@@ -64,15 +64,15 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { attributes = Include attrVals } }) ->
-            match this.set, attrVals.TryFind this.name with
-            | _, None -> return Ok entity  // not provided in request
-            | None, Some _ ->
+            match this.set, attrVals.TryGetValue this.name with
+            | _, (false, _) -> return Ok entity  // not provided in request
+            | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
                   return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
-            | Some set, Some attrValue ->
+            | Some set, (true, attrValue) ->
                 match! this.mapSetCtx ctx with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
@@ -304,15 +304,15 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { attributes = Include attrVals } }) ->
-            match this.set, attrVals.TryFind this.name with
-            | _, None -> return Ok entity  // not provided in request
-            | None, Some _ ->
+            match this.set, attrVals.TryGetValue this.name with
+            | _, (false, _) -> return Ok entity  // not provided in request
+            | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
                   return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
-            | Some set, Some attrValue ->
+            | Some set, (true, attrValue) ->
                 match! this.mapSetCtx ctx with
                 | Error errs -> return Error errs
                 | Ok setCtx ->

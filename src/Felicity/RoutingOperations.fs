@@ -57,7 +57,7 @@ module internal RoutingOperations =
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
-              meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (not << Map.isEmpty)
+              meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = Some main
               included = if req.Query.ContainsKey "include" then Include included else Skip
             }
@@ -72,7 +72,7 @@ module internal RoutingOperations =
             return {
               ResourceCollectionDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
-              meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (not << Map.isEmpty)
+              meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = main
               included = if req.Query.ContainsKey "include" then Include included else Skip
             }
@@ -91,7 +91,7 @@ module internal RoutingOperations =
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
-              meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (not << Map.isEmpty)
+              meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = main
               included = if req.Query.ContainsKey "include" then Include included else Skip
             }

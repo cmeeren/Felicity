@@ -1,6 +1,8 @@
 ﻿namespace Felicity
 
 open System
+open System.Collections.Concurrent
+open System.Collections.Generic
 open System.ComponentModel
 open System.Text.Json.Serialization
 
@@ -70,7 +72,7 @@ module InternalDeserializationModelDoNotUse =
 type internal JsonApi =
   {
     version: string Skippable
-    meta: Map<string, obj> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
 
 
@@ -78,7 +80,7 @@ type internal JsonApi =
 type internal Link =
   {
     href: string option
-    meta: Map<string, obj> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
 
 
@@ -120,9 +122,9 @@ type internal IRelationship = interface end
 [<CLIMutable>]
 type internal ToOne =
   {
-    links: Map<string, Link> Skippable
+    links: IDictionary<string, Link> Skippable
     data: ResourceIdentifier Skippable
-    meta: Map<string, obj> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
   interface IRelationship
 
@@ -130,9 +132,9 @@ type internal ToOne =
 [<CLIMutable>]
 type internal ToOneNullable =
   {
-    links: Map<string, Link> Skippable
+    links: IDictionary<string, Link> Skippable
     data: ResourceIdentifier option Skippable
-    meta: Map<string, obj> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
   interface IRelationship
 
@@ -140,9 +142,9 @@ type internal ToOneNullable =
 [<CLIMutable>]
 type internal ToMany =
   {
-    links: Map<string, Link> Skippable
+    links: IDictionary<string, Link> Skippable
     data: ResourceIdentifier list Skippable
-    meta: Map<string, obj> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
   interface IRelationship
 
@@ -152,10 +154,10 @@ type internal Resource =
   {
     ``type``: string
     id: string Skippable
-    attributes: Map<string, obj> Skippable
-    links: Map<string, Link> Skippable
-    relationships: Map<string, IRelationship> Skippable
-    meta: Map<string, obj> Skippable
+    attributes: IDictionary<string, obj> Skippable
+    links: IDictionary<string, Link> Skippable
+    relationships: IDictionary<string, IRelationship> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
 
 
@@ -163,8 +165,8 @@ type internal Resource =
 type internal ResourceDocument =
   {
     jsonapi: JsonApi Skippable
-    links: Map<string, Link> Skippable
-    meta: Map<string, obj> Skippable
+    links: IDictionary<string, Link> Skippable
+    meta: IDictionary<string, obj> Skippable
     data: Resource option
     included: Resource list Skippable
   }
@@ -175,8 +177,8 @@ type internal ResourceDocument =
 type internal ResourceCollectionDocument =
   {
     jsonapi: JsonApi Skippable
-    links: Map<string, Link> Skippable
-    meta: Map<string, obj> Skippable
+    links: IDictionary<string, Link> Skippable
+    meta: IDictionary<string, obj> Skippable
     data: Resource list
     included: Resource list Skippable
   }
@@ -186,8 +188,8 @@ type internal ResourceCollectionDocument =
 type internal ResourceIdentifierDocument =
   {
     jsonapi: JsonApi Skippable
-    links: Map<string, Link> Skippable
-    meta: Map<string, obj> Skippable
+    links: IDictionary<string, Link> Skippable
+    meta: IDictionary<string, obj> Skippable
     data: ResourceIdentifier option
     included: Resource list Skippable
   }
@@ -197,8 +199,8 @@ type internal ResourceIdentifierDocument =
 type internal ResourceIdentifierCollectionDocument =
   {
     jsonapi: JsonApi Skippable
-    links: Map<string, Link> Skippable
-    meta: Map<string, obj> Skippable
+    links: IDictionary<string, Link> Skippable
+    meta: IDictionary<string, obj> Skippable
     data: ResourceIdentifier list
     included: Resource list Skippable
   }
@@ -209,8 +211,8 @@ type internal ErrorDocument =
   {
     jsonapi: JsonApi Skippable
     errors: Error list
-    links: Map<string, Link> Skippable
-    meta: Map<string, obj> Skippable
+    links: IDictionary<string, Link> Skippable
+    meta: IDictionary<string, obj> Skippable
   }
 
 
@@ -489,7 +491,7 @@ module internal Json =
       )
 
       res.attributes
-      |> Skippable.filter (not << Map.isEmpty)
+      |> Skippable.filter (fun x -> x.Count > 0)
       |> Skippable.iter (fun attrs ->
         writer.WritePropertyName "attributes"
         writer.WriteStartObject ()
@@ -508,7 +510,7 @@ module internal Json =
       )
 
       res.relationships
-      |> Skippable.filter (not << Map.isEmpty)
+      |> Skippable.filter (fun x -> x.Count > 0)
       |> Skippable.iter (fun rels ->
         writer.WritePropertyName "relationships"
         writer.WriteStartObject ()
@@ -707,7 +709,7 @@ module internal Json =
 module internal Links =
 
 
-  let private toMeta (entries: Map<string, obj>) =
+  let private toMeta (entries: IDictionary<string, obj>) =
     entries
     |> Include
     |> Skippable.filter (not << Seq.isEmpty)

@@ -128,7 +128,7 @@ module private ToDocumentModel =
               )
           )
           |> Array.sequenceResultA
-          |> Result.map (Array.choose id >> Map.ofArray >> Include)
+          |> Result.map (Array.choose id >> dict >> Include)
 
       let rels =
         if LanguagePrimitives.PhysicalEquality d.relationships skippedJsonElementDict then Ok Skip
@@ -161,7 +161,7 @@ module private ToDocumentModel =
               )
           )
           |> Array.sequenceResultA
-          |> Result.map (Array.choose id >> Map.ofArray >> Include)
+          |> Result.map (Array.choose id >> dict >> Include)
 
       match attrs, rels with
       | Error errs1, Error errs2 -> Error (errs1 @ errs2)

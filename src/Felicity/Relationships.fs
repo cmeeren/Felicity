@@ -267,15 +267,15 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { relationships = Include rels } }) ->
-            match this.set, rels.TryFind this.name with
-            | _, None -> return Ok entity // not provided in request
-            | None, Some _ ->
+            match this.set, rels.TryGetValue this.name with
+            | _, (false, _) -> return Ok entity // not provided in request
+            | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
                   return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
-            | Some set, Some (:? ToOne as rel) ->
+            | Some set, (true, (:? ToOne as rel)) ->
                 match! this.mapSetCtx ctx with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
@@ -299,7 +299,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                               |> JobResult.bind (fun domain ->
                                   set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
                               |> JobResult.map box<'entity>
-            | Some _, Some rel -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
+            | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
       }
 
@@ -1206,15 +1206,15 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { relationships = Include rels } }) ->
-            match this.set, rels.TryFind this.name with
-            | _, None -> return Ok entity // not provided in request
-            | None, Some _ ->
+            match this.set, rels.TryGetValue this.name with
+            | _, (false, _) -> return Ok entity // not provided in request
+            | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
                 else
                   return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
-            | Some set, Some (:? ToOneNullable as rel) ->
+            | Some set, (true, (:? ToOneNullable as rel)) ->
               match! this.mapSetCtx ctx with
               | Error errs -> return Error errs
               | Ok setCtx ->
@@ -1241,7 +1241,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                         |> JobResult.bind (fun domain ->
                             set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
                         |> JobResult.map box<'entity>
-            | Some _, Some rel -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
+            | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
       }
 
@@ -2243,9 +2243,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         match req.Document.Value with
         | Error errs -> return Error errs
         | Ok (Some { data = Some { ``type`` = t; relationships = Include rels } }) ->
-            match this.setAll, rels.TryFind this.name with
-            | _, None -> return Ok entity // not provided in request
-            | None, Some _ ->
+            match this.setAll, rels.TryGetValue this.name with
+            | _, (false, _) -> return Ok entity // not provided in request
+            | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
                   return Ok entity
@@ -2254,7 +2254,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                     return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
                   else
                     return Error [setToManyRelReplacementNotSupported this.name t ("/data/relationships/" + this.name) this.add.IsSome this.remove.IsSome]
-            | Some set, Some (:? ToMany as rel) ->
+            | Some set, (true, (:? ToMany as rel)) ->
               match! this.mapSetCtx ctx with
               | Error errs -> return Error errs
               | Ok setCtx ->
@@ -2283,7 +2283,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                             set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity)
                         )
                         |> JobResult.map box<'entity>
-            | Some _, Some rel -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
+            | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
       }
 
