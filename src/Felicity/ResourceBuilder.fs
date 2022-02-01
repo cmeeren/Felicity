@@ -357,12 +357,9 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
           let newRel = kvp.Value
           match existingRels.TryGetValue name, newRel with
           | (false, _), _ -> existingRels[name] <- newRel
-          | (true, (:? ToOne as rOld)), (:? ToOne as rNew) ->
-              existingRels[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
-          | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) ->
-              existingRels[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
-          | (true, (:? ToMany as rOld)), (:? ToMany as rNew) ->
-              existingRels[name] <- { rOld with data = rOld.data |> Skippable.orElse rNew.data }
+          | (true, (:? ToOne as rOld)), (:? ToOne as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+          | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+          | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
           | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
 
   let addMainResource idx res =

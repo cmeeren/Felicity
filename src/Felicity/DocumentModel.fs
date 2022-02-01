@@ -123,7 +123,7 @@ type internal IRelationship = interface end
 type internal ToOne =
   {
     links: IDictionary<string, Link> Skippable
-    data: ResourceIdentifier Skippable
+    mutable data: ResourceIdentifier Skippable
     meta: IDictionary<string, obj> Skippable
   }
   interface IRelationship
@@ -133,7 +133,7 @@ type internal ToOne =
 type internal ToOneNullable =
   {
     links: IDictionary<string, Link> Skippable
-    data: ResourceIdentifier option Skippable
+    mutable data: ResourceIdentifier option Skippable
     meta: IDictionary<string, obj> Skippable
   }
   interface IRelationship
@@ -143,7 +143,7 @@ type internal ToOneNullable =
 type internal ToMany =
   {
     links: IDictionary<string, Link> Skippable
-    data: ResourceIdentifier list Skippable
+    mutable data: ResourceIdentifier list Skippable
     meta: IDictionary<string, obj> Skippable
   }
   interface IRelationship
