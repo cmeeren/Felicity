@@ -1,7 +1,6 @@
 ﻿namespace Felicity
 
 open System
-open System.Collections.Concurrent
 open System.Collections.Generic
 open System.ComponentModel
 open System.Text.Json.Serialization
@@ -11,7 +10,6 @@ open System.Text.Json.Serialization
 module InternalDeserializationModelDoNotUse =
 
   open System.Text.Json
-  open System.Collections.Generic
 
 
   // Assuming no-one will ever use this string
