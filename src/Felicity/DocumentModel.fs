@@ -108,7 +108,7 @@ type Error =
   }
 
 
-[<CLIMutable>]
+[<CLIMutable; Struct>]
 type internal ResourceIdentifier =
   {
     ``type``: string
