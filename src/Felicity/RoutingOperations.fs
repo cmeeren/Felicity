@@ -85,15 +85,15 @@ module internal RoutingOperations =
               |> Option.map (fun (rDef, e) ->
                   ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, rDef, e)
                   |> ResourceBuilder.buildOne
-                  |> Job.map (fun (res, inc) -> Some res, inc)
+                  |> Job.map (fun (res, inc) -> Some res, Include inc)
               )
-              |> Option.defaultValue (Job.result (None, [||]))
+              |> Option.defaultValue (Job.result (None, Skip))
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive
               meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = main
-              included = if req.Query.ContainsKey "include" then Include included else Skip
+              included = if req.Query.ContainsKey "include" then included else Skip
             }
           }
     }

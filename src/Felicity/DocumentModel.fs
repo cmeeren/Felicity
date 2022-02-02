@@ -156,7 +156,7 @@ type internal Resource =
     id: string Skippable
     attributes: IDictionary<string, obj> Skippable
     links: IDictionary<string, Link> Skippable
-    relationships: IDictionary<string, IRelationship> Skippable
+    mutable relationships: IDictionary<string, IRelationship> Skippable
     meta: IDictionary<string, obj> Skippable
   }
 
@@ -168,7 +168,7 @@ type internal ResourceDocument =
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
     data: Resource option
-    included: Resource [] Skippable
+    included: ResizeArray<Resource> Skippable
   }
 
 
@@ -180,7 +180,7 @@ type internal ResourceCollectionDocument =
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
     data: Resource []
-    included: Resource [] Skippable
+    included: ResizeArray<Resource> Skippable
   }
 
 
@@ -191,7 +191,7 @@ type internal ResourceIdentifierDocument =
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
     data: ResourceIdentifier option
-    included: Resource [] Skippable
+    included: ResizeArray<Resource> Skippable
   }
 
 
@@ -202,7 +202,7 @@ type internal ResourceIdentifierCollectionDocument =
     links: IDictionary<string, Link> Skippable
     meta: IDictionary<string, obj> Skippable
     data: ResourceIdentifier []
-    included: Resource [] Skippable
+    included: ResizeArray<Resource> Skippable
   }
 
 

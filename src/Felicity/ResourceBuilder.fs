@@ -1,7 +1,6 @@
 ﻿module internal Felicity.ResourceBuilder
 
 open System
-open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Text.Json.Serialization
 open Hopac
@@ -90,8 +89,14 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
     job {
 
-      let relationships = ConcurrentDictionary<RelationshipName, IRelationship>()
-      let builders = ConcurrentBag<ResourceBuilder<'ctx>>()
+      let relationships = Dictionary<RelationshipName, IRelationship>()
+      let builders = ResizeArray<ResourceBuilder<'ctx>>()
+
+      let addRelationship relName rel =
+        lock relationships (fun () -> relationships[relName] <- rel)
+
+      let addBuilder builder =
+        lock builders (fun () -> builders.Add(builder))
 
       let! toOneRelsPromise =
         toOneRels
@@ -114,17 +119,17 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   match! get ctx entity with
                   | Skip ->
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToOne.links = links; data = Skip; meta = meta }
+                        addRelationship r.Name { ToOne.links = links; data = Skip; meta = meta }
                   | Include (rDef, e) ->
                       let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToOne.links = links; data = Include id; meta = meta }
-                      builders.Add(ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
+                        addRelationship r.Name { ToOne.links = links; data = Include id; meta = meta }
+                      addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
                   if shouldUseField r.Name then
-                    relationships[r.Name] <- { ToOne.links = links; data = data; meta = meta }
+                    addRelationship r.Name { ToOne.links = links; data = data; meta = meta }
             }
         )
         |> Job.conIgnore
@@ -151,20 +156,20 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   match! get ctx entity with
                   | Skip ->
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToOneNullable.links = links; data = Skip; meta = meta }
+                        addRelationship r.Name { ToOneNullable.links = links; data = Skip; meta = meta }
                   | Include None ->
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToOneNullable.links = links; data = Include None; meta = meta }
+                        addRelationship r.Name { ToOneNullable.links = links; data = Include None; meta = meta }
                   | Include (Some (rDef, e)) ->
                       let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToOneNullable.links = links; data = Include (Some id); meta = meta }
-                      builders.Add(ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
+                        addRelationship r.Name { ToOneNullable.links = links; data = Include (Some id); meta = meta }
+                      addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
                   if shouldUseField r.Name then
-                    relationships[r.Name] <- { ToOneNullable.links = links; data = data; meta = meta }
+                    addRelationship r.Name { ToOneNullable.links = links; data = data; meta = meta }
             }
         )
         |> Job.conIgnore
@@ -191,18 +196,18 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   match! get ctx entity with
                   | Skip ->
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToMany.links = links; data = Skip; meta = meta }
+                        addRelationship r.Name { ToMany.links = links; data = Skip; meta = meta }
                   | Include xs ->
                       let data = xs |> List.map (fun (rDef, e) -> { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e })
                       if shouldUseField r.Name then
-                        relationships[r.Name] <- { ToMany.links = links; data = Include data; meta = meta }
+                        addRelationship r.Name { ToMany.links = links; data = Include data; meta = meta }
                       for rDef, e in xs do
-                        builders.Add(ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
+                        addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
                   if shouldUseField r.Name then
-                    relationships[r.Name] <- { ToMany.links = links; data = data; meta = meta }
+                    addRelationship r.Name { ToMany.links = links; data = data; meta = meta }
             }
           )
           |> Job.conIgnore
@@ -248,13 +253,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 /// Gets the resource's built relationship collections, merges them, and
 /// returns a copy of the resource containing its relationship collection.
 let setRelationships 
-    (getRelationships: ResourceIdentifier -> ConcurrentDictionary<RelationshipName, IRelationship>) (res: Resource)
-    : Resource =
+    (getRelationships: ResourceIdentifier -> Dictionary<RelationshipName, IRelationship> voption) (res: Resource) =
   match res.id with
   | Include id ->
-      let rels = getRelationships { ``type`` = res.``type``; id = id }
-      { res with relationships = if rels.IsEmpty then Skip else Include rels }
-  | _ -> res
+      match getRelationships { ``type`` = res.``type``; id = id } with
+      | ValueNone -> ()
+      | ValueSome rels -> res.relationships <- Include rels
+  | _ -> ()
 
 
 /// Builds a single resource, calls addRelationship with the identifier and
@@ -309,17 +314,24 @@ let rec internal buildRecursive
       // We are building a main resource
       let! mainResource, relatedBuilders = buildAndGetRelated addRelationships builder
       addMainResource mainResource
-      do! relatedBuilders |> Seq.map recurse |> Job.conCollect |> Job.map ignore<ResizeArray<unit>>
+      do! relatedBuilders |> Seq.map recurse |> Job.conIgnore
     elif wasInitiated then
       // We are building an included resource that has not been built yet
       let! includedResource, relatedBuilders = buildAndGetRelated addRelationships builder
       addIncludedResource includedResource
-      do! relatedBuilders |> Seq.map recurse |> Job.conCollect |> Job.map ignore<ResizeArray<unit>>
+      do! relatedBuilders |> Seq.map recurse |> Job.conIgnore
     else
       // We are building a resource that has already been built
       let! relatedBuilders = getRelated addRelationships builder
-      do! relatedBuilders |> Seq.map recurse |> Job.conCollect |> Job.map ignore<ResizeArray<unit>>
+      do! relatedBuilders |> Seq.map recurse |> Job.conIgnore
   }
+
+type internal IncludedResourceComparer() =
+  interface IComparer<Resource> with
+    member _.Compare(x, y) =
+      LanguagePrimitives.GenericComparer.Compare(x.id, y.id)
+
+let internal includedResourceComparer = IncludedResourceComparer()
 
 /// Builds the specified main resources and returns the built resources along
 /// with any included resources. Included resources are deterministically
@@ -334,44 +346,47 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
   /// A ResourceIdentifier being present in this dict indicates that it is
   /// already being built and should not be built again (except the
   /// relationships and included resources).
-  let relationships = ConcurrentDictionary<ResourceIdentifier, ConcurrentDictionary<RelationshipName, IRelationship>>()
+  let relationships = Dictionary<ResourceIdentifier, Dictionary<RelationshipName, IRelationship>>()
 
   /// A container for all the main resources
   let mainResources : Resource [] = Array.zeroCreate(mainBuilders.Length)
 
   /// A container for all the included resources
-  let includedResources = ConcurrentBag()
+  let includedResources = ResizeArray()
 
 
   // Helper functions
 
-  let initRelationships identifier = 
-    relationships.TryAdd (identifier, ConcurrentDictionary())
+  let initRelationships identifier =
+    lock relationships (fun () -> relationships.TryAdd(identifier, Dictionary()))
 
-  let addRelationships identifier (newRels: ConcurrentDictionary<RelationshipName, IRelationship>) =
-    match relationships.TryGetValue identifier with
-    | false, _ -> failwith "Framework bug: Resource identifier not found in relationships dict during update."
-    | true, existingRels ->
-        for kvp in newRels do
-          let name = kvp.Key
-          let newRel = kvp.Value
-          match existingRels.TryGetValue name, newRel with
-          | (false, _), _ -> existingRels[name] <- newRel
-          | (true, (:? ToOne as rOld)), (:? ToOne as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
-          | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
-          | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
-          | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
+
+  let addRelationships identifier (newRels: Dictionary<RelationshipName, IRelationship>) =
+    let found, existingRels = lock relationships (fun () -> relationships.TryGetValue identifier)
+    if isNull existingRels then failwith "foo"
+    if not found then failwith "Framework bug: Resource identifier not found in relationships dict during update."
+    for kvp in newRels do
+      let name = kvp.Key
+      let newRel = kvp.Value
+      lock existingRels (fun () ->
+        match existingRels.TryGetValue name, newRel with
+        | (false, _), _ -> existingRels[name] <- newRel
+        | (true, (:? ToOne as rOld)), (:? ToOne as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+        | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+        | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+        | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
+      )
 
   let addMainResource idx res =
     mainResources[idx] <- res
 
   let addIncludedResource res =
-    includedResources.Add res
+    lock includedResources (fun () -> includedResources.Add(res))
 
   let getRelationships identifier =
     match relationships.TryGetValue identifier with
-    | false, _ -> ConcurrentDictionary()
-    | true, rels -> rels
+    | false, _ -> ValueNone
+    | true, rels -> ValueSome rels
 
   // Do the actual work
 
@@ -379,22 +394,17 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
     do!
       mainBuilders
       |> List.mapi (fun i b -> b |> buildRecursive initRelationships addRelationships (addMainResource i) addIncludedResource true)
-      |> Job.conCollect
-      |> Job.map ignore<ResizeArray<unit>>
+      |> Job.conIgnore
 
-    let mains =
-      mainResources
-      |> Array.map (setRelationships getRelationships)
+    mainResources |> Array.iter (setRelationships getRelationships)
 
-    let included =
-      includedResources.ToArray()
-      |> Array.map (setRelationships getRelationships)
+    includedResources |> Seq.iter (setRelationships getRelationships)
 
     // Included resource order should be deterministic in order to support
     // hashing the response body for ETag
-    included |> Array.sortInPlaceBy (fun r -> r.``type``, r.id)
+    includedResources.Sort(includedResourceComparer)
 
-    return mains, included
+    return mainResources, includedResources
   }
 
 /// Builds the specified main resource and returns the built resource along
