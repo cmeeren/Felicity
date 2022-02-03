@@ -48,14 +48,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 job {
                   let! constraints =
                     constrainedFields
-                    |> Array.filter (fun f -> shouldUseField f.Name)
-                    |> Array.map (fun f ->
+                    |> Seq.filter (fun f -> shouldUseField f.Name)
+                    |> Seq.Con.mapJob (fun f ->
                         job {
                           let! constraints = f.BoxedGetConstraints ctx boxedEntity
                           return f.Name, constraints |> dict
                         }
                     )
-                    |> Job.conCollect
 
                   return
                     constraints
@@ -225,14 +224,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     job {
       let! opNamesHrefsAndMeta =
         ResourceModule.customOps<'ctx> resourceModule
-        |> Array.map (fun op ->
+        |> Seq.Con.mapJob (fun op ->
             job {
               let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
               let! href, meta = op.HrefAndMeta ctx selfUrl entity
               return op.Name, href, meta
             }
         )
-        |> Job.conCollect
 
       return
         (Map.empty, opNamesHrefsAndMeta)

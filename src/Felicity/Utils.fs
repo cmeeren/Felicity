@@ -8,6 +8,7 @@ open System.Threading.Tasks
 open System.Text.Json.Serialization
 open FSharp.Control.Tasks
 open Hopac
+open Hopac.Extensions
 
 
 // TODO: Further optimization of reflection etc.?
@@ -315,7 +316,7 @@ module List =
 
   let traverseJobResultA f list =
     job {
-      let! results = list |> List.map f |> Job.conCollect
+      let! results = list |> Seq.Con.mapJob f
       return
         (Seq.toArray results, Ok [])
         ||> Array.foldBack (fun t state ->
@@ -360,8 +361,7 @@ module Array =
 
   let traverseJobResultAIndexed f (xs: _ []) =
     job {
-      let! results = xs |> Array.mapi f |> Job.conCollect
-
+      let! results = xs |> Seq.indexed |> Seq.Con.mapJob (fun (i, x) -> f i x)
       let errors = ResizeArray()
       let out = Array.zeroCreate xs.Length
 

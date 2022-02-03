@@ -7,6 +7,7 @@ open System.Text.Json.Serialization
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 open Hopac
+open Hopac.Extensions
 open Giraffe
 open Errors
 
@@ -2153,10 +2154,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     }
 
   member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) (entitySetter: 'setCtx -> 'lookupType list -> 'entity -> Job<Result<'entity, Error list>>) =
-    fun ctx setCtx (dataPointer: Pointer) relatedIds entity ->
+    fun ctx setCtx (dataPointer: Pointer) (relatedIds: 'relatedId list) entity ->
       relatedIds
-      |> List.map (getRelated.GetById ctx)
-      |> Job.conCollect
+      |> Seq.Con.mapJob (getRelated.GetById ctx)
       |> Job.map (
           Seq.indexed
           >> Seq.toList
