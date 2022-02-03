@@ -15,9 +15,9 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
   let identifier = { ``type`` = resourceDef.TypeName; id = resourceDef.GetIdBoxed entity }
 
   let shouldUseField fieldName =
-    match req.Fieldsets.TryFind resourceDef.TypeName with
-    | None -> true
-    | Some fields -> fields.Contains fieldName
+    match req.Fieldsets.TryGetValue resourceDef.TypeName with
+    | false, _ -> true
+    | true, fields -> fields.Contains fieldName
 
   let shouldIncludeRelationship relName =
     req.Includes |> List.exists (fun path ->
@@ -26,9 +26,9 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     )
 
   let resourceModule: Type =
-    resourceModuleMap
-    |> Map.tryFind resourceDef.TypeName
-    |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to build resource '%s{resourceDef.TypeName}', but no resource module was found")
+    match resourceModuleMap.TryGetValue resourceDef.TypeName with
+    | true, t -> t
+    | false, _ -> failwith $"Framework bug: Attempted to build resource '%s{resourceDef.TypeName}', but no resource module was found"
 
   let selfUrlOpt =
     resourceDef.CollectionName
