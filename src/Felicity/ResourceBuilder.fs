@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Text.Json.Serialization
 open Hopac
+open Hopac.Extensions
 
 
 type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
@@ -100,7 +101,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
       let! toOneRelsPromise =
         toOneRels
-        |> Array.map (fun r ->
+        |> Seq.Con.iterJob (fun r ->
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
@@ -132,12 +133,11 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     addRelationship r.Name { ToOne.links = links; data = data; meta = meta }
             }
         )
-        |> Job.conIgnore
         |> Promise.start
 
       let! toOneNullableRelsPromise =
         toOneNullableRels
-        |> Array.map (fun r ->
+        |> Seq.Con.iterJob (fun r ->
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
@@ -172,12 +172,11 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     addRelationship r.Name { ToOneNullable.links = links; data = data; meta = meta }
             }
         )
-        |> Job.conIgnore
         |> Promise.start
 
       let! toManyRelsPromise =
         toManyRels
-        |> Array.map (fun r ->
+        |> Seq.Con.iterJob (fun r ->
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
@@ -210,7 +209,6 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     addRelationship r.Name { ToMany.links = links; data = data; meta = meta }
             }
           )
-          |> Job.conIgnore
           |> Promise.start
 
       do! toOneRelsPromise
@@ -252,7 +250,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
 /// Gets the resource's built relationship collections, merges them, and
 /// returns a copy of the resource containing its relationship collection.
-let setRelationships 
+let setRelationships
     (getRelationships: ResourceIdentifier -> Dictionary<RelationshipName, IRelationship> voption) (res: Resource) =
   match res.id with
   | Include id ->
@@ -265,7 +263,7 @@ let setRelationships
 /// Builds a single resource, calls addRelationship with the identifier and
 /// relationship collection, and returns the resource along with builders for
 /// the included resources.
-let internal buildAndGetRelated addRelationships (builder: ResourceBuilder<'ctx>) =
+let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
   job {
     let! attrsPromise = builder.Attributes () |> Promise.start
     let! relsAndIncludedPromise = builder.Relationships () |> Promise.start
@@ -277,131 +275,88 @@ let internal buildAndGetRelated addRelationships (builder: ResourceBuilder<'ctx>
     let! links = linksPromise
     let! meta = metaPromise
 
-    addRelationships builder.Identifier rels
-
     let resource = {
       ``type`` = builder.Identifier.``type``
       id = Include builder.Identifier.id
       attributes = if attrs.IsEmpty then Skip else Include attrs
       links = if links.IsEmpty then Skip else Include links
-      relationships = Skip  // We add all relationships at the end of the process
+      relationships = if rels.Count = 0 then Skip else Include rels
       meta = if meta.IsEmpty then Skip else Include meta
     }
 
     return resource, included
   }
 
-/// Calls addRelationship with the identifier and relationship collection, and
-/// returns the builders for the included resources.
-let internal getRelated addRelationship (builder: ResourceBuilder<'ctx>) =
-  job {
-    let! rels, included = builder.Relationships ()
-    addRelationship builder.Identifier rels
-    return included
-  }
 
-/// Builds a single resource and all included resources. If isMain is true,
-/// calls addMainResource with the built resource, otherwise calls
-/// addIncludedResource with the built resource (unless it's already built).
-let rec internal buildRecursive 
-    initRelationships addRelationships addMainResource addIncludedResource
-    isMain (builder: ResourceBuilder<'ctx>)
-    : Job<unit> =
+let rec internal buildRecursive shouldBuildEntireResource addResource addRelationships mainResourceId (builder: ResourceBuilder<_>) =
   job {
-    let recurse = buildRecursive initRelationships addRelationships addMainResource addIncludedResource false
-    let wasInitiated = initRelationships builder.Identifier
-    if isMain then
+    let recurse = buildRecursive shouldBuildEntireResource addResource addRelationships ValueNone
+    if shouldBuildEntireResource builder.Identifier then
       // We are building a main resource
-      let! mainResource, relatedBuilders = buildAndGetRelated addRelationships builder
-      addMainResource mainResource
-      do! relatedBuilders |> Seq.map recurse |> Job.conIgnore
-    elif wasInitiated then
-      // We are building an included resource that has not been built yet
-      let! includedResource, relatedBuilders = buildAndGetRelated addRelationships builder
-      addIncludedResource includedResource
-      do! relatedBuilders |> Seq.map recurse |> Job.conIgnore
+      let! resource, relatedBuilders = buildAndGetRelatedBuilders builder
+      addResource mainResourceId builder.Identifier resource
+      do! relatedBuilders |> Seq.Con.iterJob recurse
     else
-      // We are building a resource that has already been built
-      let! relatedBuilders = getRelated addRelationships builder
-      do! relatedBuilders |> Seq.map recurse |> Job.conIgnore
+      // We are building the relationships for a resource that has already been built
+      let! rels, relatedBuilders = builder.Relationships ()
+      addRelationships builder.Identifier rels
+      do! relatedBuilders |> Seq.Con.iterJob recurse
   }
 
-type internal IncludedResourceComparer() =
-  interface IComparer<Resource> with
-    member _.Compare(x, y) =
-      LanguagePrimitives.GenericComparer.Compare(x.id, y.id)
+let internal includedResourceComparer =
+  {
+    new IComparer<Resource> with
+      member _.Compare(x, y) =
+        LanguagePrimitives.GenericComparer.Compare(struct (x.``type``, x.id), struct (y.``type``, y.id))
+  }
 
-let internal includedResourceComparer = IncludedResourceComparer()
-
-/// Builds the specified main resources and returns the built resources along
-/// with any included resources. Included resources are deterministically
-/// sorted (but the actual sorting is an implementation detail).
 let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
+  job {
+    let allResources = Dictionary<ResourceIdentifier, Resource voption>()
+    let additionalRelationships = Dictionary<ResourceIdentifier, IDictionary<RelationshipName, IRelationship>>()
 
-  /// We only build each resource once, but different builders for the same
-  /// resource may have different relationships included, so we add all
-  /// relationships to this dictionary when building, and merge them and add
-  /// them to the resources later.
-  ///
-  /// A ResourceIdentifier being present in this dict indicates that it is
-  /// already being built and should not be built again (except the
-  /// relationships and included resources).
-  let relationships = Dictionary<ResourceIdentifier, Dictionary<RelationshipName, IRelationship>>()
+    let mainResources = Array.zeroCreate(mainBuilders.Length)
+    let includedResources = ResizeArray()
 
-  /// A container for all the main resources
-  let mainResources : Resource [] = Array.zeroCreate(mainBuilders.Length)
+    let shouldBuildEntireResource resId =
+      lock allResources (fun () -> allResources.TryAdd(resId, ValueNone))
 
-  /// A container for all the included resources
-  let includedResources = ResizeArray()
+    let addResource mainResourceId resId res =
+      lock allResources (fun () -> allResources.[resId] <- ValueSome res)
+      match mainResourceId with
+      | ValueSome i -> mainResources[i] <- res
+      | ValueNone -> lock includedResources (fun () -> includedResources.Add(res))
 
-
-  // Helper functions
-
-  let initRelationships identifier =
-    lock relationships (fun () -> relationships.TryAdd(identifier, Dictionary()))
-
-
-  let addRelationships identifier (newRels: Dictionary<RelationshipName, IRelationship>) =
-    let found, existingRels = lock relationships (fun () -> relationships.TryGetValue identifier)
-    if isNull existingRels then failwith "foo"
-    if not found then failwith "Framework bug: Resource identifier not found in relationships dict during update."
-    for kvp in newRels do
-      let name = kvp.Key
-      let newRel = kvp.Value
-      lock existingRels (fun () ->
-        match existingRels.TryGetValue name, newRel with
-        | (false, _), _ -> existingRels[name] <- newRel
+    let mergeRelationships (existingRels: IDictionary<RelationshipName, IRelationship>) (relsToAdd: IDictionary<RelationshipName, IRelationship>) =
+      for kvp in relsToAdd do
+        let relName = kvp.Key
+        let rel = kvp.Value
+        match existingRels.TryGetValue relName, rel with
         | (true, (:? ToOne as rOld)), (:? ToOne as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
         | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
         | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
         | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
-      )
+        | (false, _), _ -> failwith "Framework bug: Relationships should never be included and empty"
 
-  let addMainResource idx res =
-    mainResources[idx] <- res
+    let addRelationships resId (relsToAdd: IDictionary<RelationshipName, IRelationship>) =
+      if relsToAdd.Count > 0 then
+        lock additionalRelationships (fun () ->
+          match additionalRelationships.TryGetValue resId with
+          | false, _ -> additionalRelationships[resId] <- relsToAdd
+          | true, existingRels -> lock existingRels (fun () -> mergeRelationships existingRels relsToAdd)
+        )
 
-  let addIncludedResource res =
-    lock includedResources (fun () -> includedResources.Add(res))
-
-  let getRelationships identifier =
-    match relationships.TryGetValue identifier with
-    | false, _ -> ValueNone
-    | true, rels -> ValueSome rels
-
-  // Do the actual work
-
-  job {
     do!
       mainBuilders
-      |> List.mapi (fun i b -> b |> buildRecursive initRelationships addRelationships (addMainResource i) addIncludedResource true)
-      |> Job.conIgnore
+      |> Seq.indexed
+      |> Seq.Con.iterJob (fun (i, b) -> buildRecursive shouldBuildEntireResource addResource addRelationships (ValueSome i) b)
 
-    mainResources |> Array.iter (setRelationships getRelationships)
+    for kvp in additionalRelationships do
+      let res = allResources[kvp.Key].Value
+      match res.relationships with
+      | Skip -> res.relationships <- Include kvp.Value
+      | Include existingRels -> mergeRelationships existingRels kvp.Value
 
-    includedResources |> Seq.iter (setRelationships getRelationships)
-
-    // Included resource order should be deterministic in order to support
-    // hashing the response body for ETag
     includedResources.Sort(includedResourceComparer)
 
     return mainResources, includedResources
