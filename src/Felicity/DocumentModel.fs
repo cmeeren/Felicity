@@ -703,44 +703,6 @@ module internal Json =
 
 
 
-
-module internal Links =
-
-
-  let private toMeta (entries: IDictionary<string, obj>) =
-    entries
-    |> Include
-    |> Skippable.filter (not << Seq.isEmpty)
-
-
-  /// Adds the specified link and meta to the link collection. The meta property
-  /// is not included if there are no meta entries.
-  let addOptWithMeta name (uri: string option) metaEntries links =
-    links |> Map.add name { href = uri; meta = toMeta metaEntries }
-
-
-  /// Adds the specified link and meta to the link collection. The meta property
-  /// is not included if there are no meta entries.
-  let addWithMeta name uri metaEntries links =
-    addOptWithMeta name (Some uri) metaEntries links
-
-
-  /// Adds the specified link to the link collection.
-  let addOpt name uri links =
-    addOptWithMeta name uri Map.empty links
-
-
-  /// Adds the specified link to the link collection if the condition is true.
-  let add name uri links =
-    addOptWithMeta name (Some uri) Map.empty links
-
-
-  /// Adds the specified link to the link collection if the condition is true.
-  let addIf cond name uri links =
-    if cond then addOptWithMeta name (Some uri) Map.empty links else links
-
-
-
 module Error =
 
 
