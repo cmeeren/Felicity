@@ -96,6 +96,10 @@ module Program =
   [<EntryPoint>]
   let main _argv =
 
+    // Server GC makes performance results more indicative of actual usage, but seemingly messes up memory results.
+    // https://github.com/dotnet/BenchmarkDotNet/issues/1913
+    let useServerGc = false
+
     // Uncomment for manual run, e.g. profiling
     let manualProfile = false
 
@@ -112,7 +116,7 @@ module Program =
         Console.WriteLine("Done")
     else
       BenchmarkRunner.Run<Benchmark>(
-        DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(true))
+        DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(useServerGc))
       )
       |> ignore
 
