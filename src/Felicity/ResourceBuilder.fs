@@ -68,14 +68,14 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
   member _.Identifier = identifier
 
-  member _.Attributes () : Job<Map<AttributeName, obj>> =
+  member _.Attributes () : Job<IDictionary<AttributeName, obj>> =
     ResourceModule.attributes<'ctx> resourceModule
     |> Array.append (constraintsAttr |> Option.toArray)
     |> Array.filter (fun a -> shouldUseField a.Name)
     |> Array.choose (fun a -> a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Job.map (fun v -> a.Name, v)))
     |> Job.conCollect
     |> Job.map (Seq.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
-    |> Job.map Map.ofSeq
+    |> Job.map dict
 
   member _.Relationships () =
     let toOneRels =
@@ -279,7 +279,7 @@ let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
     let resource = {
       ``type`` = builder.Identifier.``type``
       id = Include builder.Identifier.id
-      attributes = if attrs.IsEmpty then Skip else Include attrs
+      attributes = if attrs.Count = 0 then Skip else Include attrs
       links = if links.IsEmpty then Skip else Include links
       relationships = if rels.Count = 0 then Skip else Include rels
       meta = if meta.Count = 0 then Skip else Include meta
