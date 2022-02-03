@@ -1,6 +1,7 @@
 ﻿module internal Felicity.ResourceBuilder
 
 open System
+open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Text.Json.Serialization
 open Hopac
@@ -312,17 +313,17 @@ let internal includedResourceComparer =
 
 let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
   job {
-    let allResources = Dictionary<ResourceIdentifier, Resource voption>()
-    let additionalRelationships = Dictionary<ResourceIdentifier, IDictionary<RelationshipName, IRelationship>>()
+    let allResources = ConcurrentDictionary<ResourceIdentifier, Resource voption>()
+    let additionalRelationships = ConcurrentDictionary<ResourceIdentifier, IDictionary<RelationshipName, IRelationship>>()
 
     let mainResources = Array.zeroCreate(mainBuilders.Length)
     let includedResources = ResizeArray()
 
     let shouldBuildEntireResource resId =
-      lock allResources (fun () -> allResources.TryAdd(resId, ValueNone))
+      allResources.TryAdd(resId, ValueNone)
 
     let addResource mainResourceId resId res =
-      lock allResources (fun () -> allResources.[resId] <- ValueSome res)
+      allResources.[resId] <- ValueSome res
       match mainResourceId with
       | ValueSome i -> mainResources[i] <- res
       | ValueNone -> lock includedResources (fun () -> includedResources.Add(res))
@@ -331,20 +332,19 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
       for kvp in relsToAdd do
         let relName = kvp.Key
         let rel = kvp.Value
-        match existingRels.TryGetValue relName, rel with
-        | (true, (:? ToOne as rOld)), (:? ToOne as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
-        | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
-        | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
-        | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
-        | (false, _), _ -> failwith "Framework bug: Relationships should never be included and empty"
+        lock existingRels (fun () ->
+          match existingRels.TryGetValue relName, rel with
+          | (true, (:? ToOne as rOld)), (:? ToOne as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+          | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+          | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
+          | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
+          | (false, _), _ -> failwith "Framework bug: Relationships should never be included and empty"
+        )
 
     let addRelationships resId (relsToAdd: IDictionary<RelationshipName, IRelationship>) =
       if relsToAdd.Count > 0 then
-        lock additionalRelationships (fun () ->
-          match additionalRelationships.TryGetValue resId with
-          | false, _ -> additionalRelationships[resId] <- relsToAdd
-          | true, existingRels -> lock existingRels (fun () -> mergeRelationships existingRels relsToAdd)
-        )
+        if not (additionalRelationships.TryAdd(resId, relsToAdd)) then
+          mergeRelationships additionalRelationships[resId] relsToAdd
 
     do!
       mainBuilders
