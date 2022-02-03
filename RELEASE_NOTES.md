@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.18.1 (2022-02-03)
+
+* Performance improvements in response building (time reduced by ~30% and memory reduced by ~35%)
+
 ### 0.18.0 (2021-11-29)
 
 * Now targets only .NET 6
