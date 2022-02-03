@@ -7,6 +7,8 @@ open System.Text.Json.Serialization
 open Hopac
 open Hopac.Extensions
 
+let private emptyMetaDictNeverModify = Dictionary()
+
 
 type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
 
@@ -245,8 +247,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
            | _ -> id
     }
 
-  member _.Meta () : Job<Map<string, obj>> =
-    Job.result Map.empty  // support later when valid use-cases arrive
+  member _.Meta () : Job<IDictionary<string, obj>> =
+    Job.result emptyMetaDictNeverModify  // support later when valid use-cases arrive
 
 
 /// Gets the resource's built relationship collections, merges them, and
@@ -282,7 +284,7 @@ let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
       attributes = if attrs.IsEmpty then Skip else Include attrs
       links = if links.IsEmpty then Skip else Include links
       relationships = if rels.Count = 0 then Skip else Include rels
-      meta = if meta.IsEmpty then Skip else Include meta
+      meta = if meta.Count = 0 then Skip else Include meta
     }
 
     return resource, included
