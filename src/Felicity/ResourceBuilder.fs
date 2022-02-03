@@ -220,10 +220,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       return relationships, builders
     }
 
-  member _.Links () =
+  member _.Links () : Job<Map<string, Link>> =
     job {
-      let links = Dictionary()
-
       let! opNamesHrefsAndMeta =
         ResourceModule.customOps<'ctx> resourceModule
         |> Seq.Con.mapJob (fun op ->
@@ -234,17 +232,17 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             }
         )
 
-      for name, href, meta in opNamesHrefsAndMeta do
-        match href, meta with
-        | None, None -> ()
-        | Some href, None -> links[name] <- { href = Some href; meta = match meta with Some m when not m.IsEmpty -> Include m | _ -> Skip }
-        | hrefOpt, Some meta -> links[name] <- { href = hrefOpt; meta = if meta.Count = 0 then Skip else Include meta }
-
-      match selfUrlOpt with
-      | Some selfUrl -> links["self"] <- { href = Some selfUrl; meta = Skip }
-      | None -> ()
-
-      return links
+      return
+        (Map.empty, opNamesHrefsAndMeta)
+        ||> Seq.fold (fun links (name, href, meta) ->
+              match href, meta with
+              | None, None -> links
+              | Some href, None -> links |> Links.addOpt name (Some href)
+              | hrefOpt, Some meta -> links |> Links.addOptWithMeta name hrefOpt meta
+        )
+        |> match selfUrlOpt with
+           | Some selfUrl -> Links.addOpt "self" (Some selfUrl)
+           | _ -> id
     }
 
   member _.Meta () : Job<IDictionary<string, obj>> =
@@ -282,7 +280,7 @@ let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
       ``type`` = builder.Identifier.``type``
       id = Include builder.Identifier.id
       attributes = if attrs.Count = 0 then Skip else Include attrs
-      links = if links.Count = 0 then Skip else Include links
+      links = if links.IsEmpty then Skip else Include links
       relationships = if rels.Count = 0 then Skip else Include rels
       meta = if meta.Count = 0 then Skip else Include meta
     }
