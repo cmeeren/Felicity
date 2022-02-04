@@ -3,7 +3,7 @@ Release notes
 
 ### 0.18.1 (2022-02-03)
 
-* Performance improvements in response building (time reduced by ~30% and memory reduced by ~35%)
+* Performance improvements in response building, particularly in collection responses and with many shared included resources (actual improvement varies greatly by response characteristics, but tests indicate a 15-30% time reduction and 20-45% reduced memory consumption)
 
 ### 0.18.0 (2021-11-29)
 
