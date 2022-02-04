@@ -76,7 +76,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     |> Job.map (Seq.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
     |> Job.map dict
 
-  member _.Relationships () =
+  member _.Relationships(onlyData) =
     let toOneRels =
       ResourceModule.toOneRels<'ctx> resourceModule
       |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
@@ -106,13 +106,12 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
-                | None -> Skip
-                | Some u when r.SelfLink || r.RelatedLink ->
+                | Some u when not onlyData && (r.SelfLink || r.RelatedLink) ->
                     let links = Dictionary()
                     if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
                     if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
                     Include links
-                | Some _ -> Skip
+                | _ -> Skip
 
               let meta = Skip  // support later when valid use-cases arrive
 
@@ -142,13 +141,12 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
-                | None -> Skip
-                | Some u when r.SelfLink || r.RelatedLink ->
+                | Some u when not onlyData && (r.SelfLink || r.RelatedLink) ->
                     let links = Dictionary()
                     if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
                     if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
                     Include links
-                | Some _ -> Skip
+                | _ -> Skip
 
               let meta = Skip  // support later when valid use-cases arrive
 
@@ -181,13 +179,12 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
-                | None -> Skip
-                | Some u when r.SelfLink || r.RelatedLink ->
+                | Some u when not onlyData && (r.SelfLink || r.RelatedLink) ->
                     let links = Dictionary()
                     if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
                     if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
                     Include links
-                | Some _ -> Skip
+                | _ -> Skip
 
               let meta = Skip  // support later when valid use-cases arrive
 
@@ -266,7 +263,7 @@ let setRelationships
 let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
   job {
     let! attrsPromise = builder.Attributes () |> Promise.start
-    let! relsAndIncludedPromise = builder.Relationships () |> Promise.start
+    let! relsAndIncludedPromise = builder.Relationships(false) |> Promise.start
     let! linksPromise = builder.Links () |> Promise.start
     let! metaPromise = builder.Meta () |> Promise.start
 
@@ -298,7 +295,7 @@ let rec internal buildRecursive shouldBuildEntireResource addResource addRelatio
       do! relatedBuilders |> Seq.Con.iterJob recurse
     else
       // We are building the relationships for a resource that has already been built
-      let! rels, relatedBuilders = builder.Relationships ()
+      let! rels, relatedBuilders = builder.Relationships(true)
       addRelationships builder.Identifier rels
       do! relatedBuilders |> Seq.Con.iterJob recurse
   }
