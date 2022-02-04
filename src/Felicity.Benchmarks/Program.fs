@@ -16,12 +16,12 @@ open BenchmarkDotNet.Configs
 
 type Resource = {
   Id: string
+  Related: Resource list
 }
 
 
 type Context = {
   Resources: Resource list
-  Related: Resource list
 }
 
 
@@ -41,7 +41,7 @@ module Resource =
 
   let r1 = define.Relationship.ToOneNullable(resDef).Get(fun _ _ -> None)
   let r2 = define.Relationship.ToOneNullable(resDef).Get(fun _ _ -> None)
-  let related = define.Relationship.ToMany(resDef).Get(fun ctx _ -> ctx.Related)
+  let related = define.Relationship.ToMany(resDef).Get(fun _ r -> r.Related)
 
   let getColl = define.Operation.GetCollection(fun ctx -> ctx.Resources)
   let lookup = define.Operation.Lookup(fun ctx resId -> ctx.Resources |> List.tryFind (fun r -> r.Id = resId))
@@ -51,11 +51,14 @@ module Resource =
 [<MemoryDiagnoser>]
 type Benchmark () =
 
-  [<DefaultValue; Params(10, 10000)>]
+  [<DefaultValue; Params(1000)>]
   val mutable NRes : int
 
   [<DefaultValue; Params(5)>]
   val mutable NInc : int
+
+  [<DefaultValue; Params(true)>]
+  val mutable ShareInc : bool
 
   let mutable context : Context = Unchecked.defaultof<Context>
 
@@ -79,26 +82,36 @@ type Benchmark () =
 
   [<GlobalSetup>]
   member this.Setup() =
+    let getRelated () =
+      List.init this.NInc (fun _ -> { Id = Guid.NewGuid().ToString(); Related = [] })
+
+    let commonRelated = getRelated ()
+
     context <- {
-      Resources = List.init this.NRes (fun _ -> { Id = Guid.NewGuid().ToString() })
-      Related = List.init this.NInc (fun _ -> { Id = Guid.NewGuid().ToString() })
+      Resources =
+        List.init this.NRes (fun _ ->
+          { Id = Guid.NewGuid().ToString()
+            Related = if this.ShareInc then commonRelated else getRelated () }
+        )
     }
 
   [<Benchmark>]
-  member _.GetCollection() =
+  member _.WithIncluded() =
     let msg = new HttpRequestMessage(HttpMethod.Get, "http://example.com/resources?include=related")
     msg.Headers.Accept.ParseAdd "application/vnd.api+json"
     client.SendAsync(msg)
+
+//  [<Benchmark>]
+//  member _.WithoutIncluded() =
+//    let msg = new HttpRequestMessage(HttpMethod.Get, "http://example.com/resources")
+//    msg.Headers.Accept.ParseAdd "application/vnd.api+json"
+//    client.SendAsync(msg)
 
 
 module Program =
 
   [<EntryPoint>]
   let main _argv =
-
-    // Server GC makes performance results more indicative of actual usage, but seemingly messes up memory results.
-    // https://github.com/dotnet/BenchmarkDotNet/issues/1913
-    let useServerGc = false
 
     // Uncomment for manual run, e.g. profiling
     let manualProfile = false
@@ -107,16 +120,17 @@ module Program =
       let b = Benchmark()
       b.NRes <- 10000
       b.NInc <- 5
+      b.ShareInc <- true
       b.Setup()
       while true do
         Console.WriteLine("Press Enter to run")
         Console.ReadLine() |> ignore
         Console.WriteLine("Running...")
-        b.GetCollection().Result |> ignore
+        b.WithIncluded().Result |> ignore
         Console.WriteLine("Done")
     else
       BenchmarkRunner.Run<Benchmark>(
-        DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(useServerGc))
+        DefaultConfig.Instance.AddJob(Job.Default.WithGcServer(true))
       )
       |> ignore
 
