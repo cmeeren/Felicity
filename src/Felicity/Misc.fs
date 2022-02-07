@@ -121,6 +121,9 @@ type internal LinkConfig<'ctx> (skipStandardLinksQueryParamNames: string [], ski
     |> Seq.collect (fun paramName ->
         match ctx.Request.Query.TryGetValue paramName with
         | false, _ -> []
-        | true, values when values.Count = 0 -> []
-        | true, values -> [queryDoesNotAcceptValue paramName values[0]]
+        | true, values ->
+            let nonEmptyValues = values |> Seq.filter (not << String.IsNullOrEmpty)
+            match Seq.tryHead nonEmptyValues with
+            | None -> []
+            | Some value -> [queryDoesNotAcceptValue paramName value]
     )
