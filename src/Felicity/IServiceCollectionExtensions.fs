@@ -20,6 +20,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
   getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
   getMeta: 'ctx -> IDictionary<string, obj>
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
+  skipStandardLinksQueryParamNames: string []
+  skipCustomLinksQueryParamNames: string []
 } with
 
   static member internal DefaultFor services : JsonApiConfigBuilder<'ctx> = {
@@ -29,6 +31,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
     getCtx = None
     getMeta = fun _ -> Map.empty
     configureSerializerOptions = None
+    skipStandardLinksQueryParamNames =  [||]
+    skipCustomLinksQueryParamNames = [||]
   }
 
   /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
@@ -83,6 +87,13 @@ type JsonApiConfigBuilder<'ctx> = internal {
 
   member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> =
     { this with configureSerializerOptions = Some configure }
+
+  member this.SkipStandardLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> =
+    { this with skipStandardLinksQueryParamNames = paramNames }
+
+  member this.SkipCustomLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> =
+    { this with skipCustomLinksQueryParamNames = paramNames }
+
 
   member this.Add() =
 
@@ -201,7 +212,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
       .AddSingleton<Serializer<ErrorSerializerCtx>>(Serializer<ErrorSerializerCtx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
       .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
-    
+      .AddSingleton<LinkConfig<'ctx>>(LinkConfig<'ctx>(this.skipStandardLinksQueryParamNames, this.skipCustomLinksQueryParamNames))
+
   
 
 

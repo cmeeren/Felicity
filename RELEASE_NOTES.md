@@ -3,6 +3,7 @@ Release notes
 
 ### 0.18.1 (2022-02-03)
 
+* Added the ability to configure query parameters that, if present, will cause links to be omitted from the response. Search the documentation for `SkipStandardLinksQueryParamName` or `SkipCustomLinksQueryParamName` for details.  
 * Performance improvements in response building, particularly in collection responses and with many shared included resources (actual improvement varies greatly by response characteristics, but tests indicate a 15-30% time reduction and 20-45% reduced memory consumption)
 
 ### 0.18.0 (2021-11-29)

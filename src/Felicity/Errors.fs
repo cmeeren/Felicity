@@ -331,6 +331,12 @@
     |> Error.setDetail $"Query parameter '%s{paramName}' only accepts a single value, but got %i{numValues} comma-separated values"
     |> Error.setSourceParam paramName
 
+  let queryDoesNotAcceptValue paramName value =
+    Error.create 400
+    |> Error.setTitle "Invalid query parameter value"
+    |> Error.setDetail $"Query parameter '%s{paramName}' must be specified without a value, but got '%s{value}'"
+    |> Error.setSourceParam paramName
+
   let headerInvalidParsedNone headerName invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid header value"

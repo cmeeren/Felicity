@@ -201,6 +201,31 @@ This implies that `'ctx` should be mutable. You set the appropriate field(s) on 
 
 Meta is only returned for success responses. If the map is empty, `meta` is omitted from the response.
 
+#### Omitting links from the response
+
+If there are API clients that do not make use of the links in the response, omitting links from the response may significantly reduce the response size. You can specify query parameters that allows API clients to control this: 
+
+```f#
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .SkipStandardLinksQueryParamName("skipStandardLinks", "skipLinks")
+      .SkipCustomLinksQueryParamName("skipCustomLinks", "skipLinks")
+      .Add()
+    .AddOtherServices(..)
+```
+
+With the configuration above:
+* If the request contains the query parameter `skipStandardLinks`, any standard JSON:API links will be omitted (e.g. the resource `self` link and the relationship `self` and `related` links).
+* If the request contains the query parameter `skipCustomLinks`, any links for custom operations (from `define.Operation.CustomLink`) will be omitted.
+* If the request contains the query parameter `skipLinks` (or both `skipStandardLinks` and `skipCustomLinks`), both standard and custom links will be omitted.
+
+Note that the query parameter does not accept a value; for example, `GET /articles?skipStandardLinks` is correct. If a value is supplied (`skipStandardLinks=true` or any other value), an error will be returned.
+
+The reason standard and custom links are separated, is because the presence/absence of custom links may be used by API clients to know whether an operation is available, even if they do not directly use the actual URL. (If you wish to skip links for conditional custom operations, you may need to signify the operation availability in other ways, e.g. with boolean attributes.)  
+
 #### Placing the JSON:API routes in a subroute
 
 If you want your JSON:API endpoints available within a sub-route, e.g. `myapi.com/foo/bar/articles`, you can use `RelativeJsonApiRoot` (leading/trailing slashes don’t matter):

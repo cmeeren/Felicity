@@ -13,6 +13,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="MultipleContexts.fs" />
     <Compile Include="Meta.fs" />
+    <Compile Include="SkipLinks.fs" />
     <Compile Include="Routing.fs" />
     <Compile Include="Validation.fs" />
     <Compile Include="ResourceLinks.fs" />

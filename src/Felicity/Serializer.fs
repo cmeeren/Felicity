@@ -210,7 +210,7 @@ module private ToDocumentModel =
     data |> Result.map (fun d ->
       {
         jsonapi = Skip
-        links = Skip
+        links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
         meta = Skip
         data = d
         included = Skip
@@ -226,7 +226,7 @@ module private ToDocumentModel =
     data |> Result.map (fun d ->
       {
         jsonapi = Skip
-        links = Skip
+        links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
         meta = Skip
         data = d
         included = Skip

@@ -2,6 +2,7 @@
 
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Routing
+open Microsoft.Extensions.DependencyInjection
 open Hopac
 open FSharp.Control.Tasks
 open Giraffe
@@ -96,6 +97,10 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
           match RequestValidation.getIllegalQueryStringParams httpCtx with
           | [] -> ()
           | names -> yield! names |> List.map illegalQueryParamName
+
+          let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+          yield! linkCfg.GetIllegalValueErrors(httpCtx)
+
         ]
       match errs with
       | [] -> next httpCtx

@@ -88,7 +88,7 @@ module HttpHandlers =
       let doc =  {
         jsonapi = Skip
         errors = errs
-        links = Skip
+        links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
         meta = Skip
       }
 

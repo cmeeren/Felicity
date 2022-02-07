@@ -3,6 +3,7 @@
 open System
 open System.Collections.Generic
 open System.Text.Json.Serialization
+open Microsoft.AspNetCore.Http
 open Hopac
 open Errors
 
@@ -104,3 +105,22 @@ type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> 
 
 type internal MetaGetter<'ctx> (getMeta: 'ctx -> IDictionary<string, obj>) =
   member _.GetMeta ctx = getMeta ctx
+
+
+
+type internal LinkConfig<'ctx> (skipStandardLinksQueryParamNames: string [], skipCustomLinksQueryParamNames: string []) =
+
+  member _.ShouldUseStandardLinks(ctx: HttpContext) =
+    skipStandardLinksQueryParamNames |> Array.exists ctx.Request.Query.ContainsKey |> not
+
+  member _.ShouldUseCustomLinks(ctx: HttpContext) =
+    skipCustomLinksQueryParamNames |> Array.exists ctx.Request.Query.ContainsKey |> not
+
+  member _.GetIllegalValueErrors(ctx: HttpContext) =
+    Seq.concat [skipStandardLinksQueryParamNames; skipCustomLinksQueryParamNames]
+    |> Seq.collect (fun paramName ->
+        match ctx.Request.Query.TryGetValue paramName with
+        | false, _ -> []
+        | true, values when values.Count = 0 -> []
+        | true, values -> [queryDoesNotAcceptValue paramName values[0]]
+    )

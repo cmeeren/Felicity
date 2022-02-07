@@ -6,10 +6,11 @@ open System.Text.Json.Serialization
 open Hopac
 open Hopac.Extensions
 
-let private emptyMetaDictNeverModify = Dictionary()
+let private emptyMetaDictNeverModify = Dictionary(0)
+let emptyLinkArrayNeverModify = ResizeArray(0)
 
 
-type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
+type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, linkCfg: LinkConfig<'ctx>, httpCtx, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
 
   let identifier = { ``type`` = resourceDef.TypeName; id = resourceDef.GetIdBoxed entity }
 
@@ -106,7 +107,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
-                | Some u when not onlyData && (r.SelfLink || r.RelatedLink) ->
+                | Some u when not onlyData && linkCfg.ShouldUseStandardLinks(httpCtx) && (r.SelfLink || r.RelatedLink) ->
                     let links = Dictionary()
                     if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
                     if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
@@ -125,7 +126,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                       let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                       if shouldUseField r.Name then
                         addRelationship r.Name { ToOne.links = links; data = Include id; meta = meta }
-                      addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
+                      addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
@@ -141,7 +142,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
-                | Some u when not onlyData && (r.SelfLink || r.RelatedLink) ->
+                | Some u when not onlyData && linkCfg.ShouldUseStandardLinks(httpCtx) && (r.SelfLink || r.RelatedLink) ->
                     let links = Dictionary()
                     if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
                     if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
@@ -163,7 +164,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                       let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                       if shouldUseField r.Name then
                         addRelationship r.Name { ToOneNullable.links = links; data = Include (Some id); meta = meta }
-                      addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
+                      addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
@@ -179,7 +180,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             job {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
-                | Some u when not onlyData && (r.SelfLink || r.RelatedLink) ->
+                | Some u when not onlyData && linkCfg.ShouldUseStandardLinks(httpCtx) && (r.SelfLink || r.RelatedLink) ->
                     let links = Dictionary()
                     if r.SelfLink then links["self"] <- { href = Some (u + "/relationships/" + r.Name); meta = Skip }
                     if r.RelatedLink then links["related"] <- { href = Some (u + "/" + r.Name); meta = Skip }
@@ -199,7 +200,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                       if shouldUseField r.Name then
                         addRelationship r.Name { ToMany.links = links; data = Include data; meta = meta }
                       for rDef, e in xs do
-                        addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], ctx, req, rDef, e))
+                        addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
               | true, None | false, Some _ | false, None ->
                   let! data = r.GetLinkageIfNotIncluded ctx entity
@@ -219,14 +220,16 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
   member _.Links () : Job<Map<string, Link>> =
     job {
       let! opNamesHrefsAndMeta =
-        ResourceModule.customOps<'ctx> resourceModule
-        |> Seq.Con.mapJob (fun op ->
-            job {
-              let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
-              let! href, meta = op.HrefAndMeta ctx selfUrl entity
-              return op.Name, href, meta
-            }
-        )
+        if linkCfg.ShouldUseCustomLinks(httpCtx) then
+          ResourceModule.customOps<'ctx> resourceModule
+          |> Seq.Con.mapJob (fun op ->
+              job {
+                let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
+                let! href, meta = op.HrefAndMeta ctx selfUrl entity
+                return op.Name, href, meta
+              }
+          )
+        else Job.result emptyLinkArrayNeverModify
 
       return
         (Map.empty, opNamesHrefsAndMeta)
@@ -237,7 +240,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               | hrefOpt, Some meta -> links |> Links.addOptWithMeta name hrefOpt meta
         )
         |> match selfUrlOpt with
-           | Some selfUrl -> Links.addOpt "self" (Some selfUrl)
+           | Some selfUrl when linkCfg.ShouldUseStandardLinks(httpCtx) -> Links.addOpt "self" (Some selfUrl)
            | _ -> id
     }
 

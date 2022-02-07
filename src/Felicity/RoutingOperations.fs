@@ -3,6 +3,7 @@
 open System
 open System.Reflection
 open System.Text.Json.Serialization
+open Microsoft.Extensions.DependencyInjection
 open Hopac
 open Giraffe
 open Errors
@@ -50,13 +51,14 @@ module internal RoutingOperations =
     { new ResponseBuilder<'ctx> with
         member _.Write httpCtx ctx req rDefEntity =
           job {
+            let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
             let resourceDef, e = rDefEntity
             let! main, included =
-              ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, resourceDef, e)
+              ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, resourceDef, e)
               |> ResourceBuilder.buildOne
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
-              links = Skip  // support later when valid use-cases arrive
+              links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
               meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = Some main
               included = if req.Query.ContainsKey "include" then Include included else Skip
@@ -65,13 +67,14 @@ module internal RoutingOperations =
 
         member _.WriteList httpCtx ctx req rDefsEntities =
           job {
+            let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
             let! main, included =
               rDefsEntities
-              |> List.map (fun (rDef, e) -> ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, rDef, e))
+              |> List.map (fun (rDef, e) -> ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, rDef, e))
               |> ResourceBuilder.build
             return {
               ResourceCollectionDocument.jsonapi = Skip  // support later when valid use-cases arrive
-              links = Skip  // support later when valid use-cases arrive
+              links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
               meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = main
               included = if req.Query.ContainsKey "include" then Include included else Skip
@@ -80,17 +83,18 @@ module internal RoutingOperations =
 
         member _.WriteOpt httpCtx ctx req rDefEntity =
           job {
+            let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
             let! main, included =
               rDefEntity
               |> Option.map (fun (rDef, e) ->
-                  ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], ctx, req, rDef, e)
+                  ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, rDef, e)
                   |> ResourceBuilder.buildOne
                   |> Job.map (fun (res, inc) -> Some res, Include inc)
               )
               |> Option.defaultValue (Job.result (None, Skip))
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
-              links = Skip  // support later when valid use-cases arrive
+              links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
               meta = httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx |> Include |> Skippable.filter (fun x -> x.Count > 0)
               data = main
               included = if req.Query.ContainsKey "include" then included else Skip
