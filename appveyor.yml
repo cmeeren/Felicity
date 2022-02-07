@@ -7,12 +7,11 @@ artifacts:
   - path: /src/**/*.nupkg
 
 build_script:
-  - cmd: dotnet restore src/Felicity --locked-mode
-  - cmd: dotnet restore
-  - cmd: dotnet build -c Release --no-restore
+  - cmd: dotnet restore src/Felicity.IntegrationTests --locked-mode
+  - cmd: dotnet build src/Felicity.IntegrationTests -c Release --no-restore
 
 test_script:
-  - cmd: dotnet test -c Release --no-build -- Expecto.fail-on-focused-tests=true
+  - cmd: dotnet test src/Felicity.IntegrationTests -c Release --no-build -- Expecto.fail-on-focused-tests=true
 
 deploy:
   - provider: NuGet
