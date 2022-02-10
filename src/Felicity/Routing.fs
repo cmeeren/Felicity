@@ -76,8 +76,22 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
               IdentifierCollectionDocument = lazy (serializer.DeserializeResourceIdentifierCollectionDocument json)
               Headers = httpCtx.Request.Headers |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString()) |> Map.ofSeq
               Query = query
-              Fieldsets = query |> Map.filter (fun k _ -> k.StartsWith "fields[" && k.EndsWith "]") |> Map.toArray |> Array.map (fun (k, v) -> k.Substring(7, k.Length - 8), v.Split ',' |> Set.ofArray) |> Map.ofArray
-              Includes = query |> Map.tryFind "include" |> Option.map (fun paths -> paths.Split ',' |> Array.filter ((<>) "") |> Array.map (fun path -> path.Split '.' |> Array.filter ((<>) "")) |> Array.map Array.toList |> Array.toList) |> Option.defaultValue []
+              Fieldsets =
+                query
+                |> Map.filter (fun k _ -> k.StartsWith "fields[" && k.EndsWith "]")
+                |> Map.toArray
+                |> Array.map (fun (k, v) -> k.Substring(7, k.Length - 8), v.Split ',' |> Set.ofArray)
+                |> Map.ofArray
+              Includes =
+                query
+                |> Map.tryFind "include"
+                |> Option.map (fun paths ->
+                    paths.Split ','
+                    |> Array.filter ((<>) "")
+                    |> Array.map (fun path -> path.Split '.' |> Array.filter ((<>) ""))
+                    |> Array.map Array.toList
+                    |> Array.toList)
+                |> Option.defaultValue []
             }
             return! handler ctx req next httpCtx
       }
