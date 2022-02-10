@@ -1,5 +1,6 @@
 ﻿module Felicity.Routing
 
+open System
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Routing
 open Microsoft.Extensions.DependencyInjection
@@ -78,7 +79,7 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
               Query = query
               Fieldsets =
                 query
-                |> Map.filter (fun k _ -> k.StartsWith "fields[" && k.EndsWith "]")
+                |> Map.filter (fun k _ -> k.StartsWith("fields[", StringComparison.Ordinal) && k.EndsWith(']'))
                 |> Map.toArray
                 |> Array.map (fun (k, v) -> k.Substring(7, k.Length - 8), v.Split ',' |> Set.ofArray)
                 |> Map.ofArray
@@ -139,7 +140,7 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
     fun next ctx ->
       task {
         let actualPath = ctx.Request.Path.Value.TrimEnd('/')
-        if actualPath.StartsWith(expectedPathPrefix) then
+        if actualPath.StartsWith(expectedPathPrefix, StringComparison.Ordinal) then
           return! next ctx
         else
           return! handleErrors [incorrectPartialPathCase expectedPathPrefix] next ctx

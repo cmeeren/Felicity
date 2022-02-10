@@ -184,7 +184,7 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error 
               str.Split(',')
               |> Array.toList
               |> List.map (fun str ->
-                   if str.StartsWith("-")
+                   if str.StartsWith("-", StringComparison.Ordinal)
                    then str.Substring(1), true
                    else str, false
               )
@@ -242,7 +242,7 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Erro
                 Error [queryNotSingular queryParamName numElements] |> Job.result
               else
                 let sort, isDescending =
-                  if str.StartsWith("-")
+                  if str.StartsWith("-", StringComparison.Ordinal)
                   then str.Substring(1), true
                   else str, false
                 parse ctx sort
