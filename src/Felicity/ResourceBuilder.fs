@@ -288,13 +288,13 @@ let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
   }
 
 
-let rec internal buildRecursive shouldBuildEntireResource addResource addRelationships mainResourceId (builder: ResourceBuilder<_>) =
+let rec internal buildRecursive shouldBuildEntireResource addResource addRelationships (builder: ResourceBuilder<_>) =
   job {
-    let recurse = buildRecursive shouldBuildEntireResource addResource addRelationships ValueNone
+    let recurse = buildRecursive shouldBuildEntireResource addResource addRelationships
     if shouldBuildEntireResource builder.Identifier then
-      // We are building a main resource
+      // We are building a new resource
       let! resource, relatedBuilders = buildAndGetRelatedBuilders builder
-      addResource mainResourceId builder.Identifier resource
+      addResource builder.Identifier resource
       do! relatedBuilders |> Seq.Con.iterJob recurse
     else
       // We are building the relationships for a resource that has already been built
@@ -315,17 +315,11 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
     let allResources = Dictionary<ResourceIdentifier, Resource voption>()
     let additionalRelationships = Dictionary<ResourceIdentifier, IDictionary<RelationshipName, IRelationship>>()
 
-    let mainResources = Array.zeroCreate(mainBuilders.Length)
-    let includedResources = ResizeArray()
-
     let shouldBuildEntireResource resId =
       lock allResources (fun () -> allResources.TryAdd(resId, ValueNone))
 
-    let addResource mainResourceId resId res =
+    let addResource resId res =
       lock allResources (fun () -> allResources.[resId] <- ValueSome res)
-      match mainResourceId with
-      | ValueSome i -> mainResources[i] <- res
-      | ValueNone -> lock includedResources (fun () -> includedResources.Add(res))
 
     let mergeRelationships (existingRels: IDictionary<RelationshipName, IRelationship>) (relsToAdd: IDictionary<RelationshipName, IRelationship>) =
       for kvp in relsToAdd do
@@ -347,9 +341,7 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
         )
 
     do!
-      mainBuilders
-      |> Seq.indexed
-      |> Seq.Con.iterJob (fun (i, b) -> buildRecursive shouldBuildEntireResource addResource addRelationships (ValueSome i) b)
+      mainBuilders |> Seq.Con.iterJob (buildRecursive shouldBuildEntireResource addResource addRelationships)
 
     for kvp in additionalRelationships do
       let res = allResources[kvp.Key].Value
@@ -357,7 +349,21 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
       | Skip -> res.relationships <- Include kvp.Value
       | Include existingRels -> mergeRelationships existingRels kvp.Value
 
-    includedResources.Sort(includedResourceComparer)
+    let mainResources = Array.zeroCreate(mainBuilders.Length)
+
+    mainBuilders |> List.iteri (fun i b ->
+      let res = ref ValueNone
+      if allResources.Remove(b.Identifier, res) then
+        mainResources[i] <- res.Value.Value
+      else
+        failwith "Framework bug: Built resource not found in dict"
+    )
+
+    let includedResources = Array.zeroCreate(allResources.Count)
+
+    allResources |> Seq.iteri (fun i kvp -> includedResources[i] <- kvp.Value.Value)
+
+    Array.Sort(includedResources, includedResourceComparer)
 
     return mainResources, includedResources
   }

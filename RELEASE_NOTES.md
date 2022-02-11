@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.18.2 (2022-02-11)
+
+* Fixed bug introduced in 0.18.1 where main resources that were also included in a relationship could be `null` due to a race condition in the response builder  
+
 ### 0.18.1 (2022-02-03)
 
 * Added the ability to configure query parameters that, if present, will cause links to be omitted from the response. Search the documentation for `SkipStandardLinksQueryParamName` or `SkipCustomLinksQueryParamName` for details.  

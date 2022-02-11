@@ -188,7 +188,7 @@ module private ToDocumentModel =
         |> Array.traverseResultA (fun (i, r) ->
             resource getFieldType options ("/included/" + string i) r
         )
-        |> Result.map (ResizeArray >> Include)
+        |> Result.map Include
     match data, included with
     | Error errs1, Error errs2 -> Error (errs1 @ errs2)
     | Error errs, Ok _ | Ok _, Error errs -> Error errs
