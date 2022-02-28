@@ -3,6 +3,7 @@ Release notes
 
 ### vNext
 
+* **Breaking:** Filter query parameters for `SimpleDateTimeOffset` attributes now require an offset (e.g. `Z` or `+02:00`) when parsed. This was originally documented as a breaking change in 0.14.0, but was actually not changed in the implementation at that time. (The actual attributes were changed, just not the parser for the filter query parameters.)
 * Added context transformation overloads (`ForContext` and `MapSetContext`) accepting the current entity for all entity-specific operations (GET, PATCH, DELETE, custom operations, attribute/relationship setters, and `Set2`).
 
 ### 0.18.2 (2022-02-11)
