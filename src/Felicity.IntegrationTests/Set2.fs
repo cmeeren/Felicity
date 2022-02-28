@@ -5,14 +5,21 @@ open HttpFs.Client
 open Swensen.Unquote
 open Felicity
 
-
 type Ctx =
-  Ctx of
-    setNonNull: (string * int -> string -> string) *
-    setNull12: (string option * int option -> string -> string) *
-    setNull34: ((int * string) option -> string -> string)
+  {
+    SetNonNull: string * int -> string -> string
+    SetNull12: string option * int option -> string -> string
+    SetNull34: (int * string) option -> string -> string
+  }
 
-module A9 =
+  static member Default =
+    {
+      SetNonNull = fun _ -> failwith "Must be set if used"
+      SetNull12 = fun _ -> failwith "Must be set if used"
+      SetNull34 = fun _ -> failwith "Must be set if used"
+    }
+
+module A =
 
   let define = Define<Ctx, string, string>()
   let resId = define.Id.Simple(id)
@@ -47,15 +54,15 @@ module A9 =
 
   let setNonNull =
     define.Operation
-      .Set2((fun (Ctx (set, _, _)) x e -> set x e), nonNull1, nonNull2)
+      .Set2((fun ctx x e -> ctx.SetNonNull x e), nonNull1, nonNull2)
 
   let setNull12 =
     define.Operation
-      .Set2((fun (Ctx (_, set, _)) x e -> set x e), null1, null2)
+      .Set2((fun ctx x e -> ctx.SetNull12 x e), null1, null2)
 
   let setNull34 =
     define.Operation
-      .Set2SameNull((fun (Ctx (_, _, set)) x e -> set x e), null3, nullRel)
+      .Set2SameNull((fun ctx x e -> ctx.SetNull34 x e), null3, nullRel)
 
   let post = define.Operation.Post(fun () -> "foobar").AfterCreate(fun _ -> ())
 
@@ -66,22 +73,17 @@ module A9 =
   let patch =
     define.Operation
       .Patch()
-      .AfterUpdate(fun (Ctx _) _ -> ())
+      .AfterUpdate(fun (_: Ctx) _ -> ())
 
 
 [<Tests>]
 let tests =
-  testList "Set2" [
+  ftestList "Set2" [
 
     testJob "Runs Set2 with non-nullable fields" {
       let mutable calledWith = ValueNone
 
-      let ctx =
-        Ctx (
-          (fun x e -> calledWith <- ValueSome x; e),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = { Ctx.Default with SetNonNull = fun x e -> calledWith <- ValueSome x; e }
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -101,12 +103,7 @@ let tests =
     testJob "Runs Set2 with nullable fields" {
       let mutable calledWith = ValueNone
 
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun x e -> calledWith <- ValueSome x; e),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = { Ctx.Default with SetNull12 = fun x e -> calledWith <- ValueSome x; e }
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -126,12 +123,7 @@ let tests =
     testJob "Runs Set2SameNull when both non-null" {
       let mutable calledWith = ValueNone
 
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun x e -> calledWith <- ValueSome x; e)
-        )
+      let ctx = { Ctx.Default with SetNull34 = fun x e -> calledWith <- ValueSome x; e }
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -152,12 +144,7 @@ let tests =
     testJob "Runs Set2SameNull when both null" {
       let mutable calledWith = ValueNone
 
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun x e -> calledWith <- ValueSome x; e)
-        )
+      let ctx = { Ctx.Default with SetNull34 = fun x e -> calledWith <- ValueSome x; e }
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -176,12 +163,7 @@ let tests =
     }
 
     testJob "Set2 returns error if first is missing" {
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = Ctx.Default
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -202,12 +184,7 @@ let tests =
     }
 
     testJob "Set2 returns error if second is missing" {
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = Ctx.Default
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -228,12 +205,7 @@ let tests =
     }
 
     testJob "Set2SameNull returns error if first is missing" {
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = Ctx.Default
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -254,12 +226,7 @@ let tests =
     }
 
     testJob "Set2SameNull returns error if second is missing" {
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = Ctx.Default
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -280,12 +247,7 @@ let tests =
     }
 
     testJob "Set2SameNull returns error if first is null and second is non-null" {
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = Ctx.Default
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -307,12 +269,7 @@ let tests =
     }
 
     testJob "Set2SameNull returns error if first is non-null and second is null" {
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = Ctx.Default
 
       let! response =
         Request.patch ctx "/as/ignoredId"
@@ -336,12 +293,7 @@ let tests =
     testJob "POST runs Set2 with non-nullable fields" {
       let mutable calledWith = ValueNone
 
-      let ctx =
-        Ctx (
-          (fun x e -> calledWith <- ValueSome x; e),
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called")
-        )
+      let ctx = { Ctx.Default with SetNonNull = fun x e -> calledWith <- ValueSome x; e }
 
       let! response =
         Request.post ctx "/as"
@@ -360,12 +312,7 @@ let tests =
     testJob "POST runs Set2SameNull when both non-null" {
       let mutable calledWith = ValueNone
 
-      let ctx =
-        Ctx (
-          (fun _ -> failwith "not called"),
-          (fun _ -> failwith "not called"),
-          (fun x e -> calledWith <- ValueSome x; e)
-        )
+      let ctx = { Ctx.Default with SetNull34 = fun x e -> calledWith <- ValueSome x; e }
 
       let! response =
         Request.post ctx "/as"
