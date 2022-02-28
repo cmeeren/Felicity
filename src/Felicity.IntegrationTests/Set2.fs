@@ -18,6 +18,7 @@ type Ctx =
     SetNull12: string option * int option -> string -> string
     SetNull34: (int * string) option -> string -> string
     MapCtx: Ctx -> Result<MappedCtx, Error list>
+    MapCtxWithEntity: Ctx -> string -> Result<MappedCtx, Error list>
   }
 
   static member Default =
@@ -26,6 +27,11 @@ type Ctx =
       SetNull12 = fun _ -> failwith "Must be set if used"
       SetNull34 = fun _ -> failwith "Must be set if used"
       MapCtx = fun ctx -> Ok {
+        SetNonNull = ctx.SetNonNull
+        SetNull12 = ctx.SetNull12
+        SetNull34 = ctx.SetNull34
+      }
+      MapCtxWithEntity = fun ctx _ -> Ok {
         SetNonNull = ctx.SetNonNull
         SetNull12 = ctx.SetNull12
         SetNull34 = ctx.SetNull34
@@ -72,6 +78,7 @@ module A =
 
   let setNull12 =
     define.Operation
+      .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .Set2((fun ctx x e -> ctx.SetNull12 x e), null1, null2)
 
   let setNull34 =
@@ -93,7 +100,7 @@ module A =
 
 [<Tests>]
 let tests =
-  ftestList "Set2" [
+  testList "Set2" [
 
     testJob "Runs Set2 with non-nullable fields" {
       let mutable calledWith = ValueNone
@@ -383,6 +390,43 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns errors returned by mapCtx with entity" {
+      let ctx = { Ctx.Default with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/as/ignoredId"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "ignoredId"
+                  attributes = {| null1 = "abc"; null2 = null |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "mapCtx with entity gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let expected = "someResourceId"
+      let ctx = { Ctx.Default with MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome e; Ctx.Default.MapCtxWithEntity ctx e }
+      let! _response =
+        Request.patch ctx "/as/someResourceId"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "someResourceId"
+                  attributes = {| null1 = "abc"; null2 = null |}
+                |}
+            |}
+        |> getResponse
+      Expect.equal calledWith (ValueSome expected) ""
     }
 
   ]

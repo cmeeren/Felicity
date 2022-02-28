@@ -381,6 +381,10 @@ module MapCtxCompileTest =
       .ModifyDeleteSelfAcceptedResponse(fun (_: MappedCtx) _ _ -> ())
       .ModifyDeleteSelfOkResponse(fun (_: MappedCtx) _ _ _ -> ())
 
+  let withEntity =
+    define.Relationship
+      .MapSetContext(fun (ctx: Ctx6) (e: string) -> MappedCtx)
+
 
 [<Tests>]
 let tests =

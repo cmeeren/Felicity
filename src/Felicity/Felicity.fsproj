@@ -43,11 +43,14 @@
     <Compile Include="RequestParser.fs" />
     <Compile Include="ResourceDefinition.fs" />
     <Compile Include="Attribute.fs" />
+    <Compile Include="AttributeExtensions.fs" />
     <Compile Include="ResponseBuilder.fs" />
     <Compile Include="HttpHandlers.fs" />
     <Compile Include="Responder.fs" />
     <Compile Include="Operations.fs" />
+    <Compile Include="OperationsExtensions.fs" />
     <Compile Include="Relationships.fs" />
+    <Compile Include="RelationshipsExtensionsfs.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Define.fs" />
     <Compile Include="ResourceModule.fs" />

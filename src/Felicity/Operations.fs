@@ -166,7 +166,7 @@ type internal GetResourceOperation<'ctx> =
 
 
 type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
   modifyResponse: 'ctx -> 'entity -> HttpHandler
 } with
 
@@ -180,7 +180,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
     member this.Run resDef ctx req entity resp =
       fun next httpCtx ->
         job {
-          match! this.mapCtx ctx with
+          match! this.mapCtx ctx (unbox<'entity> entity) with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
               let! doc = resp.Write httpCtx ctx req (resDef, entity)
@@ -621,7 +621,7 @@ type internal PatchOperation<'ctx> =
 
 
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
   beforeUpdate: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
   customSetter: 'originalCtx -> 'ctx -> Request -> 'entity -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
   afterUpdate: ('ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
@@ -667,7 +667,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
           if not errs.IsEmpty then
             return! handleErrors errs next httpCtx
           else
-              match! this.mapCtx ctx with
+              match! this.mapCtx ctx (unbox<'entity> entity0) with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok mappedCtx ->
                   match preconditions.Validate httpCtx ctx entity0 with
@@ -965,7 +965,7 @@ type internal DeleteOperation<'ctx> =
 
 
 type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
   beforeDelete: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
   delete: 'originalCtx -> 'ctx -> Request -> 'entity -> Job<Result<unit, Error list>>
   modifyResponse: 'ctx -> HttpHandler
@@ -986,7 +986,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
     member this.Run _resDef ctx req preconditions entity0 _resp =
       fun next httpCtx ->
         job {
-          match! this.mapCtx ctx with
+          match! this.mapCtx ctx (unbox<'entity> entity0) with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
               match preconditions.Validate httpCtx ctx entity0 with
@@ -1110,7 +1110,7 @@ type internal CustomOperation<'ctx> =
 
 
 type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
   name: string
   getMeta: ('ctx -> 'entity -> Map<string, obj>) option
   condition: 'ctx -> 'entity -> Job<Result<unit, Error list>>
@@ -1136,7 +1136,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   member private this.handler (operation: _ -> _ -> _ -> _ -> _ -> Job<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
     fun next httpCtx ->
       job {
-        match! this.mapCtx ctx with
+        match! this.mapCtx ctx (unbox<'entity> entity) with
         | Error errors -> return! handleErrors errors next httpCtx
         | Ok mappedCtx ->
             match! this.condition mappedCtx (unbox<'entity> entity) with
@@ -1163,7 +1163,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
         if this.get.IsNone && this.post.IsNone && this.patch.IsNone && this.delete.IsNone then
           return None, None
         else
-          match! this.mapCtx ctx with
+          match! this.mapCtx ctx (unbox<'entity> entity) with
           | Error _ -> return None, None
           | Ok mappedCtx ->
               let meta =
@@ -1359,36 +1359,219 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapC
 
 
 
+type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>) =
+
+  member _.GetResource () =
+    GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx)
+
+  member _.Patch() =
+    PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
+
+  member _.DeleteJobRes(delete: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
+    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity))
+
+  member this.DeleteJobRes(delete: Func<'entity, Job<Result<unit, Error list>>>) =
+    this.DeleteJobRes(fun _ e -> delete.Invoke e)
+
+  member _.DeleteJobRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
+    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(
+      mapCtx,
+      fun origCtx ctx req entity ->
+        getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
+        |> JobResult.bind (fun p -> p.ParseJob ())
+    )
+
+  member this.DeleteJobRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
+    this.DeleteJobRes(fun _ e p -> getRequestParser.Invoke(e, p))
+
+  member this.DeleteAsyncRes(delete: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
+    this.DeleteJobRes(Job.liftAsyncFunc2 delete)
+
+  member this.DeleteAsyncRes(delete: Func<'entity, Async<Result<unit, Error list>>>) =
+    this.DeleteJobRes(Job.liftAsyncFunc delete)
+
+  member this.DeleteAsyncRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
+    this.DeleteJobRes(Job.liftAsyncFunc3 getRequestParser)
+
+  member this.DeleteAsyncRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
+    this.DeleteJobRes(Job.liftAsyncFunc2 getRequestParser)
+
+  member this.DeleteJob(delete: Func<'ctx, 'entity, Job<unit>>) =
+    this.DeleteJobRes(fun ctx e -> delete.Invoke(ctx, e) |> Job.map Ok)
+
+  member this.DeleteJob(delete: Func<'entity, Job<unit>>) =
+    this.DeleteJobRes(fun _ e -> delete.Invoke e |> Job.map Ok)
+
+  member this.DeleteJob(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
+    this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(ctx, e, parse) |> Job.map Ok)
+
+  member this.DeleteJob(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
+    this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(e, parse) |> Job.map Ok)
+
+  member this.DeleteAsync(delete: Func<'ctx, 'entity, Async<unit>>) =
+    this.DeleteJob(Job.liftAsyncFunc2 delete)
+
+  member this.DeleteAsync(delete: Func<'entity, Async<unit>>) =
+    this.DeleteJob(Job.liftAsyncFunc delete)
+
+  member this.DeleteAsync(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
+    this.DeleteJob(Job.liftAsyncFunc3 getRequestParser)
+
+  member this.DeleteAsync(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
+    this.DeleteJob(Job.liftAsyncFunc2 getRequestParser)
+
+  member this.DeleteRes(delete: Func<'ctx, 'entity, Result<unit, Error list>>) =
+    this.DeleteJobRes(Job.liftFunc2 delete)
+
+  member this.DeleteRes(delete: Func<'entity, Result<unit, Error list>>) =
+    this.DeleteJobRes(Job.liftFunc delete)
+
+  member this.DeleteRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
+    this.DeleteJobRes(Job.liftFunc3 getRequestParser)
+
+  member this.DeleteRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
+    this.DeleteJobRes(Job.liftFunc2 getRequestParser)
+
+  member this.Delete(delete: Func<'ctx, 'entity, unit>) =
+    this.DeleteJobRes(JobResult.liftFunc2 delete)
+
+  member this.Delete(delete: Func<'entity, unit>) =
+    this.DeleteJobRes(JobResult.liftFunc delete)
+
+  member this.Delete(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
+    this.DeleteJobRes(JobResult.liftFunc3 getRequestParser)
+
+  member this.Delete(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
+    this.DeleteJobRes(JobResult.liftFunc2 getRequestParser)
+
+  member _.CustomLink([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+    CustomOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, name)
+
+  member _.Set2JobRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    match field1.FieldName, field2.FieldName with
+    | Some fn1, Some fn2 ->
+        {
+          new FieldSetter<'originalCtx> with
+            member _.Names = Set.ofList [fn1; fn2]
+            member _.SetOrder = defaultArg setOrder 0
+            member _.Set ctx req entity _ =
+              job {
+                let! f1 = field1.Get(ctx, req, None)
+                let! f2 = field2.Get(ctx, req, None)
+                match f1, f2 with
+                | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
+                | Error errs, Ok _ | Ok _ , Error errs-> return Error errs
+                | Ok None, Ok None -> return (Ok entity)
+                | Ok (Some _), Ok None ->
+                    return Error [set2OneFieldMissing fn1 fn2]
+                | Ok None, Ok (Some _) ->
+                    return Error [set2OneFieldMissing fn2 fn1]
+                | Ok (Some val1), Ok (Some val2) ->
+                    match! mapCtx ctx (unbox<'entity> entity) with
+                    | Error errs -> return Error errs
+                    | Ok ctx -> return! set ctx (val1, val2) (unbox<'entity> entity) |> JobResult.map box
+              }
+        }
+    | _ -> failwith "Can only be called with fields, not query parameters or headers"
+
+  member this.Set2AsyncRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    this.Set2JobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+
+  member this.Set2Job(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
+
+  member this.Set2Async(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    this.Set2Job(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+
+  member this.Set2Res(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
+
+  member this.Set2(set: 'ctx -> 'field1 * 'field2 -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    this.Set2JobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)
+
+  member _.Set2SameNullJobRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    match field1.FieldName, field2.FieldName with
+    | Some fn1, Some fn2 ->
+        {
+          new FieldSetter<'originalCtx> with
+            member _.Names = Set.ofList [fn1; fn2]
+            member _.SetOrder = defaultArg setOrder 0
+            member _.Set ctx req entity _ =
+              job {
+                let! f1 = field1.Get(ctx, req, None)
+                let! f2 = field2.Get(ctx, req, None)
+                match f1, f2 with
+                | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
+                | Error errs, Ok _ | Ok _ , Error errs-> return Error errs
+                | Ok None, Ok None -> return (Ok entity)
+                | Ok (Some _), Ok None ->
+                    return Error [set2OneFieldMissing fn1 fn2]
+                | Ok None, Ok (Some _) ->
+                    return Error [set2OneFieldMissing fn2 fn1]
+                | Ok (Some None), Ok (Some (Some _))
+                | Ok (Some (Some _)), Ok (Some None) ->
+                    return Error [set2DifferentNull fn1 fn2]
+                | Ok (Some (Some val1)), Ok (Some (Some val2)) ->
+                    match! mapCtx ctx (unbox<'entity> entity) with
+                    | Error errs -> return Error errs
+                    | Ok ctx -> return! set ctx (Some (val1, val2)) (unbox<'entity> entity) |> JobResult.map box
+                | Ok (Some None), Ok (Some None) ->
+                    match! mapCtx ctx (unbox<'entity> entity) with
+                    | Error errs -> return Error errs
+                    | Ok ctx -> return! set ctx None (unbox<'entity> entity) |> JobResult.map box
+              }
+        }
+    | _ -> failwith "Can only be called with fields, not query parameters or headers"
+
+  member this.Set2SameNullAsyncRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    this.Set2SameNullJobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+
+  member this.Set2SameNullJob(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
+
+  member this.Set2SameNullAsync(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    this.Set2SameNullJob(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+
+  member this.Set2SameNullRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
+
+  member this.Set2SameNull(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)
+
+
+
+
 type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>) =
+  inherit OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>(fun ctx _ -> mapCtx ctx)
 
   member _.Polymorphic = PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>(mapCtx)
 
-  member _.ForContextJobRes (mapCtx: 'originalCtx -> Job<Result<'mappedCtx, Error list>>) =
-    OperationHelper<'originalCtx, 'mappedCtx, 'entity, 'id>(mapCtx)
+  member _.ForContextJobRes (mapCtx: 'originalCtx -> 'entity -> Job<Result<'mappedCtx, Error list>>) =
+    OperationHelperWithEntityMapCtx<'originalCtx, 'mappedCtx, 'entity, 'id>(mapCtx)
 
-  member this.ForContextAsyncRes (mapCtx: 'originalCtx -> Async<Result<'mappedCtx, Error list>>) =
-    this.ForContextJobRes(Job.liftAsync mapCtx)
+  member this.ForContextAsyncRes (mapCtx: 'originalCtx -> 'entity -> Async<Result<'mappedCtx, Error list>>) =
+    this.ForContextJobRes(Job.liftAsync2 mapCtx)
 
-  member this.ForContextJobOpt (mapCtx: 'originalCtx -> Job<'mappedCtx option>) =
-    this.ForContextJobRes(mapCtx >> Job.map (Result.requireSome [opMapCtxFailedNone ()]))
+  member this.ForContextJobOpt (mapCtx: 'originalCtx -> 'entity -> Job<'mappedCtx option>) =
+    this.ForContextJobRes(fun ctx e -> mapCtx ctx e |> Job.map (Result.requireSome [opMapCtxFailedNone ()]))
 
-  member this.ForContextAsyncOpt (mapCtx: 'originalCtx -> Async<'mappedCtx option>) =
-    this.ForContextJobOpt(Job.liftAsync mapCtx)
+  member this.ForContextAsyncOpt (mapCtx: 'originalCtx -> 'entity -> Async<'mappedCtx option>) =
+    this.ForContextJobOpt(Job.liftAsync2 mapCtx)
 
-  member this.ForContextJob (mapCtx: 'originalCtx -> Job<'mappedCtx>) =
-    this.ForContextJobRes(mapCtx >> Job.map Ok)
+  member this.ForContextJob (mapCtx: 'originalCtx -> 'entity -> Job<'mappedCtx>) =
+    this.ForContextJobRes(fun ctx e -> mapCtx ctx e |> Job.map Ok)
 
-  member this.ForContextAsync (mapCtx: 'originalCtx -> Async<'mappedCtx>) =
-    this.ForContextJob(Job.liftAsync mapCtx)
+  member this.ForContextAsync (mapCtx: 'originalCtx -> 'entity -> Async<'mappedCtx>) =
+    this.ForContextJob(Job.liftAsync2 mapCtx)
 
-  member this.ForContextRes (mapCtx: 'originalCtx -> Result<'mappedCtx, Error list>) =
-    this.ForContextJobRes(Job.lift mapCtx)
+  member this.ForContextRes (mapCtx: 'originalCtx -> 'entity -> Result<'mappedCtx, Error list>) =
+    this.ForContextJobRes(Job.lift2 mapCtx)
 
-  member this.ForContextOpt (mapCtx: 'originalCtx -> 'mappedCtx option) =
-    this.ForContextJobOpt(Job.lift mapCtx)
+  member this.ForContextOpt (mapCtx: 'originalCtx -> 'entity -> 'mappedCtx option) =
+    this.ForContextJobOpt(Job.lift2 mapCtx)
 
-  member this.ForContext (mapCtx: 'originalCtx -> 'mappedCtx) =
-    this.ForContextJobRes(JobResult.lift mapCtx)
+  member this.ForContext (mapCtx: 'originalCtx -> 'entity -> 'mappedCtx) =
+    this.ForContextJobRes(JobResult.lift2 mapCtx)
 
   member _.LookupJobRes (getById: Func<'ctx, 'id, Job<Result<'entity option, Error list>>>) =
     ResourceLookup<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun ctx id -> getById.Invoke(ctx, id))
@@ -1425,9 +1608,6 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
   member this.Lookup (getById: Func<'id, 'entity option>) =
     this.LookupJobRes(JobResult.liftFunc getById)
-
-  member _.GetResource () =
-    GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx)
 
   member _.GetCollectionJobRes (getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>) =
     GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun _origCtx ctx _req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs))
@@ -1629,177 +1809,3 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
   member this.PostCustomAsync(operation: Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Async<Result<HttpHandler, Error list>>>) =
     this.PostCustomJob(Job.liftAsyncFunc3 operation)
-
-  member _.Patch() =
-    PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
-
-  member _.DeleteJobRes(delete: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity))
-
-  member this.DeleteJobRes(delete: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.DeleteJobRes(fun _ e -> delete.Invoke e)
-
-  member _.DeleteJobRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(
-      mapCtx,
-      fun origCtx ctx req entity ->
-        getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
-        |> JobResult.bind (fun p -> p.ParseJob ())
-    )
-
-  member this.DeleteJobRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    this.DeleteJobRes(fun _ e p -> getRequestParser.Invoke(e, p))
-
-  member this.DeleteAsyncRes(delete: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc2 delete)
-
-  member this.DeleteAsyncRes(delete: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc delete)
-
-  member this.DeleteAsyncRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc3 getRequestParser)
-
-  member this.DeleteAsyncRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc2 getRequestParser)
-
-  member this.DeleteJob(delete: Func<'ctx, 'entity, Job<unit>>) =
-    this.DeleteJobRes(fun ctx e -> delete.Invoke(ctx, e) |> Job.map Ok)
-
-  member this.DeleteJob(delete: Func<'entity, Job<unit>>) =
-    this.DeleteJobRes(fun _ e -> delete.Invoke e |> Job.map Ok)
-
-  member this.DeleteJob(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(ctx, e, parse) |> Job.map Ok)
-
-  member this.DeleteJob(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(e, parse) |> Job.map Ok)
-
-  member this.DeleteAsync(delete: Func<'ctx, 'entity, Async<unit>>) =
-    this.DeleteJob(Job.liftAsyncFunc2 delete)
-
-  member this.DeleteAsync(delete: Func<'entity, Async<unit>>) =
-    this.DeleteJob(Job.liftAsyncFunc delete)
-
-  member this.DeleteAsync(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJob(Job.liftAsyncFunc3 getRequestParser)
-
-  member this.DeleteAsync(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJob(Job.liftAsyncFunc2 getRequestParser)
-
-  member this.DeleteRes(delete: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc2 delete)
-
-  member this.DeleteRes(delete: Func<'entity, Result<unit, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc delete)
-
-  member this.DeleteRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc3 getRequestParser)
-
-  member this.DeleteRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc2 getRequestParser)
-
-  member this.Delete(delete: Func<'ctx, 'entity, unit>) =
-    this.DeleteJobRes(JobResult.liftFunc2 delete)
-
-  member this.Delete(delete: Func<'entity, unit>) =
-    this.DeleteJobRes(JobResult.liftFunc delete)
-
-  member this.Delete(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
-    this.DeleteJobRes(JobResult.liftFunc3 getRequestParser)
-
-  member this.Delete(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
-    this.DeleteJobRes(JobResult.liftFunc2 getRequestParser)
-
-  member _.CustomLink([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    CustomOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, name)
-
-  member _.Set2JobRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    match field1.FieldName, field2.FieldName with
-    | Some fn1, Some fn2 ->
-        {
-          new FieldSetter<'originalCtx> with
-            member _.Names = Set.ofList [fn1; fn2]
-            member _.SetOrder = defaultArg setOrder 0
-            member _.Set ctx req entity _ =
-              job {
-                let! f1 = field1.Get(ctx, req, None)
-                let! f2 = field2.Get(ctx, req, None)
-                match f1, f2 with
-                | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
-                | Error errs, Ok _ | Ok _ , Error errs-> return Error errs
-                | Ok None, Ok None -> return (Ok entity)
-                | Ok (Some _), Ok None ->
-                    return Error [set2OneFieldMissing fn1 fn2]
-                | Ok None, Ok (Some _) ->
-                    return Error [set2OneFieldMissing fn2 fn1]
-                | Ok (Some val1), Ok (Some val2) ->
-                    match! mapCtx ctx with
-                    | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx (val1, val2) (unbox<'entity> entity) |> JobResult.map box
-              }
-        }
-    | _ -> failwith "Can only be called with fields, not query parameters or headers"
-
-  member this.Set2AsyncRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
-
-  member this.Set2Job(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
-
-  member this.Set2Async(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2Job(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
-
-  member this.Set2Res(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
-
-  member this.Set2(set: 'ctx -> 'field1 * 'field2 -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)
-
-  member _.Set2SameNullJobRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    match field1.FieldName, field2.FieldName with
-    | Some fn1, Some fn2 ->
-        {
-          new FieldSetter<'originalCtx> with
-            member _.Names = Set.ofList [fn1; fn2]
-            member _.SetOrder = defaultArg setOrder 0
-            member _.Set ctx req entity _ =
-              job {
-                let! f1 = field1.Get(ctx, req, None)
-                let! f2 = field2.Get(ctx, req, None)
-                match f1, f2 with
-                | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
-                | Error errs, Ok _ | Ok _ , Error errs-> return Error errs
-                | Ok None, Ok None -> return (Ok entity)
-                | Ok (Some _), Ok None ->
-                    return Error [set2OneFieldMissing fn1 fn2]
-                | Ok None, Ok (Some _) ->
-                    return Error [set2OneFieldMissing fn2 fn1]
-                | Ok (Some None), Ok (Some (Some _))
-                | Ok (Some (Some _)), Ok (Some None) ->
-                    return Error [set2DifferentNull fn1 fn2]
-                | Ok (Some (Some val1)), Ok (Some (Some val2)) ->
-                    match! mapCtx ctx with
-                    | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx (Some (val1, val2)) (unbox<'entity> entity) |> JobResult.map box
-                | Ok (Some None), Ok (Some None) ->
-                    match! mapCtx ctx with
-                    | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx None (unbox<'entity> entity) |> JobResult.map box
-              }
-        }
-    | _ -> failwith "Can only be called with fields, not query parameters or headers"
-
-  member this.Set2SameNullAsyncRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
-
-  member this.Set2SameNullJob(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
-
-  member this.Set2SameNullAsync(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJob(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
-
-  member this.Set2SameNullRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
-
-  member this.Set2SameNull(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)

@@ -27,12 +27,14 @@ type Ctx = {
   GetById: string -> Result<A option, Error list>
   ModifyResponse: A -> HttpHandler
   MapCtx: Ctx -> Result<MappedCtx, Error list>
+  MapCtxWithEntity: Ctx -> A -> Result<MappedCtx, Error list>
 } with
   static member Default = {
     ParseId = Some
     GetById = (fun _ -> Ok (Some a))
     ModifyResponse = fun _ -> fun next ctx -> next ctx
     MapCtx = fun ctx -> Ok { GetById = ctx.GetById; ModifyResponse = ctx.ModifyResponse }
+    MapCtxWithEntity = fun ctx _ -> Ok { GetById = ctx.GetById; ModifyResponse = ctx.ModifyResponse }
   }
 
 
@@ -48,6 +50,22 @@ module A =
   let get =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
+      .GetResource()
+      .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyResponse)
+
+
+module AWithEntityCtxMap =
+
+  let define = Define<Ctx, A, string>()
+  let resId = define.Id.ParsedOpt(id, (fun ctx s -> ctx.ParseId s), fun a -> a.Id)
+  let resDef = define.Resource("b", resId).CollectionName("bs")
+  let lookup =
+    define.Operation
+      .ForContextRes(fun ctx -> ctx.MapCtx ctx)
+      .LookupRes(fun ctx id -> ctx.GetById id)
+  let get =
+    define.Operation
+      .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .GetResource()
       .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyResponse)
 
@@ -140,6 +158,24 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns errors returned by mapCtx with entity" {
+      let ctx = { Ctx.Default with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response = Request.get ctx "/bs/1" |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "mapCtx with entity gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let ctx = { Ctx.Default with MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome e; Ctx.Default.MapCtxWithEntity ctx e }
+      let! _response = Request.get ctx "/bs/1" |> getResponse
+      Expect.equal calledWith (ValueSome a) ""
     }
 
     testJob "Returns 404 if ID parsing fails" {

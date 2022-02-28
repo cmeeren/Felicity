@@ -48,6 +48,7 @@ and Ctx = {
   PatchOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
   DeleteOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
   MapCtx: Ctx -> Result<MappedCtx, Error list>
+  MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
 } with
   static member WithDb db = {
     Db = db
@@ -58,6 +59,15 @@ and Ctx = {
     PatchOperation = fun _ -> failwith "Operation must specified"
     DeleteOperation = fun _ -> failwith "Operation must specified"
     MapCtx = fun ctx -> Ok {
+      Db = ctx.Db
+      DisableMeta = ctx.DisableMeta
+      Condition = ctx.Condition
+      GetOperation = ctx.GetOperation
+      PostOperation = ctx.PostOperation
+      PatchOperation = ctx.PatchOperation
+      DeleteOperation = ctx.DeleteOperation
+    }
+    MapCtxWithEntity = fun ctx _ -> Ok {
       Db = ctx.Db
       DisableMeta = ctx.DisableMeta
       Condition = ctx.Condition
@@ -106,7 +116,7 @@ module B =
 
   let customOp =
     define.Operation
-      .ForContextRes(fun ctx -> ctx.MapCtx ctx)
+      .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .CustomLink()
       .GetAsync(fun _ _ _ _ -> failwith "not used")
       .PostAsync(fun _ _ _ _ -> failwith "not used")
@@ -293,6 +303,15 @@ let tests =
       let db = Db ()
       let ctx = { Ctx.WithDb db with MapCtx = fun _ -> Error [] }
       let! response = Request.get ctx "/entities/a1" |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> hasNoPath "data.links.customOp" @>
+    }
+
+    testJob "No link if mapCtx with entity fails" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ _ -> Error [] }
+      let! response = Request.get ctx "/entities/b1" |> getResponse
       response |> testSuccessStatusCode
       let! json = response |> Response.readBodyAsString
       test <@ json |> hasNoPath "data.links.customOp" @>
@@ -760,6 +779,27 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "GET returns errors returned by mapCtx with entity" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response = Request.get ctx "/entities/b1/customOp" |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "mapCtx with entity gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let db = Db ()
+      let expected = db.TryGet "b1" |> Option.get
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ctx e -> calledWith <- ValueSome (B e); Error [Error.create 422] }
+      let! _response = Request.get ctx "/entities/b1/customOp" |> getResponse
+      Expect.equal calledWith (ValueSome expected) ""
     }
 
     testJob "GET returns errors returned by condition" {

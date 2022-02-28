@@ -25,7 +25,7 @@ type B = {
   Y: string
 }
 
-type ABC = A of A | B of B | C of A
+type ABC = A of A | B of B | C of A | D of A
 
 module ADomain =
 
@@ -54,6 +54,7 @@ type Db () =
     |> Map.add "a1" (A { Id = "a1"; ReadOnly = "qwerty"; A = false; X = ""; Nullable = Some "foo"; NullableNotNullWhenSet = None })
     |> Map.add "b2" (B { Id = "b2"; ReadOnly = "qwerty"; B = 1; Y = "" })
     |> Map.add "c0" (C { Id = "c0"; ReadOnly = "qwerty"; A = false; X = ""; Nullable = None; NullableNotNullWhenSet = None })
+    |> Map.add "d1" (D { Id = "d1"; ReadOnly = "qwerty"; A = false; X = ""; Nullable = Some "foo"; NullableNotNullWhenSet = None })
 
   member _.SaveA (a: A) =
     ABs <- ABs.Add (a.Id, A a)
@@ -64,7 +65,7 @@ type Db () =
   member _.TryGet id =
     ABs.TryFind id
 
-  member _.GetAOrFail id =
+  member _.GetOrFail id =
     ABs.TryFind id |> Option.defaultWith (fun () -> failwith $"Could not find ID %s{id}")
 
 
@@ -86,6 +87,7 @@ type Ctx = {
   BeforeUpdateA: A -> Result<A, Error list>
   AfterUpdateA: A -> A -> unit
   MapCtx: Ctx -> Result<MappedCtx, Error list>
+  MapCtxWithEntity: Ctx -> A -> Result<MappedCtx, Error list>
 } with
   static member WithDb db = {
     ModifyAResponse = fun _ -> fun next ctx -> next ctx
@@ -95,6 +97,14 @@ type Ctx = {
     BeforeUpdateA = Ok
     AfterUpdateA = fun _ a -> db.SaveA a
     MapCtx = fun ctx -> Ok {
+      ModifyAResponse = ctx.ModifyAResponse
+      ModifyBResponse = ctx.ModifyBResponse
+      Db = ctx.Db
+      SetA = ctx.SetA
+      BeforeUpdateA = ctx.BeforeUpdateA
+      AfterUpdateA = ctx.AfterUpdateA
+    }
+    MapCtxWithEntity = fun ctx _ -> Ok {
       ModifyAResponse = ctx.ModifyAResponse
       ModifyBResponse = ctx.ModifyBResponse
       Db = ctx.Db
@@ -129,6 +139,13 @@ module A =
       .Get(fun a -> a.A)
       .SetRes(fun (ctx: MappedCtx) -> ctx.SetA)
 
+  let aEntityMapped =
+    define.Attribute
+      .MapSetContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
+      .SimpleBool()
+      .Get(fun a -> a.A)
+      .SetRes(fun (ctx: MappedCtx) -> ctx.SetA)
+
   let x =
     define.Attribute
       .SimpleString()
@@ -146,6 +163,14 @@ module A =
     define.Attribute
       .Nullable
       .MapSetContextRes(fun ctx -> ctx.MapCtx ctx)
+      .SimpleString()
+      .Get(fun a -> a.Nullable)
+      .Set(fun (_ctx: MappedCtx) x a -> ADomain.setNullable x a)
+
+  let nullableEntityMapped =
+    define.Attribute
+      .Nullable
+      .MapSetContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .SimpleString()
       .Get(fun a -> a.Nullable)
       .Set(fun (_ctx: MappedCtx) x a -> ADomain.setNullable x a)
@@ -210,12 +235,33 @@ module C =
   let resDef = define.Resource("c", resId).CollectionName("abs")
 
 
+module D =
+
+  let define = Define<Ctx, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("d", resId).CollectionName("abs")
+
+  let a =
+    define.Attribute
+      .SimpleBool()
+      .Get(fun a -> a.A)
+      .SetRes(fun ctx -> ctx.SetA)
+
+  let get = define.Operation.GetResource()
+
+  let patch =
+    define.Operation
+      .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
+      .Patch()
+      .AfterUpdate(fun (ctx: MappedCtx) a -> ctx.AfterUpdateA a)
+
+
 
 module AB =
 
   let define = Define<Ctx, ABC, string>()
 
-  let resId = define.Id.Simple(function A a -> a.Id | B b -> b.Id | C c -> c.Id)
+  let resId = define.Id.Simple(function A a -> a.Id | B b -> b.Id | C c -> c.Id | D d -> d.Id)
 
   let resDef =
     define.PolymorphicResource(resId)
@@ -231,6 +277,7 @@ module AB =
           | A a -> A.resDef.PolymorphicFor a
           | B b -> B.resDef.PolymorphicFor b
           | C c -> C.resDef.PolymorphicFor c
+          | D d -> D.resDef.PolymorphicFor d
       )
 
 
@@ -424,7 +471,7 @@ let tests =
       test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let a = 
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
       test <@ a.Id = "a1" @>
@@ -467,7 +514,25 @@ let tests =
       response |> testSuccessStatusCode
 
       let a = 
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+
+      test <@ a.A = true @>
+    }
+
+    testJob "Update A entity mapped: Succeeds if mapping succeeds" {
+      let db = Db ()
+      let ctx = Ctx.WithDb db
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {|data = {|``type`` = "a"; id = "a1"; attributes = {| aEntityMapped = true |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+
+      let a =
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
 
@@ -489,6 +554,33 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
+    testJob "Update A entity mapped: Returns errors returned by mapSetCtx" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "a1"; attributes = {| aEntityMapped = true |} |} |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Update A entity mapped: mapCtx gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let db = Db ()
+      let expected = db.GetOrFail "a1"
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome (A e); (Ctx.WithDb db).MapCtxWithEntity ctx e }
+      let! _response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {|data = {|``type`` = "a"; id = "a1"; attributes = {| aEntityMapped = true |} |} |}
+        |> getResponse
+      Expect.equal calledWith (ValueSome expected) ""
+    }
+
     testJob "Update nullable mapped: Succeeds if mapping succeeds" {
       let db = Db ()
       let ctx = Ctx.WithDb db
@@ -500,7 +592,25 @@ let tests =
       response |> testSuccessStatusCode
 
       let a = 
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
+        | A a -> a
+        | _ -> failwith "Invalid type"
+
+      test <@ a.Nullable = Some "foobar" @>
+    }
+
+    testJob "Update nullable entity mapped: Succeeds if mapping succeeds" {
+      let db = Db ()
+      let ctx = Ctx.WithDb db
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {|data = {|``type`` = "a"; id = "a1"; attributes = {| nullableEntityMapped = "foobar" |} |} |}
+        |> getResponse
+
+      response |> testSuccessStatusCode
+
+      let a =
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
 
@@ -520,6 +630,33 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Update nullable entity mapped: Returns errors returned by mapSetCtx" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "a1"; attributes = {| nullableEntityMapped = "foobar" |} |} |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Update nullable entity mapped: mapCtx gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let db = Db ()
+      let expected = db.GetOrFail "a1"
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome (A e); (Ctx.WithDb db).MapCtxWithEntity ctx e }
+      let! _response =
+        Request.patch ctx "/abs/a1"
+        |> Request.bodySerialized {|data = {|``type`` = "a"; id = "a1"; attributes = {| nullableEntityMapped = "foobar" |} |} |}
+        |> getResponse
+      Expect.equal calledWith (ValueSome expected) ""
     }
 
     testJob "Update B: Returns 202, runs setters and returns correct data if successful" {
@@ -545,7 +682,7 @@ let tests =
       test <@ response.headers[NonStandard "Foo"] = "Bar" @>
 
       let b =
-        match db.GetAOrFail "b2" with
+        match db.GetOrFail "b2" with
         | B b -> b
         | _ -> failwith "Invalid type"
       test <@ b.Id = "b2" @>
@@ -578,7 +715,7 @@ let tests =
       test <@ json |> getPath "data.attributes.x" = "foobar" @>
 
       let a =
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
       test <@ a.Id = "a1" @>
@@ -609,7 +746,7 @@ let tests =
       test <@ json |> getPath "data.attributes.x" = "DEFAULTbar" @>
 
       let a =
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
       test <@ a.Id = "a1" @>
@@ -665,7 +802,7 @@ let tests =
     testJob "Calls AfterUpdate with the initial and new entity" {
       let db = Db ()
       let aOrig =
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
 
@@ -816,7 +953,7 @@ let tests =
       test <@ json |> getPath "data.attributes.nullable" = "lorem ipsum" @>
 
       let a = 
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
       test <@ a.Nullable = Some "lorem ipsum" @>
@@ -854,7 +991,7 @@ let tests =
     testJob "Returns errors and does not call AfterUpdate if a setter returns an error" {
       let db = Db ()
       let aOrig =
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
 
@@ -881,7 +1018,7 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
 
       let a =
-        match db.GetAOrFail "a1" with
+        match db.GetOrFail "a1" with
         | A a -> a
         | _ -> failwith "Invalid type"
       test <@ a = aOrig @>
@@ -1298,6 +1435,33 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns errors returned by mapCtx with entity" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/abs/d1"
+        |> Request.bodySerialized {| data = {| ``type`` = "d"; id = "d1" |} |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "mapCtx with entity gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let db = Db ()
+      let expected = db.GetOrFail "d1"
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome (D e); (Ctx.WithDb db).MapCtxWithEntity ctx e }
+      let! _response =
+        Request.patch ctx "/abs/d1"
+        |> Request.bodySerialized {| data = {| ``type`` = "d"; id = "d1" |} |}
+        |> getResponse
+      Expect.equal calledWith (ValueSome expected) ""
     }
 
     testJob "Returns 403 if not supported by resource" {

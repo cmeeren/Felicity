@@ -377,6 +377,10 @@ module MapCtxCompileTest =
       .ModifyPostSelfAcceptedResponse(fun (_: MappedCtx) _ _ -> ())
       .ModifyPostSelfOkResponse (fun (_: MappedCtx) (_: string) _ _ -> ())
 
+  let withEntity =
+    define.Relationship
+      .MapSetContext(fun (ctx: Ctx6) (e: string) -> MappedCtx)
+
 
 [<Tests>]
 let tests =

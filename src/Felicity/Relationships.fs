@@ -150,7 +150,7 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   setOrder: int
-  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
+  mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
@@ -277,7 +277,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                 else
                   return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, (true, (:? ToOne as rel)) ->
-                match! this.mapSetCtx ctx with
+                match! this.mapSetCtx ctx (unbox<'entity> entity) with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
                     let idParsers =
@@ -436,7 +436,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         fun ctx req parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
-              match! this.mapSetCtx ctx with
+              match! this.mapSetCtx ctx (unbox<'entity> entity0) with
               | Error errs -> return! handleErrors errs next httpCtx
               | Ok setCtx ->
                   match req.IdentifierDocument.Value with
@@ -1083,7 +1083,7 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   setOrder: int
-  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
+  mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
@@ -1216,7 +1216,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                 else
                   return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, (true, (:? ToOneNullable as rel)) ->
-              match! this.mapSetCtx ctx with
+              match! this.mapSetCtx ctx (unbox<'entity> entity) with
               | Error errs -> return Error errs
               | Ok setCtx ->
                   let idParsers =
@@ -1383,7 +1383,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         fun ctx req _parentTypeName preconditions entity0 resDef resp ->
           fun next httpCtx ->
             job {
-              match! this.mapSetCtx ctx with
+              match! this.mapSetCtx ctx (unbox<'entity> entity0) with
               | Error errs -> return! handleErrors errs next httpCtx
               | Ok setCtx ->
                   match req.IdentifierDocument.Value with
@@ -2101,7 +2101,7 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
   setOrder: int
-  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
+  mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
@@ -2255,7 +2255,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                   else
                     return Error [setToManyRelReplacementNotSupported this.name t ("/data/relationships/" + this.name) this.add.IsSome this.remove.IsSome]
             | Some set, (true, (:? ToMany as rel)) ->
-              match! this.mapSetCtx ctx with
+              match! this.mapSetCtx ctx (unbox<'entity> entity) with
               | Error errs -> return Error errs
               | Ok setCtx ->
                   let idParsers =
@@ -2352,7 +2352,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
       fun ctx req (preconditions: Preconditions<'ctx>) entity0 resDef (resp: ResponseBuilder<'ctx>) ->
         fun next httpCtx ->
           job {
-            match! this.mapSetCtx ctx with
+            match! this.mapSetCtx ctx (unbox<'entity> entity0) with
             | Error errs -> return! handleErrors errs next httpCtx
             | Ok setCtx ->
                 match req.IdentifierCollectionDocument.Value with
@@ -3121,37 +3121,37 @@ module ToManyRelationshipExtensions =
 
 
 type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
-  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
+  mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Job<Result<'relatedId, Error list>>> option
 } with
 
-  static member internal Create (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) : PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create (mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>) : PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     { mapSetCtx = mapSetCtx; resolveEntity = None; idParsers = None; resolveId = None }
 
-  member this.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+  member this.MapSetContextJobRes (mapSetCtx: 'ctx -> 'entity -> Job<Result<'mappedSetCtx, Error list>>) =
     {
       mapSetCtx = mapSetCtx
       resolveEntity = this.resolveEntity
       resolveId = this.resolveId
       idParsers = this.idParsers
     }
-  
-  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
-    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
-    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
-  
-  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
-    this.MapSetContextJob (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
-    this.MapSetContextJobRes (Job.lift mapSetCtx)
-  
-  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
-    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
+
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> 'entity -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (fun ctx e -> mapSetCtx ctx e |> Job.map Ok)
+
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift2 mapSetCtx)
+
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift2 mapSetCtx)
 
   member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'relatedId>) =
     { this with
@@ -3189,28 +3189,28 @@ type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'rela
 
 
 
-type RelationshipHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) =
+type RelationshipHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>) =
 
   member _.Polymorphic () =
     PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(mapSetCtx)
 
-  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> 'entity -> Job<Result<'mappedSetCtx, Error list>>) =
     RelationshipHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
-  
-  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
-    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
-    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
-  
-  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
-    this.MapSetContextJob (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
-    this.MapSetContextJobRes (Job.lift mapSetCtx)
-  
-  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
-    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
+
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> 'entity -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (fun ctx e -> mapSetCtx ctx e |> Job.map Ok)
+
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift2 mapSetCtx)
+
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift2 mapSetCtx)
 
   member _.ToOne(resourceDef: ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     let idParsers = Map.empty |> Map.add resourceDef.name resourceDef.id.toDomain

@@ -34,7 +34,7 @@ type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
 type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   name: string
   setOrder: int
-  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
+  mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>
   fromDomain: 'attr -> 'serialized
   toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Job<'attr Skippable>) option
@@ -73,7 +73,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
                 else
                   return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, (true, attrValue) ->
-                match! this.mapSetCtx ctx with
+                match! this.mapSetCtx ctx (unbox<'entity> entity) with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
                     return!
@@ -268,7 +268,7 @@ module NonNullableAttributeExtensions =
 type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   name: string
   setOrder: int
-  mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>
+  mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>
   fromDomain: 'attr -> 'serialized
   toDomain: 'ctx -> 'serialized -> Job<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Job<'attr option Skippable>) option
@@ -313,7 +313,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                 else
                   return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, (true, attrValue) ->
-                match! this.mapSetCtx ctx with
+                match! this.mapSetCtx ctx (unbox<'entity> entity) with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
                     return!
@@ -601,25 +601,25 @@ module private AttributeParsers =
 
 
 
-type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) =
+type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>) =
 
-  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> 'entity -> Job<Result<'mappedSetCtx, Error list>>) =
     NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
-  
-  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
-    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
-    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
-  
-  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
-    this.MapSetContextJob (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
-    this.MapSetContextJobRes (Job.lift mapSetCtx)
-  
-  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
-    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
+
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> 'entity -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (fun ctx e -> mapSetCtx ctx e |> Job.map Ok)
+
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift2 mapSetCtx)
+
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift2 mapSetCtx)
 
   member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create(
@@ -773,27 +773,27 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -
 
 
 
-type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> Job<Result<'setCtx, Error list>>) =
+type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entity -> Job<Result<'setCtx, Error list>>) =
 
   member _.Nullable = NullableAttributeHelper<'ctx, 'setCtx, 'entity>(mapSetCtx)
 
-  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> Job<Result<'mappedSetCtx, Error list>>) =
+  member _.MapSetContextJobRes (mapSetCtx: 'ctx -> 'entity -> Job<Result<'mappedSetCtx, Error list>>) =
     AttributeHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
-  
-  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> Async<Result<'mappedSetCtx, Error list>>) =
-    this.MapSetContextJobRes (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextJob (mapSetCtx: 'ctx -> Job<'mappedSetCtx>) =
-    this.MapSetContextJobRes (mapSetCtx >> Job.map Ok)
-  
-  member this.MapSetContextAsync (mapSetCtx: 'ctx -> Async<'mappedSetCtx>) =
-    this.MapSetContextJob (Job.liftAsync mapSetCtx)
-  
-  member this.MapSetContextRes (mapSetCtx: 'ctx -> Result<'mappedSetCtx, Error list>) =
-    this.MapSetContextJobRes (Job.lift mapSetCtx)
-  
-  member this.MapSetContext (mapSetCtx: 'ctx -> 'mappedSetCtx) =
-    this.MapSetContextJobRes (JobResult.lift mapSetCtx)
+
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) =
+    this.MapSetContextJobRes (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextJob (mapSetCtx: 'ctx -> 'entity -> Job<'mappedSetCtx>) =
+    this.MapSetContextJobRes (fun ctx e -> mapSetCtx ctx e |> Job.map Ok)
+
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) =
+    this.MapSetContextJob (Job.liftAsync2 mapSetCtx)
+
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) =
+    this.MapSetContextJobRes (Job.lift2 mapSetCtx)
+
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
+    this.MapSetContextJobRes (JobResult.lift2 mapSetCtx)
 
   member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create(

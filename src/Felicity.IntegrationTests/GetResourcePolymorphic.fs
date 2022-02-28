@@ -36,6 +36,7 @@ type Ctx = {
   ModifyAResponse: A -> HttpHandler
   ModifyBResponse: B -> HttpHandler
   MapCtx: Ctx -> Result<MappedCtx, Error list>
+  MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
 } with
   static member Default = {
     ParseId = Some
@@ -43,6 +44,7 @@ type Ctx = {
     ModifyAResponse = fun _ -> fun next ctx -> next ctx
     ModifyBResponse = fun _ -> fun next ctx -> next ctx
     MapCtx = fun ctx -> Ok { GetById = ctx.GetById; ModifyAResponse = ctx.ModifyAResponse; ModifyBResponse = ctx.ModifyBResponse }
+    MapCtxWithEntity = fun ctx _e -> Ok { GetById = ctx.GetById; ModifyAResponse = ctx.ModifyAResponse; ModifyBResponse = ctx.ModifyBResponse }
   }
 
 
@@ -67,7 +69,7 @@ module B =
   let b = define.Attribute.SimpleInt().Get(fun b -> b.B)
   let get =
     define.Operation
-      .ForContextRes(fun ctx -> ctx.MapCtx ctx)
+      .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .GetResource()
       .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
 
@@ -218,6 +220,24 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns errors returned by mapCtx with entity" {
+      let ctx = { Ctx.Default with GetById = (fun _ -> Ok (Some b)); MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response = Request.get ctx "/abs/b2" |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "mapCtx with entity gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let ctx = { Ctx.Default with GetById = (fun _ -> Ok (Some b)); MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome (B e); Ctx.Default.MapCtxWithEntity ctx e }
+      let! _response = Request.get ctx "/abs/b2" |> getResponse
+      Expect.equal calledWith (ValueSome b) ""
     }
 
     testJob "Returns 404 if ID parsing fails" {

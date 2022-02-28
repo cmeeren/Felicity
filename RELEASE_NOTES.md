@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### vNext
+
+* Added context transformation overloads (`ForContext` and `MapSetContext`) accepting the current entity for all entity-specific operations (GET, PATCH, DELETE, custom operations, attribute/relationship setters, and `Set2`).
+
 ### 0.18.2 (2022-02-11)
 
 * Fixed bug introduced in 0.18.1 where main resources that were also included in a relationship could be `null` due to a race condition in the response builder  

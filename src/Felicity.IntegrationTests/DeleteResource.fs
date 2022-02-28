@@ -52,6 +52,7 @@ type Ctx = {
   DeleteA: A -> Result<unit, Error list>
   DeleteB: B -> unit
   MapCtx: Ctx -> Result<MappedCtx, Error list>
+  MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
 } with
   static member WithDb db = {
     ModifyAResponse = fun next ctx -> next ctx
@@ -61,6 +62,14 @@ type Ctx = {
     DeleteA = fun a -> db.Remove a.Id |> Ok
     DeleteB = fun b -> db.Remove b.Id
     MapCtx = fun ctx -> Ok {
+      ModifyAResponse = ctx.ModifyAResponse
+      ModifyBResponse = ctx.ModifyBResponse
+      Db = ctx.Db
+      BeforeDeleteA = ctx.BeforeDeleteA
+      DeleteA = ctx.DeleteA
+      DeleteB = ctx.DeleteB
+    }
+    MapCtxWithEntity = fun ctx _ -> Ok {
       ModifyAResponse = ctx.ModifyAResponse
       ModifyBResponse = ctx.ModifyBResponse
       Db = ctx.Db
@@ -98,7 +107,7 @@ module B =
 
   let patch =
     define.Operation
-      .ForContextRes(fun ctx -> ctx.MapCtx ctx)
+      .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .Delete(fun (ctx: MappedCtx) b -> ctx.DeleteB b)
       .Return202Accepted()
       .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
@@ -382,6 +391,29 @@ let tests =
       test <@ json |> getPath "errors[0].code" = "custom" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns errors returned by mapCtx with entity" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun _ _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response = Request.delete ctx "/abs/b2" |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "mapCtx with entity gets passed the entity" {
+      let mutable calledWith = ValueNone
+      let db = Db ()
+      let expected = db.TryGet "b2" |> Option.get
+      let ctx = { Ctx.WithDb db with MapCtxWithEntity = fun ctx e -> calledWith <- ValueSome (B e); (Ctx.WithDb db).MapCtxWithEntity ctx e }
+      let! _response =
+        Request.delete ctx "/abs/b2"
+        |> getResponse
+      Expect.equal calledWith (ValueSome expected) ""
     }
 
     testJob "Returns 403 if not supported by resource" {
