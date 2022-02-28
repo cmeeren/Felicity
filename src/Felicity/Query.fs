@@ -584,6 +584,36 @@ type Filter =
   static member Parsed(name: string, parse: string -> 'a) =
     SingleFilter<'ctx, 'a>(name, JobResult.lift2 (fun _ s -> parse s))
 
+  static member String(name) =
+    SingleFilter<'ctx, string>(name, fun _ s -> s |> Ok |> Job.result)
+
+  static member Bool(name) =
+    SingleFilter<'ctx, bool>(name, fun _ -> parseBool >> Job.result)
+
+  static member Int(name) =
+    SingleFilter<'ctx, int>(name, fun _ -> parseInt >> Job.result)
+
+  static member Float(name) =
+    SingleFilter<'ctx, float>(name, fun _ -> parseFloat >> Job.result)
+
+  static member DateTime(name) =
+    SingleFilter<'ctx, DateTime>(name, fun _ -> parseDateTime >> Job.result)
+
+  static member DateTimeOffset(name) =
+    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffset >> Job.result)
+
+  static member DateTimeOffsetAllowMissingOffset(name) =
+    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Job.result)
+
+  static member Enum(name, enumMap: (string * 'a) list) =
+    let d = dict enumMap
+    let allowed = enumMap |> List.map fst |> List.distinct
+    let parse s =
+      match d.TryGetValue s with
+      | true, v -> Ok v
+      | false, _ -> Error [queryInvalidEnum $"filter[%s{name}]" s allowed]
+    SingleFilter<'ctx, 'a>(name, fun _ s -> parse s |> Job.result)
+
 
 
 
@@ -810,6 +840,8 @@ type Query =
   static member Parsed(queryParamName, parse: string -> 'a) =
     CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.lift2 (fun _ s -> parse s))
 
+  // Note: When adding more overloads, consider adding them to Filter, too.
+
   static member String(queryParamName) : CustomQueryParam<'ctx, string> =
     CustomQueryParam<'ctx, string>(queryParamName, fun _ s -> s |> Ok |> Job.result)
 
@@ -830,6 +862,8 @@ type Query =
 
   static member DateTimeOffsetAllowMissingOffset(queryParamName) : CustomQueryParam<'ctx, DateTimeOffset> =
     CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Job.result)
+
+  // Note: When adding more overloads, consider adding them to Filter, too.
 
   static member Enum(queryParamName, enumMap: (string * 'a) list) =
     let d = dict enumMap
