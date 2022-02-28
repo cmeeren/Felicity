@@ -1090,7 +1090,7 @@ Operation-specific authorization
 
 As mentioned previously, the context is a good place to put your authenticated user data. However, you may have different types of authentication, e.g. anonymous (no user), normal users, and administrators.
 
-One solution to access control using Felicity is to design two different context types – in this case, one for all users, and one for administrators:
+One solution to access control using Felicity is to design different context types – in this case, one for all users, and one for administrators:
 
 ```f#
 type Principal =
@@ -1110,14 +1110,14 @@ However, you may have a resource that is available to all users of your API, but
 Felicity allows you to transform the context for arbitrary operations, and specify an error to be returned if the transformation fails. For example:
 
 ```f#
-let unauthorized =
+let unauthorized () =
   Error.create 403
   |> Error.setTitle "Unauthorized"
   |> Error.setDetail "You do not have access to this operation"
 
 let toAdminCtx = function
   | { Principal = Admin a } -> Ok { Admin = a }
-  | _ -> Error [unauthorized]
+  | _ -> Error [unauthorized ()]
 ```
 
 Using this, you can define operations like this:
