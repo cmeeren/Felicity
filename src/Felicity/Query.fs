@@ -423,7 +423,7 @@ type Filter =
     Filter.Field(field, parseDateTime)
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, DateTimeOffset>) =
-    Filter.Field(field, parseDateTimeOffset)
+    Filter.Field(field, parseDateTimeOffsetAllowMissingOffset)
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
@@ -447,7 +447,7 @@ type Filter =
     Filter.Field(path, field, parseDateTime)
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, DateTimeOffset>) =
-    Filter.Field(path, field, parseDateTimeOffset)
+    Filter.Field(path, field, parseDateTimeOffsetAllowMissingOffset)
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
@@ -471,7 +471,7 @@ type Filter =
     Filter.Field(path1, path2, field, parseDateTime)
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, DateTimeOffset>) =
-    Filter.Field(path1, path2, field, parseDateTimeOffset)
+    Filter.Field(path1, path2, field, parseDateTimeOffsetAllowMissingOffset)
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
     SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
@@ -495,7 +495,7 @@ type Filter =
     Filter.Field(path1, path2, path3, field, parseDateTime)
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, DateTimeOffset>) =
-    Filter.Field(path1, path2, path3, field, parseDateTimeOffset)
+    Filter.Field(path1, path2, path3, field, parseDateTimeOffsetAllowMissingOffset)
 
   static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
     SingleFilter<'ctx, 'a>(name, parse)
