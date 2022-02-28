@@ -5,11 +5,19 @@ open HttpFs.Client
 open Swensen.Unquote
 open Felicity
 
+type MappedCtx =
+  {
+    SetNonNull: string * int -> string -> string
+    SetNull12: string option * int option -> string -> string
+    SetNull34: (int * string) option -> string -> string
+  }
+
 type Ctx =
   {
     SetNonNull: string * int -> string -> string
     SetNull12: string option * int option -> string -> string
     SetNull34: (int * string) option -> string -> string
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
   }
 
   static member Default =
@@ -17,6 +25,11 @@ type Ctx =
       SetNonNull = fun _ -> failwith "Must be set if used"
       SetNull12 = fun _ -> failwith "Must be set if used"
       SetNull34 = fun _ -> failwith "Must be set if used"
+      MapCtx = fun ctx -> Ok {
+        SetNonNull = ctx.SetNonNull
+        SetNull12 = ctx.SetNull12
+        SetNull34 = ctx.SetNull34
+      }
     }
 
 module A =
@@ -54,6 +67,7 @@ module A =
 
   let setNonNull =
     define.Operation
+      .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .Set2((fun ctx x e -> ctx.SetNonNull x e), nonNull1, nonNull2)
 
   let setNull12 =
@@ -62,6 +76,7 @@ module A =
 
   let setNull34 =
     define.Operation
+      .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .Set2SameNull((fun ctx x e -> ctx.SetNull34 x e), null3, nullRel)
 
   let post = define.Operation.Post(fun () -> "foobar").AfterCreate(fun _ -> ())
@@ -327,6 +342,47 @@ let tests =
       response |> testStatusCode 201
       let calledWith = calledWith
       test <@ calledWith = ValueSome (Some (123, "abc")) @>
+    }
+
+    testJob "Returns errors returned by mapCtx in Set2" {
+      let ctx = { Ctx.Default with MapCtx = fun _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/as/ignoredId"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "ignoredId"
+                  attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns errors returned by mapCtx in Set2SameNull" {
+      let ctx = { Ctx.Default with MapCtx = fun _ -> Error [Error.create 422 |> Error.setCode "custom"] }
+      let! response =
+        Request.patch ctx "/as/ignoredId"
+        |> Request.bodySerialized
+            {|data =
+                {|``type`` = "a"
+                  id = "ignoredId"
+                  attributes = {| null3 = 123 |}
+                  relationships = {| nullRel = {| data = {| ``type`` = "a"; id = "abc" |} |} |}
+                |}
+            |}
+        |> getResponse
+      response |> testStatusCode 422
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "422" @>
+      test <@ json |> getPath "errors[0].code" = "custom" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
   ]
