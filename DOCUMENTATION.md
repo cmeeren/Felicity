@@ -1090,7 +1090,7 @@ Operation-specific authorization
 
 As mentioned previously, the context is a good place to put your authenticated user data. However, you may have different types of authentication, e.g. anonymous (no user), normal users, and administrators.
 
-One solution is to access control using Felicity is to design two different context types – in this case, one for all users, and one for administrators:
+One solution to access control using Felicity is to design two different context types – in this case, one for all users, and one for administrators:
 
 ```f#
 type Principal =
