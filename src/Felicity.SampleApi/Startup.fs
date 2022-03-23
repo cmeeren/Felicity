@@ -51,9 +51,9 @@ module Setup =
       |> ignore
 
 
-type Startup() =
+module Startup =
 
-  member _.ConfigureServices(services: IServiceCollection) : unit =
+  let configureServices (services: IServiceCollection) : unit =
     services
       .AddGiraffe()
       .AddRouting()
@@ -62,7 +62,7 @@ type Startup() =
         .Add()
     |> ignore
 
-  member _.Configure(app: IApplicationBuilder, _env: IWebHostEnvironment) : unit =
+  let configure (app: IApplicationBuilder) : unit =
     app
       .UseGiraffeErrorHandler(fun ex _ ->
         Log.Error(ex, "Unhandled exception while executing request")
