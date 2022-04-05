@@ -41,9 +41,9 @@
       },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Direct",
-        "requested": "[6.0.2, )",
-        "resolved": "6.0.2",
-        "contentHash": "6nkfvuXhFE2q5uzwoNnn88ODm/7lzhUTBPMKWo3UrlV0a2jFNyzIXowPBvt2xb5qXhuhiMaJKuHBmmGeGcqhYg==",
+        "requested": "[6.0.3, )",
+        "resolved": "6.0.3",
+        "contentHash": "oeK3KFtoLslFbKyQEiQ8HgKWAmTXUlp8vtYByUmC5ysWVrNEpCrQOKACGV/uYSeC9aFvEIvVyFTcommnxrsyiA==",
         "dependencies": {
           "System.IO.Pipelines": "6.0.2"
         }
@@ -75,13 +75,13 @@
       },
       "YoloDev.Expecto.TestSdk": {
         "type": "Direct",
-        "requested": "[0.12.13, )",
-        "resolved": "0.12.13",
-        "contentHash": "kMBYWX485+HeVzV05kMnCUyb2I2vzG50B0BJ4Kky3kGoT6U2GHHJY/njjEBmbFB6sN3jwjeoZJjBWBzRvYzW0A==",
+        "requested": "[0.12.20, )",
+        "resolved": "0.12.20",
+        "contentHash": "7lsN69H6FXvi4prolBxfXUHUYj1nW4mlyCgFCGl0ZF3YaxewnogFtUpFUkOIBZi6c5Xlx6awZBEamK2khcR86A==",
         "dependencies": {
           "Expecto": "[9.0.0, 10.0.0)",
           "FSharp.Core": "4.6.0",
-          "System.Collections.Immutable": "1.5.0"
+          "System.Collections.Immutable": "1.7.1"
         }
       },
       "FSharp.SystemTextJson": {
@@ -182,8 +182,8 @@
       },
       "System.Collections.Immutable": {
         "type": "Transitive",
-        "resolved": "1.5.0",
-        "contentHash": "EXKiDFsChZW0RjrZ4FYHu9aW6+P4MCgEDCklsVseRfhoO0F+dXeMSsMRAlVXIo06kGJ/zv+2w1a2uc2+kxxSaQ=="
+        "resolved": "1.7.1",
+        "contentHash": "B43Zsz5EfMwyEbnObwRxW5u85fzJma3lrDeGcSAV1qkhSRTNY5uXAByTn9h9ddNdhM+4/YoLc/CI43umjwIl9Q=="
       },
       "System.Diagnostics.FileVersionInfo": {
         "type": "Transitive",
