@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.19.0 (2022-04-19)
+
+* Updated Giraffe from 5.0.0 to 6.0.0
+
 ### 0.18.3 (2022-02-28)
 
 * Added context transformation overloads (`ForContext` and `MapSetContext`) accepting the current entity for all entity-specific operations (GET, PATCH, DELETE, custom operations, attribute/relationship setters, and `Set2`).
