@@ -1,7 +1,6 @@
 namespace Felicity.SampleApp
 
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Serilog
 open Serilog.Events
