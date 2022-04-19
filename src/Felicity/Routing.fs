@@ -5,7 +5,6 @@ open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Routing
 open Microsoft.Extensions.DependencyInjection
 open Hopac
-open FSharp.Control.Tasks
 open Giraffe
 open Giraffe.EndpointRouting
 open Errors

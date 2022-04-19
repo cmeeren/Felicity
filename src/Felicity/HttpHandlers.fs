@@ -9,7 +9,6 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Primitives
 open Microsoft.Net.Http.Headers
 open Giraffe
-open FSharp.Control.Tasks
 open Errors
 
 
