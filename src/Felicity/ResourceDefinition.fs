@@ -174,7 +174,7 @@ module internal LockSpecification =
         do! completedTask  // TODO: Is this needed?
       with ex ->
         (state :> IDisposable).Dispose ()
-        return ex.Reraise ()
+        ex.Reraise ()
       return if state.TimedOut then Error [lockTimeout ()] else Ok state
     }
 
