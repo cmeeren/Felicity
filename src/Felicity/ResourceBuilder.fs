@@ -77,20 +77,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     |> Task.map dict
 
   member _.Relationships(onlyData) =
-    let toOneRels =
-      ResourceModule.toOneRels<'ctx> resourceModule
-      |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
-
-    let toOneNullableRels =
-      ResourceModule.toOneNullableRels<'ctx> resourceModule
-      |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
-
-    let toManyRels =
-      ResourceModule.toManyRels<'ctx> resourceModule
-      |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
-
     task {
-
       let relationships = Dictionary<RelationshipName, IRelationship>()
       let builders = ResizeArray<ResourceBuilder<'ctx>>()
 
@@ -101,7 +88,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
         lock builders (fun () -> builders.Add(builder))
 
       let toOneRelsTask =
-        toOneRels
+        ResourceModule.toOneRels<'ctx> resourceModule
+        |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
         |> Array.map (fun r ->
             task {
               let links : Skippable<IDictionary<_,_>> =
@@ -137,7 +125,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
         |> Task.ignore<unit []>
 
       let toOneNullableRelsTask =
-        toOneNullableRels
+        ResourceModule.toOneNullableRels<'ctx> resourceModule
+        |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
         |> Array.map (fun r ->
             task {
               let links : Skippable<IDictionary<_,_>> =
@@ -176,7 +165,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
         |> Task.ignore<unit []>
 
       let toManyRelsTask =
-        toManyRels
+        ResourceModule.toManyRels<'ctx> resourceModule
+        |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
         |> Array.map (fun r ->
             task {
               let links : Skippable<IDictionary<_,_>> =
