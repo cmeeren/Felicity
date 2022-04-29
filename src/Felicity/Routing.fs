@@ -86,9 +86,9 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
                 query
                 |> Map.tryFind "include"
                 |> Option.map (fun paths ->
-                    paths.Split ','
+                    paths.Split(',', StringSplitOptions.RemoveEmptyEntries)
                     |> Array.filter ((<>) "")
-                    |> Array.map (fun path -> path.Split '.' |> Array.filter ((<>) ""))
+                    |> Array.map (fun path -> path.Split('.', StringSplitOptions.RemoveEmptyEntries))
                     |> Array.map Array.toList
                     |> Array.toList)
                 |> Option.defaultValue []
