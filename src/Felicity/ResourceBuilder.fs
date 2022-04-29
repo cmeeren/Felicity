@@ -47,8 +47,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 task {
                   let! constraints =
                     constrainedFields
-                    |> Seq.filter (fun f -> shouldUseField f.Name)
-                    |> Seq.map (fun f ->
+                    |> Array.filter (fun f -> shouldUseField f.Name)
+                    |> Array.map (fun f ->
                         task {
                           let! constraints = f.BoxedGetConstraints ctx boxedEntity
                           return f.Name, constraints |> dict
@@ -58,8 +58,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
                   return
                     constraints
-                    |> Seq.filter (fun (_, x) -> x.Count > 0)
-                    |> Seq.toArray
+                    |> Array.filter (fun (_, x) -> x.Count > 0)
                     |> Include
                     |> Skippable.filter (not << Array.isEmpty)
                     |> Skippable.map (dict >> box)
@@ -74,7 +73,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     |> Array.filter (fun a -> shouldUseField a.Name)
     |> Array.choose (fun a -> a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Task.map (fun v -> a.Name, v)))
     |> Task.WhenAll
-    |> Task.map (Seq.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
+    |> Task.map (Array.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
     |> Task.map dict
 
   member _.Relationships(onlyData) =
@@ -103,7 +102,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
       let toOneRelsTask =
         toOneRels
-        |> Seq.map (fun r ->
+        |> Array.map (fun r ->
             task {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
@@ -139,7 +138,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
       let toOneNullableRelsTask =
         toOneNullableRels
-        |> Seq.map (fun r ->
+        |> Array.map (fun r ->
             task {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
@@ -178,7 +177,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
       let toManyRelsTask =
         toManyRels
-        |> Seq.map (fun r ->
+        |> Array.map (fun r ->
             task {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
@@ -225,7 +224,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let! opNamesHrefsAndMeta =
         if linkCfg.ShouldUseCustomLinks(httpCtx) then
           ResourceModule.customOps<'ctx> resourceModule
-          |> Seq.map (fun op ->
+          |> Array.map (fun op ->
               task {
                 let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
                 let! href, meta = op.HrefAndMeta ctx selfUrl entity
@@ -237,7 +236,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
       return
         (Map.empty, opNamesHrefsAndMeta)
-        ||> Seq.fold (fun links (name, href, meta) ->
+        ||> Array.fold (fun links (name, href, meta) ->
               match href, meta with
               | None, None -> links
               | Some href, None -> links |> Links.addOpt name (Some href)
