@@ -469,35 +469,15 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.PreconditionsETag(getETag: Func<'ctx, EntityTagHeaderValue>) =
     { this with validatePreconditions = true; getETag = fun ctx -> getETag.Invoke(ctx) |> Some }
 
-  /// Validate preconditions using the specified function to get the ETag value. May be
-  /// combined with PreconditionsLastModified.
-  [<Obsolete("Use the correctly named 'PreconditionsETag' method instead.")>]
-  // TODO: Remove in next major version
-  member this.PeconditionsETag(getETag: Func<'ctx, EntityTagHeaderValue>) =
-    this.PreconditionsETag(getETag)
-
   /// Validate preconditions using the specified function to get the LastModified value.
   /// May be combined with PreconditionsETag.
   member this.PreconditionsLastModified(getLastModified: Func<'ctx, DateTimeOffset>) =
     { this with validatePreconditions = true; getLastModified = fun ctx -> getLastModified.Invoke(ctx) |> Some }
 
-  /// Validate preconditions using the specified function to get the LastModified value.
-  /// May be combined with PreconditionsETag.
-  [<Obsolete("Use the correctly named 'PreconditionsLastModified' method instead.")>]
-  // TODO: Remove in next major version
-  member this.PeconditionsLastModified(getLastModified: Func<'ctx, DateTimeOffset>) =
-    this.PreconditionsLastModified(getLastModified)
-
   /// Make optional any preconditions supplied using PreconditionsETag or
   /// PreconditionsLastModified. By default, any supplied preconditions are required.
   member this.PreconditionsOptional =
     { this with preconditionsOptional = true }
-
-  /// Make optional any preconditions supplied using PreconditionsETag or
-  /// PreconditionsLastModified. By default, any supplied preconditions are required.
-  [<Obsolete("Use the correctly named 'PreconditionsOptional' property instead.")>]
-  // TODO: Remove in next major version
-  member this.PeconditionsOptional = this.PreconditionsOptional
 
 type PostCustomHelper<'ctx, 'entity> internal
     ( httpCtx: HttpContext,
