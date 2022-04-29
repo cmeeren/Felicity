@@ -3,11 +3,10 @@
 open System
 open System.Collections.Generic
 open System.Text.Json.Serialization
-open Hopac
-open Hopac.Extensions
+open System.Threading.Tasks
 
 let private emptyMetaDictNeverModify = Dictionary(0)
-let emptyLinkArrayNeverModify = ResizeArray(0)
+let emptyLinkArrayNeverModify = [||]
 
 
 type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseUrl: string, currentIncludePath: RelationshipName list, linkCfg: LinkConfig<'ctx>, httpCtx, ctx: 'ctx, req: Request, resourceDef: ResourceDefinition<'ctx>, entity: obj) =
@@ -45,16 +44,17 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
             member _.Name = "constraints"
             member _.BoxedGetSerialized =
               Some <| fun ctx boxedEntity ->
-                job {
+                task {
                   let! constraints =
                     constrainedFields
                     |> Seq.filter (fun f -> shouldUseField f.Name)
-                    |> Seq.Con.mapJob (fun f ->
-                        job {
+                    |> Seq.map (fun f ->
+                        task {
                           let! constraints = f.BoxedGetConstraints ctx boxedEntity
                           return f.Name, constraints |> dict
                         }
                     )
+                    |> Task.WhenAll
 
                   return
                     constraints
@@ -68,14 +68,14 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
   member _.Identifier = identifier
 
-  member _.Attributes () : Job<IDictionary<AttributeName, obj>> =
+  member _.Attributes () : Task<IDictionary<AttributeName, obj>> =
     ResourceModule.attributes<'ctx> resourceModule
     |> Array.append (constraintsAttr |> Option.toArray)
     |> Array.filter (fun a -> shouldUseField a.Name)
-    |> Array.choose (fun a -> a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Job.map (fun v -> a.Name, v)))
-    |> Job.conCollect
-    |> Job.map (Seq.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
-    |> Job.map dict
+    |> Array.choose (fun a -> a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Task.map (fun v -> a.Name, v)))
+    |> Task.WhenAll
+    |> Task.map (Seq.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
+    |> Task.map dict
 
   member _.Relationships(onlyData) =
     let toOneRels =
@@ -90,7 +90,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       ResourceModule.toManyRels<'ctx> resourceModule
       |> Array.filter (fun r -> shouldUseField r.Name || shouldIncludeRelationship r.Name)
 
-    job {
+    task {
 
       let relationships = Dictionary<RelationshipName, IRelationship>()
       let builders = ResizeArray<ResourceBuilder<'ctx>>()
@@ -101,10 +101,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let addBuilder builder =
         lock builders (fun () -> builders.Add(builder))
 
-      let! toOneRelsPromise =
+      let toOneRelsTask =
         toOneRels
-        |> Seq.Con.iterJob (fun r ->
-            job {
+        |> Seq.map (fun r ->
+            task {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
                 | Some u when not onlyData && linkCfg.ShouldUseStandardLinks(httpCtx) && (r.SelfLink || r.RelatedLink) ->
@@ -134,12 +134,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     addRelationship r.Name { ToOne.links = links; data = data; meta = meta }
             }
         )
-        |> Promise.start
+        |> Task.WhenAll
+        |> Task.ignore<unit []>
 
-      let! toOneNullableRelsPromise =
+      let toOneNullableRelsTask =
         toOneNullableRels
-        |> Seq.Con.iterJob (fun r ->
-            job {
+        |> Seq.map (fun r ->
+            task {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
                 | Some u when not onlyData && linkCfg.ShouldUseStandardLinks(httpCtx) && (r.SelfLink || r.RelatedLink) ->
@@ -172,12 +173,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     addRelationship r.Name { ToOneNullable.links = links; data = data; meta = meta }
             }
         )
-        |> Promise.start
+        |> Task.WhenAll
+        |> Task.ignore<unit []>
 
-      let! toManyRelsPromise =
+      let toManyRelsTask =
         toManyRels
-        |> Seq.Con.iterJob (fun r ->
-            job {
+        |> Seq.map (fun r ->
+            task {
               let links : Skippable<IDictionary<_,_>> =
                 match selfUrlOpt with
                 | Some u when not onlyData && linkCfg.ShouldUseStandardLinks(httpCtx) && (r.SelfLink || r.RelatedLink) ->
@@ -208,28 +210,30 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     addRelationship r.Name { ToMany.links = links; data = data; meta = meta }
             }
           )
-          |> Promise.start
+          |> Task.WhenAll
+          |> Task.ignore<unit []>
 
-      do! toOneRelsPromise
-      do! toOneNullableRelsPromise
-      do! toManyRelsPromise
+      do! toOneRelsTask
+      do! toOneNullableRelsTask
+      do! toManyRelsTask
 
       return relationships, builders
     }
 
-  member _.Links () : Job<Map<string, Link>> =
-    job {
+  member _.Links () : Task<Map<string, Link>> =
+    task {
       let! opNamesHrefsAndMeta =
         if linkCfg.ShouldUseCustomLinks(httpCtx) then
           ResourceModule.customOps<'ctx> resourceModule
-          |> Seq.Con.mapJob (fun op ->
-              job {
+          |> Seq.map (fun op ->
+              task {
                 let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
                 let! href, meta = op.HrefAndMeta ctx selfUrl entity
                 return op.Name, href, meta
               }
           )
-        else Job.result emptyLinkArrayNeverModify
+          |> Task.WhenAll
+        else Task.result emptyLinkArrayNeverModify
 
       return
         (Map.empty, opNamesHrefsAndMeta)
@@ -244,8 +248,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
            | _ -> id
     }
 
-  member _.Meta () : Job<IDictionary<string, obj>> =
-    Job.result emptyMetaDictNeverModify  // support later when valid use-cases arrive
+  member _.Meta () : Task<IDictionary<string, obj>> =
+    Task.result emptyMetaDictNeverModify  // support later when valid use-cases arrive
 
 
 /// Gets the resource's built relationship collections, merges them, and
@@ -264,16 +268,16 @@ let setRelationships
 /// relationship collection, and returns the resource along with builders for
 /// the included resources.
 let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
-  job {
-    let! attrsPromise = builder.Attributes () |> Promise.start
-    let! relsAndIncludedPromise = builder.Relationships(false) |> Promise.start
-    let! linksPromise = builder.Links () |> Promise.start
-    let! metaPromise = builder.Meta () |> Promise.start
+  task {
+    let attrsTask = builder.Attributes ()
+    let relsAndIncludedTask = builder.Relationships(false)
+    let linksTask = builder.Links ()
+    let metaTask = builder.Meta ()
 
-    let! attrs = attrsPromise
-    let! rels, included = relsAndIncludedPromise
-    let! links = linksPromise
-    let! meta = metaPromise
+    let! attrs = attrsTask
+    let! rels, included = relsAndIncludedTask
+    let! links = linksTask
+    let! meta = metaTask
 
     let resource = {
       ``type`` = builder.Identifier.``type``
@@ -289,18 +293,18 @@ let internal buildAndGetRelatedBuilders (builder: ResourceBuilder<'ctx>) =
 
 
 let rec internal buildRecursive shouldBuildEntireResource addResource addRelationships (builder: ResourceBuilder<_>) =
-  job {
+  task {
     let recurse = buildRecursive shouldBuildEntireResource addResource addRelationships
     if shouldBuildEntireResource builder.Identifier then
       // We are building a new resource
       let! resource, relatedBuilders = buildAndGetRelatedBuilders builder
       addResource builder.Identifier resource
-      do! relatedBuilders |> Seq.Con.iterJob recurse
+      do! relatedBuilders |> Seq.map recurse |> Task.WhenAll |> Task.ignore<unit []>
     else
       // We are building the relationships for a resource that has already been built
       let! rels, relatedBuilders = builder.Relationships(true)
       addRelationships builder.Identifier rels
-      do! relatedBuilders |> Seq.Con.iterJob recurse
+      do! relatedBuilders |> Seq.map recurse |> Task.WhenAll |> Task.ignore<unit []>
   }
 
 let internal includedResourceComparer =
@@ -311,7 +315,7 @@ let internal includedResourceComparer =
   }
 
 let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
-  job {
+  task {
     let allResources = Dictionary<ResourceIdentifier, Resource voption>()
     let additionalRelationships = Dictionary<ResourceIdentifier, IDictionary<RelationshipName, IRelationship>>()
 
@@ -341,7 +345,10 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
         )
 
     do!
-      mainBuilders |> Seq.Con.iterJob (buildRecursive shouldBuildEntireResource addResource addRelationships)
+      mainBuilders
+      |> Seq.map (buildRecursive shouldBuildEntireResource addResource addRelationships)
+      |> Task.WhenAll
+      |> Task.ignore<unit []>
 
     for kvp in additionalRelationships do
       let res = allResources[kvp.Key].Value
@@ -372,7 +379,7 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
 /// with any included resources. Included resources are deterministically
 /// sorted (but the actual sorting is an implementation detail).
 let internal buildOne (mainBuilder: ResourceBuilder<'ctx>) =
-  job {
+  task {
     let! main, included = build [mainBuilder]
     return main[0], included
   }

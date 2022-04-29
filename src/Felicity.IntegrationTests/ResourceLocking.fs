@@ -626,14 +626,14 @@ let tests =
 
     testJob "Locked resources return 503 if lock times out" {
       let testClient = startTestServer (Ctx (ref 0))
-      let getJob () =
+      let getTask () =
         Request.createWithClient testClient Post (Uri("http://example.com/ds/someId/customOp"))
         |> Request.jsonApiHeaders
         |> getResponse
 
-      do! getJob () |> Job.toAsync |> Async.StartChild |> Async.Ignore 
-      do! timeOutMillis 100  // give the first job a chance to lock
-      let! secondResp = getJob ()
+      do! getTask () |> Job.toAsync |> Async.StartChild |> Async.Ignore
+      do! timeOutMillis 100  // give the first Task a chance to lock
+      let! secondResp = getTask ()
       secondResp |> testStatusCode 503
       test <@ secondResp.headers.ContainsKey LastModified = false @>
       let! json = secondResp |> Response.readBodyAsString

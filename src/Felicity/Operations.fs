@@ -4,9 +4,9 @@ open System
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Text.Json.Serialization
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Net.Http.Headers
-open Hopac
 open Giraffe
 open Errors
 
@@ -79,20 +79,20 @@ type Preconditions<'ctx, 'entity> = internal {
 
 
 type internal ResSpecificResourceLookup<'ctx> =
-  abstract GetByIdBoxed: 'ctx -> ResourceId -> Job<Result<(ResourceDefinition<'ctx> * BoxedEntity) option, Error list>>
+  abstract GetByIdBoxed: 'ctx -> ResourceId -> Task<Result<(ResourceDefinition<'ctx> * BoxedEntity) option, Error list>>
 
 
 type ResourceLookup<'ctx, 'entity, 'id> =
-  abstract GetById: 'ctx -> 'id -> Job<Result<'entity option, Error list>>
+  abstract GetById: 'ctx -> 'id -> Task<Result<'entity option, Error list>>
 
 
 type internal ResourceLookup<'ctx> =
-  abstract GetByIdBoxed: ResourceDefinition<'ctx> -> 'ctx -> ResourceId -> Job<Result<BoxedEntity option, Error list>>
+  abstract GetByIdBoxed: ResourceDefinition<'ctx> -> 'ctx -> ResourceId -> Task<Result<BoxedEntity option, Error list>>
 
 
 type ResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  getById: 'ctx -> 'id -> Job<Result<'entity option, Error list>>
+  mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>
+  getById: 'ctx -> 'id -> Task<Result<'entity option, Error list>>
 } with
 
   static member internal Create(mapCtx, getById) : ResourceLookup<'originalCtx, 'ctx, 'entity, 'id> =
@@ -106,7 +106,7 @@ type ResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
   interface ResourceLookup<'originalCtx> with
     member this.GetByIdBoxed rDef ctx rawId =
-      job {
+      task {
         match! rDef.ParseIdBoxed ctx rawId with
         // Ignore ID parsing errors; in the context of fetching a resource by ID, this
         // just means that the resource does not exist, which is a more helpful result.
@@ -122,12 +122,12 @@ type ResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
 
 type internal PolymorphicResourceLookup<'ctx> =
-  abstract GetByIdBoxed: ResourceDefinition<'ctx> -> 'ctx -> ResourceId -> Job<Result<(ResourceDefinition<'ctx> * BoxedEntity) option, Error list>>
+  abstract GetByIdBoxed: ResourceDefinition<'ctx> -> 'ctx -> ResourceId -> Task<Result<(ResourceDefinition<'ctx> * BoxedEntity) option, Error list>>
 
 
 type PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  getById: 'ctx -> 'id -> Job<Result<'entity option, Error list>>
+  mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>
+  getById: 'ctx -> 'id -> Task<Result<'entity option, Error list>>
   getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
 } with
 
@@ -143,7 +143,7 @@ type PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
   interface PolymorphicResourceLookup<'originalCtx> with
     member this.GetByIdBoxed rDef ctx rawId =
-      job {
+      task {
         match! rDef.ParseIdBoxed ctx rawId with
         // Ignore ID parsing errors; in the context of fetching a resource by ID, this
         // just means that the resource does not exist, which is a more helpful result
@@ -166,7 +166,7 @@ type internal GetResourceOperation<'ctx> =
 
 
 type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
-  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
   modifyResponse: 'ctx -> 'entity -> HttpHandler
 } with
 
@@ -179,7 +179,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
   interface GetResourceOperation<'originalCtx> with
     member this.Run resDef ctx req entity resp =
       fun next httpCtx ->
-        job {
+        task {
           match! this.mapCtx ctx (unbox<'entity> entity) with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
@@ -190,7 +190,6 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                 >=> jsonApiWithETag<'originalCtx> doc
               return! handler next httpCtx
         }
-        |> Job.startAsTask
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
     { this with modifyResponse = getHandler }
@@ -208,8 +207,8 @@ type internal GetCollectionOperation<'ctx> =
 
 
 type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  getCollection: 'originalCtx -> 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
+  mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>
+  getCollection: 'originalCtx -> 'ctx -> Request -> Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
   modifyResponse: 'ctx -> 'entity list -> HttpHandler
 } with
 
@@ -223,7 +222,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
   interface GetCollectionOperation<'originalCtx> with
     member this.Run resDef ctx req resp =
       fun next httpCtx ->
-        job {
+        task {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
@@ -240,7 +239,6 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                         >=> jsonApiWithETag<'originalCtx> doc
                       return! handler next httpCtx
         }
-        |> Job.startAsTask
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) =
     { this with modifyResponse = getHandler }
@@ -257,8 +255,8 @@ type internal PolymorphicGetCollectionOperation<'ctx> =
 
 
 type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  getCollection: 'originalCtx -> 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
+  mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>
+  getCollection: 'originalCtx -> 'ctx -> Request -> Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
   getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
   modifyResponse: 'ctx -> 'entity list -> HttpHandler
 } with
@@ -274,7 +272,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
   interface PolymorphicGetCollectionOperation<'originalCtx> with
     member this.Run ctx req resp =
       fun next httpCtx ->
-        job {
+        task {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
@@ -291,7 +289,6 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
                         >=> jsonApiWithETag<'originalCtx> doc
                       return! handler next httpCtx
         }
-        |> Job.startAsTask
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) =
     { this with modifyResponse = getHandler }
@@ -309,9 +306,9 @@ type internal PostOperation<'ctx> =
 
 
 type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> Request -> Job<Result<'ctx, Error list>>
-  create: 'originalCtx -> 'ctx -> Request -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
-  afterCreate: ('ctx -> 'entity -> Job<Result<'entity, Error list>>) option
+  mapCtx: 'originalCtx -> Request -> Task<Result<'ctx, Error list>>
+  create: 'originalCtx -> 'ctx -> Request -> Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
+  afterCreate: ('ctx -> 'entity -> Task<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
   validatePreconditions: bool
@@ -340,7 +337,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
         let afterCreate =
           this.afterCreate
           |> Option.defaultWith (fun () -> failwithf "Framework bug: POST operation defined without AfterCreate. This should be caught at startup.")
-        job {
+        task {
           match! this.mapCtx ctx req with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
@@ -351,7 +348,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
               match validatePreconditions () with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok () ->
-                  match! this.create ctx mappedCtx req |> JobResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> JobResult.map (fun e -> fieldNames, e)) with
+                  match! this.create ctx mappedCtx req |> TaskResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> TaskResult.map (fun e -> fieldNames, e)) with
                   | Error errors -> return! handleErrors errors next httpCtx
                   | Ok (ns, entity0) ->
                       match req.Document.Value with
@@ -382,79 +379,78 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                                   >=> jsonApiWithETag<'originalCtx> doc
                                 return! handler next httpCtx
         }
-        |> Job.startAsTask
 
-  member this.AfterCreateJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.AfterCreateTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) =
     { this with afterCreate = Some (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.AfterCreateJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    this.AfterCreateJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
+  member this.AfterCreateTaskRes(f: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
+    this.AfterCreateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
 
-  member this.AfterCreateJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
-    this.AfterCreateJobRes(fun _ e -> f.Invoke e)
+  member this.AfterCreateTaskRes(f: Func<'entity, Task<Result<'entity, Error list>>>) =
+    this.AfterCreateTaskRes(fun _ e -> f.Invoke e)
 
-  member this.AfterCreateJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.AfterCreateJobRes(fun _ e -> f.Invoke e |> JobResult.map (fun () -> e))
+  member this.AfterCreateTaskRes(f: Func<'entity, Task<Result<unit, Error list>>>) =
+    this.AfterCreateTaskRes(fun _ e -> f.Invoke e |> TaskResult.map (fun () -> e))
 
   member this.AfterCreateAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterCreateJobRes(Job.liftAsyncFunc2 f)
+    this.AfterCreateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.AfterCreateAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.AfterCreateJobRes(Job.liftAsyncFunc2 f)
+    this.AfterCreateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.AfterCreateAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterCreateJobRes(Job.liftAsyncFunc f)
+    this.AfterCreateTaskRes(Task.liftAsyncFunc f)
 
   member this.AfterCreateAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.AfterCreateJobRes(Job.liftAsyncFunc f)
+    this.AfterCreateTaskRes(Task.liftAsyncFunc f)
 
-  member this.AfterCreateJob(f: Func<'ctx, 'entity, Job<'entity>>) =
-    this.AfterCreateJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.AfterCreateTask(f: Func<'ctx, 'entity, Task<'entity>>) =
+    this.AfterCreateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.AfterCreateJob(f: Func<'ctx, 'entity, Job<unit>>) =
-    this.AfterCreateJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.AfterCreateTask(f: Func<'ctx, 'entity, Task<unit>>) =
+    this.AfterCreateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.AfterCreateJob(f: Func<'entity, Job<'entity>>) =
-    this.AfterCreateJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.AfterCreateTask(f: Func<'entity, Task<'entity>>) =
+    this.AfterCreateTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
-  member this.AfterCreateJob(f: Func<'entity, Job<unit>>) =
-    this.AfterCreateJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.AfterCreateTask(f: Func<'entity, Task<unit>>) =
+    this.AfterCreateTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
   member this.AfterCreateAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
-    this.AfterCreateJob(Job.liftAsyncFunc2 f)
+    this.AfterCreateTask(Task.liftAsyncFunc2 f)
 
   member this.AfterCreateAsync(f: Func<'ctx, 'entity, Async<unit>>) =
-    this.AfterCreateJob(Job.liftAsyncFunc2 f)
+    this.AfterCreateTask(Task.liftAsyncFunc2 f)
 
   member this.AfterCreateAsync(f: Func<'entity, Async<'entity>>) =
-    this.AfterCreateJob(Job.liftAsyncFunc f)
+    this.AfterCreateTask(Task.liftAsyncFunc f)
 
   member this.AfterCreateAsync(f: Func<'entity, Async<unit>>) =
-    this.AfterCreateJob(Job.liftAsyncFunc f)
+    this.AfterCreateTask(Task.liftAsyncFunc f)
 
   member this.AfterCreateRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
-    this.AfterCreateJobRes(Job.liftFunc2 f)
+    this.AfterCreateTaskRes(Task.liftFunc2 f)
 
   member this.AfterCreateRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.AfterCreateJobRes(Job.liftFunc2 f)
+    this.AfterCreateTaskRes(Task.liftFunc2 f)
 
   member this.AfterCreateRes(f: Func<'entity, Result<'entity, Error list>>) =
-    this.AfterCreateJobRes(Job.liftFunc f)
+    this.AfterCreateTaskRes(Task.liftFunc f)
 
   member this.AfterCreateRes(f: Func<'entity, Result<unit, Error list>>) =
-    this.AfterCreateJobRes(Job.liftFunc f)
+    this.AfterCreateTaskRes(Task.liftFunc f)
 
   member this.AfterCreate(f: Func<'ctx, 'entity, 'entity>) =
-    this.AfterCreateJobRes(JobResult.liftFunc2 f)
+    this.AfterCreateTaskRes(TaskResult.liftFunc2 f)
 
   member this.AfterCreate(f: Func<'ctx, 'entity, unit>) =
-    this.AfterCreateJobRes(JobResult.liftFunc2 f)
+    this.AfterCreateTaskRes(TaskResult.liftFunc2 f)
 
   member this.AfterCreate(f: Func<'entity, 'entity>) =
-    this.AfterCreateJobRes(JobResult.liftFunc f)
+    this.AfterCreateTaskRes(TaskResult.liftFunc f)
 
   member this.AfterCreate(f: Func<'entity, unit>) =
-    this.AfterCreateJobRes(JobResult.liftFunc f)
+    this.AfterCreateTaskRes(TaskResult.liftFunc f)
 
   member this.Return202Accepted () =
     { this with return202Accepted = true }
@@ -522,23 +518,23 @@ type PostCustomHelper<'ctx, 'entity> internal
     | Ok (Some { data = Some { id = Include _ } }) when not idParsed -> Error [collPostClientIdNotAllowed collName rDef.TypeName]
     | _ -> Ok ()
 
-  member _.RunSettersJob (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
+  member _.RunSettersTask (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
     patcher
       ctx
       req
       (parser |> Option.map (fun p -> p.consumedFields) |> Option.defaultValue Set.empty)
       (box entity)
-    |> Job.map (Result.map unbox<'entity>)
+    |> Task.map (Result.map unbox<'entity>)
 
   member this.RunSettersAsync (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
-    this.RunSettersJob(entity, ?parser = parser) |> Job.toAsync
+    this.RunSettersTask(entity, ?parser = parser) |> Task.toAsync
 
   member _.Return202Accepted () : HttpHandler =
     setStatusCode 202
 
   member _.ReturnCreatedEntity (entity: 'entity) : HttpHandler =
     fun next httpCtx ->
-      job {
+      task {
         let! doc = builder.Write httpCtx ctx req (rDef, entity)
         let setLocationHeader =
           match doc with
@@ -553,7 +549,6 @@ type PostCustomHelper<'ctx, 'entity> internal
           >=> jsonApiWithETag<'ctx> doc
         return! handler next httpCtx
       }
-      |> Job.startAsTask
 
   /// Validate preconditions using the specified ETag value. The preconditions are
   /// required unless passing `isOptional = true`.
@@ -588,8 +583,8 @@ type PostCustomHelper<'ctx, 'entity> internal
 
 
 type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>
-  operation: 'originalCtx -> 'ctx -> Request -> PostCustomHelper<'originalCtx, 'entity> -> Job<Result<HttpHandler, Error list>>
+  mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>
+  operation: 'originalCtx -> 'ctx -> Request -> PostCustomHelper<'originalCtx, 'entity> -> Task<Result<HttpHandler, Error list>>
 } with
 
   static member internal Create(mapCtx, operation) : CustomPostOperation<'originalCtx, 'ctx, 'createResult> =
@@ -602,7 +597,7 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
     member _.HasPersist = true
     member this.Run collName rDef ctx req patch resp =
       fun next httpCtx ->
-        job {
+        task {
           match! this.mapCtx ctx with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
@@ -611,7 +606,6 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
               | Ok handler -> return! handler next httpCtx
               | Error errors -> return! handleErrors errors next httpCtx
         }
-        |> Job.startAsTask
 
 
 
@@ -621,10 +615,10 @@ type internal PatchOperation<'ctx> =
 
 
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
-  beforeUpdate: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  customSetter: 'originalCtx -> 'ctx -> Request -> 'entity -> Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
-  afterUpdate: ('ctx -> 'entity -> 'entity -> Job<Result<'entity, Error list>>) option
+  mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
+  beforeUpdate: 'ctx -> 'entity -> Task<Result<'entity, Error list>>
+  customSetter: 'originalCtx -> 'ctx -> Request -> 'entity -> Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity, Error list>>
+  afterUpdate: ('ctx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
   modifyResponse: 'ctx -> 'entity -> HttpHandler
   return202Accepted: bool
 } with
@@ -632,8 +626,8 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
   static member internal Create mapCtx : PatchOperation<'originalCtx, 'ctx, 'entity> =
     {
       mapCtx = mapCtx
-      beforeUpdate = fun _ x -> Ok x |> Job.result
-      customSetter = fun _ _ _ e -> Ok (Set.empty, Set.empty, e) |> Job.result
+      beforeUpdate = fun _ x -> Ok x |> Task.result
+      customSetter = fun _ _ _ e -> Ok (Set.empty, Set.empty, e) |> Task.result
       afterUpdate = None
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
       return202Accepted = false
@@ -647,7 +641,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
         this.afterUpdate
           |> Option.defaultWith (fun () -> failwithf "Framework bug: PATCH operation defined without AfterUpdate. This should be caught at startup.")
       fun next httpCtx ->
-        job {
+        task {
           let errs = [
             match req.Document.Value with
             | Error errs ->
@@ -698,251 +692,250 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                                           >=> jsonApiWithETag<'originalCtx> doc
                                         return! handler next httpCtx
         }
-        |> Job.startAsTask
 
 
-  member this.BeforeUpdateJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.BeforeUpdateTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) =
     { this with beforeUpdate = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeUpdateJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    this.BeforeUpdateJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
+  member this.BeforeUpdateTaskRes(f: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
+    this.BeforeUpdateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
 
-  member this.BeforeUpdateJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
-    this.BeforeUpdateJobRes(fun _ e -> f.Invoke e)
+  member this.BeforeUpdateTaskRes(f: Func<'entity, Task<Result<'entity, Error list>>>) =
+    this.BeforeUpdateTaskRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeUpdateJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.BeforeUpdateJobRes(fun _ e -> f.Invoke e)
+  member this.BeforeUpdateTaskRes(f: Func<'entity, Task<Result<unit, Error list>>>) =
+    this.BeforeUpdateTaskRes(fun _ e -> f.Invoke e)
 
   member this.BeforeUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
-    this.BeforeUpdateJobRes(Job.liftAsyncFunc2 f)
+    this.BeforeUpdateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.BeforeUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.BeforeUpdateJobRes(Job.liftAsyncFunc2 f)
+    this.BeforeUpdateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.BeforeUpdateAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
-    this.BeforeUpdateJobRes(Job.liftAsyncFunc f)
+    this.BeforeUpdateTaskRes(Task.liftAsyncFunc f)
 
   member this.BeforeUpdateAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.BeforeUpdateJobRes(Job.liftAsyncFunc f)
+    this.BeforeUpdateTaskRes(Task.liftAsyncFunc f)
 
-  member this.BeforeUpdateJob(f: Func<'ctx, 'entity, Job<'entity>>) =
-    this.BeforeUpdateJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.BeforeUpdateTask(f: Func<'ctx, 'entity, Task<'entity>>) =
+    this.BeforeUpdateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.BeforeUpdateJob(f: Func<'ctx, 'entity, Job<unit>>) =
-    this.BeforeUpdateJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.BeforeUpdateTask(f: Func<'ctx, 'entity, Task<unit>>) =
+    this.BeforeUpdateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.BeforeUpdateJob(f: Func<'entity, Job<'entity>>) =
-    this.BeforeUpdateJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.BeforeUpdateTask(f: Func<'entity, Task<'entity>>) =
+    this.BeforeUpdateTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
-  member this.BeforeUpdateJob(f: Func<'entity, Job<unit>>) =
-    this.BeforeUpdateJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.BeforeUpdateTask(f: Func<'entity, Task<unit>>) =
+    this.BeforeUpdateTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
   member this.BeforeUpdateAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
-    this.BeforeUpdateJob(Job.liftAsyncFunc2 f)
+    this.BeforeUpdateTask(Task.liftAsyncFunc2 f)
 
   member this.BeforeUpdateAsync(f: Func<'ctx, 'entity, Async<unit>>) =
-    this.BeforeUpdateJob(Job.liftAsyncFunc2 f)
+    this.BeforeUpdateTask(Task.liftAsyncFunc2 f)
 
   member this.BeforeUpdateAsync(f: Func<'entity, Async<'entity>>) =
-    this.BeforeUpdateJob(Job.liftAsyncFunc f)
+    this.BeforeUpdateTask(Task.liftAsyncFunc f)
 
   member this.BeforeUpdateAsync(f: Func<'entity, Async<unit>>) =
-    this.BeforeUpdateJob(Job.liftAsyncFunc f)
+    this.BeforeUpdateTask(Task.liftAsyncFunc f)
 
   member this.BeforeUpdateRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
-    this.BeforeUpdateJobRes(Job.liftFunc2 f)
+    this.BeforeUpdateTaskRes(Task.liftFunc2 f)
 
   member this.BeforeUpdateRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.BeforeUpdateJobRes(Job.liftFunc2 f)
+    this.BeforeUpdateTaskRes(Task.liftFunc2 f)
 
   member this.BeforeUpdateRes(f: Func<'entity, Result<'entity, Error list>>) =
-    this.BeforeUpdateJobRes(Job.liftFunc f)
+    this.BeforeUpdateTaskRes(Task.liftFunc f)
 
   member this.BeforeUpdateRes(f: Func<'entity, Result<unit, Error list>>) =
-    this.BeforeUpdateJobRes(Job.liftFunc f)
+    this.BeforeUpdateTaskRes(Task.liftFunc f)
 
   member this.BeforeUpdate(f: Func<'ctx, 'entity, 'entity>) =
-    this.BeforeUpdateJobRes(JobResult.liftFunc2 f)
+    this.BeforeUpdateTaskRes(TaskResult.liftFunc2 f)
 
   member this.BeforeUpdate(f: Func<'ctx, 'entity, unit>) =
-    this.BeforeUpdateJobRes(JobResult.liftFunc2 f)
+    this.BeforeUpdateTaskRes(TaskResult.liftFunc2 f)
 
   member this.BeforeUpdate(f: Func<'entity, 'entity>) =
-    this.BeforeUpdateJobRes(JobResult.liftFunc f)
+    this.BeforeUpdateTaskRes(TaskResult.liftFunc f)
 
   member this.BeforeUpdate(f: Func<'entity, unit>) =
-    this.BeforeUpdateJobRes(JobResult.liftFunc f)
+    this.BeforeUpdateTaskRes(TaskResult.liftFunc f)
 
-  member this.AddCustomSetterJobRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
+  member this.AddCustomSetterTaskRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     { this with
         customSetter =
           fun origCtx ctx req e ->
             this.customSetter origCtx ctx req e
-            |> JobResult.bind (fun (fns, qns, e) ->
+            |> TaskResult.bind (fun (fns, qns, e) ->
                 getRequestParser.Invoke(ctx, e, RequestParserHelper<'originalCtx>(origCtx, req))
-                |> JobResult.bind (fun p -> p.ParseWithConsumed ())
-                |> JobResult.map (fun (fns', qns', e) -> Set.union fns fns', Set.union qns qns', e)
+                |> TaskResult.bind (fun p -> p.ParseWithConsumed ())
+                |> TaskResult.map (fun (fns', qns', e) -> Set.union fns fns', Set.union qns qns', e)
             )
     }
 
   member this.AddCustomSetterAsyncRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
-    this.AddCustomSetterJobRes(Job.liftAsyncFunc3 getRequestParser)
+    this.AddCustomSetterTaskRes(Task.liftAsyncFunc3 getRequestParser)
 
-  member this.AddCustomSetterJob (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity>>>) =
-    this.AddCustomSetterJobRes(fun ctx e parser -> getRequestParser.Invoke(ctx, e, parser) |> Job.map Ok)
+  member this.AddCustomSetterTask (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, 'entity>>>) =
+    this.AddCustomSetterTaskRes(fun ctx e parser -> getRequestParser.Invoke(ctx, e, parser) |> Task.map Ok)
 
   member this.AddCustomSetterAsync (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>) =
-    this.AddCustomSetterJob(Job.liftAsyncFunc3 getRequestParser)
+    this.AddCustomSetterTask(Task.liftAsyncFunc3 getRequestParser)
 
   member this.AddCustomSetterRes (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>) =
-    this.AddCustomSetterJobRes(Job.liftFunc3 getRequestParser)
+    this.AddCustomSetterTaskRes(Task.liftFunc3 getRequestParser)
 
   member this.AddCustomSetter (getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity>>) =
-    this.AddCustomSetterJobRes(JobResult.liftFunc3 getRequestParser)
+    this.AddCustomSetterTaskRes(TaskResult.liftFunc3 getRequestParser)
 
-  member this.AfterUpdateJobRes(f: Func<'ctx, 'entity, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.AfterUpdateTaskRes(f: Func<'ctx, 'entity, 'entity, Task<Result<'entity, Error list>>>) =
     { this with afterUpdate = Some (fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew)) }
 
-  member this.AfterUpdateJobRes(f: Func<'entity, 'entity, Job<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(fun _ eOld eNew -> f.Invoke(eOld, eNew))
+  member this.AfterUpdateTaskRes(f: Func<'entity, 'entity, Task<Result<'entity, Error list>>>) =
+    this.AfterUpdateTaskRes(fun _ eOld eNew -> f.Invoke(eOld, eNew))
 
-  member this.AfterUpdateJobRes(f: Func<'ctx, 'entity, 'entity, Job<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> JobResult.map (fun () -> eNew))
+  member this.AfterUpdateTaskRes(f: Func<'ctx, 'entity, 'entity, Task<Result<unit, Error list>>>) =
+    this.AfterUpdateTaskRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> TaskResult.map (fun () -> eNew))
 
-  member this.AfterUpdateJobRes(f: Func<'entity, 'entity, Job<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> JobResult.map (fun () -> eNew))
+  member this.AfterUpdateTaskRes(f: Func<'entity, 'entity, Task<Result<unit, Error list>>>) =
+    this.AfterUpdateTaskRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> TaskResult.map (fun () -> eNew))
 
-  member this.AfterUpdateJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(fun ctx _ eNew -> f.Invoke(ctx, eNew))
+  member this.AfterUpdateTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) =
+    this.AfterUpdateTaskRes(fun ctx _ eNew -> f.Invoke(ctx, eNew))
 
-  member this.AfterUpdateJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
+  member this.AfterUpdateTaskRes(f: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
+    this.AfterUpdateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
 
-  member this.AfterUpdateJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(fun _ _ e -> f.Invoke e)
+  member this.AfterUpdateTaskRes(f: Func<'entity, Task<Result<'entity, Error list>>>) =
+    this.AfterUpdateTaskRes(fun _ _ e -> f.Invoke e)
 
-  member this.AfterUpdateJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(fun _ _ e -> f.Invoke e |> JobResult.map (fun () -> e))
+  member this.AfterUpdateTaskRes(f: Func<'entity, Task<Result<unit, Error list>>>) =
+    this.AfterUpdateTaskRes(fun _ _ e -> f.Invoke e |> TaskResult.map (fun () -> e))
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc3 f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc3 f)
 
   member this.AfterUpdateAsyncRes(f: Func<'entity, 'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, 'entity, Async<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc3 f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc3 f)
 
   member this.AfterUpdateAsyncRes(f: Func<'entity, 'entity, Async<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc f)
 
   member this.AfterUpdateAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.AfterUpdateJobRes(Job.liftAsyncFunc f)
+    this.AfterUpdateTaskRes(Task.liftAsyncFunc f)
 
-  member this.AfterUpdateJob(f: Func<'ctx, 'entity, 'entity, Job<'entity>>) =
-    this.AfterUpdateJobRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'ctx, 'entity, 'entity, Task<'entity>>) =
+    this.AfterUpdateTaskRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'entity, 'entity, Job<'entity>>) =
-    this.AfterUpdateJobRes(fun eOld eNew -> f.Invoke(eOld, eNew) |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'entity, 'entity, Task<'entity>>) =
+    this.AfterUpdateTaskRes(fun eOld eNew -> f.Invoke(eOld, eNew) |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'ctx, 'entity, 'entity, Job<unit>>) =
-    this.AfterUpdateJobRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'ctx, 'entity, 'entity, Task<unit>>) =
+    this.AfterUpdateTaskRes(fun ctx eOld eNew -> f.Invoke(ctx, eOld, eNew) |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'entity, 'entity, Job<unit>>) =
-    this.AfterUpdateJobRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'entity, 'entity, Task<unit>>) =
+    this.AfterUpdateTaskRes(fun _ eOld eNew -> f.Invoke(eOld, eNew) |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'ctx, 'entity, Job<'entity>>) =
-    this.AfterUpdateJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'ctx, 'entity, Task<'entity>>) =
+    this.AfterUpdateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'ctx, 'entity, Job<unit>>) =
-    this.AfterUpdateJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'ctx, 'entity, Task<unit>>) =
+    this.AfterUpdateTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'entity, Job<'entity>>) =
-    this.AfterUpdateJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'entity, Task<'entity>>) =
+    this.AfterUpdateTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
-  member this.AfterUpdateJob(f: Func<'entity, Job<unit>>) =
-    this.AfterUpdateJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.AfterUpdateTask(f: Func<'entity, Task<unit>>) =
+    this.AfterUpdateTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, 'entity, Async<'entity>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc3 f)
+    this.AfterUpdateTask(Task.liftAsyncFunc3 f)
 
   member this.AfterUpdateAsync(f: Func<'entity, 'entity, Async<'entity>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTask(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, 'entity, Async<unit>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc3 f)
+    this.AfterUpdateTask(Task.liftAsyncFunc3 f)
 
   member this.AfterUpdateAsync(f: Func<'entity, 'entity, Async<unit>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTask(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTask(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsync(f: Func<'ctx, 'entity, Async<unit>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc2 f)
+    this.AfterUpdateTask(Task.liftAsyncFunc2 f)
 
   member this.AfterUpdateAsync(f: Func<'entity, Async<'entity>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc f)
+    this.AfterUpdateTask(Task.liftAsyncFunc f)
 
   member this.AfterUpdateAsync(f: Func<'entity, Async<unit>>) =
-    this.AfterUpdateJob(Job.liftAsyncFunc f)
+    this.AfterUpdateTask(Task.liftAsyncFunc f)
 
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, 'entity, Result<'entity, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc3 f)
+    this.AfterUpdateTaskRes(Task.liftFunc3 f)
 
   member this.AfterUpdateRes(f: Func<'entity, 'entity, Result<'entity, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftFunc2 f)
 
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, 'entity, Result<unit, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc3 f)
+    this.AfterUpdateTaskRes(Task.liftFunc3 f)
 
   member this.AfterUpdateRes(f: Func<'entity, 'entity, Result<unit, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftFunc2 f)
 
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftFunc2 f)
 
   member this.AfterUpdateRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc2 f)
+    this.AfterUpdateTaskRes(Task.liftFunc2 f)
 
   member this.AfterUpdateRes(f: Func<'entity, Result<'entity, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc f)
+    this.AfterUpdateTaskRes(Task.liftFunc f)
 
   member this.AfterUpdateRes(f: Func<'entity, Result<unit, Error list>>) =
-    this.AfterUpdateJobRes(Job.liftFunc f)
+    this.AfterUpdateTaskRes(Task.liftFunc f)
 
   member this.AfterUpdate(f: Func<'ctx, 'entity, 'entity, 'entity>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc3 f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc3 f)
 
   member this.AfterUpdate(f: Func<'entity, 'entity, 'entity>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc2 f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc2 f)
 
   member this.AfterUpdate(f: Func<'ctx, 'entity, 'entity, unit>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc3 f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc3 f)
 
   member this.AfterUpdate(f: Func<'entity, 'entity, unit>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc2 f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc2 f)
 
   member this.AfterUpdate(f: Func<'ctx, 'entity, 'entity>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc2 f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc2 f)
 
   member this.AfterUpdate(f: Func<'ctx, 'entity, unit>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc2 f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc2 f)
 
   member this.AfterUpdate(f: Func<'entity, 'entity>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc f)
 
   member this.AfterUpdate(f: Func<'entity, unit>) =
-    this.AfterUpdateJobRes(JobResult.liftFunc f)
+    this.AfterUpdateTaskRes(TaskResult.liftFunc f)
 
   member this.Return202Accepted () =
     { this with return202Accepted = true }
@@ -965,9 +958,9 @@ type internal DeleteOperation<'ctx> =
 
 
 type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
-  beforeDelete: 'ctx -> 'entity -> Job<Result<'entity, Error list>>
-  delete: 'originalCtx -> 'ctx -> Request -> 'entity -> Job<Result<unit, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
+  beforeDelete: 'ctx -> 'entity -> Task<Result<'entity, Error list>>
+  delete: 'originalCtx -> 'ctx -> Request -> 'entity -> Task<Result<unit, Error list>>
   modifyResponse: 'ctx -> HttpHandler
   return202Accepted: bool
 } with
@@ -975,7 +968,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   static member internal Create(mapCtx, delete) : DeleteOperation<'originalCtx, 'ctx, 'entity> =
     {
       mapCtx = mapCtx
-      beforeDelete = fun _ x -> Ok x |> Job.result
+      beforeDelete = fun _ x -> Ok x |> Task.result
       delete = delete
       modifyResponse = fun _ -> fun next ctx -> next ctx
       return202Accepted = false
@@ -985,7 +978,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
   interface DeleteOperation<'originalCtx> with
     member this.Run _resDef ctx req preconditions entity0 _resp =
       fun next httpCtx ->
-        job {
+        task {
           match! this.mapCtx ctx (unbox<'entity> entity0) with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
@@ -1009,80 +1002,79 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
                               >=> this.modifyResponse mappedCtx
                             return! handler next httpCtx
         }
-        |> Job.startAsTask
 
 
-  member this.BeforeDeleteJobRes(f: Func<'ctx, 'entity, Job<Result<'entity, Error list>>>) =
+  member this.BeforeDeleteTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) =
     { this with beforeDelete = (fun ctx e -> f.Invoke(ctx, e)) }
 
-  member this.BeforeDeleteJobRes(f: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
-    this.BeforeDeleteJobRes(fun ctx e -> f.Invoke(ctx, e) |> JobResult.map (fun () -> e))
+  member this.BeforeDeleteTaskRes(f: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
+    this.BeforeDeleteTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
 
-  member this.BeforeDeleteJobRes(f: Func<'entity, Job<Result<'entity, Error list>>>) =
-    this.BeforeDeleteJobRes(fun _ e -> f.Invoke e)
+  member this.BeforeDeleteTaskRes(f: Func<'entity, Task<Result<'entity, Error list>>>) =
+    this.BeforeDeleteTaskRes(fun _ e -> f.Invoke e)
 
-  member this.BeforeDeleteJobRes(f: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.BeforeDeleteJobRes(fun _ e -> f.Invoke e)
+  member this.BeforeDeleteTaskRes(f: Func<'entity, Task<Result<unit, Error list>>>) =
+    this.BeforeDeleteTaskRes(fun _ e -> f.Invoke e)
 
   member this.BeforeDeleteAsyncRes(f: Func<'ctx, 'entity, Async<Result<'entity, Error list>>>) =
-    this.BeforeDeleteJobRes(Job.liftAsyncFunc2 f)
+    this.BeforeDeleteTaskRes(Task.liftAsyncFunc2 f)
 
   member this.BeforeDeleteAsyncRes(f: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.BeforeDeleteJobRes(Job.liftAsyncFunc2 f)
+    this.BeforeDeleteTaskRes(Task.liftAsyncFunc2 f)
 
   member this.BeforeDeleteAsyncRes(f: Func<'entity, Async<Result<'entity, Error list>>>) =
-    this.BeforeDeleteJobRes(Job.liftAsyncFunc f)
+    this.BeforeDeleteTaskRes(Task.liftAsyncFunc f)
 
   member this.BeforeDeleteAsyncRes(f: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.BeforeDeleteJobRes(Job.liftAsyncFunc f)
+    this.BeforeDeleteTaskRes(Task.liftAsyncFunc f)
 
-  member this.BeforeDeleteJob(f: Func<'ctx, 'entity, Job<'entity>>) =
-    this.BeforeDeleteJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.BeforeDeleteTask(f: Func<'ctx, 'entity, Task<'entity>>) =
+    this.BeforeDeleteTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.BeforeDeleteJob(f: Func<'ctx, 'entity, Job<unit>>) =
-    this.BeforeDeleteJobRes(fun ctx e -> f.Invoke(ctx, e) |> Job.map Ok)
+  member this.BeforeDeleteTask(f: Func<'ctx, 'entity, Task<unit>>) =
+    this.BeforeDeleteTaskRes(fun ctx e -> f.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.BeforeDeleteJob(f: Func<'entity, Job<'entity>>) =
-    this.BeforeDeleteJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.BeforeDeleteTask(f: Func<'entity, Task<'entity>>) =
+    this.BeforeDeleteTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
-  member this.BeforeDeleteJob(f: Func<'entity, Job<unit>>) =
-    this.BeforeDeleteJobRes(fun e -> f.Invoke e |> Job.map Ok)
+  member this.BeforeDeleteTask(f: Func<'entity, Task<unit>>) =
+    this.BeforeDeleteTaskRes(fun e -> f.Invoke e |> Task.map Ok)
 
   member this.BeforeDeleteAsync(f: Func<'ctx, 'entity, Async<'entity>>) =
-    this.BeforeDeleteJob(Job.liftAsyncFunc2 f)
+    this.BeforeDeleteTask(Task.liftAsyncFunc2 f)
 
   member this.BeforeDeleteAsync(f: Func<'ctx, 'entity, Async<unit>>) =
-    this.BeforeDeleteJob(Job.liftAsyncFunc2 f)
+    this.BeforeDeleteTask(Task.liftAsyncFunc2 f)
 
   member this.BeforeDeleteAsync(f: Func<'entity, Async<'entity>>) =
-    this.BeforeDeleteJob(Job.liftAsyncFunc f)
+    this.BeforeDeleteTask(Task.liftAsyncFunc f)
 
   member this.BeforeDeleteAsync(f: Func<'entity, Async<unit>>) =
-    this.BeforeDeleteJob(Job.liftAsyncFunc f)
+    this.BeforeDeleteTask(Task.liftAsyncFunc f)
 
   member this.BeforeDeleteRes(f: Func<'ctx, 'entity, Result<'entity, Error list>>) =
-    this.BeforeDeleteJobRes(Job.liftFunc2 f)
+    this.BeforeDeleteTaskRes(Task.liftFunc2 f)
 
   member this.BeforeDeleteRes(f: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.BeforeDeleteJobRes(Job.liftFunc2 f)
+    this.BeforeDeleteTaskRes(Task.liftFunc2 f)
 
   member this.BeforeDeleteRes(f: Func<'entity, Result<'entity, Error list>>) =
-    this.BeforeDeleteJobRes(Job.liftFunc f)
+    this.BeforeDeleteTaskRes(Task.liftFunc f)
 
   member this.BeforeDeleteRes(f: Func<'entity, Result<unit, Error list>>) =
-    this.BeforeDeleteJobRes(Job.liftFunc f)
+    this.BeforeDeleteTaskRes(Task.liftFunc f)
 
   member this.BeforeDelete(f: Func<'ctx, 'entity, 'entity>) =
-    this.BeforeDeleteJobRes(JobResult.liftFunc2 f)
+    this.BeforeDeleteTaskRes(TaskResult.liftFunc2 f)
 
   member this.BeforeDelete(f: Func<'ctx, 'entity, unit>) =
-    this.BeforeDeleteJobRes(JobResult.liftFunc2 f)
+    this.BeforeDeleteTaskRes(TaskResult.liftFunc2 f)
 
   member this.BeforeDelete(f: Func<'entity, 'entity>) =
-    this.BeforeDeleteJobRes(JobResult.liftFunc f)
+    this.BeforeDeleteTaskRes(TaskResult.liftFunc f)
 
   member this.BeforeDelete(f: Func<'entity, unit>) =
-    this.BeforeDeleteJobRes(JobResult.liftFunc f)
+    this.BeforeDeleteTaskRes(TaskResult.liftFunc f)
 
   member this.ModifyResponse(getHandler: 'ctx -> HttpHandler) =
     { this with modifyResponse = getHandler }
@@ -1101,7 +1093,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 type internal CustomOperation<'ctx> =
   abstract Name: LinkName
   abstract HasModifyingOperations: bool
-  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Job<string option * Map<string, obj> option>
+  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Task<string option * Map<string, obj> option>
   abstract Get: ('ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Post: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Patch: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
@@ -1110,14 +1102,14 @@ type internal CustomOperation<'ctx> =
 
 
 type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
-  mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>
+  mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
   name: string
   getMeta: ('ctx -> 'entity -> Map<string, obj>) option
-  condition: 'ctx -> 'entity -> Job<Result<unit, Error list>>
-  get: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
-  post: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
-  patch: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
-  delete: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Job<Result<HttpHandler, Error list>>) option
+  condition: 'ctx -> 'entity -> Task<Result<unit, Error list>>
+  get: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+  post: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+  patch: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+  delete: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
 } with
 
   static member internal Create(mapCtx, name) : CustomOperation<'originalCtx, 'ctx, 'entity> =
@@ -1125,7 +1117,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
       mapCtx = mapCtx
       name = name
       getMeta = None
-      condition = fun _ _ -> Ok () |> Job.result
+      condition = fun _ _ -> Ok () |> Task.result
       get = None
       post = None
       patch = None
@@ -1133,9 +1125,9 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     }
 
 
-  member private this.handler (operation: _ -> _ -> _ -> _ -> _ -> Job<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
+  member private this.handler (operation: _ -> _ -> _ -> _ -> _ -> Task<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
     fun next httpCtx ->
-      job {
+      task {
         match! this.mapCtx ctx (unbox<'entity> entity) with
         | Error errors -> return! handleErrors errors next httpCtx
         | Ok mappedCtx ->
@@ -1149,7 +1141,6 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                     | Ok handler -> return! handler next httpCtx
                     | Error errors -> return! handleErrors errors next httpCtx
       }
-      |> Job.startAsTask
 
 
   interface CustomOperation<'originalCtx> with
@@ -1159,7 +1150,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
       this.post.IsSome || this.patch.IsSome || this.delete.IsSome
 
     member this.HrefAndMeta ctx selfUrl entity =
-      job {
+      task {
         if this.get.IsNone && this.post.IsNone && this.patch.IsNone && this.delete.IsNone then
           return None, None
         else
@@ -1192,29 +1183,29 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     member this.Delete = this.delete |> Option.map this.handler
 
 
-  member this.ConditionJobRes(predicate: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
+  member this.ConditionTaskRes(predicate: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
     { this with condition = fun ctx e -> predicate.Invoke(ctx, e) }
 
-  member this.ConditionJobRes(predicate: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.ConditionJobRes(fun _ e -> predicate.Invoke e)
+  member this.ConditionTaskRes(predicate: Func<'entity, Task<Result<unit, Error list>>>) =
+    this.ConditionTaskRes(fun _ e -> predicate.Invoke e)
 
   member this.ConditionAsyncRes(predicate: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.ConditionJobRes(Job.liftAsyncFunc2 predicate)
+    this.ConditionTaskRes(Task.liftAsyncFunc2 predicate)
 
   member this.ConditionAsyncRes(predicate: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.ConditionJobRes(Job.liftAsyncFunc predicate)
+    this.ConditionTaskRes(Task.liftAsyncFunc predicate)
 
   member this.ConditionRes(predicate: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.ConditionJobRes(Job.liftFunc2 predicate)
+    this.ConditionTaskRes(Task.liftFunc2 predicate)
 
   member this.ConditionRes(predicate: Func<'entity, Result<unit, Error list>>) =
-    this.ConditionJobRes(Job.liftFunc predicate)
+    this.ConditionTaskRes(Task.liftFunc predicate)
 
   member this.Condition(predicate: Func<'ctx, 'entity, bool>) =
-    this.ConditionJobRes(fun ctx e -> (if predicate.Invoke(ctx, e) then Ok () else Error [customOpConditionFalse ()]) |> Job.result)
+    this.ConditionTaskRes(fun ctx e -> (if predicate.Invoke(ctx, e) then Ok () else Error [customOpConditionFalse ()]) |> Task.result)
 
   member this.Condition(predicate: Func<'entity, bool>) =
-    this.ConditionJobRes(fun _ e -> (if predicate.Invoke e then Ok () else Error [customOpConditionFalse ()]) |> Job.result)
+    this.ConditionTaskRes(fun _ e -> (if predicate.Invoke e then Ok () else Error [customOpConditionFalse ()]) |> Task.result)
 
   member this.AddMeta(key: string, getValue: 'ctx -> 'entity -> 'a, ?condition: 'ctx -> 'entity -> bool) =
     let condition = defaultArg condition (fun _ _ -> true)
@@ -1232,134 +1223,134 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   member this.AddMetaOpt(key: string, getValue: 'entity -> 'a option) =
     this.AddMetaOpt(key, fun _ e -> getValue e)
 
-  member this.GetJob(get: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+  member this.GetTask(get: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>) =
     { this with get = Some (fun origCtx ctx req responder entity -> get.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.PostJob(post: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+  member this.PostTask(post: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>) =
     { this with post = Some (fun origCtx ctx req responder entity -> post.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.PatchJob(patch: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+  member this.PatchTask(patch: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>) =
     { this with patch = Some (fun origCtx ctx req responder entity -> patch.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
-  member this.DeleteJob(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Job<Result<HttpHandler, Error list>>>) =
+  member this.DeleteTask(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>) =
     { this with delete = Some (fun origCtx ctx req responder entity -> delete.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)) }
 
   member this.GetAsync(get: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
-    this.GetJob(Job.liftAsyncFunc4 get)
+    this.GetTask(Task.liftAsyncFunc4 get)
 
   member this.PostAsync(post: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
-    this.PostJob(Job.liftAsyncFunc4 post)
+    this.PostTask(Task.liftAsyncFunc4 post)
 
   member this.PatchAsync(patch: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
-    this.PatchJob(Job.liftAsyncFunc4 patch)
+    this.PatchTask(Task.liftAsyncFunc4 patch)
 
   member this.DeleteAsync(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
-    this.DeleteJob(Job.liftAsyncFunc4 delete)
+    this.DeleteTask(Task.liftAsyncFunc4 delete)
 
 
 
-type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>) =
+type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>) =
 
-  member _.LookupJobRes(getById: Func<'ctx, 'id, Job<Result<'entity option, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member _.LookupTaskRes(getById: Func<'ctx, 'id, Task<Result<'entity option, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun ctx id -> getById.Invoke(ctx, id)), getPolyBuilder)
 
-  member this.LookupJobRes(getById: Func<'id, Job<Result<'entity option, Error list>>>, getPolyBuilder: 'entity  -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes((fun _ id -> getById.Invoke id), getPolyBuilder)
+  member this.LookupTaskRes(getById: Func<'id, Task<Result<'entity option, Error list>>>, getPolyBuilder: 'entity  -> PolymorphicBuilder<'originalCtx>) =
+    this.LookupTaskRes((fun _ id -> getById.Invoke id), getPolyBuilder)
 
   member this.LookupAsyncRes(getById: Func<'ctx, 'id, Async<Result<'entity option, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes(Job.liftAsyncFunc2 getById, getPolyBuilder)
+    this.LookupTaskRes(Task.liftAsyncFunc2 getById, getPolyBuilder)
 
   member this.LookupAsyncRes(getById: Func<'id, Async<Result<'entity option, Error list>>>, getPolyBuilder: 'entity  -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes(Job.liftAsyncFunc getById, getPolyBuilder)
+    this.LookupTaskRes(Task.liftAsyncFunc getById, getPolyBuilder)
 
-  member this.LookupJob(getById: Func<'ctx, 'id, Job<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes((fun ctx id -> getById.Invoke(ctx, id) |> Job.map Ok), getPolyBuilder)
+  member this.LookupTask(getById: Func<'ctx, 'id, Task<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    this.LookupTaskRes((fun ctx id -> getById.Invoke(ctx, id) |> Task.map Ok), getPolyBuilder)
 
-  member this.LookupJob(getById: Func<'id, Job<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes((fun _ id -> getById.Invoke id |> Job.map Ok), getPolyBuilder)
+  member this.LookupTask(getById: Func<'id, Task<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    this.LookupTaskRes((fun _ id -> getById.Invoke id |> Task.map Ok), getPolyBuilder)
 
   member this.LookupAsync(getById: Func<'ctx, 'id, Async<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJob(Job.liftAsyncFunc2 getById, getPolyBuilder)
+    this.LookupTask(Task.liftAsyncFunc2 getById, getPolyBuilder)
 
   member this.LookupAsync(getById: Func<'id, Async<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJob(Job.liftAsyncFunc getById, getPolyBuilder)
+    this.LookupTask(Task.liftAsyncFunc getById, getPolyBuilder)
 
   member this.LookupRes(getById: Func<'ctx, 'id, Result<'entity option, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes(Job.liftFunc2 getById, getPolyBuilder)
+    this.LookupTaskRes(Task.liftFunc2 getById, getPolyBuilder)
 
   member this.LookupRes(getById: Func<'id, Result<'entity option, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes(Job.liftFunc getById, getPolyBuilder)
+    this.LookupTaskRes(Task.liftFunc getById, getPolyBuilder)
 
   member this.Lookup(getById: Func<'ctx, 'id, 'entity option>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes(JobResult.liftFunc2 getById, getPolyBuilder)
+    this.LookupTaskRes(TaskResult.liftFunc2 getById, getPolyBuilder)
 
   member this.Lookup(getById: Func<'id, 'entity option>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.LookupJobRes(JobResult.liftFunc getById, getPolyBuilder)
+    this.LookupTaskRes(TaskResult.liftFunc getById, getPolyBuilder)
 
-  member _.GetCollectionJobRes(getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun _origCtx ctx _req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs)), getPolyBuilder)
+  member _.GetCollectionTaskRes(getCollection: Func<'ctx, Task<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun _origCtx ctx _req -> getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs)), getPolyBuilder)
 
-  member this.GetCollectionJobRes(getCollection: Func<unit, Job<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes((fun (_: 'ctx) -> getCollection.Invoke ()), getPolyBuilder)
+  member this.GetCollectionTaskRes(getCollection: Func<unit, Task<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    this.GetCollectionTaskRes((fun (_: 'ctx) -> getCollection.Invoke ()), getPolyBuilder)
 
-  member _.GetCollectionJobRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+  member _.GetCollectionTaskRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
     PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(
       mapCtx,
       (fun origCtx ctx req ->
         getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-        |> JobResult.bind (fun p -> p.ParseWithConsumed ())
+        |> TaskResult.bind (fun p -> p.ParseWithConsumed ())
       ),
       getPolyBuilder
     )
 
   member this.GetCollectionAsyncRes(getCollection: Func<'ctx, Async<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(Job.liftAsyncFunc getCollection, getPolyBuilder)
+    this.GetCollectionTaskRes(Task.liftAsyncFunc getCollection, getPolyBuilder)
 
   member this.GetCollectionAsyncRes(getCollection: Func<unit, Async<Result<'entity list, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(Job.liftAsyncFunc getCollection, getPolyBuilder)
+    this.GetCollectionTaskRes(Task.liftAsyncFunc getCollection, getPolyBuilder)
 
   member this.GetCollectionAsyncRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(Job.liftAsyncFunc2 getRequestParser, getPolyBuilder)
+    this.GetCollectionTaskRes(Task.liftAsyncFunc2 getRequestParser, getPolyBuilder)
 
-  member this.GetCollectionJob(getCollection: Func<'ctx, Job<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(getCollection.Invoke >> Job.map Ok, getPolyBuilder)
+  member this.GetCollectionTask(getCollection: Func<'ctx, Task<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    this.GetCollectionTaskRes(getCollection.Invoke >> Task.map Ok, getPolyBuilder)
 
-  member this.GetCollectionJob(getCollection: Func<unit, Job<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(getCollection.Invoke >> Job.map Ok, getPolyBuilder)
+  member this.GetCollectionTask(getCollection: Func<unit, Task<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    this.GetCollectionTaskRes(getCollection.Invoke >> Task.map Ok, getPolyBuilder)
 
-  member this.GetCollectionJob(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes((fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok), getPolyBuilder)
+  member this.GetCollectionTask(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
+    this.GetCollectionTaskRes((fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Task.map Ok), getPolyBuilder)
 
   member this.GetCollectionAsync(getCollection: Func<'ctx, Async<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJob(Job.liftAsyncFunc getCollection, getPolyBuilder)
+    this.GetCollectionTask(Task.liftAsyncFunc getCollection, getPolyBuilder)
 
   member this.GetCollectionAsync(getCollection: Func<unit, Async<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJob(Job.liftAsyncFunc getCollection, getPolyBuilder)
+    this.GetCollectionTask(Task.liftAsyncFunc getCollection, getPolyBuilder)
 
   member this.GetCollectionAsync(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity list>>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJob(Job.liftAsyncFunc2 getRequestParser, getPolyBuilder)
+    this.GetCollectionTask(Task.liftAsyncFunc2 getRequestParser, getPolyBuilder)
 
   member this.GetCollectionRes(getCollection: Func<'ctx, Result<'entity list, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(Job.liftFunc getCollection, getPolyBuilder)
+    this.GetCollectionTaskRes(Task.liftFunc getCollection, getPolyBuilder)
 
   member this.GetCollectionRes(getCollection: Func<unit, Result<'entity list, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(Job.liftFunc getCollection, getPolyBuilder)
+    this.GetCollectionTaskRes(Task.liftFunc getCollection, getPolyBuilder)
 
   member this.GetCollectionRes(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity list>, Error list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(Job.liftFunc2 getRequestParser, getPolyBuilder)
+    this.GetCollectionTaskRes(Task.liftFunc2 getRequestParser, getPolyBuilder)
 
   member this.GetCollection(getCollection: Func<'ctx, 'entity list>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(JobResult.liftFunc getCollection, getPolyBuilder)
+    this.GetCollectionTaskRes(TaskResult.liftFunc getCollection, getPolyBuilder)
 
   member this.GetCollection(getCollection: Func<unit, 'entity list>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(JobResult.liftFunc getCollection, getPolyBuilder)
+    this.GetCollectionTaskRes(TaskResult.liftFunc getCollection, getPolyBuilder)
 
   member this.GetCollection(getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>) =
-    this.GetCollectionJobRes(JobResult.liftFunc2 getRequestParser, getPolyBuilder)
+    this.GetCollectionTaskRes(TaskResult.liftFunc2 getRequestParser, getPolyBuilder)
 
 
 
-type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> 'entity -> Job<Result<'ctx, Error list>>) =
+type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>) =
 
   member _.GetResource () =
     GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx)
@@ -1367,87 +1358,87 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
   member _.Patch() =
     PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
 
-  member _.DeleteJobRes(delete: Func<'ctx, 'entity, Job<Result<unit, Error list>>>) =
+  member _.DeleteTaskRes(delete: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
     DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity))
 
-  member this.DeleteJobRes(delete: Func<'entity, Job<Result<unit, Error list>>>) =
-    this.DeleteJobRes(fun _ e -> delete.Invoke e)
+  member this.DeleteTaskRes(delete: Func<'entity, Task<Result<unit, Error list>>>) =
+    this.DeleteTaskRes(fun _ e -> delete.Invoke e)
 
-  member _.DeleteJobRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
+  member _.DeleteTaskRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
     DeleteOperation<'originalCtx, 'ctx, 'entity>.Create(
       mapCtx,
       fun origCtx ctx req entity ->
         getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
-        |> JobResult.bind (fun p -> p.ParseJob ())
+        |> TaskResult.bind (fun p -> p.ParseTask ())
     )
 
-  member this.DeleteJobRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    this.DeleteJobRes(fun _ e p -> getRequestParser.Invoke(e, p))
+  member this.DeleteTaskRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
+    this.DeleteTaskRes(fun _ e p -> getRequestParser.Invoke(e, p))
 
   member this.DeleteAsyncRes(delete: Func<'ctx, 'entity, Async<Result<unit, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc2 delete)
+    this.DeleteTaskRes(Task.liftAsyncFunc2 delete)
 
   member this.DeleteAsyncRes(delete: Func<'entity, Async<Result<unit, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc delete)
+    this.DeleteTaskRes(Task.liftAsyncFunc delete)
 
   member this.DeleteAsyncRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc3 getRequestParser)
+    this.DeleteTaskRes(Task.liftAsyncFunc3 getRequestParser)
 
   member this.DeleteAsyncRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>) =
-    this.DeleteJobRes(Job.liftAsyncFunc2 getRequestParser)
+    this.DeleteTaskRes(Task.liftAsyncFunc2 getRequestParser)
 
-  member this.DeleteJob(delete: Func<'ctx, 'entity, Job<unit>>) =
-    this.DeleteJobRes(fun ctx e -> delete.Invoke(ctx, e) |> Job.map Ok)
+  member this.DeleteTask(delete: Func<'ctx, 'entity, Task<unit>>) =
+    this.DeleteTaskRes(fun ctx e -> delete.Invoke(ctx, e) |> Task.map Ok)
 
-  member this.DeleteJob(delete: Func<'entity, Job<unit>>) =
-    this.DeleteJobRes(fun _ e -> delete.Invoke e |> Job.map Ok)
+  member this.DeleteTask(delete: Func<'entity, Task<unit>>) =
+    this.DeleteTaskRes(fun _ e -> delete.Invoke e |> Task.map Ok)
 
-  member this.DeleteJob(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(ctx, e, parse) |> Job.map Ok)
+  member this.DeleteTask(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, unit>>>) =
+    this.DeleteTaskRes(fun ctx e parse -> getRequestParser.Invoke(ctx, e, parse) |> Task.map Ok)
 
-  member this.DeleteJob(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJobRes(fun ctx e parse -> getRequestParser.Invoke(e, parse) |> Job.map Ok)
+  member this.DeleteTask(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, unit>>>) =
+    this.DeleteTaskRes(fun ctx e parse -> getRequestParser.Invoke(e, parse) |> Task.map Ok)
 
   member this.DeleteAsync(delete: Func<'ctx, 'entity, Async<unit>>) =
-    this.DeleteJob(Job.liftAsyncFunc2 delete)
+    this.DeleteTask(Task.liftAsyncFunc2 delete)
 
   member this.DeleteAsync(delete: Func<'entity, Async<unit>>) =
-    this.DeleteJob(Job.liftAsyncFunc delete)
+    this.DeleteTask(Task.liftAsyncFunc delete)
 
   member this.DeleteAsync(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJob(Job.liftAsyncFunc3 getRequestParser)
+    this.DeleteTask(Task.liftAsyncFunc3 getRequestParser)
 
   member this.DeleteAsync(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, unit>>>) =
-    this.DeleteJob(Job.liftAsyncFunc2 getRequestParser)
+    this.DeleteTask(Task.liftAsyncFunc2 getRequestParser)
 
   member this.DeleteRes(delete: Func<'ctx, 'entity, Result<unit, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc2 delete)
+    this.DeleteTaskRes(Task.liftFunc2 delete)
 
   member this.DeleteRes(delete: Func<'entity, Result<unit, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc delete)
+    this.DeleteTaskRes(Task.liftFunc delete)
 
   member this.DeleteRes(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc3 getRequestParser)
+    this.DeleteTaskRes(Task.liftFunc3 getRequestParser)
 
   member this.DeleteRes(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, unit>, Error list>>) =
-    this.DeleteJobRes(Job.liftFunc2 getRequestParser)
+    this.DeleteTaskRes(Task.liftFunc2 getRequestParser)
 
   member this.Delete(delete: Func<'ctx, 'entity, unit>) =
-    this.DeleteJobRes(JobResult.liftFunc2 delete)
+    this.DeleteTaskRes(TaskResult.liftFunc2 delete)
 
   member this.Delete(delete: Func<'entity, unit>) =
-    this.DeleteJobRes(JobResult.liftFunc delete)
+    this.DeleteTaskRes(TaskResult.liftFunc delete)
 
   member this.Delete(getRequestParser: Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
-    this.DeleteJobRes(JobResult.liftFunc3 getRequestParser)
+    this.DeleteTaskRes(TaskResult.liftFunc3 getRequestParser)
 
   member this.Delete(getRequestParser: Func<'entity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, unit>>) =
-    this.DeleteJobRes(JobResult.liftFunc2 getRequestParser)
+    this.DeleteTaskRes(TaskResult.liftFunc2 getRequestParser)
 
   member _.CustomLink([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
     CustomOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, name)
 
-  member _.Set2JobRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+  member _.Set2TaskRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Task<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
     match field1.FieldName, field2.FieldName with
     | Some fn1, Some fn2 ->
         {
@@ -1455,7 +1446,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
             member _.Names = Set.ofList [fn1; fn2]
             member _.SetOrder = defaultArg setOrder 0
             member _.Set ctx req entity _ =
-              job {
+              task {
                 let! f1 = field1.Get(ctx, req, None)
                 let! f2 = field2.Get(ctx, req, None)
                 match f1, f2 with
@@ -1469,27 +1460,27 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
                 | Ok (Some val1), Ok (Some val2) ->
                     match! mapCtx ctx (unbox<'entity> entity) with
                     | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx (val1, val2) (unbox<'entity> entity) |> JobResult.map box
+                    | Ok ctx -> return! set ctx (val1, val2) (unbox<'entity> entity) |> TaskResult.map box
               }
         }
     | _ -> failwith "Can only be called with fields, not query parameters or headers"
 
   member this.Set2AsyncRes(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+    this.Set2TaskRes(Task.liftAsync3 set, field1, field2, ?setOrder=setOrder)
 
-  member this.Set2Job(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
+  member this.Set2Task(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Task<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
+    this.Set2TaskRes((fun ctx v e -> set ctx v e |> Task.map Ok), field1, field2, ?setOrder=setOrder)
 
   member this.Set2Async(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2Job(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+    this.Set2Task(Task.liftAsync3 set, field1, field2, ?setOrder=setOrder)
 
   member this.Set2Res(set: 'ctx -> 'field1 * 'field2 -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
+    this.Set2TaskRes((fun ctx v e -> set ctx v e |> Task.result), field1, field2, ?setOrder=setOrder)
 
   member this.Set2(set: 'ctx -> 'field1 * 'field2 -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1>, field2: OptionalRequestGetter<'originalCtx, 'field2>, ?setOrder) =
-    this.Set2JobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)
+    this.Set2TaskRes((fun ctx v e -> set ctx v e |> Ok |> Task.result), field1, field2, ?setOrder=setOrder)
 
-  member _.Set2SameNullJobRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+  member _.Set2SameNullTaskRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Task<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
     match field1.FieldName, field2.FieldName with
     | Some fn1, Some fn2 ->
         {
@@ -1497,7 +1488,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
             member _.Names = Set.ofList [fn1; fn2]
             member _.SetOrder = defaultArg setOrder 0
             member _.Set ctx req entity _ =
-              job {
+              task {
                 let! f1 = field1.Get(ctx, req, None)
                 let! f2 = field2.Get(ctx, req, None)
                 match f1, f2 with
@@ -1514,298 +1505,298 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
                 | Ok (Some (Some val1)), Ok (Some (Some val2)) ->
                     match! mapCtx ctx (unbox<'entity> entity) with
                     | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx (Some (val1, val2)) (unbox<'entity> entity) |> JobResult.map box
+                    | Ok ctx -> return! set ctx (Some (val1, val2)) (unbox<'entity> entity) |> TaskResult.map box
                 | Ok (Some None), Ok (Some None) ->
                     match! mapCtx ctx (unbox<'entity> entity) with
                     | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx None (unbox<'entity> entity) |> JobResult.map box
+                    | Ok ctx -> return! set ctx None (unbox<'entity> entity) |> TaskResult.map box
               }
         }
     | _ -> failwith "Can only be called with fields, not query parameters or headers"
 
   member this.Set2SameNullAsyncRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Async<Result<'entity, Error list>>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+    this.Set2SameNullTaskRes(Task.liftAsync3 set, field1, field2, ?setOrder=setOrder)
 
-  member this.Set2SameNullJob(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Job<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Job.map Ok), field1, field2, ?setOrder=setOrder)
+  member this.Set2SameNullTask(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Task<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
+    this.Set2SameNullTaskRes((fun ctx v e -> set ctx v e |> Task.map Ok), field1, field2, ?setOrder=setOrder)
 
   member this.Set2SameNullAsync(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Async<'entity>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJob(Job.liftAsync3 set, field1, field2, ?setOrder=setOrder)
+    this.Set2SameNullTask(Task.liftAsync3 set, field1, field2, ?setOrder=setOrder)
 
   member this.Set2SameNullRes(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> Result<'entity, Error list>, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Job.result), field1, field2, ?setOrder=setOrder)
+    this.Set2SameNullTaskRes((fun ctx v e -> set ctx v e |> Task.result), field1, field2, ?setOrder=setOrder)
 
   member this.Set2SameNull(set: 'ctx -> ('field1 * 'field2) option -> 'entity -> 'entity, field1: OptionalRequestGetter<'originalCtx, 'field1 option>, field2: OptionalRequestGetter<'originalCtx, 'field2 option>, ?setOrder) =
-    this.Set2SameNullJobRes((fun ctx v e -> set ctx v e |> Ok |> Job.result), field1, field2, ?setOrder=setOrder)
+    this.Set2SameNullTaskRes((fun ctx v e -> set ctx v e |> Ok |> Task.result), field1, field2, ?setOrder=setOrder)
 
 
 
 
-type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Job<Result<'ctx, Error list>>) =
+type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>) =
   inherit OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>(fun ctx _ -> mapCtx ctx)
 
   member _.Polymorphic = PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>(mapCtx)
 
-  member _.ForContextJobRes (mapCtx: 'originalCtx -> 'entity -> Job<Result<'mappedCtx, Error list>>) =
+  member _.ForContextTaskRes (mapCtx: 'originalCtx -> 'entity -> Task<Result<'mappedCtx, Error list>>) =
     OperationHelperWithEntityMapCtx<'originalCtx, 'mappedCtx, 'entity, 'id>(mapCtx)
 
   member this.ForContextAsyncRes (mapCtx: 'originalCtx -> 'entity -> Async<Result<'mappedCtx, Error list>>) =
-    this.ForContextJobRes(Job.liftAsync2 mapCtx)
+    this.ForContextTaskRes(Task.liftAsync2 mapCtx)
 
-  member this.ForContextJobOpt (mapCtx: 'originalCtx -> 'entity -> Job<'mappedCtx option>) =
-    this.ForContextJobRes(fun ctx e -> mapCtx ctx e |> Job.map (Result.requireSome [opMapCtxFailedNone ()]))
+  member this.ForContextTaskOpt (mapCtx: 'originalCtx -> 'entity -> Task<'mappedCtx option>) =
+    this.ForContextTaskRes(fun ctx e -> mapCtx ctx e |> Task.map (Result.requireSome [opMapCtxFailedNone ()]))
 
   member this.ForContextAsyncOpt (mapCtx: 'originalCtx -> 'entity -> Async<'mappedCtx option>) =
-    this.ForContextJobOpt(Job.liftAsync2 mapCtx)
+    this.ForContextTaskOpt(Task.liftAsync2 mapCtx)
 
-  member this.ForContextJob (mapCtx: 'originalCtx -> 'entity -> Job<'mappedCtx>) =
-    this.ForContextJobRes(fun ctx e -> mapCtx ctx e |> Job.map Ok)
+  member this.ForContextTask (mapCtx: 'originalCtx -> 'entity -> Task<'mappedCtx>) =
+    this.ForContextTaskRes(fun ctx e -> mapCtx ctx e |> Task.map Ok)
 
   member this.ForContextAsync (mapCtx: 'originalCtx -> 'entity -> Async<'mappedCtx>) =
-    this.ForContextJob(Job.liftAsync2 mapCtx)
+    this.ForContextTask(Task.liftAsync2 mapCtx)
 
   member this.ForContextRes (mapCtx: 'originalCtx -> 'entity -> Result<'mappedCtx, Error list>) =
-    this.ForContextJobRes(Job.lift2 mapCtx)
+    this.ForContextTaskRes(Task.lift2 mapCtx)
 
   member this.ForContextOpt (mapCtx: 'originalCtx -> 'entity -> 'mappedCtx option) =
-    this.ForContextJobOpt(Job.lift2 mapCtx)
+    this.ForContextTaskOpt(Task.lift2 mapCtx)
 
   member this.ForContext (mapCtx: 'originalCtx -> 'entity -> 'mappedCtx) =
-    this.ForContextJobRes(JobResult.lift2 mapCtx)
+    this.ForContextTaskRes(TaskResult.lift2 mapCtx)
 
-  member _.LookupJobRes (getById: Func<'ctx, 'id, Job<Result<'entity option, Error list>>>) =
+  member _.LookupTaskRes (getById: Func<'ctx, 'id, Task<Result<'entity option, Error list>>>) =
     ResourceLookup<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun ctx id -> getById.Invoke(ctx, id))
 
-  member this.LookupJobRes (getById: Func<'id, Job<Result<'entity option, Error list>>>) =
-    this.LookupJobRes(fun _ id -> getById.Invoke id)
+  member this.LookupTaskRes (getById: Func<'id, Task<Result<'entity option, Error list>>>) =
+    this.LookupTaskRes(fun _ id -> getById.Invoke id)
 
   member this.LookupAsyncRes (getById: Func<'ctx, 'id, Async<Result<'entity option, Error list>>>) =
-    this.LookupJobRes(Job.liftAsyncFunc2 getById)
+    this.LookupTaskRes(Task.liftAsyncFunc2 getById)
 
   member this.LookupAsyncRes (getById: Func<'id, Async<Result<'entity option, Error list>>>) =
-    this.LookupJobRes(Job.liftAsyncFunc getById)
+    this.LookupTaskRes(Task.liftAsyncFunc getById)
 
-  member this.LookupJob (getById: Func<'ctx, 'id, Job<'entity option>>) =
-    this.LookupJobRes(fun ctx id -> getById.Invoke(ctx, id) |> Job.map Ok)
+  member this.LookupTask (getById: Func<'ctx, 'id, Task<'entity option>>) =
+    this.LookupTaskRes(fun ctx id -> getById.Invoke(ctx, id) |> Task.map Ok)
 
-  member this.LookupJob (getById: Func<'id, Job<'entity option>>) =
-    this.LookupJobRes(fun _ id -> getById.Invoke id |> Job.map Ok)
+  member this.LookupTask (getById: Func<'id, Task<'entity option>>) =
+    this.LookupTaskRes(fun _ id -> getById.Invoke id |> Task.map Ok)
 
   member this.LookupAsync (getById: Func<'ctx, 'id, Async<'entity option>>) =
-    this.LookupJob(Job.liftAsyncFunc2 getById)
+    this.LookupTask(Task.liftAsyncFunc2 getById)
 
   member this.LookupAsync (getById: Func<'id, Async<'entity option>>) =
-    this.LookupJob(Job.liftAsyncFunc getById)
+    this.LookupTask(Task.liftAsyncFunc getById)
 
   member this.LookupRes (getById: Func<'ctx, 'id, Result<'entity option, Error list>>) =
-    this.LookupJobRes(Job.liftFunc2 getById)
+    this.LookupTaskRes(Task.liftFunc2 getById)
 
   member this.LookupRes (getById: Func<'id, Result<'entity option, Error list>>) =
-    this.LookupJobRes(Job.liftFunc getById)
+    this.LookupTaskRes(Task.liftFunc getById)
 
   member this.Lookup (getById: Func<'ctx, 'id, 'entity option>) =
-    this.LookupJobRes(JobResult.liftFunc2 getById)
+    this.LookupTaskRes(TaskResult.liftFunc2 getById)
 
   member this.Lookup (getById: Func<'id, 'entity option>) =
-    this.LookupJobRes(JobResult.liftFunc getById)
+    this.LookupTaskRes(TaskResult.liftFunc getById)
 
-  member _.GetCollectionJobRes (getCollection: Func<'ctx, Job<Result<'entity list, Error list>>>) =
-    GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun _origCtx ctx _req -> getCollection.Invoke ctx |> JobResult.map (fun xs -> Set.empty, Set.empty, xs))
+  member _.GetCollectionTaskRes (getCollection: Func<'ctx, Task<Result<'entity list, Error list>>>) =
+    GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, fun _origCtx ctx _req -> getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs))
 
-  member this.GetCollectionJobRes (getCollection: Func<unit, Job<Result<'entity list, Error list>>>) =
-    this.GetCollectionJobRes(fun (_: 'ctx) -> getCollection.Invoke ())
+  member this.GetCollectionTaskRes (getCollection: Func<unit, Task<Result<'entity list, Error list>>>) =
+    this.GetCollectionTaskRes(fun (_: 'ctx) -> getCollection.Invoke ())
 
-  member _.GetCollectionJobRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>) =
+  member _.GetCollectionTaskRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>) =
     GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(
       mapCtx,
       fun origCtx ctx req ->
         getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-        |> JobResult.bind (fun p -> p.ParseWithConsumed ())
+        |> TaskResult.bind (fun p -> p.ParseWithConsumed ())
     )
 
   member this.GetCollectionAsyncRes (getCollection: Func<'ctx, Async<Result<'entity list, Error list>>>) =
-    this.GetCollectionJobRes(Job.liftAsyncFunc getCollection)
+    this.GetCollectionTaskRes(Task.liftAsyncFunc getCollection)
 
   member this.GetCollectionAsyncRes (getCollection: Func<unit, Async<Result<'entity list, Error list>>>) =
-    this.GetCollectionJobRes(Job.liftAsyncFunc getCollection)
+    this.GetCollectionTaskRes(Task.liftAsyncFunc getCollection)
 
   member this.GetCollectionAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>) =
-    this.GetCollectionJobRes(Job.liftAsyncFunc2 getRequestParser)
+    this.GetCollectionTaskRes(Task.liftAsyncFunc2 getRequestParser)
 
-  member this.GetCollectionJob (getCollection: Func<'ctx, Job<'entity list>>) =
-    this.GetCollectionJobRes(getCollection.Invoke >> Job.map Ok)
+  member this.GetCollectionTask (getCollection: Func<'ctx, Task<'entity list>>) =
+    this.GetCollectionTaskRes(getCollection.Invoke >> Task.map Ok)
 
-  member this.GetCollectionJob (getCollection: Func<unit, Job<'entity list>>) =
-    this.GetCollectionJobRes(getCollection.Invoke >> Job.map Ok)
+  member this.GetCollectionTask (getCollection: Func<unit, Task<'entity list>>) =
+    this.GetCollectionTaskRes(getCollection.Invoke >> Task.map Ok)
 
-  member this.GetCollectionJob (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity list>>>) =
-    this.GetCollectionJobRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok)
+  member this.GetCollectionTask (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, 'entity list>>>) =
+    this.GetCollectionTaskRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Task.map Ok)
 
   member this.GetCollectionAsync (getCollection: Func<'ctx, Async<'entity list>>) =
-    this.GetCollectionJob(Job.liftAsyncFunc getCollection)
+    this.GetCollectionTask(Task.liftAsyncFunc getCollection)
 
   member this.GetCollectionAsync (getCollection: Func<unit, Async<'entity list>>) =
-    this.GetCollectionJob(Job.liftAsyncFunc getCollection)
+    this.GetCollectionTask(Task.liftAsyncFunc getCollection)
 
   member this.GetCollectionAsync (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity list>>>) =
-    this.GetCollectionJob(Job.liftAsyncFunc2 getRequestParser)
+    this.GetCollectionTask(Task.liftAsyncFunc2 getRequestParser)
 
   member this.GetCollectionRes (getCollection: Func<'ctx, Result<'entity list, Error list>>) =
-    this.GetCollectionJobRes(Job.liftFunc getCollection)
+    this.GetCollectionTaskRes(Task.liftFunc getCollection)
 
   member this.GetCollectionRes (getCollection: Func<unit, Result<'entity list, Error list>>) =
-    this.GetCollectionJobRes(Job.liftFunc getCollection)
+    this.GetCollectionTaskRes(Task.liftFunc getCollection)
 
   member this.GetCollectionRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity list>, Error list>>) =
-    this.GetCollectionJobRes(Job.liftFunc2 getRequestParser)
+    this.GetCollectionTaskRes(Task.liftFunc2 getRequestParser)
 
   member this.GetCollection (getCollection: Func<'ctx, 'entity list>) =
-    this.GetCollectionJobRes(JobResult.liftFunc getCollection)
+    this.GetCollectionTaskRes(TaskResult.liftFunc getCollection)
 
   member this.GetCollection (getCollection: Func<unit, 'entity list>) =
-    this.GetCollectionJobRes(JobResult.liftFunc getCollection)
+    this.GetCollectionTaskRes(TaskResult.liftFunc getCollection)
 
   member this.GetCollection (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity list>>) =
-    this.GetCollectionJobRes(JobResult.liftFunc2 getRequestParser)
+    this.GetCollectionTaskRes(TaskResult.liftFunc2 getRequestParser)
 
-  member _.PostJobRes (createEntity: Func<'ctx, Job<Result<'entity, Error list>>>) =
-    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx _res -> mapCtx ctx), fun _origCtx ctx _res -> createEntity.Invoke ctx |> JobResult.map (fun e -> Set.empty, Set.empty, e))
+  member _.PostTaskRes (createEntity: Func<'ctx, Task<Result<'entity, Error list>>>) =
+    PostOperation<'originalCtx, 'ctx, 'entity>.Create((fun ctx _res -> mapCtx ctx), fun _origCtx ctx _res -> createEntity.Invoke ctx |> TaskResult.map (fun e -> Set.empty, Set.empty, e))
 
-  member this.PostJobRes (createEntity: Func<unit, Job<Result<'entity, Error list>>>) =
-    this.PostJobRes(fun (ctx: 'ctx) -> createEntity.Invoke ())
+  member this.PostTaskRes (createEntity: Func<unit, Task<Result<'entity, Error list>>>) =
+    this.PostTaskRes(fun (ctx: 'ctx) -> createEntity.Invoke ())
 
-  member _.PostJobRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
+  member _.PostTaskRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     PostOperation<'originalCtx, 'ctx, 'entity>.Create(
       (fun ctx _ -> mapCtx ctx),
       fun origCtx ctx req ->
         getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-        |> JobResult.bind (fun p -> p.ParseWithConsumed ())
+        |> TaskResult.bind (fun p -> p.ParseWithConsumed ())
     )
 
   member this.PostAsyncRes (createEntity: Func<'ctx, Async<Result<'entity, Error list>>>) =
-    this.PostJobRes(Job.liftAsyncFunc createEntity)
+    this.PostTaskRes(Task.liftAsyncFunc createEntity)
 
   member this.PostAsyncRes (createEntity: Func<unit, Async<Result<'entity, Error list>>>) =
-    this.PostJobRes(Job.liftAsyncFunc createEntity)
+    this.PostTaskRes(Task.liftAsyncFunc createEntity)
 
   member this.PostAsyncRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
-    this.PostJobRes(Job.liftAsyncFunc2 getRequestParser)
+    this.PostTaskRes(Task.liftAsyncFunc2 getRequestParser)
 
-  member this.PostJob (createEntity: Func<'ctx, Job<'entity>>) =
-    this.PostJobRes(createEntity.Invoke >> Job.map Ok)
+  member this.PostTask (createEntity: Func<'ctx, Task<'entity>>) =
+    this.PostTaskRes(createEntity.Invoke >> Task.map Ok)
 
-  member this.PostJob (createEntity: Func<unit, Job<'entity>>) =
-    this.PostJobRes(createEntity.Invoke >> Job.map Ok)
+  member this.PostTask (createEntity: Func<unit, Task<'entity>>) =
+    this.PostTaskRes(createEntity.Invoke >> Task.map Ok)
 
-  member this.PostJob (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity>>>) =
-    this.PostJobRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok)
+  member this.PostTask (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, 'entity>>>) =
+    this.PostTaskRes(fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Task.map Ok)
 
   member this.PostAsync (createEntity: Func<'ctx, Async<'entity>>) =
-    this.PostJob(Job.liftAsyncFunc createEntity)
+    this.PostTask(Task.liftAsyncFunc createEntity)
 
   member this.PostAsync (createEntity: Func<unit, Async<'entity>>) =
-    this.PostJob(Job.liftAsyncFunc createEntity)
+    this.PostTask(Task.liftAsyncFunc createEntity)
 
   member this.PostAsync (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>) =
-    this.PostJob(Job.liftAsyncFunc2 getRequestParser)
+    this.PostTask(Task.liftAsyncFunc2 getRequestParser)
 
   member this.PostRes (createEntity: Func<'ctx, Result<'entity, Error list>>) =
-    this.PostJobRes(Job.liftFunc createEntity)
+    this.PostTaskRes(Task.liftFunc createEntity)
 
   member this.PostRes (createEntity: Func<unit, Result<'entity, Error list>>) =
-    this.PostJobRes(Job.liftFunc createEntity)
+    this.PostTaskRes(Task.liftFunc createEntity)
 
   member this.PostRes (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>) =
-    this.PostJobRes(Job.liftFunc2 getRequestParser)
+    this.PostTaskRes(Task.liftFunc2 getRequestParser)
 
   member this.Post (createEntity: Func<'ctx, 'entity>) =
-    this.PostJobRes(JobResult.liftFunc createEntity)
+    this.PostTaskRes(TaskResult.liftFunc createEntity)
 
   member this.Post (createEntity: Func<unit, 'entity>) =
-    this.PostJobRes(JobResult.liftFunc createEntity)
+    this.PostTaskRes(TaskResult.liftFunc createEntity)
 
   member this.Post (getRequestParser: Func<'ctx, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity>>) =
-    this.PostJobRes(JobResult.liftFunc2 getRequestParser)
+    this.PostTaskRes(TaskResult.liftFunc2 getRequestParser)
 
-  member _.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Job<Result<'entity, Error list>>>) =
+  member _.PostBackRefTaskRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Task<Result<'entity, Error list>>>) =
     let mapCtxWithBackRef ctx req =
       mapCtx ctx
-      |> JobResult.bind (fun mappedCtx ->
+      |> TaskResult.bind (fun mappedCtx ->
           backRef.Get(ctx, req, None)
-          |> JobResult.map (fun e -> mappedCtx, e)
+          |> TaskResult.map (fun e -> mappedCtx, e)
       )
     let consumedFieldNames = match backRef.FieldName with None -> Set.empty | Some fn -> Set.empty.Add fn
-    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun _origCtx ctx _res -> createEntity.Invoke ctx |> JobResult.map (fun e -> consumedFieldNames, Set.empty, e))
+    PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(mapCtxWithBackRef, fun _origCtx ctx _res -> createEntity.Invoke ctx |> TaskResult.map (fun e -> consumedFieldNames, Set.empty, e))
 
-  member this.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Job<Result<'entity, Error list>>>) =
-    this.PostBackRefJobRes(backRef, fun (_ctx: 'ctx, _br: 'backRefEntity) -> createEntity.Invoke ())
+  member this.PostBackRefTaskRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Task<Result<'entity, Error list>>>) =
+    this.PostBackRefTaskRes(backRef, fun (_ctx: 'ctx, _br: 'backRefEntity) -> createEntity.Invoke ())
 
-  member _.PostBackRefJobRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Job<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
+  member _.PostBackRefTaskRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
     let mapCtxWithBackRef ctx req =
       mapCtx ctx
-      |> JobResult.bind (fun mappedCtx ->
+      |> TaskResult.bind (fun mappedCtx ->
           backRef.Get(ctx, req, None)
-          |> JobResult.map (fun e -> mappedCtx, e)
+          |> TaskResult.map (fun e -> mappedCtx, e)
       )
     let addBackRefFieldName = match backRef.FieldName with None -> id | Some fn -> Set.add fn
     PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create(
       mapCtxWithBackRef,
       fun origCtx ctx req ->
         getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-        |> JobResult.bind (fun p -> p.ParseWithConsumed ())
-        |> JobResult.map (fun (fns, qns, e) -> addBackRefFieldName fns, qns, e)
+        |> TaskResult.bind (fun p -> p.ParseWithConsumed ())
+        |> TaskResult.map (fun (fns, qns, e) -> addBackRefFieldName fns, qns, e)
     )
 
   member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Async<Result<'entity, Error list>>>) =
-    this.PostBackRefJobRes(backRef, Job.liftAsyncFunc createEntity)
+    this.PostBackRefTaskRes(backRef, Task.liftAsyncFunc createEntity)
 
   member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<Result<'entity, Error list>>>) =
-    this.PostBackRefJobRes(backRef, Job.liftAsyncFunc createEntity)
+    this.PostBackRefTaskRes(backRef, Task.liftAsyncFunc createEntity)
 
   member this.PostBackRefAsyncRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>) =
-    this.PostBackRefJobRes(backRef, Job.liftAsyncFunc2 getRequestParser)
+    this.PostBackRefTaskRes(backRef, Task.liftAsyncFunc2 getRequestParser)
 
-  member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Job<'entity>>) =
-    this.PostBackRefJobRes(backRef, createEntity.Invoke >> Job.map Ok)
+  member this.PostBackRefTask (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Task<'entity>>) =
+    this.PostBackRefTaskRes(backRef, createEntity.Invoke >> Task.map Ok)
 
-  member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Job<'entity>>) =
-    this.PostBackRefJobRes(backRef, createEntity.Invoke >> Job.map Ok)
+  member this.PostBackRefTask (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Task<'entity>>) =
+    this.PostBackRefTaskRes(backRef, createEntity.Invoke >> Task.map Ok)
 
-  member this.PostBackRefJob (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Job<RequestParser<'originalCtx, 'entity>>>) =
-    this.PostBackRefJobRes(backRef, fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Job.map Ok)
+  member this.PostBackRefTask (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, 'entity>>>) =
+    this.PostBackRefTaskRes(backRef, fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Task.map Ok)
 
   member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Async<'entity>>) =
-    this.PostBackRefJob(backRef, Job.liftAsyncFunc createEntity)
+    this.PostBackRefTask(backRef, Task.liftAsyncFunc createEntity)
 
   member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<'entity>>) =
-    this.PostBackRefJob(backRef, Job.liftAsyncFunc createEntity)
+    this.PostBackRefTask(backRef, Task.liftAsyncFunc createEntity)
 
   member this.PostBackRefAsync (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>) =
-    this.PostBackRefJob(backRef, Job.liftAsyncFunc2 getRequestParser)
+    this.PostBackRefTask(backRef, Task.liftAsyncFunc2 getRequestParser)
 
   member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Result<'entity, Error list>>) =
-    this.PostBackRefJobRes(backRef, Job.liftFunc createEntity)
+    this.PostBackRefTaskRes(backRef, Task.liftFunc createEntity)
 
   member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Result<'entity, Error list>>) =
-    this.PostBackRefJobRes(backRef, Job.liftFunc createEntity)
+    this.PostBackRefTaskRes(backRef, Task.liftFunc createEntity)
 
   member this.PostBackRefRes (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>) =
-    this.PostBackRefJobRes(backRef, Job.liftFunc2 getRequestParser)
+    this.PostBackRefTaskRes(backRef, Task.liftFunc2 getRequestParser)
 
   member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, 'entity>) =
-    this.PostBackRefJobRes(backRef, JobResult.liftFunc createEntity)
+    this.PostBackRefTaskRes(backRef, TaskResult.liftFunc createEntity)
 
   member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, 'entity>) =
-    this.PostBackRefJobRes(backRef, JobResult.liftFunc createEntity)
+    this.PostBackRefTaskRes(backRef, TaskResult.liftFunc createEntity)
 
   member this.PostBackRef (backRef: RequestGetter<'originalCtx, 'backRefEntity>, getRequestParser: Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, RequestParser<'originalCtx, 'entity>>) =
-    this.PostBackRefJobRes(backRef, JobResult.liftFunc2 getRequestParser)
+    this.PostBackRefTaskRes(backRef, TaskResult.liftFunc2 getRequestParser)
 
-  member _.PostCustomJob(operation: Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Job<Result<HttpHandler, Error list>>>) =
+  member _.PostCustomTask(operation: Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Task<Result<HttpHandler, Error list>>>) =
     CustomPostOperation<'originalCtx, 'ctx, 'entity>.Create(
       mapCtx,
       fun origCtx ctx req helper -> operation.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), helper)
     )
 
   member this.PostCustomAsync(operation: Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Async<Result<HttpHandler, Error list>>>) =
-    this.PostCustomJob(Job.liftAsyncFunc3 operation)
+    this.PostCustomTask(Task.liftAsyncFunc3 operation)

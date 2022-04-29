@@ -28,6 +28,15 @@
         "resolved": "6.0.3",
         "contentHash": "ywxwMhsA1nG2hsRSMl3IzYvdugrSoFg/ZY99cuBqV0SX0yp8ubD6Hee8Bh3YwaF2Ucyq/Jz8lZ0MY5VjxgogbA=="
       },
+      "Hopac": {
+        "type": "Direct",
+        "requested": "[0.5.1, )",
+        "resolved": "0.5.1",
+        "contentHash": "vqkbAF8cNw0YxFoe0svgiR0PJ6fWsrNqdlHvyq/8iXrC5JC9LRLNEStMdv8MiZyg5FWfuYYvEuElpCxhxA8QqA==",
+        "dependencies": {
+          "FSharp.Core": "4.5.2"
+        }
+      },
       "Http.fs": {
         "type": "Direct",
         "requested": "[5.4.0, )",
@@ -112,14 +121,6 @@
         "contentHash": "T9CSVbIH12K/Scl8ZOVBenLSnSH8SkPugdft+DFMkqR79tPVzLxF/6L/wwvfJhpWA/5z9XsGiCW7XD0nrTnaAA==",
         "dependencies": {
           "FSharp.Core": "5.0.0"
-        }
-      },
-      "Hopac": {
-        "type": "Transitive",
-        "resolved": "0.5.1",
-        "contentHash": "vqkbAF8cNw0YxFoe0svgiR0PJ6fWsrNqdlHvyq/8iXrC5JC9LRLNEStMdv8MiZyg5FWfuYYvEuElpCxhxA8QqA==",
-        "dependencies": {
-          "FSharp.Core": "4.5.2"
         }
       },
       "Microsoft.CodeCoverage": {
@@ -411,8 +412,7 @@
         "dependencies": {
           "FSharp.Core": "6.0.1",
           "FSharp.SystemTextJson": "0.17.4",
-          "Giraffe": "6.0.0",
-          "Hopac": "0.5.1"
+          "Giraffe": "6.0.0"
         }
       }
     }

@@ -4,7 +4,6 @@ open System
 open System.Reflection
 open System.Text.Json.Serialization
 open Microsoft.Extensions.DependencyInjection
-open Hopac
 open Giraffe
 open Errors
 
@@ -50,7 +49,7 @@ module internal RoutingOperations =
 
     { new ResponseBuilder<'ctx> with
         member _.Write httpCtx ctx req rDefEntity =
-          job {
+          task {
             let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
             let resourceDef, e = rDefEntity
             let! main, included =
@@ -66,7 +65,7 @@ module internal RoutingOperations =
           }
 
         member _.WriteList httpCtx ctx req rDefsEntities =
-          job {
+          task {
             let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
             let! main, included =
               rDefsEntities
@@ -82,16 +81,16 @@ module internal RoutingOperations =
           }
 
         member _.WriteOpt httpCtx ctx req rDefEntity =
-          job {
+          task {
             let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
             let! main, included =
               rDefEntity
               |> Option.map (fun (rDef, e) ->
                   ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, rDef, e)
                   |> ResourceBuilder.buildOne
-                  |> Job.map (fun (res, inc) -> Some res, Include inc)
+                  |> Task.map (fun (res, inc) -> Some res, Include inc)
               )
-              |> Option.defaultValue (Job.result (None, Skip))
+              |> Option.defaultValue (Task.result (None, Skip))
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
@@ -117,8 +116,8 @@ module internal RoutingOperations =
                 member _.Set ctx req e _ =
                   match req.Document.Value with
                   | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey "constraints" ->
-                      Error [setAttrReadOnly "constraints" "/data/attributes/constraints"] |> Job.result
-                  | _ -> Ok e |> Job.result
+                      Error [setAttrReadOnly "constraints" "/data/attributes/constraints"] |> Task.result
+                  | _ -> Ok e |> Task.result
             }
 
     let fields =
@@ -134,7 +133,7 @@ module internal RoutingOperations =
       |> Map.ofArray
 
     fun ctx req consumedFields entity ->
-      job {
+      task {
         let mutable result = Ok entity
         for field in fields do
           if not <| Set.intersects field.Names consumedFields then
@@ -429,13 +428,12 @@ module internal RoutingOperations =
         |> Option.map (fun op ->
           fun ctx rawId handler ->
             fun next httpCtx ->
-              job {
+              task {
                 match! op.GetByIdBoxed ctx rawId with
                 | Error errs -> return! handleErrors errs next httpCtx
                 | Ok None -> return! handleErrors [resourceNotFound collName rawId] next httpCtx
                 | Ok (Some (resDef, entity)) -> return! handler resDef entity next httpCtx
               }
-              |> Job.startAsTask
         )
       get = getResource resourceModuleMap getBaseUrl collName resourceModules
       patch = patchResource resourceModuleMap getBaseUrl collName resourceModules

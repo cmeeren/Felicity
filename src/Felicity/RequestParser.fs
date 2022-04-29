@@ -1,29 +1,29 @@
 ﻿namespace Felicity
 
 
-open Hopac
+open System.Threading.Tasks
 open Errors
 
 
 [<AutoOpen>]
 module private RequestParserOperators =
 
-  let inline (<!>) f x = JobResult.map f x
+  let inline (<!>) f x = TaskResult.map f x
 
-  let inline (<*>) f x = JobResult.apply f x
+  let inline (<*>) f x = TaskResult.apply f x
 
 
 type RequestParser<'ctx, 'a> = internal {
   includedTypeAndId: (ResourceTypeName * ResourceId) option
   consumedFields: Set<ConsumedFieldName>
   consumedQueryParams: Set<ConsumedQueryParamName>
-  parse: 'ctx -> Request -> Job<Result<'a, Error list>>
+  parse: 'ctx -> Request -> Task<Result<'a, Error list>>
   ctx: 'ctx
   request: Request
   prohibited: ProhibitedRequestGetter list
 } with
 
-  static member internal Create(consumedFields, consumedQueryParams, includedTypeAndId, ctx: 'ctx, req: Request, parse: 'ctx -> Request -> Job<Result<'a, Error list>>) : RequestParser<'ctx, 'a> =
+  static member internal Create(consumedFields, consumedQueryParams, includedTypeAndId, ctx: 'ctx, req: Request, parse: 'ctx -> Request -> Task<Result<'a, Error list>>) : RequestParser<'ctx, 'a> =
     {
       includedTypeAndId = includedTypeAndId
       consumedFields = consumedFields
@@ -34,8 +34,8 @@ type RequestParser<'ctx, 'a> = internal {
       prohibited = []
     }
 
-  member internal this.ParseWithConsumed () : Job<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'a, Error list>> =
-    job {
+  member internal this.ParseWithConsumed () : Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'a, Error list>> =
+    task {
       let prohibitedErrs =
         this.prohibited
         |> List.collect (fun p -> p.GetErrors(this.request, this.includedTypeAndId))
@@ -44,15 +44,15 @@ type RequestParser<'ctx, 'a> = internal {
       if prohibitedErrs.IsEmpty then
         return!
           this.parse this.ctx this.request
-          |> JobResult.map (fun x -> this.consumedFields, this.consumedQueryParams, x)
+          |> TaskResult.map (fun x -> this.consumedFields, this.consumedQueryParams, x)
       else return Error prohibitedErrs
     }
 
-  member this.ParseJob () : Job<Result<'a, Error list>> =
-    this.ParseWithConsumed () |> JobResult.map (fun (_, _, x) -> x)
+  member this.ParseTask () : Task<Result<'a, Error list>> =
+    this.ParseWithConsumed () |> TaskResult.map (fun (_, _, x) -> x)
 
   member this.ParseAsync () : Async<Result<'a, Error list>> =
-    this.ParseJob () |> Job.toAsync
+    this.ParseTask () |> Task.toAsync
 
   member private this.MarkAsConsumed(getter: RequestGetter<'ctx, 'b>) =
     { this with
@@ -72,11 +72,11 @@ type RequestParser<'ctx, 'a> = internal {
         consumedQueryParams = match getter.QueryParamName with None -> this.consumedQueryParams | Some n -> this.consumedQueryParams.Add n
     }
 
-  member private this.AddJobRes (set: 'ctx -> Request -> 'b -> 'a -> Job<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
+  member private this.AddTaskRes (set: 'ctx -> Request -> 'b -> 'a -> Task<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
     { this with
         parse =
           fun ctx req ->
-            job {
+            task {
               let! existingRes = this.parse ctx req
               let! newRes = getter.Get(ctx, req, this.includedTypeAndId)
               match existingRes, newRes with
@@ -90,16 +90,16 @@ type RequestParser<'ctx, 'a> = internal {
             }
     }.MarkAsConsumed(getter)
 
-  member this.AddJobRes (set: 'b -> 'a -> Job<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
-    this.AddJobRes((fun _ _ b a -> set b a), getter)
+  member this.AddTaskRes (set: 'b -> 'a -> Task<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
+    this.AddTaskRes((fun _ _ b a -> set b a), getter)
 
   member this.AddAsyncRes (set: 'b -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>) =
-    this.AddJobRes(Job.liftAsync2 set, getter)
+    this.AddTaskRes(Task.liftAsync2 set, getter)
 
-  member this.AddJobRes (set: 'b -> 'c -> 'a -> Job<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
+  member this.AddTaskRes (set: 'b -> 'c -> 'a -> Task<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
     this
-      .AddJobRes((fun ctx req b a ->
-        job {
+      .AddTaskRes((fun ctx req b a ->
+        task {
           match! getC.Get(ctx, req, this.includedTypeAndId) with
           | Error errs -> return Error errs
           | Ok c -> return! set b c a
@@ -108,40 +108,40 @@ type RequestParser<'ctx, 'a> = internal {
       .MarkAsConsumed(getC)
 
   member this.AddAsyncRes (set: 'b -> 'c -> 'a -> Async<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
-    this.AddJobRes(Job.liftAsync3 set, getter, getC)
+    this.AddTaskRes(Task.liftAsync3 set, getter, getC)
 
-  member this.AddJob (set: 'b -> 'a -> Job<'a>, getter: OptionalRequestGetter<'ctx, 'b>) =
-    this.AddJobRes ((fun b a -> set b a |> Job.map Ok), getter)
+  member this.AddTask (set: 'b -> 'a -> Task<'a>, getter: OptionalRequestGetter<'ctx, 'b>) =
+    this.AddTaskRes ((fun b a -> set b a |> Task.map Ok), getter)
 
-  member this.AddJob (set: 'b -> 'c -> 'a -> Job<'a>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
-    this.AddJobRes ((fun b c a -> set b c a |> Job.map Ok), getter, getC)
+  member this.AddTask (set: 'b -> 'c -> 'a -> Task<'a>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
+    this.AddTaskRes ((fun b c a -> set b c a |> Task.map Ok), getter, getC)
 
   member this.AddAsync (set: 'b -> 'a -> Async<'a>, getter: OptionalRequestGetter<'ctx, 'b>) =
-    this.AddJob (Job.liftAsync2 set, getter)
+    this.AddTask (Task.liftAsync2 set, getter)
 
   member this.AddAsync (set: 'b -> 'c -> 'a -> Async<'a>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
-    this.AddJob (Job.liftAsync3 set, getter, getC)
+    this.AddTask (Task.liftAsync3 set, getter, getC)
 
   member this.AddRes (set: 'b -> 'c -> 'a -> Result<'a, Error list>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
-    this.AddJobRes ((fun b c a -> set b c a |> Job.result), getter, getC)
+    this.AddTaskRes ((fun b c a -> set b c a |> Task.result), getter, getC)
 
   member this.AddRes (set: 'b -> 'a -> Result<'a, Error list>, getter: OptionalRequestGetter<'ctx, 'b>) =
-    this.AddJobRes ((fun b a -> set b a |> Job.result), getter)
+    this.AddTaskRes ((fun b a -> set b a |> Task.result), getter)
 
   member this.Add (set: 'b -> 'a -> 'a, getter: OptionalRequestGetter<'ctx, 'b>) =
-    this.AddJobRes ((fun b a -> set b a |> Ok |> Job.result), getter)
+    this.AddTaskRes ((fun b a -> set b a |> Ok |> Task.result), getter)
 
   member this.Add (set: 'b -> 'c -> 'a -> 'a, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
-    this.AddJobRes ((fun b c a -> set b c a |> Ok |> Job.result), getter, getC)
+    this.AddTaskRes ((fun b c a -> set b c a |> Ok |> Task.result), getter, getC)
 
   member this.RequireType(typeName: string) =
     { this with
         parse = fun ctx req ->
           match req.Document.Value with
-          | Error errs -> Error errs |> Job.result
-          | Ok None -> Error [reqParserMissingData ""] |> Job.result
-          | Ok (Some { data = None }) -> Error [reqParserMissingData "/data"] |> Job.result
-          | Ok (Some { data = Some { ``type`` = t } }) when t <> typeName -> Error [reqParserInvalidType typeName t "/data/type"] |> Job.result
+          | Error errs -> Error errs |> Task.result
+          | Ok None -> Error [reqParserMissingData ""] |> Task.result
+          | Ok (Some { data = None }) -> Error [reqParserMissingData "/data"] |> Task.result
+          | Ok (Some { data = Some { ``type`` = t } }) when t <> typeName -> Error [reqParserInvalidType typeName t "/data/type"] |> Task.result
           | Ok (Some { data = Some _ }) -> this.parse ctx req
     }
 
@@ -155,7 +155,7 @@ type RequestParser<'ctx, 'a> = internal {
       includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
-      parse = fun ctx req -> this.parse ctx req |> JobResult.map f
+      parse = fun ctx req -> this.parse ctx req |> TaskResult.map f
       ctx = this.ctx
       request = this.request
       prohibited = this.prohibited
@@ -166,39 +166,39 @@ type RequestParser<'ctx, 'a> = internal {
       includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
-      parse = fun ctx req -> this.parse ctx req |> JobResult.bindResult f
+      parse = fun ctx req -> this.parse ctx req |> TaskResult.bindResult f
       ctx = this.ctx
       request = this.request
       prohibited = this.prohibited
     }
 
-  member this.BindJob (f: 'a -> Job<'b>) : RequestParser<'ctx, 'b> =
+  member this.BindTask (f: 'a -> Task<'b>) : RequestParser<'ctx, 'b> =
     {
       includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
-      parse = fun ctx req -> this.parse ctx req |> JobResult.bind (f >> Job.map Ok)
+      parse = fun ctx req -> this.parse ctx req |> TaskResult.bind (f >> Task.map Ok)
       ctx = this.ctx
       request = this.request
       prohibited = this.prohibited
     }
 
   member this.BindAsync (f: 'a -> Async<'b>) : RequestParser<'ctx, 'b> =
-    this.BindJob(Job.liftAsync f)
+    this.BindTask(Task.liftAsync f)
 
-  member this.BindJobRes (f: 'a -> Job<Result<'b, Error list>>) : RequestParser<'ctx, 'b> =
+  member this.BindTaskRes (f: 'a -> Task<Result<'b, Error list>>) : RequestParser<'ctx, 'b> =
     {
       includedTypeAndId = this.includedTypeAndId
       consumedFields = this.consumedFields
       consumedQueryParams = this.consumedQueryParams
-      parse = fun ctx req -> this.parse ctx req |> JobResult.bind f
+      parse = fun ctx req -> this.parse ctx req |> TaskResult.bind f
       ctx = this.ctx
       request = this.request
       prohibited = this.prohibited
     }
 
   member this.BindAsyncRes (f: 'a -> Async<Result<'b, Error list>>) : RequestParser<'ctx, 'b> =
-    this.BindJobRes(Job.liftAsync f)
+    this.BindTaskRes(Task.liftAsync f)
 
 
 
@@ -207,15 +207,15 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
   let mutable consumedSingleFields : Set<FieldName> = Set.empty
   let mutable consumedSingleParams : Set<FieldName> = Set.empty
 
-  member _.GetRequiredJob(param: RequestGetter<'ctx, 'a>) : Job<Result<'a, Error list>> =
+  member _.GetRequiredTask(param: RequestGetter<'ctx, 'a>) : Task<Result<'a, Error list>> =
     match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
     match param.QueryParamName with None -> () | Some n -> consumedSingleParams <- consumedSingleParams.Add n
-    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
+    RequestParser<'ctx, 'a>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseTask()
 
-  member _.GetOptionalJob(param: OptionalRequestGetter<'ctx, 'a>) : Job<Result<'a option, Error list>> =
+  member _.GetOptionalTask(param: OptionalRequestGetter<'ctx, 'a>) : Task<Result<'a option, Error list>> =
     match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
     match param.QueryParamName with None -> () | Some n -> consumedSingleParams <- consumedSingleParams.Add n
-    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseJob()
+    RequestParser<'ctx, 'a option>.Create(Set.empty, Set.empty, includedTypeAndId, ctx, req, fun c r -> param.Get(c, r, includedTypeAndId)).ParseTask()
 
   member _.GetRequiredAsync(param: RequestGetter<'ctx, 'a>) : Async<Result<'a, Error list>> =
     match param.FieldName with None -> () | Some n -> consumedSingleFields <- consumedSingleFields.Add n
@@ -229,71 +229,71 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
 
   // Arity 0
 
-  member _.ForJobRes (create: Job<Result<'a, Error list>>) =
+  member _.ForTaskRes (create: Task<Result<'a, Error list>>) =
     RequestParser<'ctx, 'a>.Create (consumedSingleFields, consumedSingleParams, includedTypeAndId, ctx, req, fun _ _ -> create)
 
   member _.ForAsyncRes (create: Async<Result<'a, Error list>>) =
-    RequestParser<'ctx, 'a>.Create (consumedSingleFields, consumedSingleParams, includedTypeAndId, ctx, req, fun _ _ -> Job.fromAsync create)
+    RequestParser<'ctx, 'a>.Create (consumedSingleFields, consumedSingleParams, includedTypeAndId, ctx, req, fun _ _ -> Task.fromAsync create)
 
-  member this.ForJob (create: Job<'a>) =
-    this.ForJobRes (create |> Job.map Ok)
+  member this.ForTask (create: Task<'a>) =
+    this.ForTaskRes (create |> Task.map Ok)
 
   member this.ForAsync (create: Async<'a>) =
-    this.ForJob (create |> Job.fromAsync)
+    this.ForTask (create |> Task.fromAsync)
 
   member this.ForRes (value: Result<'a, Error list>) =
-    this.ForJobRes (value |> Job.result)
+    this.ForTaskRes (value |> Task.result)
 
   member this.For (value: 'a) =
-    this.ForJobRes (value |> Ok |> Job.result)
+    this.ForTaskRes (value |> Ok |> Task.result)
 
   // Arity 1
 
-  member _.ForJobRes (create: 'p1 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
+  member _.ForTaskRes (create: 'p1 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
     let consumedFields = [| p1.FieldName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleFields
     let consumedQueryParams = [| p1.QueryParamName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleParams
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) |> JobResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
-    this.ForJobRes (Job.liftAsync create, p1)
+    this.ForTaskRes (Task.liftAsync create, p1)
 
-  member this.ForJob (create: 'p1 -> Job<'a>, p1: RequestGetter<'ctx, 'p1>) =
-    this.ForJobRes (JobResult.liftJob create, p1)
+  member this.ForTask (create: 'p1 -> Task<'a>, p1: RequestGetter<'ctx, 'p1>) =
+    this.ForTaskRes (TaskResult.liftTask create, p1)
 
   member this.ForAsync (create: 'p1 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>) =
-    this.ForJob (Job.liftAsync create, p1)
+    this.ForTask (Task.liftAsync create, p1)
 
   member this.ForRes (create: 'p1 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>) =
-    this.ForJobRes (Job.lift create, p1)
+    this.ForTaskRes (Task.lift create, p1)
 
   member this.For (create: 'p1 -> 'a, p1: RequestGetter<'ctx, 'p1>) =
-    this.ForJobRes (JobResult.lift create, p1)
+    this.ForTaskRes (TaskResult.lift create, p1)
 
   // Arity 2
 
-  member _.ForJobRes (create: 'p1 -> 'p2 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
     let consumedFields = [| p1.FieldName; p2.FieldName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleFields
     let consumedQueryParams = [| p1.QueryParamName; p2.QueryParamName |] |> Array.choose id |> Set.ofArray |> Set.union consumedSingleParams
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) |> JobResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
-    this.ForJobRes (Job.liftAsync2 create, p1, p2)
+    this.ForTaskRes (Task.liftAsync2 create, p1, p2)
 
-  member this.ForJob (create: 'p1 -> 'p2 -> Job<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
-    this.ForJobRes (JobResult.liftJob2 create, p1, p2)
+  member this.ForTask (create: 'p1 -> 'p2 -> Task<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
+    this.ForTaskRes (TaskResult.liftTask2 create, p1, p2)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
-    this.ForJob (Job.liftAsync2 create, p1, p2)
+    this.ForTask (Task.liftAsync2 create, p1, p2)
 
   member this.ForRes (create: 'p1 -> 'p2 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
-    this.ForJobRes (Job.lift2 create, p1, p2)
+    this.ForTaskRes (Task.lift2 create, p1, p2)
 
   member this.For (create: 'p1 -> 'p2 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
-    this.ForJobRes (JobResult.lift2 create, p1, p2)
+    this.ForTaskRes (TaskResult.lift2 create, p1, p2)
 
   // Arity 3
 
-  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> 'p3 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
     let consumedFields =
       [| p1.FieldName; p2.FieldName; p3.FieldName |]
       |> Array.choose id
@@ -304,26 +304,26 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       |> Array.choose id
       |> Set.ofArray
       |> Set.union consumedSingleParams
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) |> JobResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
-    this.ForJobRes (Job.liftAsync3 create, p1, p2, p3)
+    this.ForTaskRes (Task.liftAsync3 create, p1, p2, p3)
 
-  member this.ForJob (create: 'p1 -> 'p2 -> 'p3 -> Job<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
-    this.ForJobRes (JobResult.liftJob3 create, p1, p2, p3)
+  member this.ForTask (create: 'p1 -> 'p2 -> 'p3 -> Task<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
+    this.ForTaskRes (TaskResult.liftTask3 create, p1, p2, p3)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> 'p3 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
-    this.ForJob (Job.liftAsync3 create, p1, p2, p3)
+    this.ForTask (Task.liftAsync3 create, p1, p2, p3)
 
   member this.ForRes (create: 'p1 -> 'p2 -> 'p3 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
-    this.ForJobRes (Job.lift3 create, p1, p2, p3)
+    this.ForTaskRes (Task.lift3 create, p1, p2, p3)
 
   member this.For (create: 'p1 -> 'p2 -> 'p3 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>) =
-    this.ForJobRes (JobResult.lift3 create, p1, p2, p3)
+    this.ForTaskRes (TaskResult.lift3 create, p1, p2, p3)
 
   // Arity 4
 
-  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
     let consumedFields =
       [| p1.FieldName; p2.FieldName; p3.FieldName; p4.FieldName |]
       |> Array.choose id
@@ -334,26 +334,26 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       |> Array.choose id
       |> Set.ofArray
        |> Set.union consumedSingleParams
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) |> JobResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
-    this.ForJobRes (Job.liftAsync4 create, p1, p2, p3, p4)
+    this.ForTaskRes (Task.liftAsync4 create, p1, p2, p3, p4)
 
-  member this.ForJob (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Job<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
-    this.ForJobRes (JobResult.liftJob4 create, p1, p2, p3, p4)
+  member this.ForTask (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Task<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
+    this.ForTaskRes (TaskResult.liftTask4 create, p1, p2, p3, p4)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
-    this.ForJob (Job.liftAsync4 create, p1, p2, p3, p4)
+    this.ForTask (Task.liftAsync4 create, p1, p2, p3, p4)
 
   member this.ForRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
-    this.ForJobRes (Job.lift4 create, p1, p2, p3, p4)
+    this.ForTaskRes (Task.lift4 create, p1, p2, p3, p4)
 
   member this.For (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>) =
-    this.ForJobRes (JobResult.lift4 create, p1, p2, p3, p4)
+    this.ForTaskRes (TaskResult.lift4 create, p1, p2, p3, p4)
 
   // Arity 5
   
-  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
     let consumedFields =
       [| p1.FieldName; p2.FieldName; p3.FieldName; p4.FieldName; p5.FieldName |]
       |> Array.choose id
@@ -364,26 +364,26 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
       |> Array.choose id
       |> Set.ofArray
        |> Set.union consumedSingleParams
-    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) <*> p5.Get(c, r, includedTypeAndId) |> JobResult.bind id)
+    RequestParser<'ctx, 'a>.Create (consumedFields, consumedQueryParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) <*> p3.Get(c, r, includedTypeAndId) <*> p4.Get(c, r, includedTypeAndId) <*> p5.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
   
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
-    this.ForJobRes (Job.liftAsync5 create, p1, p2, p3, p4, p5)
+    this.ForTaskRes (Task.liftAsync5 create, p1, p2, p3, p4, p5)
 
-  member this.ForJob (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Job<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
-    this.ForJobRes (JobResult.liftJob5 create, p1, p2, p3, p4, p5)
+  member this.ForTask (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Task<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
+    this.ForTaskRes (TaskResult.liftTask5 create, p1, p2, p3, p4, p5)
 
   member this.ForAsync (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Async<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
-    this.ForJob (Job.liftAsync5 create, p1, p2, p3, p4, p5)
+    this.ForTask (Task.liftAsync5 create, p1, p2, p3, p4, p5)
   
   member this.ForRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
-    this.ForJobRes (Job.lift5 create, p1, p2, p3, p4, p5)
+    this.ForTaskRes (Task.lift5 create, p1, p2, p3, p4, p5)
   
   member this.For (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>) =
-    this.ForJobRes (JobResult.lift5 create, p1, p2, p3, p4, p5)
+    this.ForTaskRes (TaskResult.lift5 create, p1, p2, p3, p4, p5)
 
   // Arity 6
   
-  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>) =
     let consumedFields =
       [|
           p1.FieldName
@@ -424,7 +424,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         <*> p4.Get(c, r, includedTypeAndId)
         <*> p5.Get(c, r, includedTypeAndId)
         <*> p6.Get(c, r, includedTypeAndId)
-        |> JobResult.bind id)
+        |> TaskResult.bind id)
   
   member this.ForAsyncRes
       ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> Async<Result<'a, Error list>>,
@@ -435,13 +435,13 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p5: RequestGetter<'ctx, 'p5>,
         p6: RequestGetter<'ctx, 'p6>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Job.fromAsync),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Task.fromAsync),
       p1, p2, p3, p4, p5, p6
     )
 
-  member this.ForJob
-      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> Job<'a>,
+  member this.ForTask
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> Task<'a>,
         p1: RequestGetter<'ctx, 'p1>,
         p2: RequestGetter<'ctx, 'p2>,
         p3: RequestGetter<'ctx, 'p3>,
@@ -449,8 +449,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p5: RequestGetter<'ctx, 'p5>,
         p6: RequestGetter<'ctx, 'p6>
         ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Job.map Ok),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Task.map Ok),
       p1, p2, p3, p4, p5, p6
     )
 
@@ -463,8 +463,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p5: RequestGetter<'ctx, 'p5>,
         p6: RequestGetter<'ctx, 'p6>
       ) =
-    this.ForJob(
-      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Job.fromAsync),
+    this.ForTask(
+      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Task.fromAsync),
       p1, p2, p3, p4, p5, p6
     )
   
@@ -477,8 +477,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p5: RequestGetter<'ctx, 'p5>,
         p6: RequestGetter<'ctx, 'p6>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Job.result),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Task.result),
       p1, p2, p3, p4, p5, p6
     )
   
@@ -491,14 +491,14 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p5: RequestGetter<'ctx, 'p5>,
         p6: RequestGetter<'ctx, 'p6>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Ok |> Job.result),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 -> create p1 p2 p3 p4 p5 p6 |> Ok |> Task.result),
       p1, p2, p3, p4, p5, p6
     )
 
   // Arity 7
   
-  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>, p7: RequestGetter<'ctx, 'p7>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>, p7: RequestGetter<'ctx, 'p7>) =
     let consumedFields =
       [|
           p1.FieldName
@@ -542,7 +542,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         <*> p5.Get(c, r, includedTypeAndId)
         <*> p6.Get(c, r, includedTypeAndId)
         <*> p7.Get(c, r, includedTypeAndId)
-        |> JobResult.bind id)
+        |> TaskResult.bind id)
   
   member this.ForAsyncRes
       ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Async<Result<'a, Error list>>,
@@ -554,13 +554,13 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p6: RequestGetter<'ctx, 'p6>,
         p7: RequestGetter<'ctx, 'p7>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.fromAsync),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Task.fromAsync),
       p1, p2, p3, p4, p5, p6, p7
     )
 
-  member this.ForJob
-      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Job<'a>,
+  member this.ForTask
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> Task<'a>,
         p1: RequestGetter<'ctx, 'p1>,
         p2: RequestGetter<'ctx, 'p2>,
         p3: RequestGetter<'ctx, 'p3>,
@@ -569,8 +569,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p6: RequestGetter<'ctx, 'p6>,
         p7: RequestGetter<'ctx, 'p7>
         ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.map Ok),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Task.map Ok),
       p1, p2, p3, p4, p5, p6, p7
     )
 
@@ -584,8 +584,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p6: RequestGetter<'ctx, 'p6>,
         p7: RequestGetter<'ctx, 'p7>
       ) =
-    this.ForJob(
-      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.fromAsync),
+    this.ForTask(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Task.fromAsync),
       p1, p2, p3, p4, p5, p6, p7
     )
   
@@ -599,8 +599,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p6: RequestGetter<'ctx, 'p6>,
         p7: RequestGetter<'ctx, 'p7>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Job.result),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Task.result),
       p1, p2, p3, p4, p5, p6, p7
     )
   
@@ -614,14 +614,14 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p6: RequestGetter<'ctx, 'p6>,
         p7: RequestGetter<'ctx, 'p7>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Ok |> Job.result),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 -> create p1 p2 p3 p4 p5 p6 p7 |> Ok |> Task.result),
       p1, p2, p3, p4, p5, p6, p7
     )
 
   // Arity 8
   
-  member _.ForJobRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> 'p8 -> Job<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>, p7: RequestGetter<'ctx, 'p7>, p8: RequestGetter<'ctx, 'p8>) =
+  member _.ForTaskRes (create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> 'p8 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>, p3: RequestGetter<'ctx, 'p3>, p4: RequestGetter<'ctx, 'p4>, p5: RequestGetter<'ctx, 'p5>, p6: RequestGetter<'ctx, 'p6>, p7: RequestGetter<'ctx, 'p7>, p8: RequestGetter<'ctx, 'p8>) =
     let consumedFields =
       [|
           p1.FieldName
@@ -668,7 +668,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         <*> p6.Get(c, r, includedTypeAndId)
         <*> p7.Get(c, r, includedTypeAndId)
         <*> p8.Get(c, r, includedTypeAndId)
-        |> JobResult.bind id)
+        |> TaskResult.bind id)
   
   member this.ForAsyncRes
       ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> 'p8 -> Async<Result<'a, Error list>>,
@@ -681,13 +681,13 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p7: RequestGetter<'ctx, 'p7>,
         p8: RequestGetter<'ctx, 'p8>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Job.fromAsync),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Task.fromAsync),
       p1, p2, p3, p4, p5, p6, p7, p8
     )
 
-  member this.ForJob
-      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> 'p8 -> Job<'a>,
+  member this.ForTask
+      ( create: 'p1 -> 'p2 -> 'p3 -> 'p4 -> 'p5 -> 'p6 -> 'p7 -> 'p8 -> Task<'a>,
         p1: RequestGetter<'ctx, 'p1>,
         p2: RequestGetter<'ctx, 'p2>,
         p3: RequestGetter<'ctx, 'p3>,
@@ -697,8 +697,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p7: RequestGetter<'ctx, 'p7>,
         p8: RequestGetter<'ctx, 'p8>
         ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Job.map Ok),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Task.map Ok),
       p1, p2, p3, p4, p5, p6, p7, p8
     )
 
@@ -713,8 +713,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p7: RequestGetter<'ctx, 'p7>,
         p8: RequestGetter<'ctx, 'p8>
       ) =
-    this.ForJob(
-      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Job.fromAsync),
+    this.ForTask(
+      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Task.fromAsync),
       p1, p2, p3, p4, p5, p6, p7, p8
     )
   
@@ -729,8 +729,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p7: RequestGetter<'ctx, 'p7>,
         p8: RequestGetter<'ctx, 'p8>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Job.result),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Task.result),
       p1, p2, p3, p4, p5, p6, p7, p8
     )
   
@@ -745,8 +745,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         p7: RequestGetter<'ctx, 'p7>,
         p8: RequestGetter<'ctx, 'p8>
       ) =
-    this.ForJobRes(
-      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Ok |> Job.result),
+    this.ForTaskRes(
+      (fun p1 p2 p3 p4 p5 p6 p7 p8 -> create p1 p2 p3 p4 p5 p6 p7 p8 |> Ok |> Task.result),
       p1, p2, p3, p4, p5, p6, p7, p8
     )
 
