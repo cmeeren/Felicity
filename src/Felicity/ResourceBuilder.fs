@@ -48,13 +48,12 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                   let! constraints =
                     constrainedFields
                     |> Array.filter (fun f -> shouldUseField f.Name)
-                    |> Array.map (fun f ->
+                    |> Task.mapWhenAll (fun f ->
                         task {
                           let! constraints = f.BoxedGetConstraints ctx boxedEntity
                           return f.Name, constraints |> dict
                         }
                     )
-                    |> Task.WhenAll
 
                   return
                     constraints
@@ -92,7 +91,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
       let toOneRelsTask =
         ResourceModule.toOneRels<'ctx> resourceModule
-        |> Array.map (fun r ->
+        |> Task.mapWhenAllIgnore (fun r ->
             if shouldUseField r.Name || shouldIncludeRelationship r.Name then
               task {
                 let links : Skippable<IDictionary<_,_>> =
@@ -126,11 +125,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               :> Task
             else Task.CompletedTask
         )
-        |> Task.WhenAll
 
       let toOneNullableRelsTask =
         ResourceModule.toOneNullableRels<'ctx> resourceModule
-        |> Array.map (fun r ->
+        |> Task.mapWhenAllIgnore (fun r ->
             if shouldUseField r.Name || shouldIncludeRelationship r.Name then
               task {
                 let links : Skippable<IDictionary<_,_>> =
@@ -167,11 +165,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               :> Task
             else Task.CompletedTask
         )
-        |> Task.WhenAll
 
       let toManyRelsTask =
         ResourceModule.toManyRels<'ctx> resourceModule
-        |> Array.map (fun r ->
+        |> Task.mapWhenAllIgnore (fun r ->
             if shouldUseField r.Name || shouldIncludeRelationship r.Name then
               task {
                 let links : Skippable<IDictionary<_,_>> =
@@ -206,7 +203,6 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
               :> Task
             else Task.CompletedTask
           )
-          |> Task.WhenAll
 
       do! toOneRelsTask
       do! toOneNullableRelsTask
@@ -220,14 +216,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let! opNamesHrefsAndMeta =
         if linkCfg.ShouldUseCustomLinks(httpCtx) then
           ResourceModule.customOps<'ctx> resourceModule
-          |> Array.map (fun op ->
+          |> Task.mapWhenAll (fun op ->
               task {
                 let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
                 let! href, meta = op.HrefAndMeta ctx selfUrl entity
                 return op.Name, href, meta
               }
           )
-          |> Task.WhenAll
         else Task.result emptyLinkArrayNeverModify
 
       return
@@ -294,12 +289,12 @@ let rec internal buildRecursive shouldBuildEntireResource addResource addRelatio
       // We are building a new resource
       let! resource, relatedBuilders = buildAndGetRelatedBuilders builder
       addResource builder.Identifier resource
-      do! relatedBuilders |> Seq.map recurse |> Task.WhenAll |> Task.ignore<unit []>
+      do! Task.mapWhenAllIgnore recurse relatedBuilders
     else
       // We are building the relationships for a resource that has already been built
       let! rels, relatedBuilders = builder.Relationships(true)
       addRelationships builder.Identifier rels
-      do! relatedBuilders |> Seq.map recurse |> Task.WhenAll |> Task.ignore<unit []>
+      do! Task.mapWhenAllIgnore recurse relatedBuilders
   }
 
 let internal includedResourceComparer =
@@ -339,11 +334,11 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
           | true, existingRels -> lock existingRels (fun () -> mergeRelationships existingRels relsToAdd)
         )
 
+    let numMainBuilders = mainBuilders.Length
+
     do!
       mainBuilders
-      |> Seq.map (buildRecursive shouldBuildEntireResource addResource addRelationships)
-      |> Task.WhenAll
-      |> Task.ignore<unit []>
+      |> Task.mapWhenAllIgnoreWithCount numMainBuilders (buildRecursive shouldBuildEntireResource addResource addRelationships)
 
     for kvp in additionalRelationships do
       let res = allResources[kvp.Key].Value
@@ -351,7 +346,7 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
       | Skip -> res.relationships <- Include kvp.Value
       | Include existingRels -> mergeRelationships existingRels kvp.Value
 
-    let mainResources = Array.zeroCreate(mainBuilders.Length)
+    let mainResources = Array.zeroCreate(numMainBuilders)
 
     mainBuilders |> List.iteri (fun i b ->
       let res = ref ValueNone

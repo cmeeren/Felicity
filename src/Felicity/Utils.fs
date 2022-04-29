@@ -3,6 +3,7 @@ module internal Utils
 
 open System
 open System.Collections.Concurrent
+open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
 open System.Text.Json.Serialization
@@ -96,6 +97,51 @@ module Async =
 
 
 module Task =
+
+
+  let inline mapWhenAllIgnore (f: 'a -> #Task) (xs: ICollection<'a>) : Task =
+    let tasks = Array.zeroCreate xs.Count
+    let mutable i = 0
+    for b in xs do
+      tasks[i] <- f b :> Task
+      i <- i + 1
+    Task.WhenAll(tasks)
+
+
+  let inline mapWhenAllIgnoreWithCount count (f: 'a -> #Task) (xs: seq<'a>) : Task =
+    let tasks = Array.zeroCreate count
+    let mutable i = 0
+    for b in xs do
+      tasks[i] <- f b :> Task
+      i <- i + 1
+    Task.WhenAll(tasks)
+
+
+  let inline mapWhenAll (f: 'a -> Task<'b>) (xs: ICollection<'a>) : Task<'b []> =
+    let tasks = Array.zeroCreate xs.Count
+    let mutable i = 0
+    for b in xs do
+      tasks[i] <- f b
+      i <- i + 1
+    Task.WhenAll(tasks)
+
+
+  let inline mapiWhenAll (f: int -> 'a -> Task<'b>) (xs: ICollection<'a>) : Task<'b []> =
+    let tasks = Array.zeroCreate xs.Count
+    let mutable i = 0
+    for b in xs do
+      tasks[i] <- f i b
+      i <- i + 1
+    Task.WhenAll(tasks)
+
+
+  let inline mapWhenAllWithCount count (f: 'a -> Task<'b>) (xs: seq<'a>) : Task<'b []> =
+    let tasks = Array.zeroCreate count
+    let mutable i = 0
+    for b in xs do
+      tasks[i] <- f b
+      i <- i + 1
+    Task.WhenAll(tasks)
 
   let map f t =
     task {
@@ -316,9 +362,9 @@ module List =
         | Error newErrs, Error existingErrs -> Error (newErrs @ existingErrs)
       )
 
-  let traverseTaskResultA (f: _ -> Task<_>) list =
+  let traverseTaskResultA (f: _ -> Task<_>) (list: _ list) =
     task {
-      let! results = list |> Seq.map f |> Task.WhenAll
+      let! results = list |> Task.mapWhenAllWithCount list.Length f
       return
         (results, Ok [])
         ||> Array.foldBack (fun t state ->
@@ -363,7 +409,7 @@ module Array =
 
   let traverseTaskResultAIndexed (f: _ -> _ -> Task<_>) (xs: _ []) =
     task {
-      let! results = xs |> Seq.mapi f |> Task.WhenAll
+      let! results = Task.mapiWhenAll f xs
       let errors = ResizeArray()
       let out = Array.zeroCreate xs.Length
 
