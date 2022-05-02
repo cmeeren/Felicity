@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### vNext
+### 0.20.0 (2022-05-02)
 
 * Removed Hopac dependency in favor of native tasks. The primary reason is that Hopac doesn't play nice with `System.Diagnostics.Activity`'s call context flowing, breaking e.g. distributed tracing.
 * Removed previously deprecated methods
