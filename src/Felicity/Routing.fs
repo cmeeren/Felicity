@@ -1,10 +1,10 @@
 ﻿module Felicity.Routing
 
 open System
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Routing
 open Microsoft.Extensions.DependencyInjection
-open Hopac
 open Giraffe
 open Giraffe.EndpointRouting
 open Errors
@@ -59,11 +59,11 @@ let internal route3 (path: string) (paramName1: string) (paramName2: string) (pa
   )
 
 
-let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext -> Job<Result<'ctx, Error list>>) collections : Endpoint list =
+let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext -> Task<Result<'ctx, Error list>>) collections : Endpoint list =
 
   let getCtx (handler: 'ctx -> Request -> HttpHandler) : HttpHandler =
     fun next (httpCtx: HttpContext) ->
-      job {
+      task {
         let serializer = httpCtx.GetService<Serializer<'ctx>> ()
         match! getCtx httpCtx with
         | Error errs -> return! handleErrors errs next httpCtx
@@ -86,16 +86,15 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
                 query
                 |> Map.tryFind "include"
                 |> Option.map (fun paths ->
-                    paths.Split ','
+                    paths.Split(',', StringSplitOptions.RemoveEmptyEntries)
                     |> Array.filter ((<>) "")
-                    |> Array.map (fun path -> path.Split '.' |> Array.filter ((<>) ""))
+                    |> Array.map (fun path -> path.Split('.', StringSplitOptions.RemoveEmptyEntries))
                     |> Array.map Array.toList
                     |> Array.toList)
                 |> Option.defaultValue []
             }
             return! handler ctx req next httpCtx
       }
-      |> Job.startAsTask
 
 
   let validateRequest : HttpHandler =

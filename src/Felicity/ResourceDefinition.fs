@@ -3,7 +3,6 @@
 open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
-open Hopac
 open Giraffe
 open Errors
 
@@ -12,7 +11,7 @@ type ResourceDefinition<'ctx> =
   abstract TypeName: ResourceTypeName
   abstract CollectionName: CollectionName option
   abstract GetIdBoxed: BoxedEntity -> ResourceId
-  abstract ParseIdBoxed: 'ctx -> ResourceId -> Job<Result<BoxedDomainId, Error list>>
+  abstract ParseIdBoxed: 'ctx -> ResourceId -> Task<Result<BoxedDomainId, Error list>>
 
 
 
@@ -34,13 +33,13 @@ type internal CustomResourceCreationLockSpec<'ctx> = {
 
 
 type internal OtherForResourceCreationLockSpec<'ctx> = {
-  GetOtherIdFromRelationship: 'ctx -> Request -> Job<ResourceId option>
+  GetOtherIdFromRelationship: 'ctx -> Request -> Task<ResourceId option>
   OtherLockSpecs: LockSpecification<'ctx> list
 }
 
 
 and internal OtherForModificationLockSpec<'ctx> = {
-  GetOtherIdFromThisId: 'ctx -> ResourceId -> Job<ResourceId option>
+  GetOtherIdFromThisId: 'ctx -> ResourceId -> Task<ResourceId option>
   OtherLockSpecs: LockSpecification<'ctx> list
 }
 
@@ -131,7 +130,7 @@ module internal LockSpecification =
       | OtherForResourceCreation _, Some _ -> ()
       | OtherForResourceCreation lockSpec, None ->
           if not state.TimedOut then
-            match! lockSpec.GetOtherIdFromRelationship ctx req |> Job.startAsTask with
+            match! lockSpec.GetOtherIdFromRelationship ctx req with
             | None -> ()  // No other resource to lock
             | Some otherId ->
                 // Locks must be taken in sequence, not parallel, to avoid deadlocks.
@@ -141,7 +140,7 @@ module internal LockSpecification =
       | OtherForModification _, None -> ()
       | OtherForModification lockSpec, Some resId ->
           if not state.TimedOut then
-            match! lockSpec.GetOtherIdFromThisId ctx resId |> Job.startAsTask with
+            match! lockSpec.GetOtherIdFromThisId ctx resId with
             | None -> ()  // No other resource to lock
             | Some otherId ->
                 // Locks must be taken in sequence, not parallel, to avoid deadlocks.
@@ -188,7 +187,7 @@ type internal ResourceDefinitionLockSpec<'ctx> =
 
 type ResourceDefinition<'ctx, 'id> =
   abstract TypeName: ResourceTypeName
-  abstract ParseId: 'ctx -> ResourceId -> Job<Result<'id, Error list>>
+  abstract ParseId: 'ctx -> ResourceId -> Task<Result<'id, Error list>>
 
 
 [<Struct>]
@@ -220,7 +219,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     member this.GetIdBoxed entity = unbox entity |> this.id.getId |> this.id.fromDomain
     member this.ParseIdBoxed ctx rawId =
       this.id.toDomain ctx rawId
-      |> JobResult.map box
+      |> TaskResult.map box
 
   interface ResourceDefinitionLockSpec<'ctx> with
     member this.CollName = this.collectionName
@@ -250,7 +249,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
       CustomLock =
         fun ctx rawId ->
           task {
-            match! this.id.toDomain ctx rawId |> Job.startAsTask with
+            match! this.id.toDomain ctx rawId with
             | Error _ -> return None
             | Ok id ->
                 let! locker = getLock ctx id
@@ -265,7 +264,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     OtherForResourceCreation {
       GetOtherIdFromRelationship =
         fun ctx req ->
-          job {
+          task {
             match relationshipForPostOperation with
             | None ->
                 match nullableRelationshipForPostOperation with
@@ -286,11 +285,11 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
         | xs -> xs
     }
 
-  member private this.CreateOtherForModificationLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>) =
+  member private this.CreateOtherForModificationLockSpec(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Task<'otherId option>) =
     OtherForModification {
       GetOtherIdFromThisId =
         fun ctx resId ->
-          job {
+          task {
             match! this.id.toDomain ctx resId with
             | Error _ -> return None  // Don't lock; request will fail anyway
             | Ok thisId ->
@@ -316,24 +315,8 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// mechanism. The getLock function is passed the resource ID, and should return None if
   /// the lock times out, or Some with an IDisposable that releases the lock when
   /// disposed.
-  member this.CustomLock(getLock: 'ctx -> 'id -> Job<IDisposable option>) =
-    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(fun ctx id -> getLock ctx id |> Job.startAsTask)] }
-
-  /// Lock this resource for the entirety of all modification operations except resource
-  /// creation (POST) to ensure there are no concurrent updates, using an external lock
-  /// mechanism. The getLock function is passed the resource ID, and should return None if
-  /// the lock times out, or Some with an IDisposable that releases the lock when
-  /// disposed.
-  member this.CustomLock(getLock: 'id -> Job<IDisposable option>) =
-    this.CustomLock(fun _ id -> getLock id)
-
-  /// Lock this resource for the entirety of all modification operations except resource
-  /// creation (POST) to ensure there are no concurrent updates, using an external lock
-  /// mechanism. The getLock function is passed the resource ID, and should return None if
-  /// the lock times out, or Some with an IDisposable that releases the lock when
-  /// disposed.
   member this.CustomLock(getLock: 'ctx -> 'id -> Task<IDisposable option>) =
-    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(getLock)] }
+    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomLockSpec(fun ctx id -> getLock ctx id)] }
 
   /// Lock this resource for the entirety of all modification operations except resource
   /// creation (POST) to ensure there are no concurrent updates, using an external lock
@@ -379,22 +362,8 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
   /// concurrent operations, using an external lock mechanism. The getLock function should
   /// return None if the lock times out, or Some with an IDisposable that releases the
   /// lock when disposed.
-  member this.CustomResourceCreationLock(getLock: 'ctx -> Job<IDisposable option>) =
-    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomResourceCreationLockSpec(fun ctx -> getLock ctx |> Job.startAsTask)] }
-
-  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
-  /// concurrent operations, using an external lock mechanism. The getLock function should
-  /// return None if the lock times out, or Some with an IDisposable that releases the
-  /// lock when disposed.
-  member this.CustomResourceCreationLock(getLock: unit -> Job<IDisposable option>) =
-    this.CustomResourceCreationLock(fun (_: 'ctx) -> getLock () |> Job.startAsTask)
-
-  /// Locks for the entirety of resource creation (POST) operations to ensure there are no
-  /// concurrent operations, using an external lock mechanism. The getLock function should
-  /// return None if the lock times out, or Some with an IDisposable that releases the
-  /// lock when disposed.
   member this.CustomResourceCreationLock(getLock: 'ctx -> Task<IDisposable option>) =
-    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomResourceCreationLockSpec(getLock)] }
+    { this with lockSpecs = this.lockSpecs @ [this.CreateCustomResourceCreationLockSpec(fun ctx -> getLock ctx)] }
 
   /// Locks for the entirety of resource creation (POST) operations to ensure there are no
   /// concurrent operations, using an external lock mechanism. The getLock function should
@@ -433,7 +402,7 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
-  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Job<'otherId option>) =
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Task<'otherId option>) =
     { this with
         lockSpecs =
           this.lockSpecs
@@ -442,38 +411,38 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
-  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> Job<'otherId option>) =
+  member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> Task<'otherId option>) =
     this.LockOtherForModification(resDef, getOtherIdForResourceOperation = fun _ -> getOtherIdForResourceOperation)
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
   member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> Async<'otherId option>) =
-    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Job.liftAsync2 (fun _ -> getOtherIdForResourceOperation))
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Task.liftAsync2 (fun _ -> getOtherIdForResourceOperation))
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
   member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> Async<'otherId option>) =
-    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Job.liftAsync2 getOtherIdForResourceOperation)
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Task.liftAsync2 getOtherIdForResourceOperation)
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
   member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId option) =
-    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Job.lift2 getOtherIdForResourceOperation)
+    this.LockOtherForModification(resDef, getOtherIdForResourceOperation = Task.lift2 getOtherIdForResourceOperation)
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
   member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> 'otherId option) =
-    this.LockOtherForModification(resDef, Job.lift2 (fun _ -> getOtherIdForResourceOperation))
+    this.LockOtherForModification(resDef, Task.lift2 (fun _ -> getOtherIdForResourceOperation))
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
   member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'ctx -> 'id -> 'otherId) =
-    this.LockOtherForModification(resDef, Job.lift2 (fun ctx id -> getOtherIdForResourceOperation ctx id |> Some))
+    this.LockOtherForModification(resDef, Task.lift2 (fun ctx id -> getOtherIdForResourceOperation ctx id |> Some))
 
   /// Lock another (e.g. parent) resource for the entirety of all modification operations
   /// on this resource to ensure there are no concurrent updates to the other resource.
   member this.LockOtherForModification(resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> 'otherId) =
-    this.LockOtherForModification(resDef, Job.lift2 (fun _ id -> getOtherIdForResourceOperation id |> Some))
+    this.LockOtherForModification(resDef, Task.lift2 (fun _ id -> getOtherIdForResourceOperation id |> Some))
 
   /// Lock another (e.g. parent) resource for the entirety of all POST (resource creation)
   /// operations for this resource type to ensure there are no concurrent updates to the

@@ -32,15 +32,6 @@
           "Utf8Json": "1.3.7"
         }
       },
-      "Hopac": {
-        "type": "Direct",
-        "requested": "[0.5.1, )",
-        "resolved": "0.5.1",
-        "contentHash": "vqkbAF8cNw0YxFoe0svgiR0PJ6fWsrNqdlHvyq/8iXrC5JC9LRLNEStMdv8MiZyg5FWfuYYvEuElpCxhxA8QqA==",
-        "dependencies": {
-          "FSharp.Core": "4.5.2"
-        }
-      },
       "Giraffe.ViewEngine": {
         "type": "Transitive",
         "resolved": "1.3.0",

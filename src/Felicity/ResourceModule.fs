@@ -159,7 +159,7 @@ let resourceLookup<'ctx> collName (msInColl: Type []) =
             { new ResSpecificResourceLookup<'ctx> with
                 member _.GetByIdBoxed ctx rawId =
                   op.GetByIdBoxed rDef ctx rawId
-                  |> JobResult.map (Option.map (fun e -> rDef, e))
+                  |> TaskResult.map (Option.map (fun e -> rDef, e))
             }
         )
     )

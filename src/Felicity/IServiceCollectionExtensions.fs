@@ -4,9 +4,9 @@ open System
 open System.Collections.Generic
 open System.Reflection
 open System.Text.Json
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
-open Hopac
 open Giraffe
 open RoutingOperations
 open Routing
@@ -17,7 +17,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
   services: IServiceCollection
   baseUrl: string option
   relativeJsonApiRoot: string option
-  getCtx: (HttpContext -> Job<Result<'ctx, Error list>>) option
+  getCtx: (HttpContext -> Task<Result<'ctx, Error list>>) option
   getMeta: 'ctx -> IDictionary<string, obj>
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
   skipStandardLinksQueryParamNames: string []
@@ -61,23 +61,23 @@ type JsonApiConfigBuilder<'ctx> = internal {
   member this.RelativeJsonApiRoot(path: string) : JsonApiConfigBuilder<'ctx> =
     { this with relativeJsonApiRoot = Some (path.Trim('/')) }
 
-  member this.GetCtxJobRes(getCtx: HttpContext -> Job<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
+  member this.GetCtxTaskRes(getCtx: HttpContext -> Task<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
     { this with getCtx = Some getCtx }
 
   member this.GetCtxAsyncRes(getCtx: HttpContext -> Async<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
-    this.GetCtxJobRes(Job.liftAsync getCtx)
+    this.GetCtxTaskRes(Task.liftAsync getCtx)
 
-  member this.GetCtxJob(getCtx: HttpContext -> Job<'ctx>) : JsonApiConfigBuilder<'ctx> =
-    this.GetCtxJobRes(getCtx >> Job.map Ok)
+  member this.GetCtxTask(getCtx: HttpContext -> Task<'ctx>) : JsonApiConfigBuilder<'ctx> =
+    this.GetCtxTaskRes(getCtx >> Task.map Ok)
 
   member this.GetCtxAsync(getCtx: HttpContext -> Async<'ctx>) : JsonApiConfigBuilder<'ctx> =
-    this.GetCtxJob(Job.liftAsync getCtx)
+    this.GetCtxTask(Task.liftAsync getCtx)
 
   member this.GetCtxRes(getCtx: HttpContext -> Result<'ctx, Error list>) : JsonApiConfigBuilder<'ctx> =
-    this.GetCtxJobRes(Job.lift getCtx)
+    this.GetCtxTaskRes(Task.lift getCtx)
 
   member this.GetCtx(getCtx: HttpContext -> 'ctx) : JsonApiConfigBuilder<'ctx> =
-    this.GetCtxJobRes(JobResult.lift getCtx)
+    this.GetCtxTaskRes(TaskResult.lift getCtx)
 
   member this.GetMeta(getMeta: 'ctx -> IDictionary<string, obj>) : JsonApiConfigBuilder<'ctx> =
     { this with getMeta = getMeta }

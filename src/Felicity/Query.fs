@@ -1,7 +1,7 @@
 ﻿namespace Felicity
 
 open System
-open Hopac
+open System.Threading.Tasks
 open Errors
 
 
@@ -49,7 +49,7 @@ module private QueryParseHelpers =
 
 
 
-type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> Job<Result<'a, Error list>>, ?operator: string) =
+type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> Task<Result<'a, Error list>>, ?operator: string) =
 
   let addOperator s =
     match operator with
@@ -64,16 +64,16 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> 
         member _.QueryParamName = Some queryParamName
         member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
-          | false, _ -> Ok None |> Job.result
-          | true, "" ->  Ok (Some []) |> Job.result
+          | false, _ -> Ok None |> Task.result
+          | true, "" ->  Ok (Some []) |> Task.result
           | true, str ->
               str.Split(',')
               |> Array.toList
-              |> List.traverseJobResultA (
+              |> List.traverseTaskResultA (
                   parse ctx
-                  >> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
+                  >> TaskResult.mapError (List.map (Error.setSourceParam queryParamName))
               )
-              |> JobResult.map Some
+              |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, 'a list> with
@@ -87,7 +87,7 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> 
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
+      |> TaskResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -102,11 +102,11 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> 
     ListFilter<'ctx, 'a>(fieldName, parse, operator)
 
   member _.Bool =
-    ListFilter<'ctx, bool>(fieldName, (fun _ s -> parseBool s |> Job.result), ?operator=operator)
+    ListFilter<'ctx, bool>(fieldName, (fun _ s -> parseBool s |> Task.result), ?operator=operator)
 
 
 
-type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> Job<Result<'a, Error list>>, ?operator: string, ?allowCommas: bool) =
+type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -> Task<Result<'a, Error list>>, ?operator: string, ?allowCommas: bool) =
 
   let addOperator s =
     match operator with
@@ -123,15 +123,15 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
           let allowCommas = defaultArg allowCommas false
 
           match req.Query.TryGetValue queryParamName with
-          | false, _ -> Ok None |> Job.result
+          | false, _ -> Ok None |> Task.result
           | true, str ->
               if not allowCommas && (str.Contains ",") then
                 let numElements = str.Split(',').Length
-                Error [queryNotSingular queryParamName numElements] |> Job.result
+                Error [queryNotSingular queryParamName numElements] |> Task.result
               else
                 parse ctx str
-                |> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
-                |> JobResult.map Some
+                |> TaskResult.mapError (List.map (Error.setSourceParam queryParamName))
+                |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, 'a> with
@@ -145,7 +145,7 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
+      |> TaskResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -165,10 +165,10 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> string -
     ListFilter<'ctx, 'a>(fieldName, parse, ?operator=operator)
 
   member _.Bool =
-    SingleFilter<'ctx, bool>(fieldName, (fun _ s -> parseBool s |> Job.result), ?operator=operator, ?allowCommas=allowCommas)
+    SingleFilter<'ctx, bool>(fieldName, (fun _ s -> parseBool s |> Task.result), ?operator=operator, ?allowCommas=allowCommas)
 
 
-type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
 
   let queryParamName = "sort"
   
@@ -178,8 +178,8 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error 
         member _.QueryParamName = Some queryParamName
         member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
-          | false, _ -> Ok None |> Job.result
-          | true, "" -> Ok (Some []) |> Job.result
+          | false, _ -> Ok None |> Task.result
+          | true, "" -> Ok (Some []) |> Task.result
           | true, str ->
               str.Split(',')
               |> Array.toList
@@ -194,12 +194,12 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error 
               // Server). Therefore, use List.distinctBy to only keep the first occurrence
               // of each sort column.
               |> List.distinctBy fst
-              |> List.traverseJobResultA (fun (sort, isDescending) ->
+              |> List.traverseTaskResultA (fun (sort, isDescending) ->
                    parse ctx sort
-                   |> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
-                   |> JobResult.map (fun s -> s, isDescending)
+                   |> TaskResult.mapError (List.map (Error.setSourceParam queryParamName))
+                   |> TaskResult.map (fun s -> s, isDescending)
               )
-              |> JobResult.map Some
+              |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, ('a * bool) list> with
@@ -213,7 +213,7 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error 
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
+      |> TaskResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -225,7 +225,7 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error 
 
 
 
-type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
 
   let queryParamName = "sort"
 
@@ -235,19 +235,19 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Erro
         member _.QueryParamName = Some queryParamName
         member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
-          | false, _ -> Ok None |> Job.result
+          | false, _ -> Ok None |> Task.result
           | true, str ->
               if str.Contains "," then
                 let numElements = str.Split(',').Length
-                Error [queryNotSingular queryParamName numElements] |> Job.result
+                Error [queryNotSingular queryParamName numElements] |> Task.result
               else
                 let sort, isDescending =
                   if str.StartsWith("-", StringComparison.Ordinal)
                   then str.Substring(1), true
                   else str, false
                 parse ctx sort
-                |> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
-                |> JobResult.map (fun s -> Some (s, isDescending))
+                |> TaskResult.mapError (List.map (Error.setSourceParam queryParamName))
+                |> TaskResult.map (fun s -> Some (s, isDescending))
     }
 
   interface OptionalRequestGetter<'ctx, 'a * bool> with
@@ -261,7 +261,7 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> string -> Job<Result<'a, Erro
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
+      |> TaskResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -285,15 +285,15 @@ type PageParam<'ctx> internal (pageName: string, ?min: int , ?max: int) =
         member _.QueryParamName = Some queryParamName
         member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
-          | false, _ -> Ok None |> Job.result
+          | false, _ -> Ok None |> Task.result
           | true, i ->
               match Int32.TryParse i with
-              | false, _ -> Error [queryInvalidInt queryParamName i] |> Job.result
+              | false, _ -> Error [queryInvalidInt queryParamName i] |> Task.result
               | true, i ->
                   match min, max with
-                  | Some min, _ when i < min -> Error [queryIntTooSmall queryParamName i min] |> Job.result
-                  | _, Some max when i > max -> Error [queryIntTooLarge queryParamName i max] |> Job.result
-                  | _ -> Ok (Some i) |> Job.result
+                  | Some min, _ when i < min -> Error [queryIntTooSmall queryParamName i min] |> Task.result
+                  | _, Some max when i > max -> Error [queryIntTooLarge queryParamName i max] |> Task.result
+                  | _ -> Ok (Some i) |> Task.result
     }
 
   interface OptionalRequestGetter<'ctx, int> with
@@ -307,7 +307,7 @@ type PageParam<'ctx> internal (pageName: string, ?min: int , ?max: int) =
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
+      |> TaskResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -324,7 +324,7 @@ type PageParam<'ctx> internal (pageName: string, ?min: int , ?max: int) =
     PageParam<'ctx>(pageName, ?min = min, max = maxValue)
 
 
-type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
 
   member _.Optional =
     { new RequestGetter<'ctx, 'a option> with
@@ -332,11 +332,11 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string 
         member _.QueryParamName = Some queryParamName
         member _.Get(ctx, req, _) =
           match req.Query.TryGetValue queryParamName with
-          | false, _ -> Ok None |> Job.result
+          | false, _ -> Ok None |> Task.result
           | true, str ->
               parse ctx str
-              |> JobResult.mapError (List.map (Error.setSourceParam queryParamName))
-              |> JobResult.map Some
+              |> TaskResult.mapError (List.map (Error.setSourceParam queryParamName))
+              |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, 'a> with
@@ -350,7 +350,7 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string 
     member _.QueryParamName = Some queryParamName
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
+      |> TaskResult.requireSome [reqParserMissingRequiredQueryParam queryParamName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -361,7 +361,7 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> string 
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
 
 
-type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
 
   member _.Optional =
     { new RequestGetter<'ctx, 'a option> with
@@ -369,8 +369,8 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Job
         member _.QueryParamName = None
         member _.Get(ctx, req, _) =
           match req.Headers.TryGetValue headerName with
-          | false, _ -> Ok None |> Job.result
-          | true, str -> parse ctx str |> JobResult.map Some
+          | false, _ -> Ok None |> Task.result
+          | true, str -> parse ctx str |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, 'a> with
@@ -384,7 +384,7 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> string -> Job
     member _.QueryParamName = None
     member this.Get(ctx, req, includedTypeAndId) =
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredHeader headerName]
+      |> TaskResult.requireSome [reqParserMissingRequiredHeader headerName]
 
   interface ProhibitedRequestGetter with
     member _.FieldName = None
@@ -402,10 +402,10 @@ type Filter =
     SingleFilter<'ctx, 'id>("id", id.toDomain)
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, string>) =
     Filter.Field(field, Ok)
@@ -427,10 +427,10 @@ type Filter =
     Filter.Field(field, parseDateTimeOffsetAllowMissingOffset)
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, string>) =
     Filter.Field(path, field, Ok)
@@ -452,10 +452,10 @@ type Filter =
     Filter.Field(path, field, parseDateTimeOffsetAllowMissingOffset)
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str]  |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str]  |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, string>) =
     Filter.Field(path1, path2, field, Ok)
@@ -477,10 +477,10 @@ type Filter =
     Filter.Field(path1, path2, field, parseDateTimeOffsetAllowMissingOffset)
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Job.result |> JobResult.bind (field.ToDomain ctx))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx str -> toSerialized str |> Result.requireSome [queryInvalidParsedNoneUnnamed str] |> Task.result |> TaskResult.bind (field.ToDomain ctx))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, string>) =
     Filter.Field(path1, path2, path3, field, Ok)
@@ -501,113 +501,113 @@ type Filter =
     // Note: We allow missing offset here because it's checked in the attribute, if relevant.
     Filter.Field(path1, path2, path3, field, parseDateTimeOffsetAllowMissingOffset)
 
-  static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+  static member ParsedTaskRes(name, parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
     SingleFilter<'ctx, 'a>(name, parse)
 
-  static member ParsedJobRes(name, parse: string -> Job<Result<'a, Error list>>) =
-    Filter.ParsedJobRes(name, fun _ s -> parse s)
+  static member ParsedTaskRes(name, parse: string -> Task<Result<'a, Error list>>) =
+    Filter.ParsedTaskRes(name, fun _ s -> parse s)
 
-  static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, string>>) =
-    Filter.ParsedJobRes(name, fun ctx s -> parse ctx s |> JobResult.mapError (queryInvalidParsedErrMsgUnnamed s >> List.singleton))
+  static member ParsedTaskRes(name, parse: 'ctx -> string -> Task<Result<'a, string>>) =
+    Filter.ParsedTaskRes(name, fun ctx s -> parse ctx s |> TaskResult.mapError (queryInvalidParsedErrMsgUnnamed s >> List.singleton))
 
-  static member ParsedJobRes(name, parse: string -> Job<Result<'a, string>>) =
-    Filter.ParsedJobRes(name, fun _ s -> parse s)
+  static member ParsedTaskRes(name, parse: string -> Task<Result<'a, string>>) =
+    Filter.ParsedTaskRes(name, fun _ s -> parse s)
 
-  static member ParsedJobRes(name, parse: 'ctx -> string -> Job<Result<'a, string list>>) =
-    SingleFilter<'ctx, 'a>(name, fun ctx s -> parse ctx s |> JobResult.mapError (List.map (queryInvalidParsedErrMsgUnnamed s)))
+  static member ParsedTaskRes(name, parse: 'ctx -> string -> Task<Result<'a, string list>>) =
+    SingleFilter<'ctx, 'a>(name, fun ctx s -> parse ctx s |> TaskResult.mapError (List.map (queryInvalidParsedErrMsgUnnamed s)))
 
-  static member ParsedJobRes(name, parse: string -> Job<Result<'a, string list>>) =
-    Filter.ParsedJobRes(name, fun _ s -> parse s)
+  static member ParsedTaskRes(name, parse: string -> Task<Result<'a, string list>>) =
+    Filter.ParsedTaskRes(name, fun _ s -> parse s)
 
   static member ParsedAsyncRes(name, parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
-    Filter.ParsedJobRes(name, Job.liftAsync2 parse)
+    Filter.ParsedTaskRes(name, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, Error list>>) =
-    Filter.ParsedJobRes(name, Job.liftAsync parse)
+    Filter.ParsedTaskRes(name, Task.liftAsync parse)
 
   static member ParsedAsyncRes(name, parse: 'ctx -> string -> Async<Result<'a, string>>) =
-    Filter.ParsedJobRes(name, Job.liftAsync2 parse)
+    Filter.ParsedTaskRes(name, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, string>>) =
-    Filter.ParsedJobRes(name, Job.liftAsync parse)
+    Filter.ParsedTaskRes(name, Task.liftAsync parse)
 
   static member ParsedAsyncRes(name, parse: 'ctx -> string -> Async<Result<'a, string list>>) =
-    Filter.ParsedJobRes(name, Job.liftAsync2 parse)
+    Filter.ParsedTaskRes(name, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, string list>>) =
-    Filter.ParsedJobRes(name, Job.liftAsync parse)
+    Filter.ParsedTaskRes(name, Task.liftAsync parse)
 
-  static member ParsedJobOpt(name, parse: 'ctx -> string -> Job<'a option>) =
-    Filter.ParsedJobRes(name, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNoneUnnamed s]))
+  static member ParsedTaskOpt(name, parse: 'ctx -> string -> Task<'a option>) =
+    Filter.ParsedTaskRes(name, fun ctx s -> parse ctx s |> Task.map (Result.requireSome [queryInvalidParsedNoneUnnamed s]))
 
-  static member ParsedJobOpt(name, parse: string -> Job<'a option>) =
-    Filter.ParsedJobRes(name, fun _ s -> parse s |> Job.map (Result.requireSome [queryInvalidParsedNoneUnnamed s]))
+  static member ParsedTaskOpt(name, parse: string -> Task<'a option>) =
+    Filter.ParsedTaskRes(name, fun _ s -> parse s |> Task.map (Result.requireSome [queryInvalidParsedNoneUnnamed s]))
 
   static member ParsedAsyncOpt(name, parse: 'ctx -> string -> Async<'a option>) =
-    Filter.ParsedJobOpt(name, Job.liftAsync2 parse)
+    Filter.ParsedTaskOpt(name, Task.liftAsync2 parse)
 
   static member ParsedAsyncOpt(name, parse: string -> Async<'a option>) =
-    Filter.ParsedJobOpt(name, Job.liftAsync parse)
+    Filter.ParsedTaskOpt(name, Task.liftAsync parse)
 
-  static member ParsedJob(name, parse: 'ctx -> string -> Job<'a>) =
-    SingleFilter<'ctx, 'a>(name, JobResult.liftJob2 parse)
+  static member ParsedTask(name, parse: 'ctx -> string -> Task<'a>) =
+    SingleFilter<'ctx, 'a>(name, TaskResult.liftTask2 parse)
 
-  static member ParsedJob(name, parse: string -> Job<'a>) =
-    SingleFilter<'ctx, 'a>(name, JobResult.liftJob2 (fun _ s -> parse s))
+  static member ParsedTask(name, parse: string -> Task<'a>) =
+    SingleFilter<'ctx, 'a>(name, TaskResult.liftTask2 (fun _ s -> parse s))
 
   static member ParsedAsync(name, parse: 'ctx -> string -> Async<'a>) =
-    Filter.ParsedJob(name, Job.liftAsync2 parse)
+    Filter.ParsedTask(name, Task.liftAsync2 parse)
 
   static member ParsedAsync(name, parse: string -> Async<'a>) =
-    Filter.ParsedJob(name, Job.liftAsync parse)
+    Filter.ParsedTask(name, Task.liftAsync parse)
 
   static member ParsedRes(name, parse: 'ctx -> string -> Result<'a, Error list>) =
-    Filter.ParsedJobRes(name, Job.lift2 parse)
+    Filter.ParsedTaskRes(name, Task.lift2 parse)
 
   static member ParsedRes(name, parse: string -> Result<'a, Error list>) =
-    Filter.ParsedJobRes(name, Job.lift parse)
+    Filter.ParsedTaskRes(name, Task.lift parse)
 
   static member ParsedRes(name, parse: 'ctx -> string -> Result<'a, string>) =
-    Filter.ParsedJobRes(name, Job.lift2 parse)
+    Filter.ParsedTaskRes(name, Task.lift2 parse)
 
   static member ParsedRes(name, parse: string -> Result<'a, string>) =
-    Filter.ParsedJobRes(name, Job.lift parse)
+    Filter.ParsedTaskRes(name, Task.lift parse)
 
   static member ParsedRes(name, parse: 'ctx -> string -> Result<'a, string list>) =
-    Filter.ParsedJobRes(name, Job.lift2 parse)
+    Filter.ParsedTaskRes(name, Task.lift2 parse)
 
   static member ParsedRes(name, parse: string -> Result<'a, string list>) =
-    Filter.ParsedJobRes(name, Job.lift parse)
+    Filter.ParsedTaskRes(name, Task.lift parse)
 
   static member ParsedOpt(name, parse: 'ctx -> string -> 'a option) =
-    Filter.ParsedJobOpt(name, Job.lift2 parse)
+    Filter.ParsedTaskOpt(name, Task.lift2 parse)
 
   static member ParsedOpt(name, parse: string -> 'a option) =
-    Filter.ParsedJobOpt(name, Job.lift parse)
+    Filter.ParsedTaskOpt(name, Task.lift parse)
 
   static member Parsed(name: string, parse: string -> 'a) =
-    SingleFilter<'ctx, 'a>(name, JobResult.lift2 (fun _ s -> parse s))
+    SingleFilter<'ctx, 'a>(name, TaskResult.lift2 (fun _ s -> parse s))
 
   static member String(name) =
-    SingleFilter<'ctx, string>(name, fun _ s -> s |> Ok |> Job.result)
+    SingleFilter<'ctx, string>(name, fun _ s -> s |> Ok |> Task.result)
 
   static member Bool(name) =
-    SingleFilter<'ctx, bool>(name, fun _ -> parseBool >> Job.result)
+    SingleFilter<'ctx, bool>(name, fun _ -> parseBool >> Task.result)
 
   static member Int(name) =
-    SingleFilter<'ctx, int>(name, fun _ -> parseInt >> Job.result)
+    SingleFilter<'ctx, int>(name, fun _ -> parseInt >> Task.result)
 
   static member Float(name) =
-    SingleFilter<'ctx, float>(name, fun _ -> parseFloat >> Job.result)
+    SingleFilter<'ctx, float>(name, fun _ -> parseFloat >> Task.result)
 
   static member DateTime(name) =
-    SingleFilter<'ctx, DateTime>(name, fun _ -> parseDateTime >> Job.result)
+    SingleFilter<'ctx, DateTime>(name, fun _ -> parseDateTime >> Task.result)
 
   static member DateTimeOffset(name) =
-    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffset >> Job.result)
+    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffset >> Task.result)
 
   static member DateTimeOffsetAllowMissingOffset(name) =
-    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Job.result)
+    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Task.result)
 
   static member Enum(name, enumMap: (string * 'a) list) =
     let d = dict enumMap
@@ -616,7 +616,7 @@ type Filter =
       match d.TryGetValue s with
       | true, v -> Ok v
       | false, _ -> Error [queryInvalidEnum $"filter[%s{name}]" s allowed]
-    SingleFilter<'ctx, 'a>(name, fun _ s -> parse s |> Job.result)
+    SingleFilter<'ctx, 'a>(name, fun _ s -> parse s |> Task.result)
 
 
 
@@ -628,98 +628,98 @@ module FilterExtensions =
   type Filter with
 
     static member Parsed(name: string, parse: 'ctx -> string -> 'a) =
-      SingleFilter<'ctx, 'a>(name, JobResult.lift2 parse)
+      SingleFilter<'ctx, 'a>(name, TaskResult.lift2 parse)
 
 
 
 type Sort =
 
-  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+  static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
     SingleSort<'ctx, 'a>(parse)
 
-  static member ParsedJobRes(parse: string -> Job<Result<'a, Error list>>) =
-    Sort.ParsedJobRes(fun _ s -> parse s)
+  static member ParsedTaskRes(parse: string -> Task<Result<'a, Error list>>) =
+    Sort.ParsedTaskRes(fun _ s -> parse s)
 
-  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, string>>) =
-    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> JobResult.mapError (queryInvalidParsedErrMsg "sort" s >> List.singleton))
+  static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, string>>) =
+    Sort.ParsedTaskRes(fun ctx s -> parse ctx s |> TaskResult.mapError (queryInvalidParsedErrMsg "sort" s >> List.singleton))
 
-  static member ParsedJobRes(parse: string -> Job<Result<'a, string>>) =
-    Sort.ParsedJobRes(fun _ s -> parse s)
+  static member ParsedTaskRes(parse: string -> Task<Result<'a, string>>) =
+    Sort.ParsedTaskRes(fun _ s -> parse s)
 
-  static member ParsedJobRes(parse: 'ctx -> string -> Job<Result<'a, string list>>) =
-    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> JobResult.mapError (List.map (queryInvalidParsedErrMsg "sort" s)))
+  static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, string list>>) =
+    Sort.ParsedTaskRes(fun ctx s -> parse ctx s |> TaskResult.mapError (List.map (queryInvalidParsedErrMsg "sort" s)))
 
-  static member ParsedJobRes(parse: string -> Job<Result<'a, string list>>) =
-    Sort.ParsedJobRes(fun _ s -> parse s)
+  static member ParsedTaskRes(parse: string -> Task<Result<'a, string list>>) =
+    Sort.ParsedTaskRes(fun _ s -> parse s)
 
   static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
-    Sort.ParsedJobRes(Job.liftAsync2 parse)
+    Sort.ParsedTaskRes(Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(parse: string -> Async<Result<'a, Error list>>) =
-    Sort.ParsedJobRes(Job.liftAsync parse)
+    Sort.ParsedTaskRes(Task.liftAsync parse)
 
   static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, string>>) =
-    Sort.ParsedJobRes(Job.liftAsync2 parse)
+    Sort.ParsedTaskRes(Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(parse: string -> Async<Result<'a, string>>) =
-    Sort.ParsedJobRes(Job.liftAsync parse)
+    Sort.ParsedTaskRes(Task.liftAsync parse)
 
   static member ParsedAsyncRes(parse: 'ctx -> string -> Async<Result<'a, string list>>) =
-    Sort.ParsedJobRes(Job.liftAsync2 parse)
+    Sort.ParsedTaskRes(Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(parse: string -> Async<Result<'a, string list>>) =
-    Sort.ParsedJobRes(Job.liftAsync parse)
+    Sort.ParsedTaskRes(Task.liftAsync parse)
 
-  static member ParsedJobOpt(parse: 'ctx -> string -> Job<'a option>) =
-    Sort.ParsedJobRes(fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNone "sort" s]))
+  static member ParsedTaskOpt(parse: 'ctx -> string -> Task<'a option>) =
+    Sort.ParsedTaskRes(fun ctx s -> parse ctx s |> Task.map (Result.requireSome [queryInvalidParsedNone "sort" s]))
 
-  static member ParsedJobOpt(parse: string -> Job<'a option>) =
-    Sort.ParsedJobOpt(fun _ s -> parse s)
+  static member ParsedTaskOpt(parse: string -> Task<'a option>) =
+    Sort.ParsedTaskOpt(fun _ s -> parse s)
 
   static member ParsedAsyncOpt(parse: 'ctx -> string -> Async<'a option>) =
-    Sort.ParsedJobOpt(Job.liftAsync2 parse)
+    Sort.ParsedTaskOpt(Task.liftAsync2 parse)
 
   static member ParsedAsyncOpt(parse: string -> Async<'a option>) =
-    Sort.ParsedJobOpt(Job.liftAsync parse)
+    Sort.ParsedTaskOpt(Task.liftAsync parse)
 
-  static member ParsedJob(parse: 'ctx -> string -> Job<'a>) =
-    SingleSort<'ctx, 'a>(JobResult.liftJob2 parse)
+  static member ParsedTask(parse: 'ctx -> string -> Task<'a>) =
+    SingleSort<'ctx, 'a>(TaskResult.liftTask2 parse)
 
-  static member ParsedJob(parse: string -> Job<'a>) =
-    SingleSort<'ctx, 'a>(JobResult.liftJob2 (fun _ s -> parse s))
+  static member ParsedTask(parse: string -> Task<'a>) =
+    SingleSort<'ctx, 'a>(TaskResult.liftTask2 (fun _ s -> parse s))
 
   static member ParsedAsync(parse: 'ctx -> string -> Async<'a>) =
-    Sort.ParsedJob(Job.liftAsync2 parse)
+    Sort.ParsedTask(Task.liftAsync2 parse)
 
   static member ParsedAsync(parse: string -> Async<'a>) =
-    Sort.ParsedJob(Job.liftAsync parse)
+    Sort.ParsedTask(Task.liftAsync parse)
 
   static member ParsedRes(parse: 'ctx -> string -> Result<'a, Error list>) =
-    Sort.ParsedJobRes(Job.lift2 parse)
+    Sort.ParsedTaskRes(Task.lift2 parse)
 
   static member ParsedRes(parse: string -> Result<'a, Error list>) =
-    Sort.ParsedJobRes(Job.lift parse)
+    Sort.ParsedTaskRes(Task.lift parse)
 
   static member ParsedRes(parse: 'ctx -> string -> Result<'a, string>) =
-    Sort.ParsedJobRes(Job.lift2 parse)
+    Sort.ParsedTaskRes(Task.lift2 parse)
 
   static member ParsedRes(parse: string -> Result<'a, string>) =
-    Sort.ParsedJobRes(Job.lift parse)
+    Sort.ParsedTaskRes(Task.lift parse)
 
   static member ParsedRes(parse: 'ctx -> string -> Result<'a, string list>) =
-    Sort.ParsedJobRes(Job.lift2 parse)
+    Sort.ParsedTaskRes(Task.lift2 parse)
 
   static member ParsedRes(parse: string -> Result<'a, string list>) =
-    Sort.ParsedJobRes(Job.lift parse)
+    Sort.ParsedTaskRes(Task.lift parse)
 
   static member ParsedOpt(parse: 'ctx -> string -> 'a option) =
-    Sort.ParsedJobOpt(Job.lift2 parse)
+    Sort.ParsedTaskOpt(Task.lift2 parse)
 
   static member ParsedOpt(parse: string -> 'a option) =
-    Sort.ParsedJobOpt(Job.lift parse)
+    Sort.ParsedTaskOpt(Task.lift parse)
 
   static member Parsed(parse: string -> 'a) =
-    SingleSort<'ctx, 'a>(JobResult.lift2 (fun _ s -> parse s))
+    SingleSort<'ctx, 'a>(TaskResult.lift2 (fun _ s -> parse s))
 
   static member Enum(sortMap: (string * 'a) list) =
     let d = dict sortMap
@@ -728,7 +728,7 @@ type Sort =
       match d.TryGetValue s with
       | true, v -> Ok v
       | false, _ -> Error [queryInvalidEnum "sort" s allowed]
-    SingleSort<'ctx, 'a>(fun _ s -> parseSort s |> Job.result)
+    SingleSort<'ctx, 'a>(fun _ s -> parseSort s |> Task.result)
 
 
 
@@ -739,7 +739,7 @@ module SortExtensions =
   type Sort with
 
     static member Parsed(parse: 'ctx -> string -> 'a) =
-      SingleSort<'ctx, 'a>(JobResult.lift2 parse)
+      SingleSort<'ctx, 'a>(TaskResult.lift2 parse)
 
 
 
@@ -757,115 +757,115 @@ type Page<'ctx> =
 
 type Query =
 
-  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+  static member ParsedTaskRes(queryParamName, parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
     CustomQueryParam<'ctx, 'a>(queryParamName, parse)
 
-  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, Error list>>) =
-    Query.ParsedJobRes(queryParamName, fun _ s -> parse s)
+  static member ParsedTaskRes(queryParamName, parse: string -> Task<Result<'a, Error list>>) =
+    Query.ParsedTaskRes(queryParamName, fun _ s -> parse s)
 
-  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, string>>) =
-    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> JobResult.mapError (queryInvalidParsedErrMsg queryParamName s >> List.singleton))
+  static member ParsedTaskRes(queryParamName, parse: 'ctx -> string -> Task<Result<'a, string>>) =
+    Query.ParsedTaskRes(queryParamName, fun ctx s -> parse ctx s |> TaskResult.mapError (queryInvalidParsedErrMsg queryParamName s >> List.singleton))
 
-  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, string>>) =
-    Query.ParsedJobRes(queryParamName, fun _ s -> parse s)
+  static member ParsedTaskRes(queryParamName, parse: string -> Task<Result<'a, string>>) =
+    Query.ParsedTaskRes(queryParamName, fun _ s -> parse s)
 
-  static member ParsedJobRes(queryParamName, parse: 'ctx -> string -> Job<Result<'a, string list>>) =
-    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> JobResult.mapError (List.map (queryInvalidParsedErrMsg queryParamName s)))
+  static member ParsedTaskRes(queryParamName, parse: 'ctx -> string -> Task<Result<'a, string list>>) =
+    Query.ParsedTaskRes(queryParamName, fun ctx s -> parse ctx s |> TaskResult.mapError (List.map (queryInvalidParsedErrMsg queryParamName s)))
 
-  static member ParsedJobRes(queryParamName, parse: string -> Job<Result<'a, string list>>) =
-    Query.ParsedJobRes(queryParamName, fun _ s -> parse s)
+  static member ParsedTaskRes(queryParamName, parse: string -> Task<Result<'a, string list>>) =
+    Query.ParsedTaskRes(queryParamName, fun _ s -> parse s)
 
   static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
-    Query.ParsedJobRes(queryParamName, Job.liftAsync2 parse)
+    Query.ParsedTaskRes(queryParamName, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, Error list>>) =
-    Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
+    Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
   static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, string>>) =
-    Query.ParsedJobRes(queryParamName, Job.liftAsync2 parse)
+    Query.ParsedTaskRes(queryParamName, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, string>>) =
-    Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
+    Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
   static member ParsedAsyncRes(queryParamName, parse: 'ctx -> string -> Async<Result<'a, string list>>) =
-    Query.ParsedJobRes(queryParamName, Job.liftAsync2 parse)
+    Query.ParsedTaskRes(queryParamName, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(queryParamName, parse: string -> Async<Result<'a, string list>>) =
-    Query.ParsedJobRes(queryParamName, Job.liftAsync parse)
+    Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
-  static member ParsedJobOpt(queryParamName, parse: 'ctx -> string -> Job<'a option>) =
-    Query.ParsedJobRes(queryParamName, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [queryInvalidParsedNone queryParamName s]))
+  static member ParsedTaskOpt(queryParamName, parse: 'ctx -> string -> Task<'a option>) =
+    Query.ParsedTaskRes(queryParamName, fun ctx s -> parse ctx s |> Task.map (Result.requireSome [queryInvalidParsedNone queryParamName s]))
 
-  static member ParsedJobOpt(queryParamName, parse: string -> Job<'a option>) =
-    Query.ParsedJobOpt(queryParamName, fun _ s -> parse s)
+  static member ParsedTaskOpt(queryParamName, parse: string -> Task<'a option>) =
+    Query.ParsedTaskOpt(queryParamName, fun _ s -> parse s)
 
   static member ParsedAsyncOpt(queryParamName, parse: 'ctx -> string -> Async<'a option>) =
-    Query.ParsedJobOpt(queryParamName, Job.liftAsync2 parse)
+    Query.ParsedTaskOpt(queryParamName, Task.liftAsync2 parse)
 
   static member ParsedAsyncOpt(queryParamName, parse: string -> Async<'a option>) =
-    Query.ParsedJobOpt(queryParamName, Job.liftAsync parse)
+    Query.ParsedTaskOpt(queryParamName, Task.liftAsync parse)
 
-  static member ParsedJob(queryParamName, parse: 'ctx -> string -> Job<'a>) =
-    CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.liftJob2 parse)
+  static member ParsedTask(queryParamName, parse: 'ctx -> string -> Task<'a>) =
+    CustomQueryParam<'ctx, 'a>(queryParamName, TaskResult.liftTask2 parse)
 
-  static member ParsedJob(queryParamName, parse: string -> Job<'a>) =
-    CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.liftJob2 (fun _ s -> parse s))
+  static member ParsedTask(queryParamName, parse: string -> Task<'a>) =
+    CustomQueryParam<'ctx, 'a>(queryParamName, TaskResult.liftTask2 (fun _ s -> parse s))
 
   static member ParsedAsync(queryParamName, parse: 'ctx -> string -> Async<'a>) =
-    Query.ParsedJob(queryParamName, Job.liftAsync2 parse)
+    Query.ParsedTask(queryParamName, Task.liftAsync2 parse)
 
   static member ParsedAsync(queryParamName, parse: string -> Async<'a>) =
-    Query.ParsedJob(queryParamName, Job.liftAsync parse)
+    Query.ParsedTask(queryParamName, Task.liftAsync parse)
 
   static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, Error list>) =
-    Query.ParsedJobRes(queryParamName, Job.lift2 parse)
+    Query.ParsedTaskRes(queryParamName, Task.lift2 parse)
 
   static member ParsedRes(queryParamName, parse: string -> Result<'a, Error list>) =
-    Query.ParsedJobRes(queryParamName, Job.lift parse)
+    Query.ParsedTaskRes(queryParamName, Task.lift parse)
 
   static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, string>) =
-    Query.ParsedJobRes(queryParamName, Job.lift2 parse)
+    Query.ParsedTaskRes(queryParamName, Task.lift2 parse)
 
   static member ParsedRes(queryParamName, parse: string -> Result<'a, string>) =
-    Query.ParsedJobRes(queryParamName, Job.lift parse)
+    Query.ParsedTaskRes(queryParamName, Task.lift parse)
 
   static member ParsedRes(queryParamName, parse: 'ctx -> string -> Result<'a, string list>) =
-    Query.ParsedJobRes(queryParamName, Job.lift2 parse)
+    Query.ParsedTaskRes(queryParamName, Task.lift2 parse)
 
   static member ParsedRes(queryParamName, parse: string -> Result<'a, string list>) =
-    Query.ParsedJobRes(queryParamName, Job.lift parse)
+    Query.ParsedTaskRes(queryParamName, Task.lift parse)
 
   static member ParsedOpt(queryParamName, parse: 'ctx -> string -> 'a option) =
-    Query.ParsedJobOpt(queryParamName, Job.lift2 parse)
+    Query.ParsedTaskOpt(queryParamName, Task.lift2 parse)
 
   static member ParsedOpt(queryParamName, parse: string -> 'a option) =
-    Query.ParsedJobOpt(queryParamName, Job.lift parse)
+    Query.ParsedTaskOpt(queryParamName, Task.lift parse)
 
   static member Parsed(queryParamName, parse: string -> 'a) =
-    CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.lift2 (fun _ s -> parse s))
+    CustomQueryParam<'ctx, 'a>(queryParamName, TaskResult.lift2 (fun _ s -> parse s))
 
   // Note: When adding more overloads, consider adding them to Filter, too.
 
   static member String(queryParamName) : CustomQueryParam<'ctx, string> =
-    CustomQueryParam<'ctx, string>(queryParamName, fun _ s -> s |> Ok |> Job.result)
+    CustomQueryParam<'ctx, string>(queryParamName, fun _ s -> s |> Ok |> Task.result)
 
   static member Bool(queryParamName) : CustomQueryParam<'ctx, bool> =
-    CustomQueryParam<'ctx, bool>(queryParamName, fun _ -> parseBool >> Job.result)
+    CustomQueryParam<'ctx, bool>(queryParamName, fun _ -> parseBool >> Task.result)
 
   static member Int(queryParamName) : CustomQueryParam<'ctx, int> =
-    CustomQueryParam<'ctx, int>(queryParamName, fun _ -> parseInt >> Job.result)
+    CustomQueryParam<'ctx, int>(queryParamName, fun _ -> parseInt >> Task.result)
 
   static member Float(queryParamName) : CustomQueryParam<'ctx, float> =
-    CustomQueryParam<'ctx, float>(queryParamName, fun _ -> parseFloat >> Job.result)
+    CustomQueryParam<'ctx, float>(queryParamName, fun _ -> parseFloat >> Task.result)
 
   static member DateTime(queryParamName) : CustomQueryParam<'ctx, DateTime> =
-    CustomQueryParam<'ctx, DateTime>(queryParamName, fun _ -> parseDateTime >> Job.result)
+    CustomQueryParam<'ctx, DateTime>(queryParamName, fun _ -> parseDateTime >> Task.result)
 
   static member DateTimeOffset(queryParamName) : CustomQueryParam<'ctx, DateTimeOffset> =
-    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffset >> Job.result)
+    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffset >> Task.result)
 
   static member DateTimeOffsetAllowMissingOffset(queryParamName) : CustomQueryParam<'ctx, DateTimeOffset> =
-    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Job.result)
+    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Task.result)
 
   // Note: When adding more overloads, consider adding them to Filter, too.
 
@@ -876,7 +876,7 @@ type Query =
       match d.TryGetValue s with
       | true, v -> Ok v
       | false, _ -> Error [queryInvalidEnum queryParamName s allowed]
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ s -> parse s |> Job.result)
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ s -> parse s |> Task.result)
 
 
 
@@ -887,101 +887,101 @@ module QueryExtensions =
   type Query with
 
     static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) =
-      CustomQueryParam<'ctx, 'a>(queryParamName, JobResult.lift2 parse)
+      CustomQueryParam<'ctx, 'a>(queryParamName, TaskResult.lift2 parse)
 
 
 
 type Header =
 
   static member String(headerName) =
-    Header<'ctx, string>(headerName, fun _ s -> s |> Ok |> Job.result)
+    Header<'ctx, string>(headerName, fun _ s -> s |> Ok |> Task.result)
 
-  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, Error list>>) =
+  static member ParsedTaskRes(headerName, parse: 'ctx -> string -> Task<Result<'a, Error list>>) =
     Header<'ctx, 'a>(headerName, parse)
 
-  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, Error list>>) =
-    Header.ParsedJobRes(headerName, fun _ s -> parse s)
+  static member ParsedTaskRes(headerName, parse: string -> Task<Result<'a, Error list>>) =
+    Header.ParsedTaskRes(headerName, fun _ s -> parse s)
 
-  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, string>>) =
-    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> JobResult.mapError (headerInvalidParsedErrMsg headerName s >> List.singleton))
+  static member ParsedTaskRes(headerName, parse: 'ctx -> string -> Task<Result<'a, string>>) =
+    Header.ParsedTaskRes(headerName, fun ctx s -> parse ctx s |> TaskResult.mapError (headerInvalidParsedErrMsg headerName s >> List.singleton))
 
-  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, string>>) =
-    Header.ParsedJobRes(headerName, fun _ s -> parse s)
+  static member ParsedTaskRes(headerName, parse: string -> Task<Result<'a, string>>) =
+    Header.ParsedTaskRes(headerName, fun _ s -> parse s)
 
-  static member ParsedJobRes(headerName, parse: 'ctx -> string -> Job<Result<'a, string list>>) =
-    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> JobResult.mapError (List.map (headerInvalidParsedErrMsg headerName s)))
+  static member ParsedTaskRes(headerName, parse: 'ctx -> string -> Task<Result<'a, string list>>) =
+    Header.ParsedTaskRes(headerName, fun ctx s -> parse ctx s |> TaskResult.mapError (List.map (headerInvalidParsedErrMsg headerName s)))
 
-  static member ParsedJobRes(headerName, parse: string -> Job<Result<'a, string list>>) =
-    Header.ParsedJobRes(headerName, fun _ s -> parse s)
+  static member ParsedTaskRes(headerName, parse: string -> Task<Result<'a, string list>>) =
+    Header.ParsedTaskRes(headerName, fun _ s -> parse s)
 
   static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, Error list>>) =
-    Header.ParsedJobRes(headerName, Job.liftAsync2 parse)
+    Header.ParsedTaskRes(headerName, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, Error list>>) =
-    Header.ParsedJobRes(headerName, Job.liftAsync parse)
+    Header.ParsedTaskRes(headerName, Task.liftAsync parse)
 
   static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, string>>) =
-    Header.ParsedJobRes(headerName, Job.liftAsync2 parse)
+    Header.ParsedTaskRes(headerName, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, string>>) =
-    Header.ParsedJobRes(headerName, Job.liftAsync parse)
+    Header.ParsedTaskRes(headerName, Task.liftAsync parse)
 
   static member ParsedAsyncRes(headerName, parse: 'ctx -> string -> Async<Result<'a, string list>>) =
-    Header.ParsedJobRes(headerName, Job.liftAsync2 parse)
+    Header.ParsedTaskRes(headerName, Task.liftAsync2 parse)
 
   static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, string list>>) =
-    Header.ParsedJobRes(headerName, Job.liftAsync parse)
+    Header.ParsedTaskRes(headerName, Task.liftAsync parse)
 
-  static member ParsedJobOpt(headerName, parse: 'ctx -> string -> Job<'a option>) =
-    Header.ParsedJobRes(headerName, fun ctx s -> parse ctx s |> Job.map (Result.requireSome [headerInvalidParsedNone headerName s]))
+  static member ParsedTaskOpt(headerName, parse: 'ctx -> string -> Task<'a option>) =
+    Header.ParsedTaskRes(headerName, fun ctx s -> parse ctx s |> Task.map (Result.requireSome [headerInvalidParsedNone headerName s]))
 
-  static member ParsedJobOpt(headerName, parse: string -> Job<'a option>) =
-    Header.ParsedJobOpt(headerName, fun _ s -> parse s)
+  static member ParsedTaskOpt(headerName, parse: string -> Task<'a option>) =
+    Header.ParsedTaskOpt(headerName, fun _ s -> parse s)
 
   static member ParsedAsyncOpt(headerName, parse: 'ctx -> string -> Async<'a option>) =
-    Header.ParsedJobOpt(headerName, Job.liftAsync2 parse)
+    Header.ParsedTaskOpt(headerName, Task.liftAsync2 parse)
 
   static member ParsedAsyncOpt(headerName, parse: string -> Async<'a option>) =
-    Header.ParsedJobOpt(headerName, Job.liftAsync parse)
+    Header.ParsedTaskOpt(headerName, Task.liftAsync parse)
 
-  static member ParsedJob(headerName, parse: 'ctx -> string -> Job<'a>) =
-    Header<'ctx, 'a>(headerName, JobResult.liftJob2 parse)
+  static member ParsedTask(headerName, parse: 'ctx -> string -> Task<'a>) =
+    Header<'ctx, 'a>(headerName, TaskResult.liftTask2 parse)
 
-  static member ParsedJob(headerName, parse: string -> Job<'a>) =
-    Header<'ctx, 'a>(headerName, JobResult.liftJob2 (fun _ s -> parse s))
+  static member ParsedTask(headerName, parse: string -> Task<'a>) =
+    Header<'ctx, 'a>(headerName, TaskResult.liftTask2 (fun _ s -> parse s))
 
   static member ParsedAsync(headerName, parse: 'ctx -> string -> Async<'a>) =
-    Header.ParsedJob(headerName, Job.liftAsync2 parse)
+    Header.ParsedTask(headerName, Task.liftAsync2 parse)
 
   static member ParsedAsync(headerName, parse: string -> Async<'a>) =
-    Header.ParsedJob(headerName, Job.liftAsync parse)
+    Header.ParsedTask(headerName, Task.liftAsync parse)
 
   static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, Error list>) =
-    Header.ParsedJobRes(headerName, Job.lift2 parse)
+    Header.ParsedTaskRes(headerName, Task.lift2 parse)
 
   static member ParsedRes(headerName, parse: string -> Result<'a, Error list>) =
-    Header.ParsedJobRes(headerName, Job.lift parse)
+    Header.ParsedTaskRes(headerName, Task.lift parse)
 
   static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, string>) =
-    Header.ParsedJobRes(headerName, Job.lift2 parse)
+    Header.ParsedTaskRes(headerName, Task.lift2 parse)
 
   static member ParsedRes(headerName, parse: string -> Result<'a, string>) =
-    Header.ParsedJobRes(headerName, Job.lift parse)
+    Header.ParsedTaskRes(headerName, Task.lift parse)
 
   static member ParsedRes(headerName, parse: 'ctx -> string -> Result<'a, string list>) =
-    Header.ParsedJobRes(headerName, Job.lift2 parse)
+    Header.ParsedTaskRes(headerName, Task.lift2 parse)
 
   static member ParsedRes(headerName, parse: string -> Result<'a, string list>) =
-    Header.ParsedJobRes(headerName, Job.lift parse)
+    Header.ParsedTaskRes(headerName, Task.lift parse)
 
   static member ParsedOpt(headerName, parse: 'ctx -> string -> 'a option) =
-    Header.ParsedJobOpt(headerName, Job.lift2 parse)
+    Header.ParsedTaskOpt(headerName, Task.lift2 parse)
 
   static member ParsedOpt(headerName, parse: string -> 'a option) =
-    Header.ParsedJobOpt(headerName, Job.lift parse)
+    Header.ParsedTaskOpt(headerName, Task.lift parse)
 
   static member Parsed(headerName, parse: string -> 'a) =
-    Header<'ctx, 'a>(headerName, JobResult.lift2 (fun _ s -> parse s))
+    Header<'ctx, 'a>(headerName, TaskResult.lift2 (fun _ s -> parse s))
 
 
 
@@ -992,4 +992,4 @@ module HeaderExtensions =
   type Header with
 
     static member Parsed(headerName, parse: 'ctx -> string -> 'a) =
-      Header<'ctx, 'a>(headerName, JobResult.lift2 parse)
+      Header<'ctx, 'a>(headerName, TaskResult.lift2 parse)

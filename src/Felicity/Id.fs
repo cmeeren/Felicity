@@ -1,16 +1,16 @@
 ﻿namespace Felicity
 
-open Hopac
+open System.Threading.Tasks
 open Errors
 
 
 type Id<'ctx, 'entity, 'id> = internal {
   fromDomain: 'id -> string
-  toDomain: 'ctx -> ResourceId -> Job<Result<'id, Error list>>
+  toDomain: 'ctx -> ResourceId -> Task<Result<'id, Error list>>
   getId: 'entity -> 'id
 } with
 
-  static member internal Create(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Job<Result<'id, Error list>>, getId: 'entity -> 'id) : Id<'ctx, 'entity, 'id> =
+  static member internal Create(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<Result<'id, Error list>>, getId: 'entity -> 'id) : Id<'ctx, 'entity, 'id> =
     {
       fromDomain = fromDomain
       toDomain = toDomain
@@ -23,12 +23,12 @@ type Id<'ctx, 'entity, 'id> = internal {
         member _.QueryParamName = None
         member _.Get(ctx, req, includedTypeAndId) =
           match Request.getIdAndPointer includedTypeAndId req with
-          | Error errs -> Error errs |> Job.result
-          | Ok None -> None |> Ok |> Job.result
+          | Error errs -> Error errs |> Task.result
+          | Ok None -> None |> Ok |> Task.result
           | Ok (Some (resId, pointer)) ->
               this.toDomain ctx resId
-              |> JobResult.mapError (List.map (Error.setSourcePointer pointer))
-              |> JobResult.map Some
+              |> TaskResult.mapError (List.map (Error.setSourcePointer pointer))
+              |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, 'id> with
@@ -43,80 +43,80 @@ type Id<'ctx, 'entity, 'id> = internal {
     member this.Get(ctx, req, includedTypeAndId) =
       let pointer = Request.pointerForMissingId includedTypeAndId req
       this.Optional.Get(ctx, req, includedTypeAndId)
-      |> JobResult.requireSome [reqParserMissingRequiredId pointer]
+      |> TaskResult.requireSome [reqParserMissingRequiredId pointer]
 
       
 type IdHelper<'ctx, 'entity, 'id> internal () =
 
   member _.Simple(getId: 'entity -> string) =
-    Id<'ctx, 'entity, string>.Create(id, (fun _ -> Ok >> Job.result), getId)
+    Id<'ctx, 'entity, string>.Create(id, (fun _ -> Ok >> Task.result), getId)
 
-  member _.ParsedJobRes(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Job<Result<'id, Error list>>, getId: 'entity -> 'id) =
+  member _.ParsedTaskRes(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<Result<'id, Error list>>, getId: 'entity -> 'id) =
     Id<'ctx, 'entity, 'id>.Create(fromDomain, toDomain, getId)
 
   member this.ParsedAsyncRes(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Async<Result<'id, Error list>>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(fromDomain, Job.liftAsync2 toDomain, getId)
+    this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, getId)
 
-  member this.ParsedJobOpt(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Job<'id option>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Job.map (Result.requireSome [idInvalidParsedNone ()])), getId)
+  member this.ParsedTaskOpt(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<'id option>, getId: 'entity -> 'id) =
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Task.map (Result.requireSome [idInvalidParsedNone ()])), getId)
 
-  member this.ParsedJobOpt(fromDomain: 'id -> string, toDomain: string -> Job<'id option>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Job.map (Result.requireSome [idInvalidParsedNone ()])), getId)
+  member this.ParsedTaskOpt(fromDomain: 'id -> string, toDomain: string -> Task<'id option>, getId: 'entity -> 'id) =
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Task.map (Result.requireSome [idInvalidParsedNone ()])), getId)
 
   member this.ParsedAsyncOpt(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Async<'id option>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Job.fromAsync >> Job.map (Result.requireSome [idInvalidParsedNone ()])), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Task.fromAsync >> Task.map (Result.requireSome [idInvalidParsedNone ()])), getId)
 
   member this.ParsedAsyncOpt(fromDomain: 'id -> string, toDomain: string -> Async<'id option>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Job.fromAsync >> Job.map (Result.requireSome [idInvalidParsedNone ()])), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Task.fromAsync >> Task.map (Result.requireSome [idInvalidParsedNone ()])), getId)
 
-  member this.ParsedJob(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Job<'id>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Job.map Ok), getId)
+  member this.ParsedTask(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<'id>, getId: 'entity -> 'id) =
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Task.map Ok), getId)
 
   member this.ParsedAsync(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Async<'id>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Job.fromAsync >> Job.map Ok), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Task.fromAsync >> Task.map Ok), getId)
 
   member this.ParsedRes(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Result<'id, Error list>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Task.result), getId)
 
   member this.ParsedRes(fromDomain: 'id -> string, toDomain: string -> Result<'id, Error list>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Task.result), getId)
 
   member this.ParsedRes(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Result<'id, string>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (idInvalidErrMsg >> List.singleton) >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (idInvalidErrMsg >> List.singleton) >> Task.result), getId)
 
   member this.ParsedRes(fromDomain: 'id -> string, toDomain: string -> Result<'id, string>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Result.mapError (idInvalidErrMsg >> List.singleton) >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Result.mapError (idInvalidErrMsg >> List.singleton) >> Task.result), getId)
 
   member this.ParsedRes(fromDomain: 'id -> string, toDomain: 'ctx -> string -> Result<'id, string list>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map idInvalidErrMsg) >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map idInvalidErrMsg) >> Task.result), getId)
 
   member this.ParsedRes(fromDomain: 'id -> string, toDomain: string -> Result<'id, string list>, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Result.mapError (List.map idInvalidErrMsg) >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Result.mapError (List.map idInvalidErrMsg) >> Task.result), getId)
 
   member this.ParsedOpt(fromDomain: 'id -> string, toDomain: 'ctx -> string -> 'id option, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [idInvalidParsedNone ()] >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [idInvalidParsedNone ()] >> Task.result), getId)
 
   member this.ParsedOpt(fromDomain: 'id -> string, toDomain: string -> 'id option, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Result.requireSome [idInvalidParsedNone ()] >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Result.requireSome [idInvalidParsedNone ()] >> Task.result), getId)
 
   member this.Parsed(fromDomain: 'id -> string, toDomain: 'ctx -> string -> 'id, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun ctx -> toDomain ctx >> Ok >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun ctx -> toDomain ctx >> Ok >> Task.result), getId)
 
   member this.Parsed(fromDomain: 'id -> string, toDomain: string -> 'id, getId: 'entity -> 'id) =
-    this.ParsedJobRes(
-      fromDomain, (fun _ctx -> toDomain >> Ok >> Job.result), getId)
+    this.ParsedTaskRes(
+      fromDomain, (fun _ctx -> toDomain >> Ok >> Task.result), getId)

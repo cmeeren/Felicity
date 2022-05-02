@@ -76,7 +76,7 @@ module A =
           match helper.ValidateRequest parser with
           | Error errs -> return Error errs
           | Ok () ->
-              match! parser.ParseJob() |> Hopac.Job.toAsync with
+              match! parser.ParseTask() |> Async.AwaitTask with
               | Error errs -> return Error errs
               | Ok a ->
                   match ADomain.create a with
@@ -114,7 +114,7 @@ module C =
   let post : CustomPostOperation<Ctx2, Ctx2, A> =
     define.Operation
       .ForContextRes(fun _ -> Error [Error.create 422 |> Error.setCode "custom"])
-      .PostCustomJob(fun _ _ _ -> failwith "not used")
+      .PostCustomTask(fun _ _ _ -> failwith "not used")
 
 
 module A2 =

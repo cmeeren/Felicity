@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### vNext
+
+* Removed Hopac dependency in favor of native tasks. The primary reason is that Hopac doesn't play nice with `System.Diagnostics.Activity`'s call context flowing, breaking e.g. distributed tracing.
+* Removed previously deprecated methods
+
 ### 0.19.0 (2022-04-19)
 
 * Updated Giraffe from 5.0.0 to 6.0.0

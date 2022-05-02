@@ -79,14 +79,6 @@
           "FSharp.Core": "5.0.0"
         }
       },
-      "Hopac": {
-        "type": "Transitive",
-        "resolved": "0.5.1",
-        "contentHash": "vqkbAF8cNw0YxFoe0svgiR0PJ6fWsrNqdlHvyq/8iXrC5JC9LRLNEStMdv8MiZyg5FWfuYYvEuElpCxhxA8QqA==",
-        "dependencies": {
-          "FSharp.Core": "4.5.2"
-        }
-      },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
         "resolved": "2.0.0",
@@ -411,8 +403,7 @@
         "dependencies": {
           "FSharp.Core": "6.0.1",
           "FSharp.SystemTextJson": "0.17.4",
-          "Giraffe": "6.0.0",
-          "Hopac": "0.5.1"
+          "Giraffe": "6.0.0"
         }
       }
     }
