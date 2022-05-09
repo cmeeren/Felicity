@@ -83,13 +83,13 @@ module ExceptionExtensions =
 
 module Async =
 
-  let map f asnc =
+  let inline map f asnc =
     async {
       let! x = asnc
       return f x
     }
 
-  let bind f asnc =
+  let inline bind f asnc =
     async {
       let! x = asnc
       return! f x
@@ -143,7 +143,7 @@ module Task =
       i <- i + 1
     Task.WhenAll(tasks)
 
-  let map f t =
+  let inline map f t =
     task {
       let! x = t
       return f x
@@ -224,22 +224,22 @@ module Task =
 
 module AsyncResult =
 
-  let map f = Task.map (Result.map f)
+  let inline map f = Task.map (Result.map f)
   
-  let mapError f = Task.map (Result.mapError f)
+  let inline mapError f = Task.map (Result.mapError f)
   
-  let requireSome errIfNone = Task.map (Result.bind (Result.requireSome errIfNone))
+  let inline requireSome errIfNone = Task.map (Result.bind (Result.requireSome errIfNone))
   
-  let bind f asncRes =
+  let inline bind f asncRes =
     async {
       match! asncRes with
       | Error err -> return Error err
       | Ok x -> return! f x
     }
 
-  let bindResult f = Task.map (Result.bind f)
+  let inline bindResult f = Task.map (Result.bind f)
 
-  let apply (fAsyncRes: Async<Result<'a->'b, 'c list>>) (xAsyncRes: Async<Result<'a, 'c list>>) : Async<Result<'b, 'c list>> =
+  let inline apply (fAsyncRes: Async<Result<'a->'b, 'c list>>) (xAsyncRes: Async<Result<'a, 'c list>>) : Async<Result<'b, 'c list>> =
     async {
       let! f = fAsyncRes
       let! x = xAsyncRes
@@ -299,22 +299,22 @@ module TaskResult =
   let inline liftFunc5 (f: Func<_,_,_,_,_,_>) =
     Func<_,_,_,_,_,_>(fun a b c d e -> f.Invoke(a, b, c, d, e) |> Ok |> Task.result)
 
-  let map f = Task.map (Result.map f)
+  let inline map f = Task.map (Result.map f)
   
-  let mapError f = Task.map (Result.mapError f)
+  let inline mapError f = Task.map (Result.mapError f)
   
-  let requireSome errIfNone = Task.map (Result.bind (Result.requireSome errIfNone))
+  let inline requireSome errIfNone = Task.map (Result.bind (Result.requireSome errIfNone))
   
-  let bind (f: _ -> Task<Result<_,_>>) (taskRes: Task<Result<_,_>>) =
+  let inline bind (f: _ -> Task<Result<_,_>>) (taskRes: Task<Result<_,_>>) =
     task {
       match! taskRes with
       | Error err -> return Error err
       | Ok x -> return! f x
     }
 
-  let bindResult f = Task.map (Result.bind f)
+  let inline bindResult f = Task.map (Result.bind f)
 
-  let apply (fTaskRes: Task<Result<'a->'b, 'c list>>) (xTaskRes: Task<Result<'a, 'c list>>) : Task<Result<'b, 'c list>> =
+  let inline apply (fTaskRes: Task<Result<'a->'b, 'c list>>) (xTaskRes: Task<Result<'a, 'c list>>) : Task<Result<'b, 'c list>> =
     task {
       let! f = fTaskRes
       let! x = xTaskRes
@@ -330,22 +330,23 @@ module TaskResult =
 
 module Option =
 
-  let traverseResult f opt =
+  let inline traverseResult f opt =
     match opt with
     | None -> Ok None
     | Some v -> f v |> Result.map Some
 
-  let traverseTask f opt =
+  let inline traverseTask f opt =
     match opt with
     | None -> Task.result None
     | Some v -> f v |> Task.map Some
 
-  let traverseTaskResult f opt =
+  let inline traverseTaskResult f opt =
     match opt with
     | None -> Task.result (Ok None)
     | Some v -> f v |> TaskResult.map Some
 
-  let fromResult = function
+  let inline fromResult res =
+    match res with
     | Ok x -> Some x
     | Error _ -> None
 
@@ -353,7 +354,7 @@ module Option =
 
 module List =
 
-  let traverseResultA f list =
+  let inline traverseResultA f list =
       (list, Ok [])
       ||> List.foldBack (fun t state ->
         match f t, state with
@@ -362,7 +363,7 @@ module List =
         | Error newErrs, Error existingErrs -> Error (newErrs @ existingErrs)
       )
 
-  let traverseTaskResultA (f: _ -> Task<_>) (list: _ list) =
+  let inline traverseTaskResultA (f: _ -> Task<_>) (list: _ list) =
     task {
       let! results = list |> Task.mapWhenAllWithCount list.Length f
       return
