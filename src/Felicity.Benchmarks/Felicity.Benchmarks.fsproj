@@ -13,8 +13,8 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.13.1" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="6.0.4" />
-    <PackageReference Update="FSharp.Core" Version="6.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="6.0.5" />
+    <PackageReference Update="FSharp.Core" Version="6.0.4" />
   </ItemGroup>
 
   <ItemGroup>
