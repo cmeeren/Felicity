@@ -84,13 +84,13 @@
       },
       "YoloDev.Expecto.TestSdk": {
         "type": "Direct",
-        "requested": "[0.12.20, )",
-        "resolved": "0.12.20",
-        "contentHash": "7lsN69H6FXvi4prolBxfXUHUYj1nW4mlyCgFCGl0ZF3YaxewnogFtUpFUkOIBZi6c5Xlx6awZBEamK2khcR86A==",
+        "requested": "[0.13.0, )",
+        "resolved": "0.13.0",
+        "contentHash": "SgadKCdVw1At11CjstMGoce1/u6+3oKT/klcSFfMLzBQTwhGLNc5eoxOf6x+UOuSnHRQzLA4H31KnLhvXa3XOQ==",
         "dependencies": {
           "Expecto": "[9.0.0, 10.0.0)",
           "FSharp.Core": "4.6.0",
-          "System.Collections.Immutable": "1.7.1"
+          "System.Collections.Immutable": "6.0.0"
         }
       },
       "FSharp.SystemTextJson": {
@@ -173,8 +173,11 @@
       },
       "System.Collections.Immutable": {
         "type": "Transitive",
-        "resolved": "1.7.1",
-        "contentHash": "B43Zsz5EfMwyEbnObwRxW5u85fzJma3lrDeGcSAV1qkhSRTNY5uXAByTn9h9ddNdhM+4/YoLc/CI43umjwIl9Q=="
+        "resolved": "6.0.0",
+        "contentHash": "l4zZJ1WU2hqpQQHXz1rvC3etVZN+2DLmQMO79FhOTZHMn8tDRr+WU287sbomD0BETlmKDn0ygUgVy9k5xkkJdA==",
+        "dependencies": {
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
+        }
       },
       "System.Diagnostics.FileVersionInfo": {
         "type": "Transitive",
