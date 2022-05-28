@@ -84,12 +84,12 @@
       },
       "YoloDev.Expecto.TestSdk": {
         "type": "Direct",
-        "requested": "[0.13.0, )",
-        "resolved": "0.13.0",
-        "contentHash": "SgadKCdVw1At11CjstMGoce1/u6+3oKT/klcSFfMLzBQTwhGLNc5eoxOf6x+UOuSnHRQzLA4H31KnLhvXa3XOQ==",
+        "requested": "[0.13.2, )",
+        "resolved": "0.13.2",
+        "contentHash": "j12ozih6JiQNBo0sG9RGXoEc2QBrf3nlsbzU1pG0Jfik7Ab6T0uI1fNQR4hj0rUowAThuKTUObfGFpB6iW8zKg==",
         "dependencies": {
           "Expecto": "[9.0.0, 10.0.0)",
-          "FSharp.Core": "4.6.0",
+          "FSharp.Core": "4.6.2",
           "System.Collections.Immutable": "6.0.0"
         }
       },
