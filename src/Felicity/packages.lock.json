@@ -10,12 +10,12 @@
       },
       "FSharp.SystemTextJson": {
         "type": "Direct",
-        "requested": "[0.17.4, )",
-        "resolved": "0.17.4",
-        "contentHash": "4PVopgYmAnXLo2rFH9DIKCAApUgaT0CdT+odsZ88iJGs+MUPsysRZayBptkHPoqVYGsA+0yrgnjv2RQjRhSDxA==",
+        "requested": "[0.18.24, )",
+        "resolved": "0.18.24",
+        "contentHash": "NuUc45eA3RkEd5fW8QXVJBGgal1UyHnP5inExLL+kp3z2W6RT+ZdhJEnf/73jXv68m0LQF0APH3IEdwseIhAxg==",
         "dependencies": {
           "FSharp.Core": "4.7.0",
-          "System.Text.Json": "4.6.0"
+          "System.Text.Json": "6.0.0"
         }
       },
       "Giraffe": {

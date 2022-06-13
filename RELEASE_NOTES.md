@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Updated FSharp.SystemTextJson from 0.17.4 to 0.18.24
+
 ### 0.20.0 (2022-05-02)
 
 * Removed Hopac dependency in favor of native tasks. The primary reason is that Hopac doesn't play nice with `System.Diagnostics.Activity`'s call context flowing, breaking e.g. distributed tracing.
