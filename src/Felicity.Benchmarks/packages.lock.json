@@ -33,9 +33,9 @@
       },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Direct",
-        "requested": "[6.0.5, )",
-        "resolved": "6.0.5",
-        "contentHash": "Q8LYosH/nGhIPIRFD60sxOfreUu7xOtKSuxoLN8+vTv6IGrE5Vf7+SRMumgWOCl3ZiZXJDmkjtmevurS1D1QBA==",
+        "requested": "[6.0.7, )",
+        "resolved": "6.0.7",
+        "contentHash": "R6bQLifCI9YrHLNjyvvxxBFw0f10sejkNR1P6p5jgZkAu5qbQDVMaxZL0wIUtYY8imdyygQ3KjHHq3tJqxbl/A==",
         "dependencies": {
           "System.IO.Pipelines": "6.0.3"
         }
@@ -1161,7 +1161,7 @@
       "felicity": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "6.0.1",
+          "FSharp.Core": "6.0.5",
           "FSharp.SystemTextJson": "0.19.13",
           "Giraffe": "6.0.0"
         }

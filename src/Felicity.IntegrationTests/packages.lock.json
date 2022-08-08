@@ -50,11 +50,11 @@
       },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Direct",
-        "requested": "[6.0.4, )",
-        "resolved": "6.0.4",
-        "contentHash": "glganOCWeDVyPjy3D2K+Tpp5Xkwglv1I5aAT+nHh6Cq1fKlilibMf+yruBXogOZwasJIOgXzG4CLqVVXNoSpew==",
+        "requested": "[6.0.7, )",
+        "resolved": "6.0.7",
+        "contentHash": "R6bQLifCI9YrHLNjyvvxxBFw0f10sejkNR1P6p5jgZkAu5qbQDVMaxZL0wIUtYY8imdyygQ3KjHHq3tJqxbl/A==",
         "dependencies": {
-          "System.IO.Pipelines": "6.0.2"
+          "System.IO.Pipelines": "6.0.3"
         }
       },
       "Microsoft.NET.Test.Sdk": {
@@ -242,8 +242,8 @@
       },
       "System.IO.Pipelines": {
         "type": "Transitive",
-        "resolved": "6.0.2",
-        "contentHash": "cb5OfQjnz+zjpJJei+f3QYK7+wWZrDdNHf3DykO6QCacpNZ80tuNgq1DC2kqlrjfEu+cMUTvulxPIrCMbBkjqg=="
+        "resolved": "6.0.3",
+        "contentHash": "ryTgF+iFkpGZY1vRQhfCzX0xTdlV3pyaTTqRu2ETbEv+HlV7O6y7hyQURnghNIXvctl5DuZ//Dpks6HdL/Txgw=="
       },
       "System.Reflection": {
         "type": "Transitive",
@@ -413,7 +413,7 @@
       "felicity": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "6.0.1",
+          "FSharp.Core": "6.0.5",
           "FSharp.SystemTextJson": "0.19.13",
           "Giraffe": "6.0.0"
         }
