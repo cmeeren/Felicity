@@ -63,6 +63,21 @@ module Person =
       .GetLinkageIfNotIncluded(fun _ _ -> [bob.Id])
       .Get(fun _ -> [jane])
 
+  let toOneWithLinkageWithoutGet =
+    define.Relationship
+      .ToOne(resDef)
+      .GetLinkageIfNotIncluded(fun _ _ -> bob.Id)
+
+  let toOneNullableWithLinkageWithoutGet =
+    define.Relationship
+      .ToOneNullable(resDef)
+      .GetLinkageIfNotIncluded(fun _ _ -> Some bob.Id)
+
+  let toManyWithLinkageWithoutGet =
+    define.Relationship
+      .ToMany(resDef)
+      .GetLinkageIfNotIncluded(fun _ _ -> [bob.Id])
+
   let lookup = define.Operation.Lookup(fun _ -> Some alice)
   let get = define.Operation.GetResource()
 
@@ -176,6 +191,22 @@ let tests =
       test <@ json |> hasNoPath "data.relationships.toManyWithLinkage.data[1]" @>
       test <@ json |> getPath "included[0].id" = "3" @>
       test <@ json |> hasNoPath "included[1]" @>
+    }
+
+    testJob "No link when only linkage and no get" {
+      let! response = Request.get Ctx "/persons/1" |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data.relationships.toOneWithLinkageWithoutGet.data.type" = "person" @>
+      test <@ json |> getPath "data.relationships.toOneWithLinkageWithoutGet.data.id" = "2" @>
+      test <@ json |> hasNoPath "data.relationships.toOneWithLinkageWithoutGet.links" @>
+      test <@ json |> getPath "data.relationships.toOneNullableWithLinkageWithoutGet.data.type" = "person" @>
+      test <@ json |> getPath "data.relationships.toOneNullableWithLinkageWithoutGet.data.id" = "2" @>
+      test <@ json |> hasNoPath "data.relationships.toOneNullableWithLinkageWithoutGet.links" @>
+      test <@ json |> getPath "data.relationships.toManyWithLinkageWithoutGet.data[0].type" = "person" @>
+      test <@ json |> getPath "data.relationships.toManyWithLinkageWithoutGet.data[0].id" = "2" @>
+      test <@ json |> hasNoPath "data.relationships.toManyWithLinkageWithoutGet.data.1" @>
+      test <@ json |> hasNoPath "data.relationships.toManyWithLinkageWithoutGet.links" @>
     }
 
     (*
