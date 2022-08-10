@@ -469,8 +469,8 @@
   *)
 
   let collLookupNotSupported collName =
-    /// "A server MUST return 403 Forbidden in response to an unsupported request to
-    /// update a resource or relationship."
+    // "A server MUST return 403 Forbidden in response to an unsupported request to
+    // update a resource or relationship."
     Error.create 403
     |> Error.setTitle "Resource operations not supported"
     |> Error.setDetail $"Collection '%s{collName}' does not support any resource-specific operations"
