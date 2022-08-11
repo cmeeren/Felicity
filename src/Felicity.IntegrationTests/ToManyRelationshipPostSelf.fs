@@ -682,10 +682,10 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/0" @>
       test <@ json |> getPath "errors[1].status" = "404" @>
-      test <@ json |> getPath "errors[1].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[1].detail" = "The related resource with type 'child2' and ID 'c22' does not exist" @>
       test <@ json |> getPath "errors[1].source.pointer" = "/data/1" @>
       test <@ json |> hasNoPath "errors[2]" @>
     }
@@ -704,10 +704,10 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/0" @>
       test <@ json |> getPath "errors[1].status" = "404" @>
-      test <@ json |> getPath "errors[1].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[1].detail" = "The related resource with type 'child2' and ID 'c22' does not exist" @>
       test <@ json |> getPath "errors[1].source.pointer" = "/data/1" @>
       test <@ json |> hasNoPath "errors[2]" @>
     }
@@ -741,10 +741,10 @@ let tests =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/0" @>
       test <@ json |> getPath "errors[1].status" = "404" @>
-      test <@ json |> getPath "errors[1].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[1].detail" = "The related resource with type 'child2' and ID 'c22' does not exist" @>
       test <@ json |> getPath "errors[1].source.pointer" = "/data/1" @>
       test <@ json |> hasNoPath "errors[2]" @>
     }

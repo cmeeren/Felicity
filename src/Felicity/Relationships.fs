@@ -51,11 +51,11 @@ type internal ToOneRelationship<'ctx> =
 
 type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
-  idGetter: RequestGetter<'ctx, 'relatedId option>
+  idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option>
   getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
 } with
 
-  static member internal Create(name, idGetter: RequestGetter<'ctx, 'relatedId option>, getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) : ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create(name, idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option>, getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) : ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       idGetter = idGetter
@@ -69,10 +69,10 @@ type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
         member _.Get(ctx, req, includedTypeAndId) =
           this.idGetter.Get(ctx, req, includedTypeAndId)
           |> TaskResult.bind (
-              Option.traverseTaskResult (
-                this.getRelated.GetById ctx
-                >> TaskResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
-                >> TaskResult.requireSome [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")]
+              Option.traverseTaskResult (fun (resId, identifier) ->
+                this.getRelated.GetById ctx resId
+                |> TaskResult.mapError (fun _ -> [relatedResourceNotFound identifier.``type`` identifier.id ("/data/relationships/" + this.name + "/data")])
+                |> TaskResult.requireSome [relatedResourceNotFound identifier.``type`` identifier.id ("/data/relationships/" + this.name + "/data")]
               )
           )
     }
@@ -154,7 +154,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Task<'relatedEntity Skippable>) option
-  set: ('ctx -> 'setCtx -> Pointer -> 'relatedId -> 'entity -> Task<Result<'entity, Error list>>) option
+  set: ('ctx -> 'setCtx -> Pointer -> 'relatedId * ResourceIdentifier -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
@@ -190,18 +190,18 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     }
 
   member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
-    fun ctx setCtx (dataPointer: Pointer) relatedId entity ->
+    fun ctx setCtx (dataPointer: Pointer) (relatedId, identifier: ResourceIdentifier) entity ->
       getRelated.GetById ctx relatedId
       |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
-      |> TaskResult.requireSome [relatedResourceNotFound dataPointer]
+      |> TaskResult.requireSome [relatedResourceNotFound identifier.``type`` identifier.id dataPointer]
       |> TaskResult.bind (fun r ->
           entitySetter setCtx r entity
           |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
       )
 
 
-  member this.Optional =
-    { new RequestGetter<'ctx, 'relatedId option> with
+  member private this.OptionalWithIdentifier =
+    { new RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
         member _.Get(ctx, req, includedTypeAndId) =
@@ -226,10 +226,20 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                           parseId ctx identifier.id
                           // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                           // this just means that the resource does not exist, which is a more helpful result.
-                          |> TaskResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + "/" + this.name + "/data")])
-                          |> TaskResult.map Some
+                          |> TaskResult.mapError (fun _ -> [relatedResourceNotFound identifier.``type`` identifier.id (relsPointer + "/" + this.name + "/data")])
+                          |> TaskResult.map (fun x -> Some (x, identifier))
               | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Task.result
+    }
+
+
+  member this.Optional =
+    { new RequestGetter<'ctx, 'relatedId option> with
+        member _.FieldName = this.OptionalWithIdentifier.FieldName
+        member _.QueryParamName = this.OptionalWithIdentifier.QueryParamName
+        member _.Get(ctx, req, includedTypeAndId) =
+          this.OptionalWithIdentifier.Get(ctx, req, includedTypeAndId)
+          |> AsyncResult.map (Option.map fst)
     }
 
 
@@ -295,9 +305,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                               parseId ctx identifier.id
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
-                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
+                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound identifier.``type`` identifier.id ("/data/relationships/" + this.name + "/data")])
                               |> TaskResult.bind (fun domain ->
-                                  set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
+                                  set ctx setCtx ("/data/relationships/" + this.name + "/data") (domain, identifier) (unbox<'entity> entity))
                               |> TaskResult.map box<'entity>
             | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
@@ -324,7 +334,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
-    ToOneRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.Optional, getRelated)
+    ToOneRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.OptionalWithIdentifier, getRelated)
 
 
   member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -456,9 +466,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                     parseId ctx id.id
                                     // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                     // this just means that the resource does not exist, which is a more helpful result.
-                                    |> TaskResult.mapError (fun _ -> [relatedResourceNotFound "/data"])
+                                    |> TaskResult.mapError (fun _ -> [relatedResourceNotFound id.``type`` id.id "/data"])
                                     |> TaskResult.bind (fun domain ->
-                                        set ctx setCtx "/data" domain (unbox<'entity> entity1)
+                                        set ctx setCtx "/data" (domain, id) (unbox<'entity> entity1)
                                     )
                                   match entity2Res with
                                   | Error errs -> return! handleErrors errs next httpCtx
@@ -578,13 +588,13 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId>) =
     this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-  member private this.SetTaskRes (set: Func<'ctx, 'setCtx, Pointer, 'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
+  member private this.SetTaskRes (set: Func<'ctx, 'setCtx, Pointer, 'relatedId * ResourceIdentifier, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
-    { this with set = Some (fun ctx setCtx ptr relId e -> set.Invoke(ctx, setCtx, ptr, relId, e)) }
+    { this with set = Some (fun ctx setCtx ptr relIdWithIdentifier e -> set.Invoke(ctx, setCtx, ptr, relIdWithIdentifier, e)) }
 
   member this.SetTaskRes (set: Func<'setCtx, 'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
-    this.SetTaskRes(fun _ ctx pointer relId e -> set.Invoke(ctx, relId, e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+    this.SetTaskRes(fun _ ctx pointer relIdWithIdentifier e -> set.Invoke(ctx, fst relIdWithIdentifier, e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.SetTaskRes (set: Func<'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
     this.SetTaskRes(fun _ id e -> set.Invoke(id, e))
@@ -957,11 +967,11 @@ type internal ToOneNullableRelationship<'ctx> =
 
 type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
-  idGetter: RequestGetter<'ctx, 'relatedId option option>
+  idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option option>
   getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
 } with
 
-  static member internal Create(name, idGetter: RequestGetter<'ctx, 'relatedId option option>, getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) : ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create(name, idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option option>, getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) : ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       idGetter = idGetter
@@ -976,10 +986,10 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
           this.idGetter.Get(ctx, req, includedTypeAndId)
           |> TaskResult.bind (  // ID did not fail parsing, but may be missing or null
               Option.traverseTaskResult (  // ID was present, but may be null
-                Option.traverseTaskResult (  // ID was not null
-                  this.getRelated.GetById ctx
-                  >> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/relationships/" + this.name + "/data")))
-                  >> TaskResult.requireSome [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")]
+                Option.traverseTaskResult (fun (resId, identifier) ->  // ID was not null
+                  this.getRelated.GetById ctx resId
+                  |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/relationships/" + this.name + "/data")))
+                  |> TaskResult.requireSome [relatedResourceNotFound identifier.``type`` identifier.id ("/data/relationships/" + this.name + "/data")]
                 )
               )
           )
@@ -1001,7 +1011,7 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
 
   member this.AsNonNullable =
     let nonNullIdGetter =
-      { new RequestGetter<'ctx, 'relatedId option> with
+      { new RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option> with
           member _.FieldName = Some this.name
           member _.QueryParamName = None
           member _.Get(ctx, req, includedTypeAndId) =
@@ -1084,7 +1094,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Task<'relatedEntity option Skippable>) option
-  set: ('ctx -> 'setCtx -> Pointer -> 'relatedId option -> 'entity -> Task<Result<'entity, Error list>>) option
+  set: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) option -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier option Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
@@ -1120,12 +1130,12 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     }
 
   member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
-    fun ctx setCtx (dataPointer: Pointer) relatedId entity ->
-      relatedId
-      |> Option.traverseTaskResult (
-          getRelated.GetById ctx
-          >> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
-          >> TaskResult.requireSome [relatedResourceNotFound dataPointer]
+    fun ctx setCtx (dataPointer: Pointer) relatedIdWithIdentifier entity ->
+      relatedIdWithIdentifier
+      |> Option.traverseTaskResult (fun (relId, identifier: ResourceIdentifier) ->
+          getRelated.GetById ctx relId
+          |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
+          |> TaskResult.requireSome [relatedResourceNotFound identifier.``type`` identifier.id dataPointer]
       )
       |> TaskResult.bind (fun r ->
         entitySetter setCtx r entity
@@ -1133,8 +1143,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
       )
 
 
-  member this.Optional =
-    { new RequestGetter<'ctx, 'relatedId option option> with
+  member private this.OptionalWithIdentifier =
+    { new RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
         member _.Get(ctx, req, includedTypeAndId) =
@@ -1159,13 +1169,24 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                               Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Task.result
                           | true, parseId ->
                               parseId ctx id.id
+                              |> TaskResult.map (fun x -> x, id)
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
-                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data")])
+                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound id.``type`` id.id (relsPointer + this.name + "/data")])
                       )
                       |> TaskResult.map Some
               | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Task.result
+    }
+
+
+  member this.Optional =
+    { new RequestGetter<'ctx, 'relatedId option option> with
+        member _.FieldName = this.OptionalWithIdentifier.FieldName
+        member _.QueryParamName = this.OptionalWithIdentifier.QueryParamName
+        member _.Get(ctx, req, includedTypeAndId) =
+          this.OptionalWithIdentifier.Get(ctx, req, includedTypeAndId)
+          |> TaskResult.map (Option.map (Option.map fst))
     }
 
 
@@ -1231,12 +1252,13 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                 Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Task.result
                             | true, parseId ->
                               parseId ctx id.id
+                              |> TaskResult.map (fun x -> x, id)
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
-                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data")])
+                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound id.``type`` id.id ("/data/relationships/" + this.name + "/data")])
                         )
-                        |> TaskResult.bind (fun domain ->
-                            set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity))
+                        |> TaskResult.bind (fun resIdWithIdentifier ->
+                            set ctx setCtx ("/data/relationships/" + this.name + "/data") resIdWithIdentifier (unbox<'entity> entity))
                         |> TaskResult.map box<'entity>
             | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
         | _ -> return Ok entity  // no relationships provided
@@ -1263,7 +1285,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
-    ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.Optional, getRelated)
+    ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.OptionalWithIdentifier, getRelated)
 
 
   member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -1399,11 +1421,12 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                         Error [relInvalidTypeSelf id.``type`` allowedTypes "/data/type"] |> Task.result
                                     | true, parseId ->
                                         parseId ctx id.id
+                                        |> TaskResult.map (fun x -> x, id)
                                         // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                         // this just means that the resource does not exist, which is a more helpful result.
-                                        |> TaskResult.mapError (fun _ -> [relatedResourceNotFound "/data"])
+                                        |> TaskResult.mapError (fun _ -> [relatedResourceNotFound id.``type`` id.id "/data"])
                                 )
-                                |> TaskResult.bind (fun domain -> set ctx setCtx "/data" domain (unbox<'entity> entity1))
+                                |> TaskResult.bind (fun relIdWithIdentifier -> set ctx setCtx "/data" relIdWithIdentifier (unbox<'entity> entity1))
                               match entity2Res with
                               | Error errs -> return! handleErrors errs next httpCtx
                               | Ok entity2 ->
@@ -1526,13 +1549,13 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId option>) =
     this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-  member private this.SetTaskRes (set: Func<'ctx, 'setCtx, Pointer, 'relatedId option, 'entity, Task<Result<'entity, Error list>>>) =
+  member private this.SetTaskRes (set: Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) option, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
     { this with set = Some (fun ctx setCtx ptr relId e -> set.Invoke(ctx, setCtx, ptr, relId, e)) }
 
   member this.SetTaskRes (set: Func<'setCtx, 'relatedId option, 'entity, Task<Result<'entity, Error list>>>) =
-    this.SetTaskRes(fun _ ctx pointer relId e -> set.Invoke(ctx, relId, e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+    this.SetTaskRes(fun _ ctx pointer relIdWithIdentifier e -> set.Invoke(ctx, (relIdWithIdentifier |> Option.map fst), e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.SetTaskRes (set: Func<'relatedId option, 'entity, Task<Result<'entity, Error list>>>) =
     this.SetTaskRes(fun _ id e -> set.Invoke(id, e))
@@ -1986,11 +2009,11 @@ type internal ToManyRelationship<'ctx> =
 
 type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
   name: string
-  idGetter: RequestGetter<'ctx, 'relatedId list option>
+  idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) list option>
   getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
 } with
 
-  static member internal Create(name, idGetter: RequestGetter<'ctx, 'relatedId list option>, getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) : ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
+  static member internal Create(name, idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) list option>, getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>) : ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
     {
       name = name
       idGetter = idGetter
@@ -2006,10 +2029,10 @@ type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> 
           |> TaskResult.bind (
               Option.traverseTaskResult (
                 List.indexed
-                >> List.traverseTaskResultA (fun (i, id) ->
-                    this.getRelated.GetById ctx id
+                >> List.traverseTaskResultA (fun (i, (resId, identifier)) ->
+                    this.getRelated.GetById ctx resId
                     |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/relationships/" + this.name + "/data/" + string i)))
-                    |> TaskResult.requireSome [relatedResourceNotFound ("/data/relationships/" + this.name + "/data/" + string i)]
+                    |> TaskResult.requireSome [relatedResourceNotFound identifier.``type`` identifier.id ("/data/relationships/" + this.name + "/data/" + string i)]
                 )
               )
           )
@@ -2099,9 +2122,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
   idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
   get: ('ctx -> 'entity -> Task<'relatedEntity list Skippable>) option
-  setAll: ('ctx -> 'setCtx -> Pointer -> 'relatedId list -> 'entity -> Task<Result<'entity, Error list>>) option
-  add: ('ctx -> 'setCtx -> Pointer -> 'relatedId list -> 'entity -> Task<Result<'entity, Error list>>) option
-  remove: ('ctx -> 'setCtx -> Pointer -> 'relatedId list -> 'entity -> Task<Result<'entity, Error list>>) option
+  setAll: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
+  add: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
+  remove: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier list Skippable>
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
@@ -2147,9 +2170,12 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     }
 
   member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) (entitySetter: 'setCtx -> 'lookupType list -> 'entity -> Task<Result<'entity, Error list>>) =
-    fun ctx setCtx (dataPointer: Pointer) (relatedIds: 'relatedId list) entity ->
-      relatedIds
-      |> Seq.map (getRelated.GetById ctx)
+    fun ctx setCtx (dataPointer: Pointer) (relatedIdsWithIdentifiers: ('relatedId * ResourceIdentifier) list) entity ->
+      relatedIdsWithIdentifiers
+      |> Seq.map (fun (relId, identifier) ->
+          getRelated.GetById ctx relId
+          |> TaskResult.map (fun resOpt -> resOpt, identifier)
+      )
       |> Task.WhenAll
       |> Task.map (
           Seq.indexed
@@ -2157,7 +2183,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
           >> List.traverseResultA (fun (i, t) ->
               t
               |> Result.mapError (List.map (Error.setSourcePointer (dataPointer + "/" + string i)))
-              |> Result.bind (Result.requireSome [relatedResourceNotFound (dataPointer + "/" + string i)])
+              |> Result.bind (fun (resOpt, identifier) ->
+                  resOpt
+                  |> Result.requireSome [relatedResourceNotFound identifier.``type`` identifier.id (dataPointer + "/" + string i)]
+              )
           )
       )
       |> TaskResult.bind (fun r ->
@@ -2166,8 +2195,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
       )
 
 
-  member this.Optional =
-    { new RequestGetter<'ctx, 'relatedId list option> with
+  member private this.OptionalWithIdentifier =
+    { new RequestGetter<'ctx, ('relatedId * ResourceIdentifier) list option> with
         member _.FieldName = Some this.name
         member _.QueryParamName = None
         member _.Get(ctx, req, includedTypeAndId) =
@@ -2193,13 +2222,24 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                               Error [relInvalidType this.name identifier.``type`` allowedTypes pointer] |> Task.result
                           | true, parseId ->
                               parseId ctx identifier.id
+                              |> TaskResult.map (fun x -> x, identifier)
                               // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                               // this just means that the resource does not exist, which is a more helpful result.
-                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound (relsPointer + this.name + "/data/" + string i)])
+                              |> TaskResult.mapError (fun _ -> [relatedResourceNotFound identifier.``type`` identifier.id (relsPointer + this.name + "/data/" + string i)])
                       )
                       |> TaskResult.map Some
               | true, x -> failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
               | false, _ -> None |> Ok |> Task.result
+    }
+
+
+  member this.Optional =
+    { new RequestGetter<'ctx, 'relatedId list option> with
+        member _.FieldName = this.OptionalWithIdentifier.FieldName
+        member _.QueryParamName = this.OptionalWithIdentifier.QueryParamName
+        member _.Get(ctx, req, includedTypeAndId) =
+          this.OptionalWithIdentifier.Get(ctx, req, includedTypeAndId)
+          |> TaskResult.map (Option.map (List.map fst))
     }
 
   interface OptionalRequestGetter<'ctx, 'relatedId list> with
@@ -2269,12 +2309,13 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                 Error [relInvalidType this.name id.``type`` allowedTypes pointer] |> Task.result
                             | true, parseId ->
                                 parseId ctx id.id
+                                |> TaskResult.map (fun x -> x, id)
                                 // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                 // this just means that the resource does not exist, which is a more helpful result.
-                                |> TaskResult.mapError (fun _ -> [relatedResourceNotFound ("/data/relationships/" + this.name + "/data/" + string i)])
+                                |> TaskResult.mapError (fun _ -> [relatedResourceNotFound id.``type`` id.id ("/data/relationships/" + this.name + "/data/" + string i)])
                         )
-                        |> TaskResult.bind (fun domain ->
-                            set ctx setCtx ("/data/relationships/" + this.name + "/data") domain (unbox<'entity> entity)
+                        |> TaskResult.bind (fun relIdWithIdentifier ->
+                            set ctx setCtx ("/data/relationships/" + this.name + "/data") relIdWithIdentifier (unbox<'entity> entity)
                         )
                         |> TaskResult.map box<'entity>
             | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
@@ -2302,7 +2343,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
 
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
-    ToManyRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.Optional, getRelated)
+    ToManyRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create(this.name, this.OptionalWithIdentifier, getRelated)
 
 
   member this.Included (getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -2369,9 +2410,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                       Error [relInvalidTypeSelf id.``type`` allowedTypes pointer] |> Task.result
                                   | true, parseId ->
                                       parseId ctx id.id
+                                      |> TaskResult.map (fun x -> x, id)
                                       // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                       // this just means that the resource does not exist, which is a more helpful result.
-                                      |> TaskResult.mapError (fun _ -> [relatedResourceNotFound ("/data/" + string i)])
+                                      |> TaskResult.mapError (fun _ -> [relatedResourceNotFound id.``type`` id.id ("/data/" + string i)])
                               )
                               |> TaskResult.bind (fun domain -> f ctx setCtx "/data" (Array.toList domain) (unbox<'entity> entity1))
                             match entity2Res with
@@ -2585,13 +2627,13 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId list>) =
     this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-  member private this.SetAllTaskRes (setAll: Func<'ctx, 'setCtx, Pointer, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
+  member private this.SetAllTaskRes (setAll: Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
     { this with setAll = Some (fun ctx setCtx ptr relIds e -> setAll.Invoke(ctx, setCtx, ptr, relIds, e)) }
 
   member this.SetAllTaskRes (setAll: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
-    this.SetAllTaskRes(fun _ ctx pointer relIds e -> setAll.Invoke(ctx, relIds, e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+    this.SetAllTaskRes(fun _ ctx pointer relIds e -> setAll.Invoke(ctx, (relIds |> List.map fst), e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.SetAllTaskRes (setAll: Func<'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
     this.SetAllTaskRes(fun _ ids e -> setAll.Invoke(ids, e))
@@ -2662,7 +2704,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
   member this.SetAll (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, 'entity>) =
     this.SetAllTaskRes(getRelated, TaskResult.liftFunc2 setAll)
 
-  member private this.AddTaskRes (add: Func<'ctx, 'setCtx, Pointer, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
+  member private this.AddTaskRes (add: Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwith "Can only add setter if the polymorphic resource definition contains ID parsers."
     if this.get.IsNone then
@@ -2670,7 +2712,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     { this with add = Some (fun ctx setCtx ptr relIds e -> add.Invoke(ctx, setCtx, ptr, relIds, e)) }
 
   member this.AddTaskRes (add: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
-    this.AddTaskRes(fun _ ctx pointer relIds e -> add.Invoke(ctx, relIds, e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+    this.AddTaskRes(fun _ ctx pointer relIds e -> add.Invoke(ctx, (relIds |> List.map fst), e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.AddTaskRes (add: Func<'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
     this.AddTaskRes(fun _ ids e -> add.Invoke(ids, e))
@@ -2741,7 +2783,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
   member this.Add (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, 'entity>) =
     this.AddTaskRes(getRelated, TaskResult.liftFunc2 add)
 
-  member private this.RemoveTaskRes (remove: Func<'ctx, 'setCtx, Pointer, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
+  member private this.RemoveTaskRes (remove: Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
       failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
     if this.get.IsNone then
@@ -2749,7 +2791,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     { this with remove = Some (fun ctx setCtx ptr relIds e -> remove.Invoke(ctx, setCtx, ptr, relIds, e)) }
 
   member this.RemoveTaskRes (remove: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
-    this.RemoveTaskRes(fun _ ctx pointer relIds e -> remove.Invoke(ctx, relIds, e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+    this.RemoveTaskRes(fun _ ctx pointer relIds e -> remove.Invoke(ctx, (relIds |> List.map fst), e) |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
 
   member this.RemoveTaskRes (remove: Func<'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
     this.RemoveTaskRes(fun _ ids e -> remove.Invoke(ids, e))

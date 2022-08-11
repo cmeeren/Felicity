@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* The error `detail` returned when a request body contains a relationship with a resource identifier pointing to a non-existent resource now contains the resource `type` and `id`. 
+
 ### 0.20.2 (2022-06-21)
 
 * Updated FSharp.SystemTextJson from 0.18.24 to 0.19.13

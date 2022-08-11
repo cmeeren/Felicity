@@ -514,7 +514,7 @@ let tests1 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/relationships/child/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -538,7 +538,7 @@ let tests1 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/relationships/child/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -586,7 +586,7 @@ let tests1 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/relationships/otherChild/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1109,7 +1109,7 @@ let tests2 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1129,7 +1129,7 @@ let tests2 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1169,7 +1169,7 @@ let tests2 =
       response |> testStatusCode 404
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "404" @>
-      test <@ json |> getPath "errors[0].detail" = "The related resource does not exist" @>
+      test <@ json |> getPath "errors[0].detail" = "The related resource with type 'child2' and ID 'c2' does not exist" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }

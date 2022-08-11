@@ -728,12 +728,12 @@
     |> Error.setTitle "Relationship read-only"
     |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' is read-only"
 
-  let relatedResourceNotFound pointer =
+  let relatedResourceNotFound resType resId pointer =
     // "A server MUST return 404 Not Found when processing a request that references a
     // related resource that does not exist."
     Error.create 404
     |> Error.setTitle "Resource not found"
-    |> Error.setDetail "The related resource does not exist"
+    |> Error.setDetail $"The related resource with type '%s{resType}' and ID '%s{resId}' does not exist"
     |> Error.setSourcePointer pointer
 
   let relModifySelfWhileSkip () =
