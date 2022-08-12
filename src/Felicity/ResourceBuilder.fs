@@ -20,8 +20,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
   let shouldIncludeRelationship relName =
     req.Includes |> List.exists (fun path ->
-      path.Length >= currentIncludePath.Length + 1
-      && path |> List.take (currentIncludePath.Length + 1) = currentIncludePath @ [relName]
+      path.Length > currentIncludePath.Length && path[currentIncludePath.Length] = relName
     )
 
   let resourceModule: Type =
