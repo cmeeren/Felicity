@@ -54,6 +54,7 @@
     <Compile Include="Query.fs" />
     <Compile Include="Define.fs" />
     <Compile Include="ResourceModule.fs" />
+    <Compile Include="FieldUsageTracker.fs" />
     <Compile Include="ResourceBuilder.fs" />
     <Compile Include="RoutingOperations.fs" />
     <Compile Include="Routing.fs" />

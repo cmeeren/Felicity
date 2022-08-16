@@ -6,6 +6,7 @@ open System.Runtime.InteropServices
 open System.Text.Json.Serialization
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Net.Http.Headers
 open Giraffe
 open Errors
@@ -184,9 +185,11 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
               let! doc = resp.Write httpCtx ctx req (resDef, entity)
+              let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([resDef.TypeName], ctx, req)
               let handler =
                 setStatusCode 200
                 >=> this.modifyResponse mappedCtx (unbox<'entity> entity)
+                >=> fieldTrackerHandler
                 >=> jsonApiWithETag<'originalCtx> doc
               return! handler next httpCtx
         }
@@ -233,9 +236,11 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                   | Some _, false -> return! handleErrors [sortNotSupported ()] next httpCtx
                   | _ -> 
                       let! doc = resp.WriteList httpCtx ctx req (entities |> List.map (fun e -> resDef, e))
+                      let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([resDef.TypeName], ctx, req)
                       let handler =
                         setStatusCode 200
                         >=> this.modifyResponse mappedCtx entities
+                        >=> fieldTrackerHandler
                         >=> jsonApiWithETag<'originalCtx> doc
                       return! handler next httpCtx
         }
@@ -251,7 +256,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
 
 type internal PolymorphicGetCollectionOperation<'ctx> =
-  abstract Run: 'ctx -> Request -> ResponseBuilder<'ctx> -> HttpHandler
+  abstract Run: ResourceTypeName list -> 'ctx -> Request -> ResponseBuilder<'ctx> -> HttpHandler
 
 
 type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
@@ -259,6 +264,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
   getCollection: 'originalCtx -> 'ctx -> Request -> Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
   getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
   modifyResponse: 'ctx -> 'entity list -> HttpHandler
+  polymorphicResourceTypesForFieldTracking: ResourceTypeName list
 } with
 
   static member internal Create(mapCtx, getCollection, getPolyBuilder) : PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> =
@@ -267,10 +273,11 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
       getCollection = getCollection
       getPolyBuilder = getPolyBuilder
       modifyResponse = fun _ _ -> fun next ctx -> next ctx
+      polymorphicResourceTypesForFieldTracking = []
     }
 
   interface PolymorphicGetCollectionOperation<'originalCtx> with
-    member this.Run ctx req resp =
+    member this.Run collectionResTypes ctx req resp =
       fun next httpCtx ->
         task {
           match! this.mapCtx ctx with
@@ -283,9 +290,16 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
                   | Some _, false -> return! handleErrors [sortNotSupported ()] next httpCtx
                   | _ -> 
                       let! doc = resp.WriteList httpCtx ctx req (entities |> List.map this.getPolyBuilder |> List.map (fun b -> b.resourceDef, b.entity))
+                      let collectionResTypes =
+                        if this.polymorphicResourceTypesForFieldTracking.IsEmpty then
+                          collectionResTypes
+                        else
+                          this.polymorphicResourceTypesForFieldTracking
+                      let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields(collectionResTypes, ctx, req)
                       let handler =
                         setStatusCode 200
                         >=> this.modifyResponse mappedCtx entities
+                        >=> fieldTrackerHandler
                         >=> jsonApiWithETag<'originalCtx> doc
                       return! handler next httpCtx
         }
@@ -298,6 +312,13 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
 
   member this.ModifyResponse(handler: HttpHandler) =
     this.ModifyResponse(fun _ _ -> handler)
+
+  /// If you use field tracking (i.e., have called TrackFieldUsage when configuring Felicity) and at least one of the
+  /// resource types that can be returned by this collection belongs to another collection (i.e., does not have the same
+  /// collection name as the resource definition this operation belongs to), call this method for each resource type
+  /// that can be returned by this operation. Otherwise, field tracking won't work properly for this operation.
+  member this.RegisterResourceType(resourceDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>) =
+    { this with polymorphicResourceTypesForFieldTracking = resourceDef.name :: this.polymorphicResourceTypesForFieldTracking |> List.distinct }
 
 
 type internal PostOperation<'ctx> =
@@ -348,7 +369,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
               match validatePreconditions () with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok () ->
-                  match! this.create ctx mappedCtx req |> TaskResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> TaskResult.map (fun e -> fieldNames, e)) with
+                  match! this.create ctx mappedCtx req |> TaskResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> TaskResult.map (fun (e, fns) -> Set.union fns fieldNames, e)) with
                   | Error errors -> return! handleErrors errors next httpCtx
                   | Ok (ns, entity0) ->
                       match req.Document.Value with
@@ -359,9 +380,11 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                           | Error errors -> return! handleErrors errors next httpCtx
                           | Ok entity1 ->
                               if this.return202Accepted then
+                                let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, ns))
                                 let handler =
                                   setStatusCode 202
                                   >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
+                                  >=> fieldTrackerHandler
                                 return! handler next httpCtx
                               else
                                 let! doc = resp.Write httpCtx ctx req (rDef, entity1)
@@ -372,10 +395,12 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                                       | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
                                       | _ -> fun next ctx -> next ctx
                                   | _ -> fun next ctx -> next ctx
+                                let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, ns))
                                 let handler =
                                   setStatusCode 201
                                   >=> setLocationHeader
                                   >=> this.modifyResponse mappedCtx entity1
+                                  >=> fieldTrackerHandler
                                   >=> jsonApiWithETag<'originalCtx> doc
                                 return! handler next httpCtx
         }
@@ -488,7 +513,10 @@ type PostCustomHelper<'ctx, 'entity> internal
       patcher: BoxedPatcher<'ctx>,
       builder: ResponseBuilder<'ctx> ) =
 
-  member _.ValidateRequest (?parser: RequestParser<'originalCtx, 'a>) =
+  member val internal ConsumedFieldNames : Set<ConsumedFieldName> = Set.empty with get, set
+
+  member this.ValidateRequest (?parser: RequestParser<'originalCtx, 'a>) =
+    parser |> Option.iter (fun p -> this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields)
     let idParsed =
       parser
       |> Option.map (fun p -> p.consumedFields)
@@ -498,21 +526,29 @@ type PostCustomHelper<'ctx, 'entity> internal
     | Ok (Some { data = Some { id = Include _ } }) when not idParsed -> Error [collPostClientIdNotAllowed collName rDef.TypeName]
     | _ -> Ok ()
 
-  member _.RunSettersTask (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
+  member this.RunSettersTask (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
+    parser |> Option.iter (fun p -> this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields)
     patcher
       ctx
       req
       (parser |> Option.map (fun p -> p.consumedFields) |> Option.defaultValue Set.empty)
       (box entity)
-    |> Task.map (Result.map unbox<'entity>)
+    |> Task.map (Result.map (fun (e, setFields) ->
+        this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames setFields
+        unbox<'entity> e)
+    )
 
   member this.RunSettersAsync (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
     this.RunSettersTask(entity, ?parser = parser) |> Task.toAsync
 
-  member _.Return202Accepted () : HttpHandler =
-    setStatusCode 202
+  member this.Return202Accepted () : HttpHandler =
+    fun next httpCtx ->
+      task {
+        let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, this.ConsumedFieldNames))
+        return! (setStatusCode 202 >=> fieldTrackerHandler) next httpCtx
+      }
 
-  member _.ReturnCreatedEntity (entity: 'entity) : HttpHandler =
+  member this.ReturnCreatedEntity (entity: 'entity) : HttpHandler =
     fun next httpCtx ->
       task {
         let! doc = builder.Write httpCtx ctx req (rDef, entity)
@@ -523,9 +559,11 @@ type PostCustomHelper<'ctx, 'entity> internal
               | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
               | _ -> fun next ctx -> next ctx
           | _ -> fun next ctx -> next ctx
+        let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, this.ConsumedFieldNames))
         let handler =
           setStatusCode 201
           >=> setLocationHeader
+          >=> fieldTrackerHandler
           >=> jsonApiWithETag<'ctx> doc
         return! handler next httpCtx
       }
@@ -653,22 +691,33 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                           match! this.customSetter ctx mappedCtx req entity1 with
                           | Error errors -> return! handleErrors errors next httpCtx
                           | Ok (fns, _, entity2) ->
+                              let setFns =
+                                fns
+                                |> Set.filter (fun fn ->
+                                    match req.Document.Value with
+                                    | Ok (Some { data = Some { attributes = Include attrVals } }) -> attrVals.ContainsKey fn
+                                    | _ -> false
+                                  )
                               match! patch ctx req fns entity2 with
                               | Error errors -> return! handleErrors errors next httpCtx
-                              | Ok entity3 ->
+                              | Ok (entity3, patchedFns) ->
                                   match! afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity3) with
                                   | Error errors -> return! handleErrors errors next httpCtx
                                   | Ok entity4 ->
                                       if this.return202Accepted then
+                                        let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, Set.union setFns patchedFns))
                                         let handler =
                                           setStatusCode 202
                                           >=> this.modifyResponse mappedCtx (unbox<'entity> entity4)
+                                          >=> fieldTrackerHandler
                                         return! handler next httpCtx
                                       else
                                         let! doc = resp.Write httpCtx ctx req (rDef, entity4)
+                                        let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, Set.union setFns patchedFns))
                                         let handler =
                                           setStatusCode 200
                                           >=> this.modifyResponse mappedCtx entity4
+                                          >=> fieldTrackerHandler
                                           >=> jsonApiWithETag<'originalCtx> doc
                                         return! handler next httpCtx
         }
@@ -1432,7 +1481,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
                 match f1, f2 with
                 | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
                 | Error errs, Ok _ | Ok _ , Error errs-> return Error errs
-                | Ok None, Ok None -> return (Ok entity)
+                | Ok None, Ok None -> return (Ok (entity, false))
                 | Ok (Some _), Ok None ->
                     return Error [set2OneFieldMissing fn1 fn2]
                 | Ok None, Ok (Some _) ->
@@ -1440,7 +1489,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
                 | Ok (Some val1), Ok (Some val2) ->
                     match! mapCtx ctx (unbox<'entity> entity) with
                     | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx (val1, val2) (unbox<'entity> entity) |> TaskResult.map box
+                    | Ok ctx -> return! set ctx (val1, val2) (unbox<'entity> entity) |> TaskResult.map (fun e -> box e, true)
               }
         }
     | _ -> failwith "Can only be called with fields, not query parameters or headers"
@@ -1474,7 +1523,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
                 match f1, f2 with
                 | Error errs1, Error errs2 -> return Error (errs1 @ errs2)
                 | Error errs, Ok _ | Ok _ , Error errs-> return Error errs
-                | Ok None, Ok None -> return (Ok entity)
+                | Ok None, Ok None -> return (Ok (entity, false))
                 | Ok (Some _), Ok None ->
                     return Error [set2OneFieldMissing fn1 fn2]
                 | Ok None, Ok (Some _) ->
@@ -1485,11 +1534,11 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id> internal 
                 | Ok (Some (Some val1)), Ok (Some (Some val2)) ->
                     match! mapCtx ctx (unbox<'entity> entity) with
                     | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx (Some (val1, val2)) (unbox<'entity> entity) |> TaskResult.map box
+                    | Ok ctx -> return! set ctx (Some (val1, val2)) (unbox<'entity> entity) |> TaskResult.map (fun e -> box e, true)
                 | Ok (Some None), Ok (Some None) ->
                     match! mapCtx ctx (unbox<'entity> entity) with
                     | Error errs -> return Error errs
-                    | Ok ctx -> return! set ctx None (unbox<'entity> entity) |> TaskResult.map box
+                    | Ok ctx -> return! set ctx None (unbox<'entity> entity) |> TaskResult.map (fun e -> box e, true)
               }
         }
     | _ -> failwith "Can only be called with fields, not query parameters or headers"

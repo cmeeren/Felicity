@@ -1,11 +1,13 @@
 ﻿namespace Felicity
 
 open System
+open System.Collections.Generic
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Text.Json.Serialization
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Giraffe
 open Errors
@@ -34,7 +36,7 @@ type internal RelationshipHandlers<'ctx> =
   abstract IsSettable: bool
   abstract IsSettableButNotGettable: bool
   abstract IsSettableWithoutPersist: bool
-  abstract GetRelated: ('ctx -> Request -> BoxedEntity -> ResponseBuilder<'ctx> -> HttpHandler) option
+  abstract GetRelated: ('ctx -> Request -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
   abstract GetSelf: ('ctx -> Request -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
   abstract PostSelf: ('ctx -> Request -> Preconditions<'ctx> -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
   abstract PatchSelf: ('ctx -> Request -> ParentResourceTypeName -> Preconditions<'ctx> -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
@@ -45,6 +47,7 @@ type internal ToOneRelationship<'ctx> =
   abstract Name: RelationshipName
   abstract SelfLink: bool
   abstract RelatedLink: bool
+  abstract AllowedTypes: ICollection<ResourceTypeName> option
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<ResourceDefinition<'ctx> * BoxedEntity>>) option
   abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier>>
 
@@ -278,11 +281,11 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         | Error errs -> return Error errs
         | Ok (Some { data = Some { relationships = Include rels } }) ->
             match this.set, rels.TryGetValue this.name with
-            | _, (false, _) -> return Ok entity // not provided in request
+            | _, (false, _) -> return Ok (entity, false) // not provided in request
             | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
-                  return Ok entity
+                  return Ok (entity, false)
                 else
                   return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, (true, (:? ToOne as rel)) ->
@@ -308,9 +311,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                               |> TaskResult.mapError (fun _ -> [relatedResourceNotFound identifier.``type`` identifier.id ("/data/relationships/" + this.name + "/data")])
                               |> TaskResult.bind (fun domain ->
                                   set ctx setCtx ("/data/relationships/" + this.name + "/data") (domain, identifier) (unbox<'entity> entity))
-                              |> TaskResult.map box<'entity>
+                              |> TaskResult.map (fun e -> box<'entity> e, true)
             | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
-        | _ -> return Ok entity  // no relationships provided
+        | _ -> return Ok (entity, false)  // no relationships provided
       }
 
 
@@ -318,6 +321,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     member this.Name = this.name
     member this.SelfLink = this.get.IsSome
     member this.RelatedLink = this.get.IsSome
+    member this.AllowedTypes = this.idParsers |> Option.map Map.keys
     member this.BoxedGetRelated =
       this.get |> Option.map (fun getRelated ->
         let resolveEntity =
@@ -381,7 +385,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
-        fun ctx req entity resp ->
+        fun ctx req entity resDef resp ->
           fun next httpCtx ->
             task {
               let entity = unbox<'entity> entity
@@ -390,9 +394,20 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
               | Include relatedEntity ->
                   let b = resolveEntity relatedEntity
                   let! doc = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
+
+                  let! fieldTrackerHandler =
+                    match this.idParsers with
+                    | None ->
+                        logFieldTrackerPolymorphicRelTraversalWarning httpCtx resDef.TypeName this.name
+                        Task.result (fun next ctx -> next ctx)
+                    | Some parsers ->
+                        let primaryResourceTypes = parsers.Keys |> Seq.toList
+                        httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>().TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
+
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetRelatedResponse ctx entity relatedEntity
+                    >=> fieldTrackerHandler
                     >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }
@@ -419,9 +434,21 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                     data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
                     included = included
                   }
+
+                  let! fieldTrackerHandler =
+                    httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>()
+                      .TrackFields(
+                        [resDef.TypeName],
+                        ctx,
+                        req,
+                        (resDef.TypeName, this.name),
+                        this.name
+                      )
+
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetSelfResponse ctx entity relatedEntity
+                    >=> fieldTrackerHandler
                     >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }
@@ -497,9 +524,21 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                                   data = Some { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
                                                   included = included
                                                 }
+
+                                                let! fieldTrackerHandler =
+                                                  httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>()
+                                                    .TrackFields(
+                                                      [resDef.TypeName],
+                                                      ctx,
+                                                      req,
+                                                      (resDef.TypeName, this.name),
+                                                      this.name
+                                                    )
+
                                                 let handler =
                                                   setStatusCode 200
                                                   >=> this.modifyPatchSelfOkResponse setCtx (unbox<'entity> entity3) relatedEntity
+                                                  >=> fieldTrackerHandler
                                                   >=> jsonApiWithETag<'ctx> doc
                                                 return! handler next httpCtx
             }
@@ -960,6 +999,7 @@ type internal ToOneNullableRelationship<'ctx> =
   abstract Name: RelationshipName
   abstract SelfLink: bool
   abstract RelatedLink: bool
+  abstract AllowedTypes: ICollection<ResourceTypeName> option
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) option>>) option
   abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier option>>
 
@@ -1225,11 +1265,11 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         | Error errs -> return Error errs
         | Ok (Some { data = Some { relationships = Include rels } }) ->
             match this.set, rels.TryGetValue this.name with
-            | _, (false, _) -> return Ok entity // not provided in request
+            | _, (false, _) -> return Ok (entity, false) // not provided in request
             | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
-                  return Ok entity
+                  return Ok (entity, false)
                 else
                   return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
             | Some set, (true, (:? ToOneNullable as rel)) ->
@@ -1259,9 +1299,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                         )
                         |> TaskResult.bind (fun resIdWithIdentifier ->
                             set ctx setCtx ("/data/relationships/" + this.name + "/data") resIdWithIdentifier (unbox<'entity> entity))
-                        |> TaskResult.map box<'entity>
+                        |> TaskResult.map (fun e -> box<'entity> e, true)
             | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
-        | _ -> return Ok entity  // no relationships provided
+        | _ -> return Ok (entity, false)  // no relationships provided
       }
 
 
@@ -1269,6 +1309,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.Name = this.name
     member this.SelfLink = this.get.IsSome
     member this.RelatedLink = this.get.IsSome
+    member this.AllowedTypes = this.idParsers |> Option.map Map.keys
     member this.BoxedGetRelated =
       this.get |> Option.map (fun getRelated ->
         let resolveEntity =
@@ -1332,7 +1373,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
-        fun ctx req entity resp ->
+        fun ctx req entity resDef resp ->
           fun next httpCtx ->
             task {
               let entity = unbox<'entity> entity
@@ -1343,9 +1384,20 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     let b = resolveEntity e
                     b.resourceDef, b.entity
                   ))
+
+                  let! fieldTrackerHandler =
+                    match this.idParsers with
+                    | None ->
+                        logFieldTrackerPolymorphicRelTraversalWarning httpCtx resDef.TypeName this.name
+                        Task.result (fun next ctx -> next ctx)
+                    | Some parsers ->
+                        let primaryResourceTypes = parsers.Keys |> Seq.toList
+                        httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>().TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
+
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetRelatedResponse ctx entity relatedEntity
+                    >=> fieldTrackerHandler
                     >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }
@@ -1375,9 +1427,21 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     )
                     included = included
                   }
+
+                  let! fieldTrackerHandler =
+                    httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>()
+                      .TrackFields(
+                        [resDef.TypeName],
+                        ctx,
+                        req,
+                        (resDef.TypeName, this.name),
+                        this.name
+                      )
+
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetSelfResponse ctx entity relatedEntity
+                    >=> fieldTrackerHandler
                     >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }
@@ -1457,9 +1521,21 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                 )
                                               included = included
                                             }
+
+                                            let! fieldTrackerHandler =
+                                              httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>()
+                                                .TrackFields(
+                                                  [resDef.TypeName],
+                                                  ctx,
+                                                  req,
+                                                  (resDef.TypeName, this.name),
+                                                  this.name
+                                                )
+
                                             let handler =
                                               setStatusCode 200
                                               >=> this.modifyPatchSelfOkResponse setCtx (unbox<'entity> entity3) relatedEntity
+                                              >=> fieldTrackerHandler
                                               >=> jsonApiWithETag<'ctx> doc
                                             return! handler next httpCtx
             }
@@ -2003,6 +2079,7 @@ type internal ToManyRelationship<'ctx> =
   abstract Name: RelationshipName
   abstract SelfLink: bool
   abstract RelatedLink: bool
+  abstract AllowedTypes: ICollection<ResourceTypeName> option
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) list>>) option
   abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier list>>
 
@@ -2278,11 +2355,11 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         | Error errs -> return Error errs
         | Ok (Some { data = Some { ``type`` = t; relationships = Include rels } }) ->
             match this.setAll, rels.TryGetValue this.name with
-            | _, (false, _) -> return Ok entity // not provided in request
+            | _, (false, _) -> return Ok (entity, false) // not provided in request
             | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
-                  return Ok entity
+                  return Ok (entity, false)
                 else
                   if this.add.IsNone && this.remove.IsNone then
                     return Error [setRelReadOnly this.name ("/data/relationships/" + this.name)]
@@ -2317,9 +2394,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                         |> TaskResult.bind (fun relIdWithIdentifier ->
                             set ctx setCtx ("/data/relationships/" + this.name + "/data") relIdWithIdentifier (unbox<'entity> entity)
                         )
-                        |> TaskResult.map box<'entity>
+                        |> TaskResult.map (fun e -> box<'entity> e, true)
             | Some _, (true, rel) -> return failwith $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
-        | _ -> return Ok entity  // no relationships provided
+        | _ -> return Ok (entity, false)  // no relationships provided
       }
 
 
@@ -2327,6 +2404,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.Name = this.name
     member this.SelfLink = this.get.IsSome
     member this.RelatedLink = this.get.IsSome
+    member this.AllowedTypes = this.idParsers |> Option.map Map.keys
     member this.BoxedGetRelated =
       this.get |> Option.map (fun get ->
         let resolveEntity =
@@ -2448,9 +2526,21 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                               |> Seq.toArray
                                             included = included
                                           }
+
+                                          let! fieldTrackerHandler =
+                                            httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>()
+                                              .TrackFields(
+                                                [resDef.TypeName],
+                                                ctx,
+                                                req,
+                                                (resDef.TypeName, this.name),
+                                                this.name
+                                              )
+
                                           let handler =
                                             setStatusCode 200
                                             >=> modifyOkResponse setCtx (unbox<'entity> entity3) relatedEntities
+                                            >=> fieldTrackerHandler
                                             >=> jsonApiWithETag<'ctx> doc
                                           return! handler next httpCtx
           }
@@ -2474,7 +2564,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         let resolveEntity =
           this.resolveEntity
           |> Option.defaultWith (fun () -> failwithf "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
-        fun ctx req entity resp ->
+        fun ctx req entity resDef resp ->
           fun next httpCtx ->
             task {
               // TODO: Support 'sort' query parameter
@@ -2489,9 +2579,20 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                       let b = resolveEntity e
                       b.resourceDef, b.entity
                     ))
+
+                    let! fieldTrackerHandler =
+                      match this.idParsers with
+                      | None ->
+                          logFieldTrackerPolymorphicRelTraversalWarning httpCtx resDef.TypeName this.name
+                          Task.result (fun next ctx -> next ctx)
+                      | Some parsers ->
+                          let primaryResourceTypes = parsers.Keys |> Seq.toList
+                          httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>().TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
+
                     let handler =
                       setStatusCode 200
                       >=> this.modifyGetRelatedResponse ctx entity relatedEntities
+                      >=> fieldTrackerHandler
                       >=> jsonApiWithETag<'ctx> doc
                     return! handler next httpCtx
             }
@@ -2523,9 +2624,21 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                       |> Seq.toArray
                     included = included
                   }
+
+                  let! fieldTrackerHandler =
+                    httpCtx.RequestServices.GetRequiredService<FieldTracker<'ctx>>()
+                      .TrackFields(
+                        [resDef.TypeName],
+                        ctx,
+                        req,
+                        (resDef.TypeName, this.name),
+                        this.name
+                      )
+
                   let handler =
                     setStatusCode 200
                     >=> this.modifyGetSelfResponse ctx entity relatedEntities
+                    >=> fieldTrackerHandler
                     >=> jsonApiWithETag<'ctx> doc
                   return! handler next httpCtx
             }

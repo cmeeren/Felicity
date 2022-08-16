@@ -22,7 +22,7 @@ type internal ConstrainedField<'ctx> =
 type FieldSetter<'ctx> =
   abstract Names: Set<FieldName>
   abstract SetOrder: int
-  abstract Set: 'ctx -> Request -> BoxedEntity -> Map<FieldName, int> -> Task<Result<BoxedEntity, Error list>>
+  abstract Set: 'ctx -> Request -> BoxedEntity -> Map<FieldName, int> -> Task<Result<BoxedEntity * bool, Error list>>
 
 
 type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
@@ -65,11 +65,11 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
         | Error errs -> return Error errs
         | Ok (Some { data = Some { attributes = Include attrVals } }) ->
             match this.set, attrVals.TryGetValue this.name with
-            | _, (false, _) -> return Ok entity  // not provided in request
+            | _, (false, _) -> return Ok (entity, false)  // not provided in request
             | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
-                  return Ok entity
+                  return Ok (entity, false)
                 else
                   return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, (true, attrValue) ->
@@ -80,8 +80,8 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
                       this.toDomain ctx (unbox<'serialized> attrValue)
                       |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
                       |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
-                      |> TaskResult.map box
-        | _ -> return Ok entity  // no attributes provided
+                      |> TaskResult.map (fun e -> box e, true)
+        | _ -> return Ok (entity, false)  // no attributes provided
       }
 
   interface Attribute<'ctx> with
@@ -305,11 +305,11 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
         | Error errs -> return Error errs
         | Ok (Some { data = Some { attributes = Include attrVals } }) ->
             match this.set, attrVals.TryGetValue this.name with
-            | _, (false, _) -> return Ok entity  // not provided in request
+            | _, (false, _) -> return Ok (entity, false)  // not provided in request
             | None, (true, _) ->
                 if numSetters[this.name] > 1 then
                   // Provided in request and no setter, but there exists another setter, so ignore
-                  return Ok entity
+                  return Ok (entity, false)
                 else
                   return Error [setAttrReadOnly this.name ("/data/attributes/" + this.name)]
             | Some set, (true, attrValue) ->
@@ -320,8 +320,8 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                       this.nullableToDomain ctx (unbox<'serialized option> attrValue)
                       |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
                       |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
-                      |> TaskResult.map box
-        | _ -> return Ok entity  // no attributes provided
+                      |> TaskResult.map (fun e -> box e, true)
+        | _ -> return Ok (entity, false)  // no attributes provided
       }
 
   interface Attribute<'ctx> with

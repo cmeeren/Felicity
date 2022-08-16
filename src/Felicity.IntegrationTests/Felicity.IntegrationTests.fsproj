@@ -19,6 +19,7 @@
     <Compile Include="ResourceLinks.fs" />
     <Compile Include="NameOverrides.fs" />
     <Compile Include="BasicFieldsetsAndIncludes.fs" />
+    <Compile Include="FieldUsageTracker.fs" />
     <Compile Include="RoundtripIncludes.fs" />
     <Compile Include="Constraints.fs" />
     <Compile Include="GetCollection.fs" />

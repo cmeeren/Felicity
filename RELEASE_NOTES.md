@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Now supports tracking usage of resource fields. Search the documentation for "tracking" for details. 
+
 ### 0.20.3 (2022-08-11)
 
 * The error `detail` returned when a request body contains a relationship with a resource identifier pointing to a non-existent resource now contains the resource `type` and `id`. 

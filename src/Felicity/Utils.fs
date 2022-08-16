@@ -7,6 +7,9 @@ open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
 open System.Text.Json.Serialization
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Logging
+open Giraffe
 
 
 // TODO: Further optimization of reflection etc.?
@@ -520,3 +523,8 @@ type SemaphoreQueueFactory<'ctx>() =
         lock queues (fun () ->
           queues.GetOrAdd((lockIdPrefix, resourceId), fun _ -> new SemaphoreQueue())
         )
+
+
+let internal logFieldTrackerPolymorphicRelTraversalWarning (httpCtx: HttpContext) resType relName =
+  let logger = httpCtx.GetLogger("Felicity.FieldTracker")
+  logger.LogWarning("Field usage tracker is unable to traverse polymorphic relationship '{RelationshipName}' on resource '{ResourceType}' because its allowed types are unknown. Add a suitable number of calls to AddIdParser in the relationship definition to provide this information.", relName, resType)

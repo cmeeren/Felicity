@@ -117,7 +117,7 @@ module internal RoutingOperations =
                   match req.Document.Value with
                   | Ok (Some { data = Some { attributes = Include attrVals } }) when attrVals.ContainsKey "constraints" ->
                       Error [setAttrReadOnly "constraints" "/data/attributes/constraints"] |> Task.result
-                  | _ -> Ok e |> Task.result
+                  | _ -> Ok (e, false) |> Task.result
             }
 
     let fields =
@@ -134,14 +134,14 @@ module internal RoutingOperations =
 
     fun ctx req consumedFields entity ->
       task {
-        let mutable result = Ok entity
+        let mutable result = Ok (entity, Set.empty)
         for field in fields do
           if not <| Set.intersects field.Names consumedFields then
             match result with
             | Error _ -> ()
-            | Ok e ->
+            | Ok (e, fns) ->
                 match! field.Set ctx req e numSetters with
-                | Ok e -> result <- Ok e
+                | Ok (e, wasSet) -> result <- Ok (e, if wasSet then Set.union field.Names fns else fns)
                 | Error errs -> result <- Error errs
         return result
       }
@@ -277,7 +277,7 @@ module internal RoutingOperations =
                   | true, (op, _) ->
                       match op.GetRelated with
                       | None -> handleErrors [getRelNotDefinedPolymorphic relName resDef.TypeName collName]
-                      | Some getRel -> getRel ctx req entity builder
+                      | Some getRel -> getRel ctx req entity resDef builder
           getSelf =
             if not hasGetSelf then None
             else
@@ -464,8 +464,15 @@ module internal RoutingOperations =
           |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<PolymorphicGetCollectionOperation<'ctx>>)
           |> Array.tryHead
           |> Option.map (fun op ->
+              let thisCollName = (ResourceModule.resourceDefinition<'ctx> m).CollectionName
+              let collectionResTypes =
+                resourceModules
+                |> Array.map ResourceModule.resourceDefinition<'ctx>
+                |> Array.filter (fun resDef -> resDef.CollectionName = thisCollName)
+                |> Array.map (fun resDef -> resDef.TypeName)
+                |> Array.toList
               let builder = responseBuilder resourceModuleMap getBaseUrl
-              fun ctx req -> op.Run ctx req builder
+              fun ctx req -> op.Run collectionResTypes ctx req builder
           )
       )
 

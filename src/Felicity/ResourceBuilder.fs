@@ -13,11 +13,13 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
 
   let identifier = { ``type`` = resourceDef.TypeName; id = resourceDef.GetIdBoxed entity }
 
+  // Note: Similar code exists in FieldUsageTracker
   let shouldUseField fieldName =
     match req.Fieldsets.TryGetValue resourceDef.TypeName with
     | false, _ -> true
     | true, fields -> fields.Contains fieldName
 
+  // Note: Similar code exists in FieldUsageTracker
   let shouldIncludeRelationship relName =
     req.Includes |> List.exists (fun path ->
       path.Length > currentIncludePath.Length && path[currentIncludePath.Length] = relName

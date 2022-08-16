@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Text.Json.Serialization
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Giraffe
 open Errors
 
 
@@ -99,7 +100,7 @@ type ProhibitedRequestGetter =
 type internal Field<'ctx> =
   abstract Name: string
 
-type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> BoxedEntity -> Task<Result<BoxedEntity, Error list>>
+type internal BoxedPatcher<'ctx> = 'ctx -> Request -> Set<ConsumedFieldName> -> BoxedEntity -> Task<Result<BoxedEntity * Set<FieldName>, Error list>>
 
 
 
@@ -127,3 +128,64 @@ type internal LinkConfig<'ctx> (skipStandardLinksQueryParamNames: string [], ski
             | None -> []
             | Some value -> [queryDoesNotAcceptValue paramName value]
     )
+
+
+/// Indicates why a field is used (or not) in a response.
+[<RequireQualifiedAccess>]
+type FieldUsage =
+  /// The field is considered explicitly used for one or more of the following reasons:
+  ///
+  ///   - The field is specified in a sparse fieldsets (`'fields[...]'`) parameter.
+  ///
+  ///   - The field is used in a request body (e.g. POST or PATCH).
+  ///
+  ///   - The field is a relationship and is included using the `include` parameter.
+  ///
+  ///   - The field is a relationship and the request targets its `self` or `related` link.
+  | Explicit
+
+  /// The field is considered implicitly used because none of the requirements for explicit usage were satisfied and
+  /// there was no sparse fieldset parameter for the resource.
+  | Implicit
+
+  /// The field is considered excluded because none of the requirements for explicit usage were satisfied and there was
+  /// a sparse fieldset parameter for the resource.
+  | Excluded
+
+
+type FieldUseInfo = {
+  TypeName: string
+  FieldName: string
+  Usage: FieldUsage
+}
+
+
+type internal FieldTracker<'ctx>
+  (
+    trackFields,
+    resourceModuleMap: Map<ResourceTypeName, Type>,
+    httpContextAccessor: IHttpContextAccessor,
+    report: ('ctx -> FieldUseInfo list -> Task<HttpHandler>) option
+  ) =
+  member _.TrackFields
+    (
+      primaryResourceTypes: ResourceTypeName list,
+      ctx: 'ctx,
+      req: Request,
+      ?relationshipOperationResourceTypeNameAndFieldName: ResourceTypeName * FieldName,
+      ?relNameIfRelationshipSelf: FieldName,
+      ?consumedFieldNamesWithType: ResourceTypeName * Set<ConsumedFieldName>
+    ) : Task<HttpHandler> =
+    report
+    |> Option.traverseTask (
+        trackFields
+          resourceModuleMap
+          primaryResourceTypes
+          ctx
+          req
+          httpContextAccessor.HttpContext
+          relationshipOperationResourceTypeNameAndFieldName
+          relNameIfRelationshipSelf
+          consumedFieldNamesWithType
+    )
+    |> Task.map (Option.defaultValue (fun next ctx -> next ctx))

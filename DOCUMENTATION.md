@@ -660,6 +660,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 6. `Set`/`SetAll`/`Add`/`Remove`, including transforming the context, if specified (see section TODO)
 7. `AfterModifySelf`
 8. `Modify*Response`
+9. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 Attribute/relationship constraints
 ----------------------------------
@@ -702,6 +703,7 @@ If you need to modify the response, e.g. to add cache headers, use `ModifyRespon
 2. Transform the context if specified (see section TODO)
 3. Get the collection (including any request parsing)
 4. `ModifyResponse`
+5. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 POST collection operation
 -------------------------
@@ -756,6 +758,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 4. Create the entity (including any request parsing)
 5. `AfterCreate`
 6. `ModifyResponse`
+7. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 Custom POST collection operation
 --------------------------------
@@ -838,6 +841,7 @@ The helper shown in the examples above contains methods for checking preconditio
 1. Get the context
 2. Transform the context if specified (see section TODO)
 3. Run the custom operation
+4. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 ID lookup operation
 -------------------
@@ -898,6 +902,7 @@ If you need to modify the response, e.g. to add cache headers, use `ModifyRespon
 2. Resource lookup
 3. Transform the context if specified (see section TODO)
 4. `ModifyResponse`
+5. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 PATCH resource operation
 ------------------------
@@ -993,6 +998,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 7. Normal field setters (only those not already used in custom setters), including setter-specific context transformations, if specified (see section TODO)
 8. `AfterUpdate`
 9. `ModifyResponse`
+10. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 DELETE resource operation
 -------------------------
@@ -1084,6 +1090,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 4. `Condition`
 5. Validate preconditions
 6. Your custom operation
+7. Any handler specified in `TrackFieldUsage` (see section TODO)
 
 Operation-specific authorization
 --------------------------------
@@ -1599,6 +1606,107 @@ Furthermore, if you use `LockOther`, it is assumed that the related ID returned 
 * If it changes between two different `Some` values, the incorrect resource is locked
 * If it changes from `None` to `Some`, no locking is performed
 * If it changes from `Some` to `None`, you’re probably fine
+
+
+Resource field usage tracking
+-----------------------------
+
+Felicity lets you track the usage of resource fields. This can help you determine whether it is safe to deprecate or remove a certain field.
+
+You set up the feature like this:
+
+```f#
+// General example implementation to indicate tracking API possibilities. Called once per request.
+let myFieldUsageCallback ctx fieldInfos =
+  async {
+    for info in fieldInfos do
+      match info.Usage with
+      | FieldUsage.Explicit -> do! myTrackExplicitFieldUsage info.TypeName info.FieldName
+      | FieldUsage.Implicit -> do! myTrackImplicitFieldUsage info.TypeName info.FieldName
+      | FieldUsage.Excluded -> ()
+      
+      if myIsDeprecated info.TypeName info.FieldName then
+        let headerMsg = 
+          $"Field '{info.FieldName}' on type '{info.TypeName}' is deprecated and will be "
+          + "removed soon. Exclude it using sparse fieldsets to remove this warning."
+        return setHttpHeader "Deprecated" headerMsg
+      else
+        return fun next ctx -> next ctx  // Pass-through HTTP handler
+  }
+
+// Set it up using TrackFieldUsage
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .TrackFieldUsage(myFieldUsageCallback)
+      .Add()
+    .AddOtherServices(..)
+```
+
+The different usage types are defined like this:
+
+* A field is considered **explicitly** used (`FieldUsage.Explicit`) if at least one of the following is true:
+
+  * The field is specified in a sparse fieldsets (`'fields[...]'`) parameter.
+  * The field is used in a request body (e.g. POST or PATCH).
+  * The field is a relationship and is included using the `include` parameter.
+  * The field is a relationship and the request targets its `self` or `related` link.
+
+* A field is considered **implicitly** used (`FieldUsage.Implicit`) if none of the requirements for explicit usage are satisfied and there is no sparse fieldset parameter for the resource.
+
+* A field is considered **excluded** (`FieldUsage.Excluded`) if none of the requirements for explicit usage are satisfied and there is a sparse fieldset parameter for the resource.
+
+Fields are tracked if they could potentially have been present in the response. It does not matter whether a collection or relationship is empty or `null`. For example, `GET /articles?include=comments` will track fields for the `article` and `comment` resources regardless of whether there is any primary or included data in the response.
+
+### Field tracking and polymorphism
+
+For GET operations to polymorphic collections, as well as includes of or operations against polymorphic relationships, all possible resources are included in the tracking. For example, given a `GET /vehicles?include=trailer` operation where the `vehicles` collection can return both `car` and `truck`, and their `trailer` relationship contains resources of type `carTrailer` and `truckTrailer`, respectively, then fields for all four resources are tracked (regardless of which resources are actually returned).
+
+For other operations to resources in polymorphic collections, only fields on the targeted resource (and any included resources) are tracked. For example, `PATCH /vehicles/car1?include=trailer` (assuming `car1` is the ID of a `car`, not a `truck`) will only track fields for `car` and `carTrailer`.
+
+For polymorphic GET collection operations, if at least one of the resource types that can be returned by the collection belongs to another collection (i.e., does not have the same collection name as the resource definition the GET collection operation belongs to), call the operation's `RegisterResourceType` method for each resource type that can be returned by the operation. Otherwise, field tracking won't work properly for that operation. For example:
+
+```f#
+let getColl =
+  define.Operation
+    .Polymorphic
+    .GetCollection(...)
+    .RegisterResourceType(A.resDef)
+    .RegisterResourceType(B.resDef)
+```
+
+The same applies for custom operations where you use the responder to return multiple resource types. In that case, call the responder's `RegisterResourceType` for each resource type before calling any `With...` method. It is not necessary to call this method if the responder is only used to return a single resource type. For example:
+
+```f#
+let customOp =
+  define.Operation
+    .CustomLink()
+    .GetAsync(fun _ _ respond _ ->
+      asyncResult {
+        return
+          respond
+            .RegisterResourceType(A.resDef)
+            .RegisterResourceType(B.resDef)
+            .With...
+      }
+    )
+```
+
+A similar point applies to polymorphic relationships, where you have to add a suitable number of calls to `AddIdParser` (if not already done) to let Felicity know which resources the relationship may contain. For example:
+
+```f#
+let polymorphicRel =
+  define.Relationship
+    .Polymorphic()
+    .AddIdParser(A.resDef)
+    .AddIdParser(B.resDef)
+    .ToOne()
+    ...
+```
+
+
 
 Polymorphism
 ------------

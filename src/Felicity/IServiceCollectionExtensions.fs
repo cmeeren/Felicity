@@ -22,6 +22,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
   configureSerializerOptions: (JsonSerializerOptions -> unit) option
   skipStandardLinksQueryParamNames: string []
   skipCustomLinksQueryParamNames: string []
+  trackFieldUsage: ('ctx -> FieldUseInfo list -> Task<HttpHandler>) option
 } with
 
   static member internal DefaultFor services : JsonApiConfigBuilder<'ctx> = {
@@ -33,6 +34,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     configureSerializerOptions = None
     skipStandardLinksQueryParamNames =  [||]
     skipCustomLinksQueryParamNames = [||]
+    trackFieldUsage = None
   }
 
   /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
@@ -93,6 +95,39 @@ type JsonApiConfigBuilder<'ctx> = internal {
 
   member this.SkipCustomLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> =
     { this with skipCustomLinksQueryParamNames = paramNames }
+
+  /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
+  /// from) the request. The returned HttpHandler may be used to modify the response (e.g. to set a header if deprecated
+  /// fields are used).
+  member this.TrackFieldUsageTask(trackFieldUsage: 'ctx -> FieldUseInfo list -> Task<HttpHandler>) : JsonApiConfigBuilder<'ctx> =
+    { this with trackFieldUsage = Some trackFieldUsage }
+
+  /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
+  /// from) the request. The returned HttpHandler may be used to modify the response (e.g. to set a header if deprecated
+  /// fields are used).
+  member this.TrackFieldUsageAsync(trackFieldUsage: 'ctx -> FieldUseInfo list -> Async<HttpHandler>) : JsonApiConfigBuilder<'ctx> =
+    this.TrackFieldUsageTask(fun ctx xs -> trackFieldUsage ctx xs |> Task.fromAsync)
+
+  /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
+  /// from) the request. The returned HttpHandler may be used to modify the response (e.g. to set a header if deprecated
+  /// fields are used).
+  member this.TrackFieldUsage(trackFieldUsage: 'ctx -> FieldUseInfo list -> HttpHandler) : JsonApiConfigBuilder<'ctx> =
+    this.TrackFieldUsageTask(fun ctx xs -> trackFieldUsage ctx xs |> Task.result)
+
+  /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
+  /// from) the request.
+  member this.TrackFieldUsageTask(trackFieldUsage: 'ctx -> FieldUseInfo list -> Task<unit>) : JsonApiConfigBuilder<'ctx> =
+    { this with trackFieldUsage = Some (fun ctx d -> trackFieldUsage ctx d |> Task.map (fun () -> fun next ctx -> next ctx)) }
+
+  /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
+  /// from) the request.
+  member this.TrackFieldUsageAsync(trackFieldUsage: 'ctx -> FieldUseInfo list -> Async<unit>) : JsonApiConfigBuilder<'ctx> =
+    this.TrackFieldUsageTask(fun ctx xs -> trackFieldUsage ctx xs |> Task.fromAsync)
+
+  /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
+  /// from) the request.
+  member this.TrackFieldUsage(trackFieldUsage: 'ctx -> FieldUseInfo list -> unit) : JsonApiConfigBuilder<'ctx> =
+    this.TrackFieldUsageTask(fun ctx xs -> trackFieldUsage ctx xs |> Task.result)
 
 
   member this.Add() =
@@ -213,6 +248,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
       .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
       .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
       .AddSingleton<LinkConfig<'ctx>>(LinkConfig<'ctx>(this.skipStandardLinksQueryParamNames, this.skipCustomLinksQueryParamNames))
+      .AddHttpContextAccessor()
+      .AddScoped<FieldTracker<'ctx>>(fun sp -> FieldTracker(FieldTracker.trackFieldUsage<'ctx>, resourceModuleMap, sp.GetRequiredService<IHttpContextAccessor>(), this.trackFieldUsage))
 
   
 
