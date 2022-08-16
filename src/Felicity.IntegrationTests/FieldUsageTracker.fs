@@ -438,7 +438,7 @@ module GHAlt =
 
 
 
-let createServerAndGetClient (trackFieldUsage: _ -> _ -> HttpHandler) =
+let createServerAndGetClient (trackFieldUsage: _ -> _ -> _ -> HttpHandler) =
   let server =
     new TestServer(
       WebHostBuilder()
@@ -465,7 +465,7 @@ let doTest method url body expected =
     job {
       let mutable actual = Unchecked.defaultof<_>
 
-      let trackFieldUsage _ctx (xs: FieldUseInfo list) =
+      let trackFieldUsage _ _ctx (xs: FieldUseInfo list) =
         actual <- xs |> List.map (fun x -> (x.TypeName, x.FieldName), x.Usage)
         setHttpHeader "Foo" "Bar"
 

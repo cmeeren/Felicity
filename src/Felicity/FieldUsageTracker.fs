@@ -4,6 +4,7 @@ open System
 open System.Collections.Concurrent
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
 open Giraffe
 
 
@@ -27,11 +28,11 @@ module internal FieldTracker =
     primaryResourceTypes
     (ctx: 'ctx)
     (req: Request)
-    (httpCtx: HttpContext)
+    (sp: IServiceProvider)
     (relationshipOperationResourceTypeNameAndFieldName: (ResourceTypeName * FieldName) option)
     (relNameIfRelationshipSelf: FieldName option)
     (consumedFieldNamesWithType: (ResourceTypeName * Set<ConsumedFieldName>) option)
-    (report: 'ctx -> FieldUseInfo list -> Task<HttpHandler>)
+    (report: IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>)
     =
     let fieldUsage = ConcurrentDictionary<struct (ResourceTypeName * FieldName), FieldUsage>()
 
@@ -98,7 +99,9 @@ module internal FieldTracker =
 
         if shouldInclude then
           match allowedTypes with
-          | None -> logFieldTrackerPolymorphicRelTraversalWarning httpCtx typeName relName
+          | None ->
+              let httpCtx = sp.GetRequiredService<IHttpContextAccessor>().HttpContext
+              logFieldTrackerPolymorphicRelTraversalWarning httpCtx typeName relName
           | Some ts -> ts |> Seq.iter (trackUsageForResourceType None (currentIncludePath @ [relName]))
 
     task {
@@ -125,5 +128,5 @@ module internal FieldTracker =
             }
         )
         |> Seq.toList
-        |> report ctx
+        |> report sp ctx
     }

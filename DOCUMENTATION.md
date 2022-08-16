@@ -1617,7 +1617,7 @@ You set up the feature like this:
 
 ```f#
 // General example implementation to indicate tracking API possibilities. Called once per request.
-let myFieldUsageCallback ctx fieldInfos =
+let myFieldUsageCallback serviceProvider ctx fieldInfos =
   async {
     for info in fieldInfos do
       match info.Usage with

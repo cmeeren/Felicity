@@ -164,8 +164,8 @@ type internal FieldTracker<'ctx>
   (
     trackFields,
     resourceModuleMap: Map<ResourceTypeName, Type>,
-    httpContextAccessor: IHttpContextAccessor,
-    report: ('ctx -> FieldUseInfo list -> Task<HttpHandler>) option
+    sp: IServiceProvider,
+    report: (IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>) option
   ) =
   member _.TrackFields
     (
@@ -183,7 +183,7 @@ type internal FieldTracker<'ctx>
           primaryResourceTypes
           ctx
           req
-          httpContextAccessor.HttpContext
+          sp
           relationshipOperationResourceTypeNameAndFieldName
           relNameIfRelationshipSelf
           consumedFieldNamesWithType
