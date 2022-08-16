@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.20.4 (2022-08-16)
 
 * Now supports tracking usage of resource fields. Search the documentation for "tracking" for details. 
 
