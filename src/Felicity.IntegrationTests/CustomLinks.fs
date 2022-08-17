@@ -275,6 +275,72 @@ module A7 =
       .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 
 
+type Ctx8 = Ctx8
+
+module A8 =
+
+  let define = Define<Ctx8, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("entities")
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+  let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" } )
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .SkipStandardAcceptValidation()
+      .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
+type Ctx9 = Ctx9
+
+module A9 =
+
+  let define = Define<Ctx9, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("entities")
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+  let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" } )
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .SkipStandardContentTypeValidation()
+      .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
+type Ctx10 = Ctx10
+
+module A10 =
+
+  let define = Define<Ctx10, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("entities")
+  let preconditions = define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+  let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" } )
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .SkipStandardQueryParamNameValidation()
+      .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
 [<Tests>]
 let tests =
   testList "Custom links" [
@@ -1164,6 +1230,254 @@ let tests =
       test <@ json |> getPath "errors[0].detail" = "The path '/entities/a1/CustomOp' does not exist, but differs only by case from the existing path '/entities/a1/customOp'. Paths are case sensitive." @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "GET returns 406 if Accept is not */* or application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with GetOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.get ctx "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 406
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "406" @>
+      test <@ json |> getPath "errors[0].detail" = "The client must accept the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "GET does not check Accept header if configured to skip this validation" {
+      let! response =
+        Request.get Ctx8 "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "POST returns 406 if Accept is not */* or application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with PostOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.post ctx "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 406
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "406" @>
+      test <@ json |> getPath "errors[0].detail" = "The client must accept the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "POST does not check Accept header if configured to skip this validation" {
+      let! response =
+        Request.post Ctx8 "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "PATCH returns 406 if Accept is not */* or application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with PatchOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.patch ctx "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 406
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "406" @>
+      test <@ json |> getPath "errors[0].detail" = "The client must accept the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "PATCH does not check Accept header if configured to skip this validation" {
+      let! response =
+        Request.patch Ctx8 "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "DELETE returns 406 if Accept is not */* or application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with DeleteOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.delete ctx "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 406
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "406" @>
+      test <@ json |> getPath "errors[0].detail" = "The client must accept the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "DELETE does not check Accept header if configured to skip this validation" {
+      let! response =
+        Request.delete Ctx8 "/entities/a1/customOp"
+        |> Request.setHeader (Accept "application/json")
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "POST returns 415 if Content-Type is not application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with PostOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.post ctx "/entities/a1/customOp"
+        |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+        |> Request.bodyString "foo"
+        |> getResponse
+      response |> testStatusCode 415
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "415" @>
+      test <@ json |> getPath "errors[0].detail" = "Request content must be sent with Content-Type set to the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "POST does not check Content-Type header if configured to skip this validation" {
+      let! response =
+        Request.post Ctx9 "/entities/a1/customOp"
+        |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "PATCH returns 415 if Content-Type is not application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with PatchOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.patch ctx "/entities/a1/customOp"
+        |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+        |> Request.bodyString "foo"
+        |> getResponse
+      response |> testStatusCode 415
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "415" @>
+      test <@ json |> getPath "errors[0].detail" = "Request content must be sent with Content-Type set to the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "PATCH does not check Content-Type header if configured to skip this validation" {
+      let! response =
+        Request.patch Ctx9 "/entities/a1/customOp"
+        |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "DELETE returns 415 if Content-Type is not application/vnd.api+json" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with DeleteOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.delete ctx "/entities/a1/customOp"
+        |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+        |> Request.bodyString "foo"
+        |> getResponse
+      response |> testStatusCode 415
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "415" @>
+      test <@ json |> getPath "errors[0].detail" = "Request content must be sent with Content-Type set to the JSON:API media type (application/vnd.api+json)" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "DELETE does not check Content-Type header if configured to skip this validation" {
+      let! response =
+        Request.delete Ctx9 "/entities/a1/customOp"
+        |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "GET returns 400 if a query parameter name is invalid" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with GetOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.get ctx "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "invalid" @>
+      test <@ json |> getPath "errors[0].detail" = "'invalid' is not an allowed query parameter name according to the JSON:API specification" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "GET does not check query parameter names if configured to skip this validation" {
+      let! response =
+        Request.get Ctx10 "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "POST returns 400 if a query parameter name is invalid" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with PostOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.post ctx "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "invalid" @>
+      test <@ json |> getPath "errors[0].detail" = "'invalid' is not an allowed query parameter name according to the JSON:API specification" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "POST does not check query parameter names if configured to skip this validation" {
+      let! response =
+        Request.post Ctx10 "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "PATCH returns 400 if a query parameter name is invalid" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with PatchOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.patch ctx "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "invalid" @>
+      test <@ json |> getPath "errors[0].detail" = "'invalid' is not an allowed query parameter name according to the JSON:API specification" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "PATCH does not check query parameter names if configured to skip this validation" {
+      let! response =
+        Request.patch Ctx10 "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "DELETE returns 400 if a query parameter name is invalid" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with DeleteOperation = fun _ -> Ok (setStatusCode 200) }
+      let! response =
+        Request.delete ctx "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].source.parameter" = "invalid" @>
+      test <@ json |> getPath "errors[0].detail" = "'invalid' is not an allowed query parameter name according to the JSON:API specification" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "DELETE does not check query parameter names if configured to skip this validation" {
+      let! response =
+        Request.delete Ctx10 "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 200
     }
 
   ]

@@ -97,27 +97,33 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
       }
 
 
-  let validateRequest : HttpHandler =
+  let validateRequestWithOverrides (cfg: RequestValidationConfig) : HttpHandler =
     fun next httpCtx ->
 
       let errs =
         [
-          if not <| RequestValidation.acceptsJsonApi httpCtx then invalidAccept ()
-          if RequestValidation.hasNonJsonApiContent httpCtx then invalidContentType ()
-          if RequestValidation.allJsonApiAcceptsHaveParams httpCtx then invalidAcceptParams ()
-          if RequestValidation.jsonApiContentTypeHasParams httpCtx then invalidContentTypeParams ()
+          if cfg.ValidateAccept && (not <| RequestValidation.acceptsJsonApi httpCtx) then invalidAccept ()
+          if cfg.ValidateContentType && (RequestValidation.hasNonJsonApiContent httpCtx) then invalidContentType ()
+          if cfg.ValidateAccept && (RequestValidation.allJsonApiAcceptsHaveParams httpCtx) then invalidAcceptParams ()
+          if cfg.ValidateContentType && (RequestValidation.jsonApiContentTypeHasParams httpCtx) then invalidContentTypeParams ()
 
-          match RequestValidation.getIllegalQueryStringParams httpCtx with
-          | [] -> ()
-          | names -> yield! names |> List.map illegalQueryParamName
+          if cfg.ValidateQueryParams then
+            match RequestValidation.getIllegalQueryStringParams httpCtx with
+            | [] -> ()
+            | names -> yield! names |> List.map illegalQueryParamName
 
-          let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
-          yield! linkCfg.GetIllegalValueErrors(httpCtx)
+            let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+            yield! linkCfg.GetIllegalValueErrors(httpCtx)
 
         ]
       match errs with
       | [] -> next httpCtx
       | errs -> handleErrors errs next httpCtx
+
+
+  let validateRequest =
+    let cfg = { ValidateAccept = true; ValidateContentType = true; ValidateQueryParams = true }
+    validateRequestWithOverrides cfg
 
 
   let lockResourceForModification (ctx: 'ctx) req collName resId : HttpHandler =
@@ -377,8 +383,7 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
                         handleErrors [customOpVerbNotDefinedForAnyResource linkName ctx.Request.Method collName (getLinkAllowHeader link)] next ctx
                   | Some get ->
                       verifyPathCase expectedPath
-                      >=> validateRequest
-                      >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
+                      >=> getCtx (fun ctx req -> getById ctx resId (get validateRequestWithOverrides ctx req))
                 )]
 
                 POST [route1 ("/{id}/" + linkName) "id" (fun resId ->
@@ -390,10 +395,9 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
                         handleErrors [customOpVerbNotDefinedForAnyResource linkName ctx.Request.Method collName (getLinkAllowHeader link)] next ctx
                   | Some post ->
                       verifyPathCase expectedPath
-                      >=> validateRequest
                       >=> getCtx (fun ctx req ->
                             lockResourceForModification ctx req collName (Some resId)
-                            >=> getById ctx resId (post ctx req)
+                            >=> getById ctx resId (post validateRequestWithOverrides ctx req)
                       )
                 )]
 
@@ -406,10 +410,9 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
                         handleErrors [customOpVerbNotDefinedForAnyResource linkName ctx.Request.Method collName (getLinkAllowHeader link)] next ctx
                   | Some patch ->
                       verifyPathCase expectedPath
-                      >=> validateRequest
                       >=> getCtx (fun ctx req ->
                             lockResourceForModification ctx req collName (Some resId)
-                            >=> getById ctx resId (patch ctx req)
+                            >=> getById ctx resId (patch validateRequestWithOverrides ctx req)
                       )
                 )]
 
@@ -422,10 +425,9 @@ let internal jsonApiEndpoints relativeRootWithLeadingSlash (getCtx: HttpContext 
                         handleErrors [customOpVerbNotDefinedForAnyResource linkName ctx.Request.Method collName (getLinkAllowHeader link)] next ctx
                   | Some delete ->
                       verifyPathCase expectedPath
-                      >=> validateRequest
                       >=> getCtx (fun ctx req ->
                             lockResourceForModification ctx req collName (Some resId)
-                            >=> getById ctx resId (delete ctx req)
+                            >=> getById ctx resId (delete validateRequestWithOverrides ctx req)
                       )
                 )]
 

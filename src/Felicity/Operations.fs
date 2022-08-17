@@ -1119,14 +1119,22 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
 
 
+type internal RequestValidationConfig = {
+  ValidateAccept: bool
+  ValidateContentType: bool
+  ValidateQueryParams: bool
+}
+
+
+
 type internal CustomOperation<'ctx> =
   abstract Name: LinkName
   abstract HasModifyingOperations: bool
   abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Task<string option * Map<string, obj> option>
-  abstract Get: ('ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
-  abstract Post: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
-  abstract Patch: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
-  abstract Delete: ('ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
+  abstract Get: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
+  abstract Post: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
+  abstract Patch: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
+  abstract Delete: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
 
 
 
@@ -1135,6 +1143,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   name: string
   getMeta: ('ctx -> 'entity -> Map<string, obj>) option
   condition: 'ctx -> 'entity -> Task<Result<unit, Error list>>
+  validationConfig: RequestValidationConfig
   get: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
   post: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
   patch: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
@@ -1147,6 +1156,11 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
       name = name
       getMeta = None
       condition = fun _ _ -> Ok () |> Task.result
+      validationConfig = {
+        ValidateAccept = true
+        ValidateContentType = true
+        ValidateQueryParams = true
+      }
       get = None
       post = None
       patch = None
@@ -1154,8 +1168,9 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     }
 
 
-  member private this.handler (operation: _ -> _ -> _ -> _ -> _ -> Task<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
-    fun next httpCtx ->
+  member private this.handler validateRequest (operation: _ -> _ -> _ -> _ -> _ -> Task<Result<HttpHandler,_>>) ctx req responder (preconditions: Preconditions<'originalCtx>) (entity: obj) =
+    validateRequest this.validationConfig
+    >=> fun next httpCtx ->
       task {
         match! this.mapCtx ctx (unbox<'entity> entity) with
         | Error errors -> return! handleErrors errors next httpCtx
@@ -1202,15 +1217,42 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     member this.Get =
       let prec = { new Preconditions<'originalCtx> with member _.Validate _ _ _ = Ok () }
       this.get |> Option.map (fun get ->
-        fun ctx req resp e -> this.handler get ctx req resp prec e
+        fun getValidationHandler ctx req resp e -> this.handler getValidationHandler get ctx req resp prec e
       )
 
-    member this.Post = this.post |> Option.map this.handler
+    member this.Post =
+        this.post |> Option.map (fun post ->
+          fun getValidationHandler ctx req resp prec e -> this.handler getValidationHandler post ctx req resp prec e
+        )
 
-    member this.Patch = this.patch |> Option.map this.handler
+    member this.Patch =
+      this.patch |> Option.map (fun patch ->
+        fun getValidationHandler ctx req resp prec e -> this.handler getValidationHandler patch ctx req resp prec e
+      )
 
-    member this.Delete = this.delete |> Option.map this.handler
+    member this.Delete =
+      this.delete |> Option.map (fun delete ->
+        fun getValidationHandler ctx req resp prec e -> this.handler getValidationHandler delete ctx req resp prec e
+      )
 
+
+  /// Skips the requirement and validation of the JSON:API media type in the Accept request header for this custom operation
+  /// (for all HTTP verbs if multiple are defined).
+  member this.SkipStandardAcceptValidation() =
+    { this with validationConfig = { this.validationConfig with ValidateAccept = false } }
+
+  /// Skips the requirement and validation of the JSON:API media type in the Content-Type request header for this custom
+  /// operation (for all HTTP verbs if multiple are defined).
+  member this.SkipStandardContentTypeValidation() =
+    { this with validationConfig = { this.validationConfig with ValidateContentType = false } }
+
+  /// Skips the validation of query parameter names that requires them to conform to the requirements in the JSON:API
+  /// specification.
+  ///
+  /// This also skips the validation of any "skip links" query parameters set up using SkipStandardLinksQueryParamName
+  /// and SkipCustomLinksQueryParamName when configuring JSON:API.
+  member this.SkipStandardQueryParamNameValidation() =
+    { this with validationConfig = { this.validationConfig with ValidateQueryParams = false } }
 
   member this.ConditionTaskRes(predicate: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
     { this with condition = fun ctx e -> predicate.Invoke(ctx, e) }

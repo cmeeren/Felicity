@@ -18,10 +18,10 @@ type internal RelationshipOperations<'ctx> = {
 
 
 type internal LinkOperations<'ctx> = {
-  get: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
-  post: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
-  patch: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
-  delete: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+  get: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+  post: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+  patch: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+  delete: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
 }
 
 
@@ -375,46 +375,46 @@ module internal RoutingOperations =
             if not hasGet then None
             else
               Some <|
-                fun ctx req resDef entity ->
+                fun getValidationHandler ctx req resDef entity ->
                   match opsMap.TryGetValue resDef.TypeName with
                   | false, _ -> handleErrors [customOpNotDefinedPolymorphic opName resDef.TypeName collName]
                   | true, (op, _) ->
                       match op.Get with
                       | None -> handleErrors [customOpVerbNotDefinedPolymorphic opName resDef.TypeName "GET" (getAllowHeader op) collName]
-                      | Some get -> get ctx req (getResponder ctx req) entity
+                      | Some get -> get getValidationHandler ctx req (getResponder ctx req) entity
           post =
             if not hasPost then None
             else
               Some <|
-                fun ctx req resDef entity ->
+                fun getValidationHandler ctx req resDef entity ->
                   match opsMap.TryGetValue resDef.TypeName with
                   | false, _ -> handleErrors [customOpNotDefinedPolymorphic opName resDef.TypeName collName]
                   | true, (op, prec) ->
                       match op.Post with
                       | None -> handleErrors [customOpVerbNotDefinedPolymorphic opName resDef.TypeName "POST" (getAllowHeader op) collName]
-                      | Some post -> post ctx req (getResponder ctx req) prec entity
+                      | Some post -> post getValidationHandler ctx req (getResponder ctx req) prec entity
           patch =
             if not hasPatch then None
             else
               Some <|
-                fun ctx req resDef entity ->
+                fun getValidationHandler ctx req resDef entity ->
                   match opsMap.TryGetValue resDef.TypeName with
                   | false, _ -> handleErrors [customOpNotDefinedPolymorphic opName resDef.TypeName collName]
                   | true, (op, prec) ->
                       match op.Patch with
                       | None -> handleErrors [customOpVerbNotDefinedPolymorphic opName resDef.TypeName "PATCH" (getAllowHeader op) collName]
-                      | Some patch -> patch ctx req (getResponder ctx req) prec entity
+                      | Some patch -> patch getValidationHandler ctx req (getResponder ctx req) prec entity
           delete =
             if not hasDelete then None
             else
               Some <|
-                fun ctx req resDef entity ->
+                fun getValidationHandler ctx req resDef entity ->
                   match opsMap.TryGetValue resDef.TypeName with
                   | false, _ -> handleErrors [customOpNotDefinedPolymorphic opName resDef.TypeName collName]
                   | true, (op, prec) ->
                       match op.Delete with
                       | None -> handleErrors [customOpVerbNotDefinedPolymorphic opName resDef.TypeName "DELETE" (getAllowHeader op) collName]
-                      | Some delete -> delete ctx req (getResponder ctx req) prec entity
+                      | Some delete -> delete getValidationHandler ctx req (getResponder ctx req) prec entity
         }
     )
     |> Map.ofArray
