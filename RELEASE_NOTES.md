@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.20.5 (2022-08-17)
 
 * Custom operations now have methods for disabling the standard validation of the `Accept` and `Content-Type` request headers as well as query parameter names that are illegal according to JSON:API. Consider using these if the custom link operation does not conform to JSON:API. 
 
