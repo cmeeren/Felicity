@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Improved returned error message when a field had invalid JSON
+
 ### 0.20.6 (2022-08-18)
 
 * The error response log message now contains the error's `source`

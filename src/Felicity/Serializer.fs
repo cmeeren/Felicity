@@ -123,7 +123,7 @@ module private ToDocumentModel =
                     try
                       Ok (attrName, JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options))
                     with :? JsonException as ex ->
-                      Error [attrInvalidJson attrName (Exception.getInnerMsg ex) (ptr + "/attributes/" + attrName)]
+                      Error [fieldInvalidJson attrName (Exception.getInnerMsg ex) (ptr + "/attributes/" + attrName)]
               )
           )
           |> Result.map (Array.choose id >> dict >> Include)
@@ -155,7 +155,7 @@ module private ToDocumentModel =
                       | _ -> failwith $"Framework bug: Relationship was serialized to unknown type %s{dRel.GetType().FullName}"
                     rel |> Result.map (fun r -> relName, r)
                   with :? JsonException as ex ->
-                    Error [attrInvalidJson relName (Exception.getInnerMsg ex) (ptr + "/relationships/" + relName)]
+                    Error [fieldInvalidJson relName (Exception.getInnerMsg ex) (ptr + "/relationships/" + relName)]
               )
           )
           |> Result.map (Array.choose id >> dict >> Include)

@@ -98,10 +98,10 @@
     |> Error.setTitle "Invalid request body"
     |> Error.setDetail msg
 
-  let attrInvalidJson attrName msg pointer =
+  let fieldInvalidJson attrName msg pointer =
     Error.create 400
     |> Error.setTitle "Invalid request body"
-    |> Error.setDetail $"Invalid JSON for attribute '%s{attrName}': %s{msg}"
+    |> Error.setDetail $"Invalid JSON for field '%s{attrName}': %s{msg}"
     |> Error.setSourcePointer pointer
 
   let invalidNull memberName pointer =
