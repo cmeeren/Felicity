@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.20.7 (2022-08-18)
 
 * Errors returned for invalid JSON no longer uses the exception message, which means less implementation details are leaked (but the message may be somewhat less useful)
 
