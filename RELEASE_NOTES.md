@@ -3,7 +3,7 @@ Release notes
 
 ### Unreleased
 
-* Improved returned error message when a field had invalid JSON
+* Errors returned for invalid JSON no longer uses the exception message, which means less implementation details are leaked (but the message may be somewhat less useful)
 
 ### 0.20.6 (2022-08-18)
 

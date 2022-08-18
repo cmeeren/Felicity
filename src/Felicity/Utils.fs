@@ -4,6 +4,8 @@ module internal Utils
 open System
 open System.Collections.Concurrent
 open System.Collections.Generic
+open System.Text.Json
+open System.Text.RegularExpressions
 open System.Threading
 open System.Threading.Tasks
 open System.Text.Json.Serialization
@@ -447,13 +449,6 @@ module String =
 
 
 
-module Exception =
-
-  let rec getInnerMsg (ex: Exception) =
-    if isNull ex.InnerException then ex.Message else getInnerMsg ex.InnerException
-
-
-
 /// A semaphore with FIFO semantics (operations are guaranteed to be executed
 /// in the order they started waiting on the semaphore).
 type SemaphoreQueue() =
@@ -528,3 +523,29 @@ type SemaphoreQueueFactory<'ctx>() =
 let internal logFieldTrackerPolymorphicRelTraversalWarning (httpCtx: HttpContext) resType relName =
   let logger = httpCtx.GetLogger("Felicity.FieldTracker")
   logger.LogWarning("Field usage tracker is unable to traverse polymorphic relationship '{RelationshipName}' on resource '{ResourceType}' because its allowed types are unknown. Add a suitable number of calls to AddIdParser in the relationship definition to provide this information.", relName, resType)
+
+
+
+type JsonException with
+  member this.SafeMessage =
+    let baseMsg = "Invalid JSON or incorrect data type"
+
+    let extraInfo =
+      [
+        if not (String.IsNullOrWhiteSpace this.Path) then
+          "path " + this.Path
+
+        if this.LineNumber.HasValue then
+          "line " + string this.LineNumber.Value
+
+        if this.BytePositionInLine.HasValue then
+          "position " + string this.BytePositionInLine.Value
+      ]
+      |> String.concat ", "
+
+    if String.IsNullOrEmpty extraInfo
+    then baseMsg
+    else $"{baseMsg} at {extraInfo}"
+
+  member this.SafeMessageForField(fieldName) =
+    $"Invalid JSON or incorrect data type in field '%s{fieldName}'"

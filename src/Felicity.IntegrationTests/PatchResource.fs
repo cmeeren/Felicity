@@ -794,7 +794,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Invalid JSON for attribute 'b': Cannot get the value of a token type 'String' as a number." @>
+      test <@ json |> getPath "errors[0].detail" = "Invalid JSON or incorrect data type in field 'b'" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/b" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1096,7 +1096,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "'\"' is invalid after a property name. Expected a ':'. Path: $.test | LineNumber: 3 | BytePositionInLine: 19." @>
+      test <@ json |> getPath "errors[0].detail" = "Invalid JSON or incorrect data type at path $.test, line 3, position 19" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }

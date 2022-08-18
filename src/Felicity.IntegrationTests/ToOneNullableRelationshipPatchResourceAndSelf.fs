@@ -1352,7 +1352,7 @@ let tests2 =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "'\"' is invalid after a property name. Expected a ':'. Path: $.test | LineNumber: 3 | BytePositionInLine: 19." @>
+      test <@ json |> getPath "errors[0].detail" = "Invalid JSON or incorrect data type at path $.test, line 3, position 19" @>
       test <@ json |> hasNoPath "errors[0].source" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }

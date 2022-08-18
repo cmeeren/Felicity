@@ -1,5 +1,7 @@
 ﻿module internal Felicity.Errors
 
+  open System.Text.Json
+
   (*
    * Any request: Negotiation and basic request validation
   *)
@@ -93,15 +95,15 @@
    * Any request: Deserialization and document validation
   *)
 
-  let invalidJson msg =
+  let invalidJson (ex: JsonException) =
     Error.create 400
     |> Error.setTitle "Invalid request body"
-    |> Error.setDetail msg
+    |> Error.setDetail ex.SafeMessage
 
-  let fieldInvalidJson attrName msg pointer =
+  let fieldInvalidJson fieldName (ex: JsonException) pointer =
     Error.create 400
     |> Error.setTitle "Invalid request body"
-    |> Error.setDetail $"Invalid JSON for field '%s{attrName}': %s{msg}"
+    |> Error.setDetail (ex.SafeMessageForField(fieldName))
     |> Error.setSourcePointer pointer
 
   let invalidNull memberName pointer =

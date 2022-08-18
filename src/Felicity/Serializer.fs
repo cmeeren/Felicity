@@ -123,7 +123,7 @@ module private ToDocumentModel =
                     try
                       Ok (attrName, JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options))
                     with :? JsonException as ex ->
-                      Error [fieldInvalidJson attrName (Exception.getInnerMsg ex) (ptr + "/attributes/" + attrName)]
+                      Error [fieldInvalidJson attrName ex (ptr + "/attributes/" + attrName)]
               )
           )
           |> Result.map (Array.choose id >> dict >> Include)
@@ -155,7 +155,7 @@ module private ToDocumentModel =
                       | _ -> failwith $"Framework bug: Relationship was serialized to unknown type %s{dRel.GetType().FullName}"
                     rel |> Result.map (fun r -> relName, r)
                   with :? JsonException as ex ->
-                    Error [fieldInvalidJson relName (Exception.getInnerMsg ex) (ptr + "/relationships/" + relName)]
+                    Error [fieldInvalidJson relName ex (ptr + "/relationships/" + relName)]
               )
           )
           |> Result.map (Array.choose id >> dict >> Include)
@@ -272,8 +272,7 @@ type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configu
           |> ToDocumentModel.resourceDocument getFieldType options
           |> Result.map Some
         with :? JsonException as ex ->
-          let err = invalidJson ex.Message
-          Error [err]
+          Error [invalidJson ex]
 
     member _.DeserializeResourceIdentifierDocument (json: string) =
       if String.IsNullOrEmpty json then Ok None
@@ -283,8 +282,7 @@ type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configu
           |> ToDocumentModel.resourceIdentifierDocument
           |> Result.map Some
         with :? JsonException as ex ->
-          let err = invalidJson ex.Message
-          Error [err]
+          Error [invalidJson ex]
 
     member _.DeserializeResourceIdentifierCollectionDocument (json: string) =
       if String.IsNullOrEmpty json then Ok None
@@ -294,5 +292,4 @@ type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configu
           |> ToDocumentModel.resourceIdentifierCollectionDocument
           |> Result.map Some
         with :? JsonException as ex ->
-          let err = invalidJson ex.Message
-          Error [err]
+          Error [invalidJson ex]
