@@ -74,10 +74,11 @@ module HttpHandlers =
 
       for i, err in Seq.indexed errs do
         logger.LogInformation(
-          "[Request error {ErrNum}/{NumErrs}, ID {ErrorId}] {Status} {Code}: {Title}: {Detail}",
+          "[Request error {ErrNum}/{NumErrs}, ID {ErrorId}, {Source}] {Status} {Code}: {Title}: {Detail}",
           i + 1,
           errs.Length,
           err.id |> Skippable.defaultValue "<no id>",
+          err.source |> Skippable.bind (fun s -> s.parameter |> Skippable.map (fun s -> "?" + s) |> Skippable.orElse s.pointer) |> Skippable.defaultValue "<no source>",
           err.status |> Skippable.defaultValue "<no status>",
           err.code |> Skippable.defaultValue "<no code>",
           err.title |> Skippable.defaultValue "<no title>",
