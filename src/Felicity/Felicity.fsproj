@@ -15,13 +15,6 @@
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
     <Version>0.20.5</Version>
     <PackageReleaseNotes>https://github.com/cmeeren/Felicity/blob/master/RELEASE_NOTES.md</PackageReleaseNotes>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsAsErrors />
   </PropertyGroup>
   
   <ItemGroup>
