@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.20.6 (2022-08-18)
 
 * The error response log message now contains the error's `source`
 
