@@ -78,6 +78,24 @@ module Person =
       .ToMany(resDef)
       .GetLinkageIfNotIncluded(fun _ _ -> [bob.Id])
 
+  let toOneSkipped =
+    define.Relationship
+      .ToOne(resDef)
+      .SkipRelationshipIf(fun _ -> true)
+      .Get(fun _ _ -> failwith "Not called")
+
+  let toOneNullableSkipped =
+    define.Relationship
+      .ToOneNullable(resDef)
+      .SkipRelationshipIf(fun _ -> true)
+      .Get(fun _ _ -> failwith "Not called")
+
+  let toManySkipped =
+    define.Relationship
+      .ToMany(resDef)
+      .SkipRelationshipIf(fun _ -> true)
+      .Get(fun _ _ -> failwith "Not called")
+
   let lookup = define.Operation.Lookup(fun _ -> Some alice)
   let get = define.Operation.GetResource()
 
@@ -267,6 +285,17 @@ let tests =
       test <@ json |> hasNoPath "included[1].attributes.lastName" @>
       test <@ json |> hasNoPath "included[1].relationships.friends" @>
       test <@ json |> hasNoPath "included[2]" @>
+    }
+
+    testJob "Skipped relationships are omitted" {
+      let! response =
+        Request.get Ctx "/persons/1"
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> hasNoPath "data.relationships.toOneSkipped" @>
+      test <@ json |> hasNoPath "data.relationships.toOneNullableSkipped" @>
+      test <@ json |> hasNoPath "data.relationships.toManySkipped" @>
     }
 
   ]

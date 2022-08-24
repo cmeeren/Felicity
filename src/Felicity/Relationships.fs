@@ -50,6 +50,7 @@ type internal ToOneRelationship<'ctx> =
   abstract AllowedTypes: ICollection<ResourceTypeName> option
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<ResourceDefinition<'ctx> * BoxedEntity>>) option
   abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier>>
+  abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
 
 
 type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -159,6 +160,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
   get: ('ctx -> 'entity -> Task<'relatedEntity Skippable>) option
   set: ('ctx -> 'setCtx -> Pointer -> 'relatedId * ResourceIdentifier -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier Skippable>
+  skipRelationship: 'ctx -> 'entity -> bool
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
   beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
@@ -181,6 +183,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
       get = None
       set = None
       getLinkageIfNotIncluded = fun _ _ -> Task.result Skip
+      skipRelationship = fun _ _ -> false
       hasConstraints = false
       getConstraints = fun _ _ -> Task.result []
       beforeModifySelf = fun _ e -> Ok e |> Task.result
@@ -335,6 +338,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
       )
     member this.GetLinkageIfNotIncluded ctx entity =
       this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
+    member this.SkipRelationship ctx entity =
+      this.skipRelationship ctx (unbox<'entity> entity)
 
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
@@ -626,6 +631,18 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId>) =
     this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
+
+  /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+  /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+  /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+  member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) =
+    { this with skipRelationship = predicate }
+
+  /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+  /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+  /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+  member this.SkipRelationshipIf(predicate: 'entity -> bool) =
+    { this with skipRelationship = fun _ e -> predicate e }
 
   member private this.SetTaskRes (set: Func<'ctx, 'setCtx, Pointer, 'relatedId * ResourceIdentifier, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
@@ -1002,6 +1019,7 @@ type internal ToOneNullableRelationship<'ctx> =
   abstract AllowedTypes: ICollection<ResourceTypeName> option
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) option>>) option
   abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier option>>
+  abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
 
 
 
@@ -1136,6 +1154,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
   get: ('ctx -> 'entity -> Task<'relatedEntity option Skippable>) option
   set: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) option -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier option Skippable>
+  skipRelationship: 'ctx -> 'entity -> bool
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
   beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
@@ -1158,6 +1177,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
       get = None
       set = None
       getLinkageIfNotIncluded = fun _ _ -> Task.result Skip
+      skipRelationship = fun _ _ -> false
       hasConstraints = false
       getConstraints = fun _ _ -> Task.result []
       beforeModifySelf = fun _ e -> Ok e |> Task.result
@@ -1323,6 +1343,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
       )
     member this.GetLinkageIfNotIncluded ctx entity =
       this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
+    member this.SkipRelationship ctx entity =
+      this.skipRelationship ctx (unbox<'entity> entity)
 
   
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
@@ -1624,6 +1646,18 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId option>) =
     this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
+
+  /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+  /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+  /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+  member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) =
+    { this with skipRelationship = predicate }
+
+  /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+  /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+  /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+  member this.SkipRelationshipIf(predicate: 'entity -> bool) =
+    { this with skipRelationship = fun _ e -> predicate e }
 
   member private this.SetTaskRes (set: Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) option, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then
@@ -2082,6 +2116,7 @@ type internal ToManyRelationship<'ctx> =
   abstract AllowedTypes: ICollection<ResourceTypeName> option
   abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) list>>) option
   abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier list>>
+  abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
 
 
 type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -2203,6 +2238,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
   add: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
   remove: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier list Skippable>
+  skipRelationship: 'ctx -> 'entity -> bool
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
   beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
@@ -2231,6 +2267,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
       add = None
       remove = None
       getLinkageIfNotIncluded = fun _ _ -> Task.result Skip
+      skipRelationship = fun _ _ -> false
       hasConstraints = false
       getConstraints = fun _ _ -> Task.result []
       beforeModifySelf = fun _ e -> Ok e |> Task.result
@@ -2418,6 +2455,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
       )
     member this.GetLinkageIfNotIncluded ctx entity =
       this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
+    member this.SkipRelationship ctx entity =
+      this.skipRelationship ctx (unbox<'entity> entity)
 
 
   member this.Related (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
@@ -2739,6 +2778,18 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
   member this.GetLinkageIfNotIncluded (get: Func<'entity, 'relatedId list>) =
     this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
+
+  /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+  /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+  /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+  member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) =
+    { this with skipRelationship = predicate }
+
+  /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+  /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+  /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+  member this.SkipRelationshipIf(predicate: 'entity -> bool) =
+    { this with skipRelationship = fun _ e -> predicate e }
 
   member private this.SetAllTaskRes (setAll: Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>) =
     if this.idParsers.IsNone then

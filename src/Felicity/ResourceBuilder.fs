@@ -93,7 +93,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let toOneRelsTask =
         ResourceModule.toOneRels<'ctx> resourceModule
         |> Task.mapWhenAllIgnore (fun r ->
-            if shouldUseField r.Name || shouldIncludeRelationship r.Name then
+            if not (r.SkipRelationship ctx entity) && (shouldUseField r.Name || shouldIncludeRelationship r.Name) then
               task {
                 let links : Skippable<IDictionary<_,_>> =
                   match selfUrlOpt with
@@ -130,7 +130,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let toOneNullableRelsTask =
         ResourceModule.toOneNullableRels<'ctx> resourceModule
         |> Task.mapWhenAllIgnore (fun r ->
-            if shouldUseField r.Name || shouldIncludeRelationship r.Name then
+            if  not (r.SkipRelationship ctx entity) && (shouldUseField r.Name || shouldIncludeRelationship r.Name) then
               task {
                 let links : Skippable<IDictionary<_,_>> =
                   match selfUrlOpt with
@@ -170,7 +170,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let toManyRelsTask =
         ResourceModule.toManyRels<'ctx> resourceModule
         |> Task.mapWhenAllIgnore (fun r ->
-            if shouldUseField r.Name || shouldIncludeRelationship r.Name then
+            if not (r.SkipRelationship ctx entity) && (shouldUseField r.Name || shouldIncludeRelationship r.Name) then
               task {
                 let links : Skippable<IDictionary<_,_>> =
                   match selfUrlOpt with
