@@ -1,5 +1,6 @@
 ﻿module Constraints
 
+open System.Text.Json.Serialization
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote
@@ -70,6 +71,37 @@ module X =
       .AddConstraint("cuux4", fun Ctx X -> 6)
       .Get(fun _ _ -> failwith "not used")
 
+  let aSkip =
+    define.Attribute
+      .SimpleBool()
+      .AddConstraint("a", true)
+      .Get(fun _ -> true)
+
+  let bSkip =
+    define.Attribute
+      .Nullable
+      .SimpleBool()
+      .AddConstraint("a", true)
+      .GetSkip(fun _ _ -> Skip)
+
+  let toOneSkip =
+    define.Relationship
+      .ToOne(resDef)
+      .AddConstraint("a", true)
+      .GetSkip(fun _ _ -> Skip)
+
+  let toOneNullableSkip =
+    define.Relationship
+      .ToOneNullable(resDef)
+      .AddConstraint("a", true)
+      .GetSkip(fun _ _ -> Skip)
+
+  let toManySkip =
+    define.Relationship
+      .ToMany(resDef)
+      .AddConstraint("a", true)
+      .GetSkip(fun _ _ -> Skip)
+
   let lookup = define.Operation.Lookup(fun _ -> Some X)
 
   let getColl = define.Operation.GetCollection(fun () -> [X])
@@ -99,7 +131,7 @@ module Y =
 let tests =
   testList "Constraints" [
 
-    testJob "Returns all constraints when all fields are included" {
+    testJob "Returns all constraints when all fields are included, also for fields that return Skip" {
       let! response = Request.get Ctx "/xs" |> getResponse
       response |> testSuccessStatusCode
       let! json = response |> Response.readBodyAsString
@@ -128,6 +160,11 @@ let tests =
       test <@ json |> getPath "data[0].attributes.constraints.toMany.baz4" = ["123"; "456"] @>
       test <@ json |> getPath "data[0].attributes.constraints.toMany.cux4" = 5 @>
       test <@ json |> getPath "data[0].attributes.constraints.toMany.cuux4" = 6 @>
+      test <@ json |> getPath "data[0].attributes.constraints.aSkip.a" = true @>
+      test <@ json |> getPath "data[0].attributes.constraints.bSkip.a" = true @>
+      test <@ json |> getPath "data[0].attributes.constraints.toOneSkip.a" = true @>
+      test <@ json |> getPath "data[0].attributes.constraints.toOneNullableSkip.a" = true @>
+      test <@ json |> getPath "data[0].attributes.constraints.toManySkip.a" = true @>
     }
 
     testJob "Does not return constraints for excluded fields" {
