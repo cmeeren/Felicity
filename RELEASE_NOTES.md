@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.20.8 (2022-08-24)
 
 * Added a new method `SkipRelationshipIf` to relationships that allows specifying when a relationship will be entirely omitted from the resource (i.e., no relationship links will be present). Use this together with the `Get...Skip` methods. If not (as has always been the case), the links will be present, but `GET` operations against them will return errors if the relationship's getter returns `Skip`.  
 
