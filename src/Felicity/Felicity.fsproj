@@ -26,6 +26,7 @@
     <Compile Include="Aliases.fs" />
     <Compile Include="DocumentModel.fs" />
     <Compile Include="Constants.fs" />
+    <Compile Include="ParsedValueInfo.fs" />
     <Compile Include="Errors.fs" />
     <Compile Include="Misc.fs" />
     <Compile Include="Serializer.fs" />

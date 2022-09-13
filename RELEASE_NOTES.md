@@ -1,6 +1,14 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Improved errors returned when parsing values in query, header, or body:
+  * Parse errors for comma-separated query parameters now indicate which item had an invalid value 
+  * Parse errors for query parameter now always have the parameter name in the message (in addition to `source.param`) 
+  * Parse errors for query parameters, headers, and resource IDs (not attributes) always have an error message that includes the invalid value
+  * Parsers for query parameters, headers, and resource IDs defined with overloads that return user-defined error messages (e.g. `Result<_, string>`) are generally of the form `Query parameter 'name' got invalid value 'invalidValue': <User-defined error message>`
+
 ### 0.20.8 (2022-08-24)
 
 * Added a new method `SkipRelationshipIf` to relationships that allows specifying when a relationship will be entirely omitted from the resource (i.e., no relationship links will be present). Use this together with the `Get...Skip` methods. If not (as has always been the case), the links will be present, but `GET` operations against them will return errors if the relationship's getter returns `Skip`.  

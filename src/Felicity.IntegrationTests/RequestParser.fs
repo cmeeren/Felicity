@@ -142,6 +142,53 @@ type XSearchArgs =
 
 
 
+module Y =
+
+
+  let define = Define<Ctx, X, string>()
+  let resId = define.Id.Simple(fun _ -> "someId")
+  let resDef = define.Resource("y", resId).CollectionName("ys")
+
+  let internal resIdOpt = define.Id.ParsedOpt((fun _ -> ""), (fun _ -> None), fun _ -> "")
+  let internal resDefOpt = define.Resource("y", resIdOpt)
+  let internal resIdRes = define.Id.ParsedRes((fun _ -> ""), (fun _ -> Error "Custom message"), fun _ -> "")
+  let internal resDefRes = define.Resource("y", resIdRes)
+
+  let nonNullableOpt = define.Attribute.ParsedOpt((fun _ -> ""), fun _ _ -> (None: string option))
+  let nonNullableRes = define.Attribute.ParsedRes((fun _ -> ""), fun _ _ -> (Error "Custom message": Result<string, string>))
+  let nonNullableEnum = define.Attribute.Enum((fun _ -> ""), ["a", 1; "b", 2])
+  let nonNullableBool = define.Attribute.SimpleBool()
+  let nonNullableInt = define.Attribute.SimpleInt()
+  let nonNullableFloat = define.Attribute.SimpleFloat()
+  let nonNullableDateTime = define.Attribute.SimpleDateTime()
+  let nonNullableDateTimeOffsetAllowMissingOffset = define.Attribute.SimpleDateTimeOffsetAllowMissingOffset()
+  let nonNullableDateTimeOffset = define.Attribute.SimpleDateTimeOffset()
+
+  let nullableOpt = define.Attribute.Nullable.ParsedOpt((fun _ -> ""), fun _ _ -> (None: string option))
+  let nullableRes = define.Attribute.Nullable.ParsedRes((fun _ -> ""), fun _ _ -> (Error "Custom message": Result<string, string>))
+  let nullableEnum = define.Attribute.Nullable.Enum((fun _ -> ""), ["a", 1; "b", 2])
+  let nullableBool = define.Attribute.Nullable.SimpleBool()
+  let nullableInt = define.Attribute.Nullable.SimpleInt()
+  let nullableFloat = define.Attribute.Nullable.SimpleFloat()
+  let nullableDateTime = define.Attribute.Nullable.SimpleDateTime()
+  let nullableDateTimeOffsetAllowMissingOffset = define.Attribute.Nullable.SimpleDateTimeOffsetAllowMissingOffset()
+  let nullableDateTimeOffset = define.Attribute.Nullable.SimpleDateTimeOffset()
+
+  let toOneOpt = define.Relationship.ToOne(resDefOpt)
+  let toOneRes = define.Relationship.ToOne(resDefRes)
+
+  let toOneNullableOpt = define.Relationship.ToOneNullable(resDefOpt)
+  let toOneNullableRes = define.Relationship.ToOneNullable(resDefRes)
+
+  let toManyOpt = define.Relationship.ToMany(resDefOpt)
+  let toManyRes = define.Relationship.ToMany(resDefRes)
+
+  let getColl = define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
+
+  let post = define.Operation.Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X)).AfterCreate(ignore)
+
+
+
 [<Tests>]
 let tests =
   testList "RequestParser" [
@@ -335,7 +382,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Received invalid value for attribute 'dateTimeOffset': Missing offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].detail" = "Query parameter 'filter[dateTimeOffset]' got invalid value '2000-01-01T15:49:52': The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
       test <@ json |> getPath "errors[0].source.parameter" = "filter[dateTimeOffset]" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -672,10 +719,10 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Query parameter 'sort' got invalid value '3'; expected one of '1', '2'" @>
+      test <@ json |> getPath "errors[0].detail" = "Comma-separated query parameter 'sort' got invalid value '3' for item 1; expected one of '1', '2'" @>
       test <@ json |> getPath "errors[0].source.parameter" = "sort" @>
       test <@ json |> getPath "errors[1].status" = "400" @>
-      test <@ json |> getPath "errors[1].detail" = "Query parameter 'sort' got invalid value '4'; expected one of '1', '2'" @>
+      test <@ json |> getPath "errors[1].detail" = "Comma-separated query parameter 'sort' got invalid value '4' for item 2; expected one of '1', '2'" @>
       test <@ json |> getPath "errors[1].source.parameter" = "sort" @>
       test <@ json |> hasNoPath "errors[2]" @>
     }
@@ -718,7 +765,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Query parameter 'page[offset]' expected an integer, but got 'invalid'" @>
+      test <@ json |> getPath "errors[0].detail" = "Query parameter 'page[offset]' got invalid value 'invalid': The value must be a valid integer" @>
       test <@ json |> getPath "errors[0].source.parameter" = "page[offset]" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -733,7 +780,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Query parameter 'page[offset]' has minimum value 10, but got 9" @>
+      test <@ json |> getPath "errors[0].detail" = "Query parameter 'page[offset]' got invalid value '9': The value must be greater than or equal to 10" @>
       test <@ json |> getPath "errors[0].source.parameter" = "page[offset]" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -748,7 +795,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Query parameter 'page[offset]' has maximum value 10, but got 11" @>
+      test <@ json |> getPath "errors[0].detail" = "Query parameter 'page[offset]' got invalid value '11': The value must be less than or equal to 10" @>
       test <@ json |> getPath "errors[0].source.parameter" = "page[offset]" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -898,7 +945,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "The value '2020-01-01T00:00:00' is not valid: Expected a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].detail" = "Query parameter 'customParam' got invalid value '2020-01-01T00:00:00': The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
       test <@ json |> getPath "errors[0].source.parameter" = "customParam" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -967,7 +1014,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Received invalid value for attribute 'nonEmptyString'" @>
+      test <@ json |> getPath "errors[0].detail" = "Query parameter 'filter[nonEmptyString]' got invalid value ''" @>
       test <@ json |> getPath "errors[0].source.parameter" = "filter[nonEmptyString]" @>
       test <@ json |> getPath "errors[1].status" = "400" @>
       test <@ json |> getPath "errors[1].detail" = "Attribute 'nonNegativeFloat' is required for this operation" @>
@@ -979,10 +1026,10 @@ let tests =
       test <@ json |> getPath "errors[3].detail" = "Query parameter 'customParam1' is required for this operation" @>
       test <@ json |> getPath "errors[3].source.parameter" = "customParam1" @>
       test <@ json |> getPath "errors[4].status" = "400" @>
-      test <@ json |> getPath "errors[4].detail" = "Received invalid value for attribute 'nonNegativeInt'" @>
+      test <@ json |> getPath "errors[4].detail" = "Query parameter 'filter[nonNegativeInt]' got invalid value '-1'" @>
       test <@ json |> getPath "errors[4].source.parameter" = "filter[nonNegativeInt]" @>
       test <@ json |> getPath "errors[5].status" = "400" @>
-      test <@ json |> getPath "errors[5].detail" = "Query parameter 'page[offset]' has minimum value 0, but got -1" @>
+      test <@ json |> getPath "errors[5].detail" = "Query parameter 'page[offset]' got invalid value '-1': The value must be greater than or equal to 0" @>
       test <@ json |> getPath "errors[5].source.parameter" = "page[offset]" @>
       test <@ json |> getPath "errors[6].status" = "422" @>
       test <@ json |> getPath "errors[6].code" = "custom" @>
@@ -1150,6 +1197,402 @@ let tests =
           .Add(setString, Header.ParsedRes("", parseResString))
         |> ignore
       ignore f
+    }
+
+    let returnsNoneTestData = [
+      "ID filter", "filter[id]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.resIdOpt)))
+      "Non-nullable attribute filter", "filter[nonNullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableOpt)))
+      "Non-nullable attribute filter with custom toSerialized", "filter[nonNullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableOpt, fun _ -> None)))
+      "Nullable attribute filter", "filter[nullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableOpt)))
+      "Nullable attribute filter with custom toSerialized", "filter[nullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableOpt, fun _ -> None)))
+      "To-one relationship filter", "filter[toOneOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneOpt)))
+      "To-one nullable relationship filter", "filter[toOneNullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneNullableOpt)))
+      "To-many relationship filter", "filter[toManyOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toManyOpt)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.ParsedOpt("custom", fun _ -> None)))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.ParsedOpt("custom", fun _ -> None).List))
+      "Custom sort", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.ParsedOpt(fun _ -> None)))
+      "Custom sort list", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.ParsedOpt(fun _ -> None).List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.ParsedOpt("customQueryParam", fun _ -> None)))
+    ]
+
+    for suffix, paramName, ctx in returnsNoneTestData do
+      testJob $"Returns expected error for query parameters where parser returns None: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue'" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let returnsErrorTestData = [
+      "ID filter", "filter[id]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.resIdRes)))
+      "Non-nullable attribute filter", "filter[nonNullableRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableRes)))
+      "Nullable attribute filter", "filter[nullableRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableRes)))
+      "To-one relationship filter", "filter[toOneRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneRes)))
+      "To-one nullable relationship filter", "filter[toOneNullableRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneNullableRes)))
+      "To-many relationship filter", "filter[toManyRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toManyRes)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.ParsedRes("custom", fun _ -> Error "Custom message")))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.ParsedRes("custom", fun _ -> Error "Custom message").List))
+      "Custom sort", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.ParsedRes(fun _ -> Error "Custom message")))
+      "Custom sort list", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.ParsedRes(fun _ -> Error "Custom message").List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.ParsedRes("customQueryParam", fun _ -> Error "Custom message")))
+    ]
+
+    for suffix, paramName, ctx in returnsErrorTestData do
+      testJob $"Returns expected error for query parameters where parser returns Error: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue': Custom message" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let enumTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableEnum]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableEnum)))
+      "Nullable attribute filter", "filter[nullableEnum]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableEnum)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Enum("custom", ["a", 1; "b", 2])))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Enum("custom", ["a", 1; "b", 2]).List))
+      "Custom sort", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.Enum(["a", 1; "b", 2])))
+      "Custom sort list", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.Enum(["a", 1; "b", 2]).List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.Enum("customQueryParam", ["a", 1; "b", 2])))
+    ]
+
+    for suffix, paramName, ctx in enumTestData do
+      testJob $"Returns expected error for query parameters where parser is enum: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue'; expected one of 'a', 'b'" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let boolTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableBool]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableBool)))
+      "Nullable attribute filter", "filter[nullableBool]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableBool)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Bool("custom")))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Bool("custom").List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.Bool("customQueryParam")))
+    ]
+
+    for suffix, paramName, ctx in boolTestData do
+      testJob $"Returns expected error for bool query parameters: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue'; expected one of 'true', 'false'" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let intTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableInt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableInt)))
+      "Nullable attribute filter", "filter[nullableInt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableInt)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Int("custom")))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Int("custom").List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.Int("customQueryParam")))
+    ]
+
+    for suffix, paramName, ctx in intTestData do
+      testJob $"Returns expected error for int query parameters: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue': The value must be a valid integer" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let floatTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableFloat]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableFloat)))
+      "Nullable attribute filter", "filter[nullableFloat]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableFloat)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Float("custom")))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Float("custom").List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.Float("customQueryParam")))
+    ]
+
+    for suffix, paramName, ctx in floatTestData do
+      testJob $"Returns expected error for float query parameters: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue': The value must be a valid number" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let dateTimeOffsetAllowMissingOffsetTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableDateTimeOffsetAllowMissingOffset]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableDateTimeOffsetAllowMissingOffset)))
+      "Nullable attribute filter", "filter[nullableDateTimeOffsetAllowMissingOffset]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableDateTimeOffsetAllowMissingOffset)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.DateTimeOffsetAllowMissingOffset("custom")))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.DateTimeOffsetAllowMissingOffset("custom").List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.DateTimeOffsetAllowMissingOffset("customQueryParam")))
+    ]
+
+    for suffix, paramName, ctx in dateTimeOffsetAllowMissingOffsetTestData do
+      testJob $"Returns expected error for DateTimeOffsetAllowMissingOffset query parameters: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue': The value must be a valid ISO 8601-1:2019 date-time" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    let dateTimeOffsetTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableDateTimeOffset]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableDateTimeOffset)))
+      "Nullable attribute filter", "filter[nullableDateTimeOffset]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableDateTimeOffset)))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.DateTimeOffset("custom")))
+      "Custom list filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.DateTimeOffset("custom").List))
+      "Custom query param", "customQueryParam", Ctx.Create (fun parser -> parser.For(ignore, Query.DateTimeOffset("customQueryParam")))
+    ]
+
+    for suffix, paramName, ctx in dateTimeOffsetTestData do
+      testJob $"Returns expected error for DateTimeOffset query parameters: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=invalidValue" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Query parameter '{paramName}' got invalid value 'invalidValue': The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[1]" @>
+      }
+
+    testJob "Returns expected error for headers where parser returns None" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Header.ParsedOpt("CustomHeader", fun _ -> (None: string option))))
+      let! response = Request.get ctx "/ys" |> Request.setHeader (RequestHeader.Custom ("CustomHeader", "invalidValue")) |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Header 'CustomHeader' got invalid value 'invalidValue'" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for headers where parser returns Error" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Header.ParsedRes("CustomHeader", fun _ -> (Error "Custom message": Result<string, string>))))
+      let! response = Request.get ctx "/ys" |> Request.setHeader (RequestHeader.Custom ("CustomHeader", "invalidValue")) |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Header 'CustomHeader' got invalid value 'invalidValue': Custom message" @>
+      test <@ json |> hasNoPath "errors[0].source" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    let commaSeparatedReturnsNoneTestData = [
+      "ID filter", "filter[id]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.resIdOpt).List))
+      "Non-nullable attribute filter", "filter[nonNullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableOpt).List))
+      "Non-nullable attribute filter with custom toSerialized", "filter[nonNullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableOpt, fun _ -> None).List))
+      "Nullable attribute filter", "filter[nullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableOpt).List))
+      "Nullable attribute filter with custom toSerialized", "filter[nullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableOpt, fun _ -> None).List))
+      "To-one relationship filter", "filter[toOneOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneOpt).List))
+      "To-one nullable relationship filter", "filter[toOneNullableOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneNullableOpt).List))
+      "To-many relationship filter", "filter[toManyOpt]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toManyOpt).List))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.ParsedOpt("custom", fun _ -> None).List))
+      "Custom sort", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.ParsedOpt(fun _ -> None).List))
+    ]
+
+    for suffix, paramName, ctx in commaSeparatedReturnsNoneTestData do
+      testJob $"Returns expected error for comma-separated query parameters where parser returns None: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=foo,bar" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Comma-separated query parameter '{paramName}' got invalid value 'foo' for item 1" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> getPath "errors[1].status" = "400" @>
+        test <@ json |> getPath "errors[1].detail" = $"Comma-separated query parameter '{paramName}' got invalid value 'bar' for item 2" @>
+        test <@ json |> getPath "errors[1].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[2]" @>
+      }
+
+    let commaSeparatedReturnsErrorTestData = [
+      "ID filter", "filter[id]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.resIdRes).List))
+      "Non-nullable attribute filter", "filter[nonNullableRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableRes).List))
+      "Nullable attribute filter", "filter[nullableRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableRes).List))
+      "To-one relationship filter", "filter[toOneRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneRes).List))
+      "To-one nullable relationship filter", "filter[toOneNullableRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toOneNullableRes).List))
+      "To-many relationship filter", "filter[toManyRes]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.toManyRes).List))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.ParsedRes("custom", fun _ -> Error "Custom message").List))
+      "Custom sort", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.ParsedRes(fun _ -> Error "Custom message").List))
+    ]
+
+    for suffix, paramName, ctx in commaSeparatedReturnsErrorTestData do
+      testJob $"Returns expected error for comma-separated query parameters where parser returns Error: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=foo,bar" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Comma-separated query parameter '{paramName}' got invalid value 'foo' for item 1: Custom message" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> getPath "errors[1].status" = "400" @>
+        test <@ json |> getPath "errors[1].detail" = $"Comma-separated query parameter '{paramName}' got invalid value 'bar' for item 2: Custom message" @>
+        test <@ json |> getPath "errors[1].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[2]" @>
+      }
+
+    let commaSeparatedEnumTestData = [
+      "Non-nullable attribute filter", "filter[nonNullableEnum]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nonNullableEnum).List))
+      "Nullable attribute filter", "filter[nullableEnum]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Field(Y.nullableEnum).List))
+      "Custom filter", "filter[custom]", Ctx.Create (fun parser -> parser.For(ignore, Filter.Enum("custom", ["a", 1; "b", 2]).List))
+      "Custom sort", "sort", Ctx.Create (fun parser -> parser.For(ignore, Sort.Enum(["a", 1; "b", 2]).List))
+    ]
+
+    for suffix, paramName, ctx in commaSeparatedEnumTestData do
+      testJob $"Returns expected error for comma-separated query parameters where parser is enum: {suffix}" {
+        let! response = Request.get ctx $"/ys?{paramName}=foo,bar" |> getResponse
+
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = $"Comma-separated query parameter '{paramName}' got invalid value 'foo' for item 1; expected one of 'a', 'b'" @>
+        test <@ json |> getPath "errors[0].source.parameter" = paramName @>
+        test <@ json |> getPath "errors[1].status" = "400" @>
+        test <@ json |> getPath "errors[1].detail" = $"Comma-separated query parameter '{paramName}' got invalid value 'bar' for item 2; expected one of 'a', 'b'" @>
+        test <@ json |> getPath "errors[1].source.parameter" = paramName @>
+        test <@ json |> hasNoPath "errors[2]" @>
+      }
+
+    testJob "Returns expected error for invalid ID in body where parser returns None" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.resIdOpt))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; id = "invalidValue" |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Got invalid resource ID value 'invalidValue'" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/id" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid ID in body where parser returns Error" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.resIdRes))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; id = "invalidValue" |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Got invalid resource ID value 'invalidValue': Custom message" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/id" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid non-nullable attribute in body where parser returns None" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nonNullableOpt))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nonNullableOpt = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableOpt' got an invalid value" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableOpt" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid nullable attribute in body where parser returns None" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nullableOpt))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nullableOpt = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableOpt' got an invalid value" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableOpt" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid non-nullable attribute in body where parser returns Error" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nonNullableRes))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nonNullableRes = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableRes' got an invalid value: Custom message" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableRes" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid nullable attribute in body where parser returns Error" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nullableRes))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nullableRes = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableRes' got an invalid value: Custom message" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableRes" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid non-nullable attribute in body where parser is enum" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nonNullableEnum))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nonNullableEnum = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableEnum' got an invalid value; expected one of 'a', 'b'" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableEnum" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid nullable attribute in body where parser is enum" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nullableEnum))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nullableEnum = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableEnum' got an invalid value; expected one of 'a', 'b'" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableEnum" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid non-nullable SimpleDateTimeOffset attribute in body" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nonNullableDateTimeOffset))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nonNullableDateTimeOffset = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableDateTimeOffset' got an invalid value: The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableDateTimeOffset" @>
+      test <@ json |> hasNoPath "errors[1]" @>
+    }
+
+    testJob "Returns expected error for invalid nullable SimpleDateTimeOffset attribute in body" {
+      let ctx = Ctx.Create (fun parser -> parser.For(ignore, Y.nullableDateTimeOffset))
+      let! response = Request.post ctx "/ys" |> Request.bodySerialized {| data = {| ``type`` = "y"; attributes = {| nullableDateTimeOffset = "invalidValue" |} |} |} |> getResponse
+
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableDateTimeOffset' got an invalid value: The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableDateTimeOffset" @>
+      test <@ json |> hasNoPath "errors[1]" @>
     }
 
   ]

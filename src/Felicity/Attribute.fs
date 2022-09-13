@@ -27,7 +27,7 @@ type FieldSetter<'ctx> =
 
 type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
   abstract Name: string
-  abstract ToDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>
+  abstract ToDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>
 
 
 
@@ -36,14 +36,14 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
   setOrder: int
   mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
   fromDomain: 'attr -> 'serialized
-  toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>
+  toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Task<'attr Skippable>) option
   set: ('setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) option
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
 } with
 
-  static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+  static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     {
       name = name
       setOrder = 0
@@ -76,8 +76,9 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
                 match! this.mapSetCtx ctx (unbox<'entity> entity) with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
+                    let valueInfo = FromBodyAttribute { Name = this.name }
                     return!
-                      this.toDomain ctx (unbox<'serialized> attrValue)
+                      this.toDomain ctx valueInfo (unbox<'serialized> attrValue)
                       |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
                       |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
                       |> TaskResult.map (fun e -> box e, true)
@@ -118,7 +119,8 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
           | Ok (Some (attrVals, attrsPointer)) ->
               match attrVals.TryGetValue this.name with
               | true, (:? 'serialized as attr) ->
-                  this.toDomain ctx attr
+                  let valueInfo = FromBodyAttribute { Name = this.name }
+                  this.toDomain ctx valueInfo attr
                   |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> TaskResult.map Some
               | true, x -> failwith $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized>.FullName}, but was %s{x.GetType().FullName}"
@@ -152,8 +154,8 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
 
   interface FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> with
     member this.Name = this.name
-    member this.ToDomain ctx serialized =
-      this.toDomain ctx serialized
+    member this.ToDomain ctx info serialized =
+      this.toDomain ctx info serialized
 
 
   member this.Name = this.name
@@ -270,14 +272,14 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   setOrder: int
   mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
   fromDomain: 'attr -> 'serialized
-  toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>
+  toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>
   get: ('ctx -> 'entity -> Task<'attr option Skippable>) option
   set: ('setCtx -> 'attr option -> 'entity -> Task<Result<'entity, Error list>>) option
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
 } with
 
-  static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+  static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     {
       name = name
       setOrder = 0
@@ -294,7 +296,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
     Option.map this.fromDomain
 
   member internal this.nullableToDomain =
-    fun ctx -> Option.traverseTaskResult (this.toDomain ctx)
+    fun ctx i -> Option.traverseTaskResult (this.toDomain ctx i)
 
   interface FieldSetter<'ctx> with
     member this.Names = Set.singleton this.name
@@ -316,8 +318,9 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                 match! this.mapSetCtx ctx (unbox<'entity> entity) with
                 | Error errs -> return Error errs
                 | Ok setCtx ->
+                    let valueInfo = FromBodyAttribute { Name = this.name }
                     return!
-                      this.nullableToDomain ctx (unbox<'serialized option> attrValue)
+                      this.nullableToDomain ctx valueInfo (unbox<'serialized option> attrValue)
                       |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
                       |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
                       |> TaskResult.map (fun e -> box e, true)
@@ -358,8 +361,9 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
           | Ok (Some (attrVals, attrsPointer)) ->
               match attrVals.TryGetValue this.name with
               | true, (:? ('serialized option) as attr) ->
+                  let valueInfo = FromBodyAttribute { Name = this.name }
                   attr
-                  |> Option.traverseTaskResult (this.toDomain ctx)
+                  |> Option.traverseTaskResult (this.toDomain ctx valueInfo)
                   |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                   |> TaskResult.map Some
               | true, x -> failwith $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
@@ -380,8 +384,9 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                   match attr with
                   | None -> Error [ setAttrNullNotAllowed this.name |> Error.setSourcePointer (attrsPointer + "/" + this.name) ] |> Task.result
                   | Some attr ->
+                      let valueInfo = FromBodyAttribute { Name = this.name }
                       attr
-                      |> this.toDomain ctx
+                      |> this.toDomain ctx valueInfo
                       |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
                       |> TaskResult.map Some
               | true, x -> failwith $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
@@ -425,8 +430,8 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
 
   interface FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> with
     member this.Name = this.name
-    member this.ToDomain ctx serialized =
-      this.toDomain ctx serialized
+    member this.ToDomain ctx info serialized =
+      this.toDomain ctx info serialized
 
 
   member this.Name = this.name
@@ -588,12 +593,13 @@ module private AttributeParsers =
   /// Converts a string conforming to the ISO 8601-1:2019 format to a DateTimeOffset.
   let parseDateTimeOffset =
     let r = Regex("(?>Z|(?>\+|-)\d\d:\d\d)$", RegexOptions.Compiled)
-    fun (str: string) ->
+    let errMsg = "The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')"
+    fun (value: string) ->
       try
-        let res = JsonSerializer.Deserialize<DateTimeOffset> ("\"" + str + "\"")
-        if r.IsMatch str then Ok res
-        else Error "Missing offset (e.g. 'Z' or '+01:00')"
-      with _ -> Error "Invalid ISO 8601-1:2019 date-time"
+        let res = JsonSerializer.Deserialize<DateTimeOffset> ("\"" + value + "\"")
+        if r.IsMatch value then Ok res
+        else Error errMsg
+      with _ -> Error errMsg
 
   let stringifyDateTimeOffset =
     JsonSerializer.Serialize<DateTimeOffset>
@@ -603,27 +609,27 @@ module private AttributeParsers =
 
 type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>) =
 
-  member _.MapSetContextTaskRes (mapSetCtx: 'ctx -> 'entity -> Task<Result<'mappedSetCtx, Error list>>) =
+  member _.MapSetContextTaskRes (mapSetCtx: 'ctx -> 'entity -> Task<Result<'mappedSetCtx, Error list>>) : NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
 
-  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) =
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) : NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (Task.liftAsync2 mapSetCtx)
 
-  member this.MapSetContextTask (mapSetCtx: 'ctx -> 'entity -> Task<'mappedSetCtx>) =
+  member this.MapSetContextTask (mapSetCtx: 'ctx -> 'entity -> Task<'mappedSetCtx>) : NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (fun ctx e -> mapSetCtx ctx e |> Task.map Ok)
 
-  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) =
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) : NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTask (Task.liftAsync2 mapSetCtx)
 
-  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) =
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) : NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (Task.lift2 mapSetCtx)
 
-  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) : NullableAttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (TaskResult.lift2 mapSetCtx)
 
-  member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized> =
     NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create(
-      name, mapSetCtx, id, fun _ -> Ok >> Task.result)
+      name, mapSetCtx, id, fun _ _ -> Ok >> Task.result)
 
   member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, bool, bool> =
     this.SimpleUnsafe(name)
@@ -657,7 +663,7 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -
 
   member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string> =
     NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>.Create(
-      name, mapSetCtx, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Task.result))
+      name, mapSetCtx, stringifyDateTimeOffset, (fun _ i -> parseDateTimeOffset >> Result.mapError (invalidParsedErrMsg i >> List.singleton) >> Task.result))
 
   member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, Guid, Guid> =
     this.SimpleUnsafe(name)
@@ -665,110 +671,110 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -
   member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, Uri, Uri> =
     this.SimpleUnsafe(name)
 
-  member private _.ParsedTaskRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member private _.ParsedTaskRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create(name, mapSetCtx, fromDomain, toDomain)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, toDomain, name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx _ -> toDomain ctx), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ _ -> toDomain), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> TaskResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> TaskResult.mapError (invalidParsedErrMsg i >> List.singleton)), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> TaskResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> TaskResult.mapError (invalidParsedErrMsg i >> List.singleton)), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> TaskResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> TaskResult.mapError (List.map (invalidParsedErrMsg i))), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> TaskResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> TaskResult.mapError (List.map (invalidParsedErrMsg i))), name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, Task.liftAsync2 toDomain, name)
-
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
-
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Task.map (Result.requireSome [attrInvalidParsedNone name])), name)
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Task.map (Result.requireSome [attrInvalidParsedNone name])), name)
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Task.map (Result.requireSome [invalidParsedNone i])), name)
+
+  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Task.map (Result.requireSome [invalidParsedNone i])), name)
+
+  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskOpt(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskOpt(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Task.map Ok), name)
+  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx _ -> toDomain ctx >> Task.map Ok), name)
 
-  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Task.map Ok), name)
+  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ _ -> toDomain >> Task.map Ok), name)
 
-  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTask(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTask(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.lift2 toDomain, name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.lift toDomain, name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Result.mapError (invalidParsedErrMsg i >> List.singleton) >> Task.result), name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Result.mapError (invalidParsedErrMsg i >> List.singleton) >> Task.result), name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Result.mapError (List.map (invalidParsedErrMsg i)) >> Task.result), name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Result.mapError (List.map (invalidParsedErrMsg i)) >> Task.result), name)
 
-  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [attrInvalidParsedNone name] >> Task.result), name)
+  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Result.requireSome [invalidParsedNone i] >> Task.result), name)
 
-  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Result.requireSome [attrInvalidParsedNone name] >> Task.result), name)
+  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Result.requireSome [invalidParsedNone i] >> Task.result), name)
 
-  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Ok >> Task.result), name)
+  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx _ -> toDomain ctx >> Ok >> Task.result), name)
 
-  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Ok >> Task.result), name)
+  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ _ -> toDomain >> Ok >> Task.result), name)
 
-  member _.Enum(fromDomain: 'attr -> string, toDomainMap: (string * 'attr) list, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member _.Enum(fromDomain: 'attr -> string, toDomainMap: (string * 'attr) list, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string> =
     let d = dict toDomainMap
     let allowed = toDomainMap |> List.map fst |> List.distinct
-    let toDomain serialized =
+    let toDomain valueInfo serialized =
       serialized
       |> d.TryGetValue
       |> function
-          | false, _ -> Error [attrInvalidEnum name serialized allowed]
+          | false, _ -> Error [invalidEnum valueInfo serialized allowed]
           | true, attr -> Ok attr
     NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>.Create(
-      name, mapSetCtx, fromDomain, fun _ -> toDomain >> Task.result)
+      name, mapSetCtx, fromDomain, fun _ i -> toDomain i >> Task.result)
 
 
 
@@ -780,24 +786,24 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
   member _.MapSetContextTaskRes (mapSetCtx: 'ctx -> 'entity -> Task<Result<'mappedSetCtx, Error list>>) =
     AttributeHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
 
-  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) =
+  member this.MapSetContextAsyncRes (mapSetCtx: 'ctx -> 'entity -> Async<Result<'mappedSetCtx, Error list>>) : AttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (Task.liftAsync2 mapSetCtx)
 
-  member this.MapSetContextTask (mapSetCtx: 'ctx -> 'entity -> Task<'mappedSetCtx>) =
+  member this.MapSetContextTask (mapSetCtx: 'ctx -> 'entity -> Task<'mappedSetCtx>) : AttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (fun ctx e -> mapSetCtx ctx e |> Task.map Ok)
 
-  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) =
+  member this.MapSetContextAsync (mapSetCtx: 'ctx -> 'entity -> Async<'mappedSetCtx>) : AttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTask (Task.liftAsync2 mapSetCtx)
 
-  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) =
+  member this.MapSetContextRes (mapSetCtx: 'ctx -> 'entity -> Result<'mappedSetCtx, Error list>) : AttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (Task.lift2 mapSetCtx)
 
-  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
+  member this.MapSetContext (mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) : AttributeHelper<'ctx, 'mappedSetCtx, 'entity> =
     this.MapSetContextTaskRes (TaskResult.lift2 mapSetCtx)
 
-  member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member _.SimpleUnsafe([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized> =
     NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create(
-      name, mapSetCtx, id, fun _ -> Ok >> Task.result)
+      name, mapSetCtx, id, fun _ _ -> Ok >> Task.result)
 
   member this.SimpleBool([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, bool, bool> =
     this.SimpleUnsafe(name)
@@ -831,7 +837,7 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
 
   member _.SimpleDateTimeOffset([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string> =
     NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>.Create(
-      name, mapSetCtx, stringifyDateTimeOffset, (fun _ -> parseDateTimeOffset >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Task.result))
+      name, mapSetCtx, stringifyDateTimeOffset, (fun _ i -> parseDateTimeOffset >> Result.mapError (invalidParsedErrMsg i >> List.singleton) >> Task.result))
 
   member this.SimpleGuid([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, Guid, Guid> =
     this.SimpleUnsafe(name)
@@ -839,105 +845,105 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
   member this.SimpleUri([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, Uri, Uri> =
     this.SimpleUnsafe(name)
 
-  member private _.ParsedTaskRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member private _.ParsedTaskRes'(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create(name, mapSetCtx, fromDomain, toDomain)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, toDomain, name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx _ -> toDomain ctx), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ _ -> toDomain), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> TaskResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> TaskResult.mapError (invalidParsedErrMsg i >> List.singleton)), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> TaskResult.mapError (attrInvalidParsedErrMsg name >> List.singleton)), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> TaskResult.mapError (invalidParsedErrMsg i >> List.singleton)), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> TaskResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> TaskResult.mapError (List.map (invalidParsedErrMsg i))), name)
 
-  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> TaskResult.mapError (List.map (attrInvalidParsedErrMsg name))), name)
+  member this.ParsedTaskRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> TaskResult.mapError (List.map (invalidParsedErrMsg i))), name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, Task.liftAsync2 toDomain, name)
-
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
-
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, Error list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Task.map (Result.requireSome [attrInvalidParsedNone name])), name)
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Task.map (Result.requireSome [attrInvalidParsedNone name])), name)
+  member this.ParsedAsyncRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<Result<'attr, string list>>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Task.map (Result.requireSome [invalidParsedNone i])), name)
+
+  member this.ParsedTaskOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Task.map (Result.requireSome [invalidParsedNone i])), name)
+
+  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskOpt(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsyncOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr option>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskOpt(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Task.map Ok), name)
+  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx _ -> toDomain ctx >> Task.map Ok), name)
 
-  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Task.map Ok), name)
+  member this.ParsedTask(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Task<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ _ -> toDomain >> Task.map Ok), name)
 
-  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTask(fromDomain, Task.liftAsync2 toDomain, name)
 
-  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedAsync(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Async<'attr>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTask(fromDomain, Task.liftAsync toDomain, name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.lift2 toDomain, name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, Error list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     this.ParsedTaskRes(fromDomain, Task.lift toDomain, name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Result.mapError (invalidParsedErrMsg i >> List.singleton) >> Task.result), name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (attrInvalidParsedErrMsg name >> List.singleton) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Result.mapError (invalidParsedErrMsg i >> List.singleton) >> Task.result), name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Result.mapError (List.map (invalidParsedErrMsg i)) >> Task.result), name)
 
-  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Result.mapError (List.map (attrInvalidParsedErrMsg name)) >> Task.result), name)
+  member this.ParsedRes(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> Result<'attr, string list>, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Result.mapError (List.map (invalidParsedErrMsg i)) >> Task.result), name)
 
-  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Result.requireSome [attrInvalidParsedNone name] >> Task.result), name)
+  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx i -> toDomain ctx >> Result.requireSome [invalidParsedNone i] >> Task.result), name)
 
-  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Result.requireSome [attrInvalidParsedNone name] >> Task.result), name)
+  member this.ParsedOpt(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr option, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ i -> toDomain >> Result.requireSome [invalidParsedNone i] >> Task.result), name)
 
-  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Ok >> Task.result), name)
+  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun ctx _ -> toDomain ctx >> Ok >> Task.result), name)
 
-  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-    this.ParsedTaskRes'(fromDomain, (fun _ -> toDomain >> Ok >> Task.result), name)
+  member this.Parsed(fromDomain: 'attr -> 'serialized, toDomain: 'serialized -> 'attr, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
+    this.ParsedTaskRes'(fromDomain, (fun _ _ -> toDomain >> Ok >> Task.result), name)
 
-  member _.Enum(fromDomain: 'attr -> string, toDomainMap: (string * 'attr) list, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
+  member _.Enum(fromDomain: 'attr -> string, toDomainMap: (string * 'attr) list, [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string> =
     let d = dict toDomainMap
     let allowed = toDomainMap |> List.map fst |> List.distinct
-    let toDomain serialized =
+    let toDomain valueInfo serialized =
       match d.TryGetValue serialized with
-      | false, _ -> Error [attrInvalidEnum name serialized allowed]
+      | false, _ -> Error [invalidEnum valueInfo serialized allowed]
       | true, attr -> Ok attr
     NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>.Create(
-      name, mapSetCtx, fromDomain, fun _ -> toDomain >> Task.result)
+      name, mapSetCtx, fromDomain, fun _ i -> toDomain i >> Task.result)

@@ -55,6 +55,9 @@ let (|BoxedNull|_|) x =
   if isBoxedNull x then ValueSome () else ValueNone
 
 
+let flip f a b = f b a
+
+
 module Result =
 
   let requireSome errIfNone = function

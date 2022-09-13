@@ -156,7 +156,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
   mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
+  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
   get: ('ctx -> 'entity -> Task<'relatedEntity Skippable>) option
   set: ('ctx -> 'setCtx -> Pointer -> 'relatedId * ResourceIdentifier -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier Skippable>
@@ -355,10 +355,10 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
   interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
     member this.Name = this.name
-    member this.ToDomain ctx str =
+    member this.ToDomain ctx info str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
-      | [_, parseId] -> parseId ctx str
+      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr info))
       | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
@@ -1150,7 +1150,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
   mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
+  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
   get: ('ctx -> 'entity -> Task<'relatedEntity option Skippable>) option
   set: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) option -> 'entity -> Task<Result<'entity, Error list>>) option
   getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier option Skippable>
@@ -1360,10 +1360,10 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
   interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
     member this.Name = this.name
-    member this.ToDomain ctx str =
+    member this.ToDomain ctx info str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
-      | [_, parseId] -> parseId ctx str
+      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr info))
       | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
@@ -2232,7 +2232,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
   mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
+  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
   get: ('ctx -> 'entity -> Task<'relatedEntity list Skippable>) option
   setAll: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
   add: ('ctx -> 'setCtx -> Pointer -> ('relatedId * ResourceIdentifier) list -> 'entity -> Task<Result<'entity, Error list>>) option
@@ -2472,10 +2472,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
   interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
     member this.Name = this.name
-    member this.ToDomain ctx str =
+    member this.ToDomain ctx info str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
-      | [_, parseId] -> parseId ctx str
+      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr info))
       | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
@@ -3321,7 +3321,7 @@ type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'rela
   mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
   resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
   resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, Error list>>> option
+  idParsers: Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
 } with
 
   static member internal Create (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>) : PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =

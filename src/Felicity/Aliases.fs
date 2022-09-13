@@ -13,6 +13,7 @@ type internal LinkName = string
 type internal QueryParamName = string
 type internal ConsumedQueryParamName = string
 type internal ConsumedFieldName = string
+type internal HeaderName = string
 
 type internal BoxedEntity = obj
 type internal BoxedDomainId = obj

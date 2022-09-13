@@ -228,104 +228,92 @@
    * Any request: Parsing
   *)
 
-  // Must also make sense when used in a filter query parameter
-  let attrInvalidParsedNone attrName =
-    Error.create 400
-    |> Error.setTitle "Invalid attribute value"
-    |> Error.setDetail $"Received invalid value for attribute '%s{attrName}'"
+  let invalidParsedNone (info: ParsedValueInfo) =
+    match info with
+    | FromQuery data ->
+        if data.NumValues > 1 then
+          Error.create 400
+          |> Error.setTitle "Invalid query parameter value"
+          |> Error.setDetail $"Comma-separated query parameter '%s{data.Name}' got invalid value '%s{data.Value}' for item %i{data.ValueIndex + 1}"
+          |> Error.setSourceParam data.Name
+        else
+          Error.create 400
+          |> Error.setTitle "Invalid query parameter value"
+          |> Error.setDetail $"Query parameter '%s{data.Name}' got invalid value '%s{data.Value}'"
+          |> Error.setSourceParam data.Name
+    | FromHeader data ->
+        Error.create 400
+        |> Error.setTitle "Invalid header value"
+        |> Error.setDetail $"Header '%s{data.Name}' got invalid value '%s{data.Value}'"
+    | FromBodyAttribute data ->
+        Error.create 400
+        |> Error.setTitle "Invalid attribute value"
+        |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value"
+    | FromBodyId data ->
+        Error.create 400
+        |> Error.setTitle "Invalid ID"
+        |> Error.setDetail $"Got invalid resource ID value '%s{data.Value}'"
 
-  // Must also make sense when used in a filter query parameter
-  let attrInvalidParsedErrMsg attrName errMsg =
-    Error.create 400
-    |> Error.setTitle "Invalid attribute value"
-    |> Error.setDetail $"Received invalid value for attribute '%s{attrName}': %s{errMsg}"
+  let invalidParsedErrMsg (info: ParsedValueInfo) errMsg =
+    match info with
+    | FromQuery data ->
+        if data.NumValues > 1 then
+          Error.create 400
+          |> Error.setTitle "Invalid query parameter value"
+          |> Error.setDetail $"Comma-separated query parameter '%s{data.Name}' got invalid value '%s{data.Value}' for item %i{data.ValueIndex + 1}: %s{errMsg}"
+          |> Error.setSourceParam data.Name
+        else
+          Error.create 400
+          |> Error.setTitle "Invalid query parameter value"
+          |> Error.setDetail $"Query parameter '%s{data.Name}' got invalid value '%s{data.Value}': %s{errMsg}"
+          |> Error.setSourceParam data.Name
+    | FromHeader data ->
+        Error.create 400
+        |> Error.setTitle "Invalid header value"
+        |> Error.setDetail $"Header '%s{data.Name}' got invalid value '%s{data.Value}': %s{errMsg}"
+    | FromBodyAttribute data ->
+        Error.create 400
+        |> Error.setTitle "Invalid attribute value"
+        |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value: %s{errMsg}"
+    | FromBodyId data ->
+        Error.create 400
+        |> Error.setTitle "Invalid ID"
+        |> Error.setDetail $"Got invalid resource ID value '%s{data.Value}': %s{errMsg}"
 
-  // Must also make sense when used in a filter query parameter
-  let attrInvalidEnum attrName invalidValue allowedValues =
-    Error.create 400
-    |> Error.setTitle "Invalid attribute value"
-    |> match allowedValues with
-       | [x] -> Error.setDetail $"Value '%s{invalidValue}' is not valid for attribute '%s{attrName}'; expected '%s{x}'"
-       | xs -> Error.setDetailf "Value '%s' is not valid for attribute '%s'; expected one of %s" invalidValue attrName (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
+  let invalidEnum (info: ParsedValueInfo) invalidValue allowedValues =
+    let expectedStr =
+      match allowedValues with
+      | [x] -> x
+      | xs -> "one of " + (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
 
-  // Must also make sense when used in a filter query parameter
-  let idInvalidParsedNone () =
-    Error.create 400
-    |> Error.setTitle "Invalid ID"
-    |> Error.setDetail "This is not a valid value for this resource ID"
-
-  // Must also make sense when used in a filter query parameter
-  let idInvalidErrMsg errMsg =
-    Error.create 400
-    |> Error.setTitle "Invalid ID"
-    |> Error.setDetail $"This is not a valid value for this resource ID: %s{errMsg}"
-
-  let queryInvalidEnum paramName invalidValue allowedValues =
-    // This error is not specific to sorting, but it's used there, so this is relevant:
-    //
-    // "If the server does not support sorting as specified in the query parameter sort,
-    // it MUST return 400 Bad Request."
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> match allowedValues with
-       | [x] -> Error.setDetail $"Query parameter '%s{paramName}' got invalid value '%s{invalidValue}'; expected '%s{x}'"
-       | xs -> Error.setDetailf "Query parameter '%s' got invalid value '%s'; expected one of %s" paramName invalidValue (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
-    |> Error.setSourceParam paramName
-
-  let queryInvalidEnumUnnamed invalidValue allowedValues =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> match allowedValues with
-       | [x] -> Error.setDetail $"Query parameter got invalid value '%s{invalidValue}'; expected '%s{x}'"
-       | xs -> Error.setDetailf "Query parameter got invalid value '%s'; expected one of %s" invalidValue (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
-
-  let queryInvalidInt paramName invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Query parameter '%s{paramName}' expected an integer, but got '%s{invalidValue}'"
-    |> Error.setSourceParam paramName
-
-  let queryIntTooSmall paramName invalidValue minValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Query parameter '%s{paramName}' has minimum value %i{minValue}, but got %i{invalidValue}"
-    |> Error.setSourceParam paramName
-
-  let queryIntTooLarge paramName invalidValue maxValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Query parameter '%s{paramName}' has maximum value %i{maxValue}, but got %i{invalidValue}"
-    |> Error.setSourceParam paramName
-
-  let queryInvalidIntUnnamed invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Expected an integer, but got '%s{invalidValue}'"
-
-  let queryInvalidFloatUnnamed invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Expected a number, but got '%s{invalidValue}'"
-
-  let queryInvalidParsedNone queryParamName invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Query parameter '%s{queryParamName}' got invalid value '%s{invalidValue}'"
-
-  let queryInvalidParsedNoneUnnamed invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"The value '%s{invalidValue}' is not valid"
-
-  let queryInvalidParsedErrMsg queryParamName invalidValue errMsg =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Query parameter '%s{queryParamName}' got invalid value '%s{invalidValue}': %s{errMsg}"
-
-  let queryInvalidParsedErrMsgUnnamed invalidValue errMsg =
-    Error.create 400
-    |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"The value '%s{invalidValue}' is not valid: %s{errMsg}"
+    match info with
+    | FromQuery data ->
+        // This error is not specific to sorting, but it's used there, so this is relevant:
+        //
+        // "If the server does not support sorting as specified in the query parameter sort,
+        // it MUST return 400 Bad Request."
+        if data.NumValues > 1 then
+          Error.create 400
+          |> Error.setTitle "Invalid query parameter value"
+          |> Error.setDetail $"Comma-separated query parameter '%s{data.Name}' got invalid value '%s{invalidValue}' for item %i{data.ValueIndex + 1}; expected %s{expectedStr}"
+          |> Error.setSourceParam data.Name
+        else
+          Error.create 400
+          |> Error.setTitle "Invalid query parameter value"
+          |> Error.setDetail $"Query parameter '%s{data.Name}' got invalid value '%s{invalidValue}'; expected %s{expectedStr}"
+          |> Error.setSourceParam data.Name
+    | FromHeader data ->
+        Error.create 400
+        |> Error.setTitle "Invalid header value"
+        |> Error.setDetail $"Header '%s{data.Name}' got invalid value'%s{invalidValue}'; expected %s{expectedStr}"
+    | FromBodyAttribute data ->
+        Error.create 400
+        |> Error.setTitle "Invalid attribute value"
+        |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value; expected %s{expectedStr}"
+    | FromBodyId _ ->
+        Error.create 400
+        |> Error.setTitle "Invalid ID"
+        |> Error.setDetail $"Got invalid resource ID value '%s{invalidValue}'; expected %s{expectedStr}"
 
   let queryNotSingular paramName numValues =
     Error.create 400
@@ -333,21 +321,11 @@
     |> Error.setDetail $"Query parameter '%s{paramName}' only accepts a single value, but got %i{numValues} comma-separated values"
     |> Error.setSourceParam paramName
 
-  let queryDoesNotAcceptValue paramName value =
+  let queryDoesNotAcceptValue paramName invalidValue =
     Error.create 400
     |> Error.setTitle "Invalid query parameter value"
-    |> Error.setDetail $"Query parameter '%s{paramName}' must be specified without a value, but got '%s{value}'"
+    |> Error.setDetail $"Query parameter '%s{paramName}' must be specified without a value, but got '%s{invalidValue}'"
     |> Error.setSourceParam paramName
-
-  let headerInvalidParsedNone headerName invalidValue =
-    Error.create 400
-    |> Error.setTitle "Invalid header value"
-    |> Error.setDetail $"Header '%s{headerName}' got invalid value '%s{invalidValue}'"
-
-  let headerInvalidParsedErrMsg headerName invalidValue errMsg =
-    Error.create 400
-    |> Error.setTitle "Invalid header value"
-    |> Error.setDetail $"Header '%s{headerName}' got invalid value '%s{invalidValue}': %s{errMsg}"
 
 
   (*

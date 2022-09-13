@@ -11,7 +11,7 @@ type ResourceDefinition<'ctx> =
   abstract TypeName: ResourceTypeName
   abstract CollectionName: CollectionName option
   abstract GetIdBoxed: BoxedEntity -> ResourceId
-  abstract ParseIdBoxed: 'ctx -> ResourceId -> Task<Result<BoxedDomainId, Error list>>
+  abstract ParseIdBoxed: 'ctx -> ResourceId -> Task<Result<BoxedDomainId, (ParsedValueInfo -> Error) list>>
 
 
 
@@ -187,7 +187,7 @@ type internal ResourceDefinitionLockSpec<'ctx> =
 
 type ResourceDefinition<'ctx, 'id> =
   abstract TypeName: ResourceTypeName
-  abstract ParseId: 'ctx -> ResourceId -> Task<Result<'id, Error list>>
+  abstract ParseId: 'ctx -> ResourceId -> Task<Result<'id, (ParsedValueInfo -> Error) list>>
 
 
 [<Struct>]
