@@ -185,11 +185,6 @@ type internal ResourceDefinitionLockSpec<'ctx> =
 
 
 
-type ResourceDefinition<'ctx, 'id> =
-  abstract TypeName: ResourceTypeName
-  abstract ParseId: 'ctx -> ResourceId -> Task<Result<'id, (ParsedValueInfo -> Error) list>>
-
-
 [<Struct>]
 type PolymorphicBuilder<'ctx> = internal {
   resourceDef: ResourceDefinition<'ctx>
@@ -225,11 +220,6 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     member this.CollName = this.collectionName
     member this.LockSpecs = this.lockSpecs |> Some |> Option.filter (not << List.isEmpty)
     member this.TotalTimeout = this.lockTotalTimeout
-
-  interface ResourceDefinition<'ctx, 'id> with
-    member this.TypeName = this.name
-    member this.ParseId ctx rawId =
-      this.id.toDomain ctx rawId
 
 
   member this.CollectionName(collectionName) =
