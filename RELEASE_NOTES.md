@@ -8,6 +8,7 @@ Release notes
   * Parse errors for query parameter now always have the parameter name in the message (in addition to `source.param`) 
   * Parse errors for query parameters, headers, and resource IDs (not attributes) always have an error message that includes the invalid value
   * Parsers for query parameters, headers, and resource IDs defined with overloads that return user-defined error messages (e.g. `Result<_, string>`) are generally of the form `Query parameter 'name' got invalid value 'invalidValue': <User-defined error message>`
+* Added overloads of attribute and relationship `Get...Skip` methods without `'ctx`
 
 ### 0.20.8 (2022-08-24)
 

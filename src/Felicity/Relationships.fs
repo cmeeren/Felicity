@@ -566,8 +566,14 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
       failwithf "Can only add getter if the polymorphic resource definition contains an entity resolver."
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
 
+  member this.GetTaskSkip(get: Func<'entity, Task<'relatedEntity Skippable>>) =
+    this.GetTaskSkip(fun _ e -> get.Invoke(e))
+
   member this.GetAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedEntity Skippable>>) =
     this.GetTaskSkip(Task.liftAsyncFunc2 get)
+
+  member this.GetAsyncSkip(get: Func<'entity, Async<'relatedEntity Skippable>>) =
+    this.GetTaskSkip(Task.liftAsyncFunc get)
 
   member this.GetTask (get: Func<'ctx, 'entity, Task<'relatedEntity>>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Task.map Include)
@@ -583,6 +589,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
   member this.GetSkip (get: Func<'ctx, 'entity, Skippable<'relatedEntity>>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Task.result)
+
+  member this.GetSkip (get: Func<'entity, Skippable<'relatedEntity>>) =
+    this.GetTaskSkip(fun _ r -> get.Invoke(r) |> Task.result)
 
   member this.Get (get: Func<'ctx, 'entity, 'relatedEntity>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Include |> Task.result)
@@ -1580,8 +1589,14 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
       failwithf "Can only add getter if the polymorphic resource definition contains an entity resolver."
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
 
+  member this.GetTaskSkip(get: Func<'entity, Task<'relatedEntity option Skippable>>) =
+    this.GetTaskSkip(fun _ e -> get.Invoke(e))
+
   member this.GetAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedEntity option Skippable>>) =
     this.GetTaskSkip(Task.liftAsyncFunc2 get)
+
+  member this.GetAsyncSkip(get: Func<'entity, Async<'relatedEntity option Skippable>>) =
+    this.GetTaskSkip(Task.liftAsyncFunc get)
 
   member this.GetTask (get: Func<'ctx, 'entity, Task<'relatedEntity option>>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Task.map Include)
@@ -1597,6 +1612,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
   member this.GetSkip (get: Func<'ctx, 'entity, Skippable<'relatedEntity option>>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Task.result)
+
+  member this.GetSkip (get: Func<'entity, Skippable<'relatedEntity option>>) =
+    this.GetTaskSkip(fun _ r -> get.Invoke(r) |> Task.result)
 
   member this.Get (get: Func<'ctx, 'entity, 'relatedEntity option>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Include |> Task.result)
@@ -2708,8 +2726,14 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
       failwithf "Can only add getter if the polymorphic resource definition contains an entity resolver."
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
 
+  member this.GetTaskSkip(get: Func<'entity, Task<'relatedEntity list Skippable>>) =
+    this.GetTaskSkip(fun _ e -> get.Invoke(e))
+
   member this.GetAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedEntity list Skippable>>) =
     this.GetTaskSkip(Task.liftAsyncFunc2 get)
+
+  member this.GetAsyncSkip(get: Func<'entity, Async<'relatedEntity list Skippable>>) =
+    this.GetTaskSkip(Task.liftAsyncFunc get)
 
   member this.GetTask (get: Func<'ctx, 'entity, Task<'relatedEntity list>>) =
     this.GetTaskSkip(fun ctx r -> get.Invoke(ctx, r) |> Task.map Include)
@@ -2725,6 +2749,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
   member this.GetSkip (get: Func<'ctx, 'entity, Skippable<'relatedEntity list>>) =
     this.GetTaskSkip(Task.liftFunc2 get)
+
+  member this.GetSkip (get: Func<'entity, Skippable<'relatedEntity list>>) =
+    this.GetTaskSkip(Task.liftFunc get)
 
   member this.Get (get: Func<'ctx, 'entity, 'relatedEntity list>) =
     this.GetTask(Task.liftFunc2 get)

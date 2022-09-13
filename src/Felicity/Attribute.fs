@@ -170,8 +170,14 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
   member this.GetTaskSkip (get: Func<'ctx, 'entity, Task<'attr Skippable>>) =
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
 
+  member this.GetTaskSkip (get: Func<'entity, Task<'attr Skippable>>) =
+    this.GetTaskSkip(fun _ e -> get.Invoke(e))
+
   member this.GetAsyncSkip (get: Func<'ctx, 'entity, Async<'attr Skippable>>) =
     this.GetTaskSkip(Task.liftAsyncFunc2 get)
+
+  member this.GetAsyncSkip (get: Func<'entity, Async<'attr Skippable>>) =
+    this.GetTaskSkip(Task.liftAsyncFunc get)
 
   member this.GetTask (get: Func<'ctx, 'entity, Task<'attr>>) =
     this.GetTaskSkip (fun ctx r -> get.Invoke(ctx, r) |> Task.map Include)
@@ -187,6 +193,9 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
 
   member this.GetSkip (get: Func<'ctx, 'entity, 'attr Skippable>) =
     this.GetTaskSkip (Task.liftFunc2 get)
+
+  member this.GetSkip (get: Func<'entity, 'attr Skippable>) =
+    this.GetTaskSkip (Task.liftFunc get)
 
   member this.Get (get: Func<'ctx, 'entity, 'attr>) =
     this.GetTaskSkip (fun ctx r -> get.Invoke(ctx, r) |> Include |> Task.result)
@@ -446,8 +455,14 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   member this.GetTaskSkip (get: Func<'ctx, 'entity, Task<'attr option Skippable>>) =
     { this with get = Some (fun ctx e -> get.Invoke(ctx, e)) }
 
+  member this.GetTaskSkip (get: Func<'entity, Task<'attr option Skippable>>) =
+    this.GetTaskSkip(fun _ e -> get.Invoke(e))
+
   member this.GetAsyncSkip (get: Func<'ctx, 'entity, Async<'attr option Skippable>>) =
     this.GetTaskSkip(Task.liftAsyncFunc2 get)
+
+  member this.GetAsyncSkip (get: Func<'entity, Async<'attr option Skippable>>) =
+    this.GetTaskSkip(Task.liftAsyncFunc get)
 
   member this.GetTask (get: Func<'ctx, 'entity, Task<'attr option>>) =
     this.GetTaskSkip (fun ctx r -> get.Invoke(ctx, r) |> Task.map Include)
@@ -463,6 +478,9 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
 
   member this.GetSkip (get: Func<'ctx, 'entity, 'attr option Skippable>) =
     this.GetTaskSkip (Task.liftFunc2 get)
+
+  member this.GetSkip (get: Func<'entity, 'attr option Skippable>) =
+    this.GetTaskSkip (Task.liftFunc get)
 
   member this.Get (get: Func<'ctx, 'entity, 'attr option>) =
     this.GetTaskSkip (fun ctx r -> get.Invoke(ctx, r) |> Include |> Task.result)
