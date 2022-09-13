@@ -114,17 +114,17 @@ module private ToDocumentModel =
           |> Array.traverseResultA (fun kvp ->
               let attrName = kvp.Key
               let jsonEl = kvp.Value
-              getFieldType d.``type`` attrName
-              |> Option.traverseResult (fun tp ->
+              match getFieldType d.``type`` attrName with
+              | None -> Ok None
+              | Some tp ->
                   let isOption = tp.IsGenericType && tp.GetGenericTypeDefinition() = typedefof<Option<_>>
                   if jsonEl.ValueKind = JsonValueKind.Null && not isOption then
                     Error [attrInvalidNull d.``type`` attrName (ptr + "/attributes/" + attrName)]
                   else
                     try
-                      Ok (attrName, JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options))
+                      Ok (Some (attrName, JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options)))
                     with :? JsonException as ex ->
                       Error [fieldInvalidJson attrName ex (ptr + "/attributes/" + attrName)]
-              )
           )
           |> Result.map (Array.choose id >> dict >> Include)
 
@@ -136,8 +136,9 @@ module private ToDocumentModel =
           |> Array.traverseResultA (fun kvp ->
               let relName = kvp.Key
               let jsonEl = kvp.Value
-              getFieldType d.``type`` relName
-              |> Option.traverseResult (fun tp ->
+              match getFieldType d.``type`` relName with
+              | None -> Ok None
+              | Some tp ->
                   try
                     let dRel = JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options)
                     let rel =
@@ -153,10 +154,9 @@ module private ToDocumentModel =
                           toManyRelationship (ptr + "/relationships/" + relName) r
                           |> Result.map (fun r -> r :> IRelationship)
                       | _ -> failwith $"Framework bug: Relationship was serialized to unknown type %s{dRel.GetType().FullName}"
-                    rel |> Result.map (fun r -> relName, r)
+                    rel |> Result.map (fun r -> Some (relName, r))
                   with :? JsonException as ex ->
                     Error [fieldInvalidJson relName ex (ptr + "/relationships/" + relName)]
-              )
           )
           |> Result.map (Array.choose id >> dict >> Include)
 
