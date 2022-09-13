@@ -12,12 +12,6 @@ module internal FieldTracker =
 
 
   // Note: Similar code exists in ResourceBuilder
-  let private shouldUseField (req: Request) typeName fieldName =
-    match req.Fieldsets.TryGetValue typeName with
-    | false, _ -> true
-    | true, fields -> fields.Contains fieldName
-
-  // Note: Similar code exists in ResourceBuilder
   let private shouldIncludeRelationship (req: Request) (currentIncludePath: RelationshipName list) relName =
     req.Includes |> List.exists (fun path ->
       path.Length > currentIncludePath.Length && path[currentIncludePath.Length] = relName
