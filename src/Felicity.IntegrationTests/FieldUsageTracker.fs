@@ -437,6 +437,23 @@ module GHAlt =
       .RegisterResourceType(H.resDef)
 
 
+module X =
+
+  let define = Define<Ctx, string, string>()
+  let resId = define.Id.Simple(fun _ -> "")
+  let resDef = define.Resource("x", resId).CollectionName("xs")
+
+  let nonNullableRequiresExplicitInclude = define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude()
+  let nonNullableRequiresExplicitIncludeTrue = define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(true)
+  let nonNullableRequiresExplicitIncludeFalse = define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(false)
+
+  let nullableRequiresExplicitInclude = define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude()
+  let nullableRequiresExplicitIncludeTrue = define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(true)
+  let nullableRequiresExplicitIncludeFalse = define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(false)
+
+  let getColl = define.Operation.GetCollection(fun () -> [])
+
+
 
 let createServerAndGetClient (trackFieldUsage: _ -> _ -> _ -> HttpHandler) =
   let server =
@@ -1579,6 +1596,38 @@ let tests =
             ("a", "relC"), FieldUsage.Implicit
             ("a", "relD"), FieldUsage.Implicit
             ("a", "constraints"), FieldUsage.Implicit
+          ]
+    }
+
+    testJob "Attributes with RequireExplicitInclude are tracked if specified using sparse fieldsets" {
+      do!
+        doTest
+          Get
+          "http://example.com/xs?fields[x]=nonNullableRequiresExplicitInclude,nonNullableRequiresExplicitIncludeTrue,nonNullableRequiresExplicitIncludeFalse,nullableRequiresExplicitInclude,nullableRequiresExplicitIncludeTrue,nullableRequiresExplicitIncludeFalse"
+          None
+          [
+            ("x", "nonNullableRequiresExplicitInclude"), FieldUsage.Explicit
+            ("x", "nonNullableRequiresExplicitIncludeTrue"), FieldUsage.Explicit
+            ("x", "nonNullableRequiresExplicitIncludeFalse"), FieldUsage.Explicit
+            ("x", "nullableRequiresExplicitInclude"), FieldUsage.Explicit
+            ("x", "nullableRequiresExplicitIncludeTrue"), FieldUsage.Explicit
+            ("x", "nullableRequiresExplicitIncludeFalse"), FieldUsage.Explicit
+          ]
+    }
+
+    testJob "Attributes with RequireExplicitInclude are not tracked if not specified using sparse fieldsets" {
+      do!
+        doTest
+          Get
+          "http://example.com/xs"
+          None
+          [
+            ("x", "nonNullableRequiresExplicitInclude"), FieldUsage.Excluded
+            ("x", "nonNullableRequiresExplicitIncludeTrue"), FieldUsage.Excluded
+            ("x", "nonNullableRequiresExplicitIncludeFalse"), FieldUsage.Implicit
+            ("x", "nullableRequiresExplicitInclude"), FieldUsage.Excluded
+            ("x", "nullableRequiresExplicitIncludeTrue"), FieldUsage.Excluded
+            ("x", "nullableRequiresExplicitIncludeFalse"), FieldUsage.Implicit
           ]
     }
 

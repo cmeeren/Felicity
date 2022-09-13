@@ -11,12 +11,14 @@ open Errors
 type internal Attribute<'ctx> =
   abstract Name: AttributeName
   abstract BoxedGetSerialized: ('ctx -> BoxedEntity -> Task<BoxedSerializedField Skippable>) option
+  abstract RequiresExplicitInclude: bool
 
 
 type internal ConstrainedField<'ctx> =
   abstract Name: FieldName
   abstract HasConstraints: bool
   abstract BoxedGetConstraints: 'ctx -> BoxedEntity -> Task<(string * obj) list>
+  abstract RequiresExplicitInclude: bool
 
 
 type FieldSetter<'ctx> =
@@ -41,6 +43,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
   set: ('setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) option
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+  requiresExplicitInclude: bool
 } with
 
   static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
@@ -54,6 +57,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
       set = None
       hasConstraints = false
       getConstraints = fun _ _ -> Task.result []
+      requiresExplicitInclude = false
     }
 
   interface FieldSetter<'ctx> with
@@ -95,6 +99,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
           fun ctx res ->
             get ctx (unbox<'entity> res) |> Task.map (Skippable.map (this.fromDomain >> box))
       )
+    member this.RequiresExplicitInclude = this.requiresExplicitInclude
 
 
   interface Field<'ctx> with
@@ -106,6 +111,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
     member this.HasConstraints = this.hasConstraints
     member this.BoxedGetConstraints ctx e =
       this.getConstraints ctx (unbox<'entity> e)
+    member this.RequiresExplicitInclude = this.requiresExplicitInclude
 
 
   member this.Optional =
@@ -263,6 +269,11 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
 
+  /// If the 'requireExplicitInclude' parameter is true (the default when calling this method), the attribute will only
+  /// be present in the response if explicitly specified using sparse fieldsets.
+  member this.RequireExplicitInclude(?requireExplicitInclude) =
+    { this with requiresExplicitInclude = defaultArg requireExplicitInclude true }
+
 
 
 [<AutoOpen>]
@@ -286,6 +297,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
   set: ('setCtx -> 'attr option -> 'entity -> Task<Result<'entity, Error list>>) option
   hasConstraints: bool
   getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+  requiresExplicitInclude: bool
 } with
 
   static member internal Create(name: string, mapSetCtx, fromDomain: 'attr -> 'serialized, toDomain: 'ctx -> ParsedValueInfo -> 'serialized -> Task<Result<'attr, Error list>>) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
@@ -299,6 +311,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
       set = None
       hasConstraints = false
       getConstraints = fun _ _ -> Task.result []
+      requiresExplicitInclude = false
     }
 
   member internal this.nullableFromDomain =
@@ -346,6 +359,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
           fun ctx res ->
             get ctx (unbox<'entity> res) |> Task.map (Skippable.map (this.nullableFromDomain >> box))
       )
+    member this.RequiresExplicitInclude = this.requiresExplicitInclude
 
 
   interface Field<'ctx> with
@@ -357,6 +371,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
     member this.HasConstraints = this.hasConstraints
     member this.BoxedGetConstraints ctx e =
       this.getConstraints ctx (unbox<'entity> e)
+    member this.RequiresExplicitInclude = this.requiresExplicitInclude
 
 
   member this.Optional =
@@ -589,6 +604,11 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
 
   member this.AddConstraint (name: string, getValue: 'entity -> 'a) =
     this.AddConstraint(name, fun _ e -> getValue e)
+
+  /// If the 'requireExplicitInclude' parameter is true (the default when calling this method), the attribute will only
+  /// be present in the response if explicitly specified using sparse fieldsets.
+  member this.RequireExplicitInclude(?requireExplicitInclude) =
+    { this with requiresExplicitInclude = defaultArg requireExplicitInclude true }
 
 
 

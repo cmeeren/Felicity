@@ -14,9 +14,9 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
   let identifier = { ``type`` = resourceDef.TypeName; id = resourceDef.GetIdBoxed entity }
 
   // Note: Similar code exists in FieldUsageTracker
-  let shouldUseField fieldName =
+  let shouldUseField fieldName requiresExplicitInclude =
     match req.Fieldsets.TryGetValue resourceDef.TypeName with
-    | false, _ -> true
+    | false, _ -> not requiresExplicitInclude
     | true, fields -> fields.Contains fieldName
 
   // Note: Similar code exists in FieldUsageTracker
@@ -48,7 +48,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 task {
                   let! constraints =
                     constrainedFields
-                    |> Array.filter (fun f -> shouldUseField f.Name)
+                    |> Array.filter (fun f -> shouldUseField f.Name f.RequiresExplicitInclude)
                     |> Task.mapWhenAll (fun f ->
                         task {
                           let! constraints = f.BoxedGetConstraints ctx boxedEntity
@@ -63,6 +63,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                     |> Skippable.filter (not << Array.isEmpty)
                     |> Skippable.map (dict >> box)
                 }
+            member _.RequiresExplicitInclude = false
         }
 
   member _.Identifier = identifier
@@ -71,7 +72,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
     ResourceModule.attributes<'ctx> resourceModule
     |> Array.append (constraintsAttr |> Option.toArray)
     |> Array.choose (fun a ->
-        if shouldUseField a.Name then
+        if shouldUseField a.Name a.RequiresExplicitInclude then
           a.BoxedGetSerialized |> Option.map (fun get -> get ctx entity |> Task.map (fun v -> a.Name, v))
         else None
     )
@@ -93,7 +94,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let toOneRelsTask =
         ResourceModule.toOneRels<'ctx> resourceModule
         |> Task.mapWhenAllIgnore (fun r ->
-            if not (r.SkipRelationship ctx entity) && (shouldUseField r.Name || shouldIncludeRelationship r.Name) then
+            if not (r.SkipRelationship ctx entity) && (shouldUseField r.Name false || shouldIncludeRelationship r.Name) then
               task {
                 let links : Skippable<IDictionary<_,_>> =
                   match selfUrlOpt with
@@ -110,17 +111,17 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 | true, Some get ->
                     match! get ctx entity with
                     | Skip ->
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToOne.links = links; data = Skip; meta = meta }
                     | Include (rDef, e) ->
                         let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToOne.links = links; data = Include id; meta = meta }
                         addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
                 | true, None | false, Some _ | false, None ->
                     let! data = r.GetLinkageIfNotIncluded ctx entity
-                    if shouldUseField r.Name then
+                    if shouldUseField r.Name false then
                       addRelationship r.Name { ToOne.links = links; data = data; meta = meta }
               }
               :> Task
@@ -130,7 +131,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let toOneNullableRelsTask =
         ResourceModule.toOneNullableRels<'ctx> resourceModule
         |> Task.mapWhenAllIgnore (fun r ->
-            if  not (r.SkipRelationship ctx entity) && (shouldUseField r.Name || shouldIncludeRelationship r.Name) then
+            if  not (r.SkipRelationship ctx entity) && (shouldUseField r.Name false || shouldIncludeRelationship r.Name) then
               task {
                 let links : Skippable<IDictionary<_,_>> =
                   match selfUrlOpt with
@@ -147,20 +148,20 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 | true, Some get ->
                     match! get ctx entity with
                     | Skip ->
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToOneNullable.links = links; data = Skip; meta = meta }
                     | Include None ->
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToOneNullable.links = links; data = Include None; meta = meta }
                     | Include (Some (rDef, e)) ->
                         let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToOneNullable.links = links; data = Include (Some id); meta = meta }
                         addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
                 | true, None | false, Some _ | false, None ->
                     let! data = r.GetLinkageIfNotIncluded ctx entity
-                    if shouldUseField r.Name then
+                    if shouldUseField r.Name false then
                       addRelationship r.Name { ToOneNullable.links = links; data = data; meta = meta }
               }
               :> Task
@@ -170,7 +171,7 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let toManyRelsTask =
         ResourceModule.toManyRels<'ctx> resourceModule
         |> Task.mapWhenAllIgnore (fun r ->
-            if not (r.SkipRelationship ctx entity) && (shouldUseField r.Name || shouldIncludeRelationship r.Name) then
+            if not (r.SkipRelationship ctx entity) && (shouldUseField r.Name false || shouldIncludeRelationship r.Name) then
               task {
                 let links : Skippable<IDictionary<_,_>> =
                   match selfUrlOpt with
@@ -187,18 +188,18 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                 | true, Some get ->
                     match! get ctx entity with
                     | Skip ->
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToMany.links = links; data = Skip; meta = meta }
                     | Include xs ->
                         let data = xs |> List.map (fun (rDef, e) -> { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e })
-                        if shouldUseField r.Name then
+                        if shouldUseField r.Name false then
                           addRelationship r.Name { ToMany.links = links; data = Include data; meta = meta }
                         for rDef, e in xs do
                           addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
                 | true, None | false, Some _ | false, None ->
                     let! data = r.GetLinkageIfNotIncluded ctx entity
-                    if shouldUseField r.Name then
+                    if shouldUseField r.Name false then
                       addRelationship r.Name { ToMany.links = links; data = data; meta = meta }
               }
               :> Task

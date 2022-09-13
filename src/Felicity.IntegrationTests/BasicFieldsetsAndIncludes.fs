@@ -41,9 +41,19 @@ module Person =
 
   let firstName = define.Attribute.SimpleString().Get(fun p -> p.FirstName)
   let attrLastName = define.Attribute.SimpleString("lastName").Get(fun p -> p.LastName)
+
+  let nonNullableRequiresExplicitInclude = define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude()
+  let nonNullableRequiresExplicitIncludeTrue = define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(true)
+  let nonNullableRequiresExplicitIncludeFalse = define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(false)
+
+  let nullableRequiresExplicitInclude = define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude()
+  let nullableRequiresExplicitIncludeTrue = define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(true)
+  let nullableRequiresExplicitIncludeFalse = define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(false)
+
   let friends = define.Relationship.ToMany(resDef).Get(fun _ -> [bob; jane])
   let bestFriend = define.Relationship.ToMany(resDef).Get(fun _ -> [bob])
   let emptyRel = define.Relationship.ToMany(resDef).Get(fun _ -> [])
+
 
   let toOneWithLinkage =
     define.Relationship
@@ -296,6 +306,34 @@ let tests =
       test <@ json |> hasNoPath "data.relationships.toOneSkipped" @>
       test <@ json |> hasNoPath "data.relationships.toOneNullableSkipped" @>
       test <@ json |> hasNoPath "data.relationships.toManySkipped" @>
+    }
+
+    testJob "Attributes with RequireExplicitInclude are included if specified using sparse fieldsets" {
+      let! response =
+        Request.get Ctx "/persons/1?fields[person]=nonNullableRequiresExplicitInclude,nonNullableRequiresExplicitIncludeTrue,nonNullableRequiresExplicitIncludeFalse,nullableRequiresExplicitInclude,nullableRequiresExplicitIncludeTrue,nullableRequiresExplicitIncludeFalse"
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> hasPath "data.attributes.nonNullableRequiresExplicitInclude" @>
+      test <@ json |> hasPath "data.attributes.nonNullableRequiresExplicitIncludeTrue" @>
+      test <@ json |> hasPath "data.attributes.nonNullableRequiresExplicitIncludeFalse" @>
+      test <@ json |> hasPath "data.attributes.nullableRequiresExplicitInclude" @>
+      test <@ json |> hasPath "data.attributes.nullableRequiresExplicitIncludeTrue" @>
+      test <@ json |> hasPath "data.attributes.nullableRequiresExplicitIncludeFalse" @>
+    }
+
+    testJob "Attributes with RequireExplicitInclude are not included if not specified using sparse fieldsets" {
+      let! response =
+        Request.get Ctx "/persons/1"
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> hasNoPath "data.attributes.nonNullableRequiresExplicitInclude" @>
+      test <@ json |> hasNoPath "data.attributes.nonNullableRequiresExplicitIncludeTrue" @>
+      test <@ json |> hasPath "data.attributes.nonNullableRequiresExplicitIncludeFalse" @>
+      test <@ json |> hasNoPath "data.attributes.nullableRequiresExplicitInclude" @>
+      test <@ json |> hasNoPath "data.attributes.nullableRequiresExplicitIncludeTrue" @>
+      test <@ json |> hasPath "data.attributes.nullableRequiresExplicitIncludeFalse" @>
     }
 
   ]

@@ -55,13 +55,13 @@ module internal FieldTracker =
       // Furthermore, only do this on the initial call; when recursing (i.e., though includes), everything works
       // normally.
 
-      let attrNames =
+      let attrNamesAndRequiresExplicitInclude =
         if relNameIfRelationshipSelfAndNotRecursiveCall.IsSome then [||]
         else
           ResourceModule.attributes<'ctx> resourceModule
           |> Array.filter (fun a -> a.BoxedGetSerialized.IsSome)  // Only gettable attributes
-          |> Array.map (fun a -> a.Name)
-          |> Array.append (if constrainedFields |> Array.forall (fun f -> not f.HasConstraints) then [||] else [| "constraints" |])
+          |> Array.map (fun a -> a.Name, a.RequiresExplicitInclude)
+          |> Array.append (if constrainedFields |> Array.forall (fun f -> not f.HasConstraints) then [||] else [| "constraints", false |])
 
       let relNamesAndAllowedTypes =
         Array.concat [
@@ -71,12 +71,12 @@ module internal FieldTracker =
         ]
         |> Array.filter (fun (relName, _) -> relNameIfRelationshipSelfAndNotRecursiveCall.IsNone || relNameIfRelationshipSelfAndNotRecursiveCall = Some relName)
 
-      for attrName in attrNames do
+      for attrName, requiresExplicitInclude in attrNamesAndRequiresExplicitInclude do
         let usageType =
           match req.Fieldsets.TryGetValue typeName with
           | true, fields when fields.Contains attrName -> FieldUsage.Explicit
           | true, _ -> FieldUsage.Excluded
-          | false, _ -> FieldUsage.Implicit
+          | false, _ -> if requiresExplicitInclude then FieldUsage.Excluded else FieldUsage.Implicit
 
         addFieldUsage typeName attrName usageType
 

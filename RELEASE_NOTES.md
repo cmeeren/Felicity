@@ -3,6 +3,7 @@ Release notes
 
 ### Unreleased
 
+* Added a new method `RequireExplicitInclude` to attributes which makes them be present in the response only if explicitly specified using sparse fieldsets  
 * Improved errors returned when parsing values in query, header, or body:
   * Parse errors for comma-separated query parameters now indicate which item had an invalid value 
   * Parse errors for query parameter now always have the parameter name in the message (in addition to `source.param`) 

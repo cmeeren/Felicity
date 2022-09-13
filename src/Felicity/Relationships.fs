@@ -371,6 +371,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     member this.HasConstraints = this.hasConstraints
     member this.BoxedGetConstraints ctx e =
       this.getConstraints ctx (unbox<'entity> e)
+    member this.RequiresExplicitInclude = false
 
 
   interface RelationshipHandlers<'ctx> with
@@ -1385,6 +1386,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.HasConstraints = this.hasConstraints
     member this.BoxedGetConstraints ctx e =
       this.getConstraints ctx (unbox<'entity> e)
+    member this.RequiresExplicitInclude = false
 
 
   interface RelationshipHandlers<'ctx> with
@@ -2506,6 +2508,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.HasConstraints = this.hasConstraints
     member this.BoxedGetConstraints ctx e =
       this.getConstraints ctx (unbox<'entity> e)
+    member this.RequiresExplicitInclude = false
 
 
   member private this.ModifySelfHandler f modifyOkResponse modifyAcceptedResponse =
