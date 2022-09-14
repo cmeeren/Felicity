@@ -421,7 +421,7 @@ module Person =
 
 ### Sparse fieldsets and included resources
 
-Felicity automatically supports sparse fieldsets and includes for all operations (currently except resource `self` endpoints; please open an issue if you need that functionality). By default, all fields are included, and no related resources are included.
+Felicity automatically supports sparse fieldsets and includes for all operations (currently except resource `self` endpoints; please open an issue if you need that functionality). By default, all fields are included, and no related resources are included. For attributes, you can override that by using `.RequireExplicitInclude()`. In that case, the attribute is excluded by default and will only be present if it is specified using sparse fieldsets.
 
 Included resources are fetched asynchronously and on-demand. If your related resources are fetched from the database when needed, you may encounter the “N+1 problem”; for example fetching a list of 1000 resources with an included relationship will cause 1000 queries to the database to fetch the related resource(s) for each of the main data resources. The problem gets even worse for multi-level includes. There are no trivial solutions, but it might be relatively simple to write (more complicated) batched SQL queries and use e.g. [BatchIt](https://github.com/cmeeren/BatchIt) to abstract away the batching in code.
 
