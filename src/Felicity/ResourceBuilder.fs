@@ -194,8 +194,10 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         let data = xs |> List.map (fun (rDef, e) -> { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e })
                         if shouldUseField r.Name false then
                           addRelationship r.Name { ToMany.links = links; data = Include data; meta = meta }
-                        for rDef, e in xs do
-                          addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
+                        xs
+                        |> List.iter (fun (rDef, e) ->
+                            addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
+                        )
 
                 | true, None | false, Some _ | false, None ->
                     let! data = r.GetLinkageIfNotIncluded ctx entity
