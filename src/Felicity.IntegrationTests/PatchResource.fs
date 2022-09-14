@@ -1253,11 +1253,11 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Ignores unknown members and relationships" {
+    testJob "Ignores unknown members and relationships when not using strict mode" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar" }
       let! response =
-        Request.patch ctx "/abs/a1"
+        Request.patchWithoutStrictMode ctx "/abs/a1"
         |> Request.bodySerialized
             {|data =
                 {|``type`` = "a"

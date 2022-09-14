@@ -150,6 +150,10 @@ type RequestParser<'ctx, 'a> = internal {
         prohibited = getter :: this.prohibited
     }.MarkAsConsumed(getter)
 
+  // Exempts this query parameter from causing strict mode warnings/errors.
+  member this.IgnoreStrictMode (getter: OptionalRequestGetter<'ctx, 'b>) =
+    this.MarkAsConsumed(getter)
+
   member this.Map (f: 'a -> 'b) : RequestParser<'ctx, 'b> =
     {
       includedTypeAndId = this.includedTypeAndId

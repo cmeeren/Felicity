@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Text.Json.Serialization
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Logging
 open Giraffe
 open Errors
 
@@ -189,3 +190,17 @@ type internal FieldTracker<'ctx>
           consumedFieldNamesWithType
     )
     |> Task.map (Option.defaultValue (fun next ctx -> next ctx))
+
+
+[<RequireQualifiedAccess>]
+type internal UnknownFieldStrictMode<'ctx> =
+  | Ignore
+  | Warn of LogLevel
+  | Error
+
+
+[<RequireQualifiedAccess>]
+type internal UnknownQueryParamStrictMode<'ctx> =
+  | Ignore
+  | Warn of LogLevel
+  | Error

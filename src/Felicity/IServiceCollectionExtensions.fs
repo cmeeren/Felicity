@@ -7,6 +7,7 @@ open System.Text.Json
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 open Giraffe
 open RoutingOperations
 open Routing
@@ -23,6 +24,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
   skipStandardLinksQueryParamNames: string []
   skipCustomLinksQueryParamNames: string []
   trackFieldUsage: (IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>) option
+  unknownFieldStrictMode: UnknownFieldStrictMode<'ctx>
+  unknownQueryParamStrictMode: UnknownQueryParamStrictMode<'ctx>
 } with
 
   static member internal DefaultFor services : JsonApiConfigBuilder<'ctx> = {
@@ -35,6 +38,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
     skipStandardLinksQueryParamNames =  [||]
     skipCustomLinksQueryParamNames = [||]
     trackFieldUsage = None
+    unknownFieldStrictMode = UnknownFieldStrictMode.Ignore
+    unknownQueryParamStrictMode = UnknownQueryParamStrictMode.Ignore
   }
 
   /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
@@ -128,6 +133,21 @@ type JsonApiConfigBuilder<'ctx> = internal {
   /// from) the request.
   member this.TrackFieldUsage(trackFieldUsage: IServiceProvider -> 'ctx -> FieldUseInfo list -> unit) : JsonApiConfigBuilder<'ctx> =
     this.TrackFieldUsageTask(fun sp ctx xs -> trackFieldUsage sp ctx xs |> Task.result)
+
+  /// Returns an error if an unknown field is encountered in a request body. If warnOnly (default false) is true, log a
+  /// warning instead of returning an error. The default log level is Warning.
+  member this.EnableUnknownFieldStrictMode<'ctx>(?warnOnly, ?warnLogLevel) =
+    let warnOnly = defaultArg warnOnly false
+    let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
+    { this with unknownFieldStrictMode = if warnOnly then UnknownFieldStrictMode<'ctx>.Warn warnLogLevel else UnknownFieldStrictMode<'ctx>.Error }
+
+  /// Returns an error if an unknown query parameter is encountered in a request. Query parameters are only considered
+  /// "known" if they are parsed using RequestParserHelper/RequestParser. If warnOnly (default false) is true, log a
+  /// warning instead of returning an error. The default log level is Warning.
+  member this.EnableUnknownQueryParamStrictMode<'ctx>(?warnOnly, ?warnLogLevel) =
+    let warnOnly = defaultArg warnOnly false
+    let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
+    { this with unknownQueryParamStrictMode = if warnOnly then UnknownQueryParamStrictMode<'ctx>.Warn warnLogLevel else UnknownQueryParamStrictMode<'ctx>.Error }
 
 
   member this.Add() =
@@ -242,9 +262,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
           if relativeRoot = "" then "" else "/" + relativeRoot
 
     this.services
+      .AddSingleton<UnknownFieldStrictMode<'ctx>>(this.unknownFieldStrictMode)
+      .AddSingleton<UnknownQueryParamStrictMode<'ctx>>(this.unknownQueryParamStrictMode)
       .AddSingleton<JsonApiEndpoints<'ctx>>(JsonApiEndpoints (jsonApiEndpoints relativeRootWithLeadingSlash getCtx collections))
-      .AddSingleton<Serializer<'ctx>>(Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
-      .AddSingleton<Serializer<ErrorSerializerCtx>>(Serializer<ErrorSerializerCtx>(getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<Serializer<'ctx>>(fun sp -> Serializer<'ctx>(sp.GetRequiredService(), sp.GetRequiredService(), getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<Serializer<ErrorSerializerCtx>>(fun sp -> Serializer<ErrorSerializerCtx>(sp.GetRequiredService(), UnknownFieldStrictMode<ErrorSerializerCtx>.Ignore, getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
       .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
       .AddSingleton<LinkConfig<'ctx>>(LinkConfig<'ctx>(this.skipStandardLinksQueryParamNames, this.skipCustomLinksQueryParamNames))

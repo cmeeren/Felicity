@@ -1708,6 +1708,105 @@ let polymorphicRel =
 
 
 
+Strict mode
+-----------
+
+If an API receives unknown fields (attributes/relationships) in the request body or unknown query parameters in the URL, that is often an indication of bugs in the client. It can be useful to return errors in this case, or log warnings.
+
+You can enable strict mode (errors or warnings for unknown fields and/or unknown query parameters) like this:
+
+```f#
+// Set it up using TrackFieldUsage
+member _.ConfigureServices(services: IServiceCollection) : unit =
+  services
+    .AddGiraffe()
+    .AddJsonApi()
+      .GetCtxAsyncRes(Context.getCtx)
+      .EnableUnknownFieldStrictMode()
+      .EnableUnknownQueryParamStrictMode()
+      .Add()
+    .AddOtherServices(..)
+```
+
+By default, these methods will cause an error response to be returned if the request contains unknown fields or query parameters.
+
+If you want warnings to be logged instead, set the `warnOnly` parameter to `true`:
+
+```f#
+.EnableUnknownFieldStrictMode(true)
+.EnableUnknownQueryParamStrictMode(true)
+```
+
+You can also configure the logging level:
+
+```f#
+.EnableUnknownFieldStrictMode(true, Microsoft.Extensions.Logging.LogLevel.Information)
+.EnableUnknownQueryParamStrictMode(true, Microsoft.Extensions.Logging.LogLevel.Information)
+```
+
+
+### Exempting query parameters from strict mode
+
+There may be cases where returning errors for a previously recognized query parameter is an unnecessary breaking change. You can exempt a query parameter from strict mode checking by using `IgnoreStrictMode` in the query parser:
+
+```f#
+parser.For(ArticleSearchArgs.empty)
+  .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+  .IgnoreStrictMode(Filter.Field(articleType))
+  .BindAsync(Db.Article.search)
+```
+
+In the example above, `filter[articleType]` will be ignored by strict mode.
+
+
+### Caveats and limitations
+
+
+#### Parameter usage is checked at runtime
+
+Parameter usage is checked for each request at runtime. So if you use branching in the request parser, Felicity may consider some query parameters unknown. For example:
+
+```f#
+let getCollection =
+define.Operation
+  .GetCollection(fun ctx parser ->
+    if ctx.HasFullSearchCapabilities then
+      parser.For(ArticleSearchArgs.empty)
+        .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+        .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
+        .Add(ArticleSearchArgs.setSort, Sort.Enum(ArticleSort.fromStringMap))
+        .BindAsync(Db.Article.search)
+    else
+      parser.For(ArticleSearchArgs.empty)
+        .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+        .BindAsync(Db.Article.search)
+  )
+```
+
+In the example above, if `ctx.HasFullSearchCapabilities` is `false` but the request contains `filter[articleType]` or `sort`, Felicity will return errors (or log warnings) saying that these query parameters are not recognized for this operation.
+
+An alternative is to use `Prohibit` (e.g. `.Prohibit(Filter.Field(articleType))`), which will return a slightly different error saying that the parameter is not allowed (instead of not recognized). 
+
+
+#### Always parse query parameters with RequestParser/RequestParserHelper
+
+Only query parameters parsed with RequestParser/RequestParserHelper (as shown in the example above) are considered known/used. If you only read them manually from ASP.Net Core's `HttpContext`, Felicity does not know that they are used, and it will be caught by strict mode.
+
+
+#### No query parameter validation for custom operations
+
+Felicity does not perform strict mode query parameter validation for custom operations (`define.Operation.CustomLink`).
+
+
+#### Sparse fieldsets and include paths are not checked
+
+Sparse fieldsets and include paths are not checked for validity, since this may cause unnecessary breaking changes.
+
+* **Example 1:** Consider a resource with a relationship that is only present in the response if the user is authorized to view that relationship for the resource. In other words, the client must handle the case where it is missing, even if it is present in `include`. It would then be a non-breaking change in itself to remove the relationship entirely, but if the server then starts returning errors if the (now non-existent) relationship is included in `include` or sparse fieldsets, that would be a breaking change.
+* **Example 2:** Consider an operation `GET /vehicles` that returns two types, `truck` and `car`. A `truck` has a relationship `trailers`, and a `car` does not. Clients send requests to `GET /vehicles?include=trailers` to search for both trucks and cars, including the trailer of any truck that happens to be returned. If the API changes so that `GET /vehicles` no longer return trucks, that in itself may not be a breaking change (from the client's perspective, the only change is that no trucks turn up when searching). However, if include paths were validated, the API would suddenly start returning errors since the include path `trailers` no longer exists for any resource in the collection.
+
+
+
 Polymorphism
 ------------
 

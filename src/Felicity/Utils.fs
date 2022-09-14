@@ -20,8 +20,6 @@ open Giraffe
 //   - can ASP.NET Core DI be used other places?
 //   - taskResult/asyncResult CE can improve some things
 
-// TODO: Strict mode validation, see JsonApiContext.fs in FSharp.JsonApi
-
 // TODO: Auto-generate docs somehow?
 //   - Concerns about contract-driven dev
 //   - Must be able to merge with an existing OpenAPI document with other routes

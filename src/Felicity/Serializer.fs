@@ -4,6 +4,8 @@ open System
 open System.Text.Encodings.Web
 open System.Text.Json
 open System.Text.Json.Serialization
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Logging
 open Json
 open InternalDeserializationModelDoNotUse
 open Errors
@@ -93,7 +95,7 @@ module private ToDocumentModel =
       )
 
 
-  let private resource (getFieldType: ResourceTypeName -> FieldName -> Type option) (options: JsonSerializerOptions) ptr (d: DResource) : Result<Resource, Error list> =
+  let private resource (loggerFactory: ILoggerFactory) fieldStrictMode (getFieldType: ResourceTypeName -> FieldName -> Type option) (options: JsonSerializerOptions) ptr (d: DResource) : Result<Resource, Error list> =
     let errs = [
       if isNull d.``type`` then invalidNull "type" (ptr + "/type")
       elif LanguagePrimitives.PhysicalEquality d.``type`` skippedString then requiredMemberMissing "type" ptr
@@ -115,7 +117,15 @@ module private ToDocumentModel =
               let attrName = kvp.Key
               let jsonEl = kvp.Value
               match getFieldType d.``type`` attrName with
-              | None -> Ok None
+              | None ->
+                  match fieldStrictMode with
+                  | UnknownFieldStrictMode.Ignore -> Ok None
+                  | UnknownFieldStrictMode.Warn logLevel ->
+                      let logger = loggerFactory.CreateLogger "Felicity.StrictMode"
+                      logger.Log(logLevel, "Request contained unknown attribute '{AttrName}' on type '{TypeName}' at {Pointer}", attrName, d.``type``, ptr + "/attributes/" + attrName)
+                      Ok None
+                  | UnknownFieldStrictMode.Error ->
+                      Error [strictModeUnknownAttr d.``type`` attrName (ptr + "/attributes/" + attrName)]
               | Some tp ->
                   let isOption = tp.IsGenericType && tp.GetGenericTypeDefinition() = typedefof<Option<_>>
                   if jsonEl.ValueKind = JsonValueKind.Null && not isOption then
@@ -137,7 +147,15 @@ module private ToDocumentModel =
               let relName = kvp.Key
               let jsonEl = kvp.Value
               match getFieldType d.``type`` relName with
-              | None -> Ok None
+              | None ->
+                  match fieldStrictMode with
+                  | UnknownFieldStrictMode.Ignore -> Ok None
+                  | UnknownFieldStrictMode.Warn logLevel ->
+                      let logger = loggerFactory.CreateLogger "Felicity.StrictMode"
+                      logger.Log(logLevel, "Request contained unknown relationship '{RelName}' on type '{TypeName}': {Pointer}", relName, d.``type``, ptr + "/relationships/" + relName)
+                      Ok None
+                  | UnknownFieldStrictMode.Error ->
+                      Error [strictModeUnknownRel d.``type`` relName (ptr + "/relationships/" + relName)]
               | Some tp ->
                   try
                     let dRel = JsonSerializer.Deserialize(jsonEl.GetRawText (), tp, options)
@@ -174,11 +192,11 @@ module private ToDocumentModel =
           }
 
 
-  let resourceDocument getFieldType options (d: DResourceDocument) : Result<ResourceDocument, Error list> =
+  let resourceDocument loggerFactory fieldStrictMode getFieldType options (d: DResourceDocument) : Result<ResourceDocument, Error list> =
     let data =
       if LanguagePrimitives.PhysicalEquality d.data skippedResource then Error [requiredMemberMissing "data" ""]
       elif isNull d.data then Ok None
-      else resource getFieldType options "/data" d.data |> Result.map Some
+      else resource loggerFactory fieldStrictMode getFieldType options "/data" d.data |> Result.map Some
     let included =
       if LanguagePrimitives.PhysicalEquality d.included skippedResourceArray then Ok Skip
       elif isNull d.included then Error [invalidNull "included" "/included"]
@@ -186,7 +204,7 @@ module private ToDocumentModel =
         d.included
         |> Array.indexed
         |> Array.traverseResultA (fun (i, r) ->
-            resource getFieldType options ("/included/" + string i) r
+            resource loggerFactory fieldStrictMode getFieldType options ("/included/" + string i) r
         )
         |> Result.map Include
     match data, included with
@@ -235,7 +253,7 @@ module private ToDocumentModel =
 
 
 
-type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configureOptions) =
+type internal Serializer<'ctx>(loggerFactory, fieldStrictMode: UnknownFieldStrictMode<'ctx>, getFieldType, getFieldSerializationOrder, configureOptions) =
 
     let options = JsonSerializerOptions()
 
@@ -269,7 +287,7 @@ type internal Serializer<'ctx>(getFieldType, getFieldSerializationOrder, configu
       else
         try
           JsonSerializer.Deserialize<DResourceDocument>(json, options)
-          |> ToDocumentModel.resourceDocument getFieldType options
+          |> ToDocumentModel.resourceDocument loggerFactory fieldStrictMode getFieldType options
           |> Result.map Some
         with :? JsonException as ex ->
           Error [invalidJson ex]

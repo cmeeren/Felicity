@@ -150,6 +150,29 @@
 
 
   (*
+   * Any request: Strict mode
+  *)
+
+  let strictModeUnknownAttr resType attrName pointer =
+    Error.create 400
+    |> Error.setTitle "Unknown field"
+    |> Error.setDetail $"Type '%s{resType}' has no attribute '%s{attrName}'"
+    |> Error.setSourcePointer pointer
+
+  let strictModeUnknownRel resType relName pointer =
+    Error.create 400
+    |> Error.setTitle "Unknown field"
+    |> Error.setDetail $"Type '%s{resType}' has no relationship '%s{relName}'"
+    |> Error.setSourcePointer pointer
+
+  let strictModeUnknownOrUnusedQueryParam paramName =
+    Error.create 400
+    |> Error.setTitle "Unknown query parameter"
+    |> Error.setDetail $"Query parameter '%s{paramName}' is not recognized for this operation"
+    |> Error.setSourceParam paramName
+
+
+  (*
    * Any request: Request parser
   *)
 

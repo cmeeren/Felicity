@@ -1037,13 +1037,13 @@ let tests =
       test <@ json |> hasNoPath "errors[7]" @>
     }
 
-    testJob "Names are case sensitive" {
+    testJob "Names are case sensitive when not using strict mode" {
       let ctx = Ctx.Create (fun parser ->
         parser
           .For((fun _ _ -> ()), Filter.Field(X.nonEmptyString), X.nonNegativeFloat)
       )
       let! response =
-        Request.post ctx "/xs?filter[NonEmptyString]=foo"
+        Request.postWithoutStrictMode ctx "/xs?filter[NonEmptyString]=foo"
         |> Request.bodySerialized
             {|data =
                 {|``type`` = "x"

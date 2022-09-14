@@ -33,7 +33,7 @@ let hasPath (path: string) (json: string) =
 type SecondCtx = SecondCtx
 
 
-let startTestServer (ctx: 'ctx) =
+let private startTestServer' useStrictMode (ctx: 'ctx) =
   let server =
     new TestServer(
       WebHostBuilder()
@@ -43,10 +43,9 @@ let startTestServer (ctx: 'ctx) =
             .AddRouting()
             .AddJsonApi()
               .GetCtx(fun _ -> ctx)
-              .Add()
-            .AddJsonApi()
-              .GetCtx(fun _ -> SecondCtx)
-              .Add()
+              |> fun x -> if useStrictMode then x.EnableUnknownFieldStrictMode().EnableUnknownQueryParamStrictMode() else x
+              |> fun x -> x.Add()
+            |> fun x -> x.AddJsonApi().GetCtx(fun _ -> SecondCtx).Add()
           |> ignore)
         .Configure(fun app ->
           app
@@ -57,6 +56,9 @@ let startTestServer (ctx: 'ctx) =
         )
     )
   server.CreateClient ()
+
+
+let startTestServer ctx = startTestServer' true ctx
 
 
 
@@ -70,25 +72,35 @@ module Request =
   let bodySerialized (body: 'a) req =
     req |> Request.bodyString (JsonConvert.SerializeObject body)
 
-  let get ctx path =
-    let testClient = startTestServer ctx
+  let private get' useStrictMode ctx path =
+    let testClient = startTestServer' useStrictMode ctx
     Request.createWithClient testClient Get (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
-  let post ctx path =
-    let testClient = startTestServer ctx
+  let private post' useStrictMode ctx path =
+    let testClient = startTestServer' useStrictMode  ctx
     Request.createWithClient testClient Post (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
-  let patch ctx path =
-    let testClient = startTestServer ctx
+  let private patch' useStrictMode ctx path =
+    let testClient = startTestServer' useStrictMode  ctx
     Request.createWithClient testClient Patch (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
-  let delete ctx path =
-    let testClient = startTestServer ctx
+  let private delete' useStrictMode ctx path =
+    let testClient = startTestServer' useStrictMode  ctx
     Request.createWithClient testClient Delete (Uri("http://example.com" + path))
     |> jsonApiHeaders
+
+  let get ctx path = get' true ctx path
+  let post ctx path = post' true ctx path
+  let patch ctx path = patch' true ctx path
+  let delete ctx path = delete' true ctx path
+
+  let getWithoutStrictMode ctx path = get' false ctx path
+  let postWithoutStrictMode ctx path = post' false ctx path
+  let patchWithoutStrictMode ctx path = patch' false ctx path
+  let deleteWithoutStrictMode ctx path = delete' false ctx path
 
 
 /// Fails the test if the response is not 2XX. If failed, prints the response and the

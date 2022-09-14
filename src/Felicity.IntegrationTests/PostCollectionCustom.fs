@@ -416,9 +416,9 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
-    testJob "Ignores unknown members and relationships" {
+    testJob "Ignores unknown members and relationships when not using strict mode" {
       let! response =
-        Request.post Ctx "/abs"
+        Request.postWithoutStrictMode Ctx "/abs"
         |> Request.bodySerialized
             {|data =
                 {|``type`` = "a"

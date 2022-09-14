@@ -7,6 +7,7 @@ open System.Text.Json.Serialization
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 open Microsoft.Net.Http.Headers
 open Giraffe
 open Errors
@@ -29,6 +30,46 @@ module private PreconditionHelpers =
     | ConditionFailed -> Error [preconditionFailed eTag.IsSome lastModified.IsSome]
     | NoConditionsSpecified when not isOptional -> Error [preconditionRequired eTag.IsSome lastModified.IsSome]
     | _ -> Ok ()
+
+
+module internal StrictModeHelpers =
+
+
+  [<RequiresExplicitTypeArguments>]
+  let checkForUnknownQueryParameters<'ctx> (httpCtx: HttpContext) (req: Request) (consumed: Set<ConsumedQueryParamName>) =
+    let strictMode = httpCtx.GetService<UnknownQueryParamStrictMode<'ctx>>()
+
+    // Quick return if strict mode is not enabled
+    if strictMode = UnknownQueryParamStrictMode.Ignore then Ok ()
+    else
+      let inRequest =
+        httpCtx.Request.Query.Keys
+        |> Set.ofSeq
+        // Ignore sparse fieldset and include parameters
+        |> Set.filter (fun s ->
+            s <> "include"
+            && not (req.Fieldsets.Keys |> Seq.exists (fun tn -> "fields[" + tn + "]" = s))
+        )
+
+      let inRequestButNotConsumed = inRequest - consumed
+
+      if inRequestButNotConsumed.IsEmpty then Ok ()
+      else
+        match strictMode with
+        | UnknownQueryParamStrictMode.Ignore -> Ok ()
+        | UnknownQueryParamStrictMode.Warn logLevel ->
+            inRequestButNotConsumed
+            |> Seq.iter (fun paramName ->
+                let logger = httpCtx.GetService<ILoggerFactory>().CreateLogger "Felicity.StrictMode"
+                logger.Log(logLevel, "Request contained unknown query parameter {ParamName}", paramName)
+            )
+            Ok ()
+        | UnknownQueryParamStrictMode.Error ->
+            inRequestButNotConsumed
+            |> Set.toList
+            |> List.map strictModeUnknownOrUnusedQueryParam
+            |> Error
+
 
 
 type internal Preconditions<'ctx> =
@@ -184,14 +225,17 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
           match! this.mapCtx ctx (unbox<'entity> entity) with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              let! doc = resp.Write httpCtx ctx req (resDef, entity)
-              let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([resDef.TypeName], ctx, req)
-              let handler =
-                setStatusCode 200
-                >=> this.modifyResponse mappedCtx (unbox<'entity> entity)
-                >=> fieldTrackerHandler
-                >=> jsonApiWithETag<'originalCtx> doc
-              return! handler next httpCtx
+              match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req Set.empty with
+              | Error errs -> return! handleErrors errs next httpCtx
+              | Ok () ->
+                  let! doc = resp.Write httpCtx ctx req (resDef, entity)
+                  let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([resDef.TypeName], ctx, req)
+                  let handler =
+                    setStatusCode 200
+                    >=> this.modifyResponse mappedCtx (unbox<'entity> entity)
+                    >=> fieldTrackerHandler
+                    >=> jsonApiWithETag<'originalCtx> doc
+                  return! handler next httpCtx
         }
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) =
@@ -234,15 +278,18 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
               | Ok (_, queryNames, entities) ->
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
                   | Some _, false -> return! handleErrors [sortNotSupported ()] next httpCtx
-                  | _ -> 
-                      let! doc = resp.WriteList httpCtx ctx req (entities |> List.map (fun e -> resDef, e))
-                      let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([resDef.TypeName], ctx, req)
-                      let handler =
-                        setStatusCode 200
-                        >=> this.modifyResponse mappedCtx entities
-                        >=> fieldTrackerHandler
-                        >=> jsonApiWithETag<'originalCtx> doc
-                      return! handler next httpCtx
+                  | _ ->
+                      match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req queryNames with
+                      | Error errs -> return! handleErrors errs next httpCtx
+                      | Ok () ->
+                          let! doc = resp.WriteList httpCtx ctx req (entities |> List.map (fun e -> resDef, e))
+                          let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([resDef.TypeName], ctx, req)
+                          let handler =
+                            setStatusCode 200
+                            >=> this.modifyResponse mappedCtx entities
+                            >=> fieldTrackerHandler
+                            >=> jsonApiWithETag<'originalCtx> doc
+                          return! handler next httpCtx
         }
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) =
@@ -288,20 +335,23 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
               | Ok (_, queryNames, entities) ->
                   match httpCtx.TryGetQueryStringValue "sort", queryNames.Contains "sort" with
                   | Some _, false -> return! handleErrors [sortNotSupported ()] next httpCtx
-                  | _ -> 
-                      let! doc = resp.WriteList httpCtx ctx req (entities |> List.map this.getPolyBuilder |> List.map (fun b -> b.resourceDef, b.entity))
-                      let collectionResTypes =
-                        if this.polymorphicResourceTypesForFieldTracking.IsEmpty then
-                          collectionResTypes
-                        else
-                          this.polymorphicResourceTypesForFieldTracking
-                      let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields(collectionResTypes, ctx, req)
-                      let handler =
-                        setStatusCode 200
-                        >=> this.modifyResponse mappedCtx entities
-                        >=> fieldTrackerHandler
-                        >=> jsonApiWithETag<'originalCtx> doc
-                      return! handler next httpCtx
+                  | _ ->
+                      match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req queryNames with
+                      | Error errs -> return! handleErrors errs next httpCtx
+                      | Ok () ->
+                          let! doc = resp.WriteList httpCtx ctx req (entities |> List.map this.getPolyBuilder |> List.map (fun b -> b.resourceDef, b.entity))
+                          let collectionResTypes =
+                            if this.polymorphicResourceTypesForFieldTracking.IsEmpty then
+                              collectionResTypes
+                            else
+                              this.polymorphicResourceTypesForFieldTracking
+                          let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields(collectionResTypes, ctx, req)
+                          let handler =
+                            setStatusCode 200
+                            >=> this.modifyResponse mappedCtx entities
+                            >=> fieldTrackerHandler
+                            >=> jsonApiWithETag<'originalCtx> doc
+                          return! handler next httpCtx
         }
 
   member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) =
@@ -369,40 +419,43 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
               match validatePreconditions () with
               | Error errors -> return! handleErrors errors next httpCtx
               | Ok () ->
-                  match! this.create ctx mappedCtx req |> TaskResult.bind (fun (fieldNames, _, e) -> box e |> patch ctx req fieldNames |> TaskResult.map (fun (e, fns) -> Set.union fns fieldNames, e)) with
+                  match! this.create ctx mappedCtx req |> TaskResult.bind (fun (fieldNames, qns, e) -> box e |> patch ctx req fieldNames |> TaskResult.map (fun (e, fns) -> Set.union fns fieldNames, qns, e)) with
                   | Error errors -> return! handleErrors errors next httpCtx
-                  | Ok (ns, entity0) ->
+                  | Ok (ns, queryNames, entity0) ->
                       match req.Document.Value with
                       | Ok (Some { data = Some { id = Include _ } }) when not <| ns.Contains "id" ->
                           return! handleErrors [collPostClientIdNotAllowed collName rDef.TypeName] next httpCtx
                       | _ ->
-                          match! afterCreate mappedCtx (unbox<'entity> entity0) with
-                          | Error errors -> return! handleErrors errors next httpCtx
-                          | Ok entity1 ->
-                              if this.return202Accepted then
-                                let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, ns))
-                                let handler =
-                                  setStatusCode 202
-                                  >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
-                                  >=> fieldTrackerHandler
-                                return! handler next httpCtx
-                              else
-                                let! doc = resp.Write httpCtx ctx req (rDef, entity1)
-                                let setLocationHeader =
-                                  match doc with
-                                  | { data = Some { links = Include links } } ->
-                                      match links.TryGetValue "self" with
-                                      | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
+                          match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req queryNames with
+                          | Error errs -> return! handleErrors errs next httpCtx
+                          | Ok () ->
+                              match! afterCreate mappedCtx (unbox<'entity> entity0) with
+                              | Error errors -> return! handleErrors errors next httpCtx
+                              | Ok entity1 ->
+                                  if this.return202Accepted then
+                                    let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, ns))
+                                    let handler =
+                                      setStatusCode 202
+                                      >=> this.modifyResponse mappedCtx (unbox<'entity> entity1)
+                                      >=> fieldTrackerHandler
+                                    return! handler next httpCtx
+                                  else
+                                    let! doc = resp.Write httpCtx ctx req (rDef, entity1)
+                                    let setLocationHeader =
+                                      match doc with
+                                      | { data = Some { links = Include links } } ->
+                                          match links.TryGetValue "self" with
+                                          | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
+                                          | _ -> fun next ctx -> next ctx
                                       | _ -> fun next ctx -> next ctx
-                                  | _ -> fun next ctx -> next ctx
-                                let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, ns))
-                                let handler =
-                                  setStatusCode 201
-                                  >=> setLocationHeader
-                                  >=> this.modifyResponse mappedCtx entity1
-                                  >=> fieldTrackerHandler
-                                  >=> jsonApiWithETag<'originalCtx> doc
-                                return! handler next httpCtx
+                                    let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, ns))
+                                    let handler =
+                                      setStatusCode 201
+                                      >=> setLocationHeader
+                                      >=> this.modifyResponse mappedCtx entity1
+                                      >=> fieldTrackerHandler
+                                      >=> jsonApiWithETag<'originalCtx> doc
+                                    return! handler next httpCtx
         }
 
   member this.AfterCreateTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) =
@@ -514,9 +567,13 @@ type PostCustomHelper<'ctx, 'entity> internal
       builder: ResponseBuilder<'ctx> ) =
 
   member val internal ConsumedFieldNames : Set<ConsumedFieldName> = Set.empty with get, set
+  member val internal ConsumedQueryParams : Set<ConsumedQueryParamName> = Set.empty with get, set
 
   member this.ValidateRequest (?parser: RequestParser<'originalCtx, 'a>) =
-    parser |> Option.iter (fun p -> this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields)
+    parser |> Option.iter (fun p ->
+      this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields
+      this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams p.consumedQueryParams
+    )
     let idParsed =
       parser
       |> Option.map (fun p -> p.consumedFields)
@@ -527,7 +584,10 @@ type PostCustomHelper<'ctx, 'entity> internal
     | _ -> Ok ()
 
   member this.RunSettersTask (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
-    parser |> Option.iter (fun p -> this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields)
+    parser |> Option.iter (fun p ->
+      this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields
+      this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams p.consumedQueryParams
+    )
     patcher
       ctx
       req
@@ -597,6 +657,9 @@ type PostCustomHelper<'ctx, 'entity> internal
       (fun _ -> Some eTag)
       (fun _ -> Some lastModified)
       (defaultArg isOptional false)
+
+   member this.ValidateStrictModeQueryParameters() =
+      StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req this.ConsumedQueryParams
 
 
 
@@ -690,36 +753,39 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                       | Ok entity1 ->
                           match! this.customSetter ctx mappedCtx req entity1 with
                           | Error errors -> return! handleErrors errors next httpCtx
-                          | Ok (fns, _, entity2) ->
-                              let setFns =
-                                fns
-                                |> Set.filter (fun fn ->
-                                    match req.Document.Value with
-                                    | Ok (Some { data = Some { attributes = Include attrVals } }) -> attrVals.ContainsKey fn
-                                    | _ -> false
-                                  )
-                              match! patch ctx req fns entity2 with
-                              | Error errors -> return! handleErrors errors next httpCtx
-                              | Ok (entity3, patchedFns) ->
-                                  match! afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity3) with
+                          | Ok (fns, queryNames, entity2) ->
+                              match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req queryNames with
+                              | Error errs -> return! handleErrors errs next httpCtx
+                              | Ok () ->
+                                  let setFns =
+                                    fns
+                                    |> Set.filter (fun fn ->
+                                        match req.Document.Value with
+                                        | Ok (Some { data = Some { attributes = Include attrVals } }) -> attrVals.ContainsKey fn
+                                        | _ -> false
+                                      )
+                                  match! patch ctx req fns entity2 with
                                   | Error errors -> return! handleErrors errors next httpCtx
-                                  | Ok entity4 ->
-                                      if this.return202Accepted then
-                                        let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, Set.union setFns patchedFns))
-                                        let handler =
-                                          setStatusCode 202
-                                          >=> this.modifyResponse mappedCtx (unbox<'entity> entity4)
-                                          >=> fieldTrackerHandler
-                                        return! handler next httpCtx
-                                      else
-                                        let! doc = resp.Write httpCtx ctx req (rDef, entity4)
-                                        let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, Set.union setFns patchedFns))
-                                        let handler =
-                                          setStatusCode 200
-                                          >=> this.modifyResponse mappedCtx entity4
-                                          >=> fieldTrackerHandler
-                                          >=> jsonApiWithETag<'originalCtx> doc
-                                        return! handler next httpCtx
+                                  | Ok (entity3, patchedFns) ->
+                                      match! afterUpdate mappedCtx (unbox<'entity> entity0) (unbox<'entity> entity3) with
+                                      | Error errors -> return! handleErrors errors next httpCtx
+                                      | Ok entity4 ->
+                                          if this.return202Accepted then
+                                            let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, Set.union setFns patchedFns))
+                                            let handler =
+                                              setStatusCode 202
+                                              >=> this.modifyResponse mappedCtx (unbox<'entity> entity4)
+                                              >=> fieldTrackerHandler
+                                            return! handler next httpCtx
+                                          else
+                                            let! doc = resp.Write httpCtx ctx req (rDef, entity4)
+                                            let! fieldTrackerHandler = httpCtx.RequestServices.GetRequiredService<FieldTracker<'originalCtx>>().TrackFields([rDef.TypeName], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, Set.union setFns patchedFns))
+                                            let handler =
+                                              setStatusCode 200
+                                              >=> this.modifyResponse mappedCtx entity4
+                                              >=> fieldTrackerHandler
+                                              >=> jsonApiWithETag<'originalCtx> doc
+                                            return! handler next httpCtx
         }
 
 
@@ -1011,25 +1077,28 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
           match! this.mapCtx ctx (unbox<'entity> entity0) with
           | Error errors -> return! handleErrors errors next httpCtx
           | Ok mappedCtx ->
-              match preconditions.Validate httpCtx ctx entity0 with
-              | Error errors -> return! handleErrors errors next httpCtx
+              match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req Set.empty with
+              | Error errs -> return! handleErrors errs next httpCtx
               | Ok () ->
-                  match! this.beforeDelete mappedCtx (unbox<'entity> entity0) with
+                  match preconditions.Validate httpCtx ctx entity0 with
                   | Error errors -> return! handleErrors errors next httpCtx
-                  | Ok entity1 ->
-                      match! this.delete ctx mappedCtx req (unbox<'entity> entity1) with
+                  | Ok () ->
+                      match! this.beforeDelete mappedCtx (unbox<'entity> entity0) with
                       | Error errors -> return! handleErrors errors next httpCtx
-                      | Ok () ->
-                          if this.return202Accepted then
-                            let handler =
-                              setStatusCode 202
-                              >=> this.modifyResponse mappedCtx
-                            return! handler next httpCtx
-                          else
-                            let handler =
-                              setStatusCode 204
-                              >=> this.modifyResponse mappedCtx
-                            return! handler next httpCtx
+                      | Ok entity1 ->
+                          match! this.delete ctx mappedCtx req (unbox<'entity> entity1) with
+                          | Error errors -> return! handleErrors errors next httpCtx
+                          | Ok () ->
+                              if this.return202Accepted then
+                                let handler =
+                                  setStatusCode 202
+                                  >=> this.modifyResponse mappedCtx
+                                return! handler next httpCtx
+                              else
+                                let handler =
+                                  setStatusCode 204
+                                  >=> this.modifyResponse mappedCtx
+                                return! handler next httpCtx
         }
 
 
