@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.20.9 (2022-09-14)
 
 * Added support for strict mode using `EnableUnknownFieldStrictMode` and `EnableUnknownQueryParamStrictMode` when configuring Felicity. These methods will cause errors to be returned or warnings to be logged when encountering unknown fields and query parameters, respectively.  
 * Added a new method `RequireExplicitInclude` to attributes which makes them be present in the response only if explicitly specified using sparse fieldsets  
