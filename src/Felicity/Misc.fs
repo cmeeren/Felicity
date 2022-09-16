@@ -112,6 +112,8 @@ type internal MetaGetter<'ctx> (getMeta: 'ctx -> IDictionary<string, obj>) =
 
 type internal LinkConfig<'ctx> (skipStandardLinksQueryParamNames: string [], skipCustomLinksQueryParamNames: string []) =
 
+  member _.QueryParamNames = Seq.concat [skipStandardLinksQueryParamNames; skipCustomLinksQueryParamNames]
+
   member _.ShouldUseStandardLinks(ctx: HttpContext) =
     skipStandardLinksQueryParamNames |> Array.exists ctx.Request.Query.ContainsKey |> not
 

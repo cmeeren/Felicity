@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Fix: Make strict mode ignore link skip query parameters (as set up by `SkipStandardLinksQueryParamName` and `SkipCustomLinksQueryParamName`) 
+
 ### 0.20.9 (2022-09-14)
 
 * Added support for strict mode using `EnableUnknownFieldStrictMode` and `EnableUnknownQueryParamStrictMode` when configuring Felicity. These methods will cause errors to be returned or warnings to be logged when encountering unknown fields and query parameters, respectively.  

@@ -38,6 +38,7 @@ module internal StrictModeHelpers =
   [<RequiresExplicitTypeArguments>]
   let checkForUnknownQueryParameters<'ctx> (httpCtx: HttpContext) (req: Request) (consumed: Set<ConsumedQueryParamName>) =
     let strictMode = httpCtx.GetService<UnknownQueryParamStrictMode<'ctx>>()
+    let linkConfig = httpCtx.GetService<LinkConfig<'ctx>>()
 
     // Quick return if strict mode is not enabled
     if strictMode = UnknownQueryParamStrictMode.Ignore then Ok ()
@@ -45,10 +46,11 @@ module internal StrictModeHelpers =
       let inRequest =
         httpCtx.Request.Query.Keys
         |> Set.ofSeq
-        // Ignore sparse fieldset and include parameters
+        // Ignore sparse fieldset, include, and skip link parameters
         |> Set.filter (fun s ->
             s <> "include"
             && not (req.Fieldsets.Keys |> Seq.exists (fun tn -> "fields[" + tn + "]" = s))
+            && not (linkConfig.QueryParamNames |> Seq.contains s)
         )
 
       let inRequestButNotConsumed = inRequest - consumed
