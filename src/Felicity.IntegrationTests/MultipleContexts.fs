@@ -47,9 +47,13 @@ let tests =
                 .AddRouting()
                 .AddJsonApi()
                   .GetCtxRes(fun _ -> (Error [Error.create 422]: Result<Ctx1, _>))
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx2)
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->

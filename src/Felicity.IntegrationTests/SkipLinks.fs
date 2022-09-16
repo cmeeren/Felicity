@@ -52,6 +52,8 @@ let getClient () =
               .GetCtx(fun _ -> Ctx)
               .SkipStandardLinksQueryParamName("skipStandardLinks", "skipAllLinks")
               .SkipCustomLinksQueryParamName("skipCustomLinks", "skipAllLinks")
+              .EnableUnknownFieldStrictMode()
+              .EnableUnknownQueryParamStrictMode()
               .Add()
             |> ignore)
         .Configure(fun app ->

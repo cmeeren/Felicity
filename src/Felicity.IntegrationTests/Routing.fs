@@ -123,6 +123,8 @@ let tests =
                 .AddRouting()
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -164,6 +166,8 @@ let tests =
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("foo/bar")
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -205,6 +209,8 @@ let tests =
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("/foo/bar")
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -238,6 +244,8 @@ let tests =
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("foo/bar/")
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -271,6 +279,8 @@ let tests =
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .RelativeJsonApiRoot("foo/bar")
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -307,6 +317,8 @@ let tests =
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .BaseUrl("http://example.com/foo/bar")
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -348,6 +360,8 @@ let tests =
                 .AddJsonApi()
                   .GetCtx(fun _ -> Ctx)
                   .BaseUrl("http://example.com/foo/bar/")
+                  .EnableUnknownFieldStrictMode()
+                  .EnableUnknownQueryParamStrictMode()
                   .Add()
                 |> ignore)
             .Configure(fun app ->
@@ -391,6 +405,8 @@ let tests =
                     .GetCtx(fun _ -> Ctx)
                     .BaseUrl("http://example.com/foo/bar")
                     .RelativeJsonApiRoot(path)
+                    .EnableUnknownFieldStrictMode()
+                    .EnableUnknownQueryParamStrictMode()
                     .Add()
                   |> ignore)
               .Configure(fun app ->

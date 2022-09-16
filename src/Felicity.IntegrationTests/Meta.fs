@@ -77,6 +77,8 @@ let getClient () =
             .AddJsonApi()
               .GetCtx(fun _ -> { Ctx1.Meta = Map.empty })
               .GetMeta(fun ctx -> ctx.Meta)
+              .EnableUnknownFieldStrictMode()
+              .EnableUnknownQueryParamStrictMode()
               .Add()
             |> ignore)
         .Configure(fun app ->

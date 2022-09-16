@@ -466,6 +466,8 @@ let createServerAndGetClient (trackFieldUsage: _ -> _ -> _ -> HttpHandler) =
             .AddJsonApi()
               .GetCtx(fun _ -> Ctx)
               .TrackFieldUsage(trackFieldUsage)
+              .EnableUnknownFieldStrictMode()
+              .EnableUnknownQueryParamStrictMode()
               .Add()
             |> ignore)
         .Configure(fun app ->
