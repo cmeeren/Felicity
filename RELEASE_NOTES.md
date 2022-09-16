@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Fix: Make strict mode work with query parameters parsed using request parser's `ParseAsync`/`ParseTask`
+
 ### 0.20.10 (2022-09-16)
 
 * Fix: Make strict mode ignore link skip query parameters (as set up by `SkipStandardLinksQueryParamName` and `SkipCustomLinksQueryParamName`) 

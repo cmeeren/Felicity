@@ -573,12 +573,12 @@ type PostCustomHelper<'ctx, 'entity> internal
 
   member this.ValidateRequest (?parser: RequestParser<'originalCtx, 'a>) =
     parser |> Option.iter (fun p ->
-      this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields
-      this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams p.consumedQueryParams
+      this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames (Set.ofSeq p.consumedFields)
+      this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams)
     )
     let idParsed =
       parser
-      |> Option.map (fun p -> p.consumedFields)
+      |> Option.map (fun p -> Set.ofSeq p.consumedFields)
       |> Option.defaultValue Set.empty
       |> Set.contains "id"
     match req.Document.Value with
@@ -587,13 +587,13 @@ type PostCustomHelper<'ctx, 'entity> internal
 
   member this.RunSettersTask (entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
     parser |> Option.iter (fun p ->
-      this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames p.consumedFields
-      this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams p.consumedQueryParams
+      this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames (Set.ofSeq p.consumedFields)
+      this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams)
     )
     patcher
       ctx
       req
-      (parser |> Option.map (fun p -> p.consumedFields) |> Option.defaultValue Set.empty)
+      (parser |> Option.map (fun p -> Set.ofSeq p.consumedFields) |> Option.defaultValue Set.empty)
       (box entity)
     |> Task.map (Result.map (fun (e, setFields) ->
         this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames setFields

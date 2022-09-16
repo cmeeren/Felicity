@@ -34,10 +34,18 @@ module A =
     )
 
   let post =
-    define.Operation.Post(fun ctx parser ->
-      parser
-        .For((fun _ -> A "1"), Query.String("customQueryParam"))
-        .IgnoreStrictMode(Query.String("ignoredQueryParam"))
+    define.Operation.PostAsyncRes(fun ctx parser ->
+      async {
+        // Also test free-standing parsing using RequestParser
+        let! _ = parser.For((fun _ -> ()), Query.String("customQueryParam")).ParseAsync()
+
+        return
+          parser
+            .For(A "1")
+            .IgnoreStrictMode(Query.String("ignoredQueryParam"))
+          |> Ok
+
+      }
     ).AfterCreate(ignore)
 
   let get = define.Operation.GetResource()
