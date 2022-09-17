@@ -115,6 +115,8 @@ let createServerAndGetClient warnOnly =
               .GetCtx(fun _ -> Ctx)
               .EnableUnknownFieldStrictMode(warnOnly)
               .EnableUnknownQueryParamStrictMode(warnOnly)
+              .SkipStandardLinksQueryParamName("skipLinks1")
+              .SkipCustomLinksQueryParamName("skipLinks2")
               .Add()
             |> ignore)
         .Configure(fun app ->
@@ -135,7 +137,7 @@ let tests =
     testJob "GET collection: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -153,7 +155,7 @@ let tests =
     testJob "GET collection: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -182,7 +184,7 @@ let tests =
     testJob "POST collection: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Post (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include="))
+        Request.createWithClient client Post (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = {| ``type`` = "a" |} |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -201,7 +203,7 @@ let tests =
     testJob "POST collection: Does not return errors for unknown fields or query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Post (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include="))
+        Request.createWithClient client Post (Uri("http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = {| ``type`` = "a"; attributes = {| attr = null |}; relationships = {| rel = {| |} |} |} |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -212,7 +214,7 @@ let tests =
     testJob "GET resource: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -230,7 +232,7 @@ let tests =
     testJob "GET resource: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -259,7 +261,7 @@ let tests =
     testJob "PATCH resource: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "1" |} |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -278,7 +280,7 @@ let tests =
     testJob "PATCH resource: Does not return errors for unknown fields or query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "1"; attributes = {| attr = null |}; relationships = {| rel = {| |} |} |} |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -289,7 +291,7 @@ let tests =
     testJob "DELETE resource: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Delete (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Delete (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -307,7 +309,7 @@ let tests =
     testJob "DELETE resource: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Delete (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Delete (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -317,7 +319,7 @@ let tests =
     testJob "GET to-one relationship related: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/toOne?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -335,7 +337,7 @@ let tests =
     testJob "GET to-one relationship related: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/toOne?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -345,7 +347,7 @@ let tests =
     testJob "GET to-one relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -363,7 +365,7 @@ let tests =
     testJob "GET to-one relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -373,7 +375,7 @@ let tests =
     testJob "PATCH to-one relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "1" |} |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -392,7 +394,7 @@ let tests =
     testJob "PATCH to-one relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = {| ``type`` = "a"; id = "1" |} |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -403,7 +405,7 @@ let tests =
     testJob "GET to-one nullable relationship related: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/toOneNullable?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/toOneNullable?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -421,7 +423,7 @@ let tests =
     testJob "GET to-one nullable relationship related: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/toOneNullable?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/toOneNullable?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -431,7 +433,7 @@ let tests =
     testJob "GET to-one nullable relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -449,7 +451,7 @@ let tests =
     testJob "GET to-one nullable relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -459,7 +461,7 @@ let tests =
     testJob "PATCH to-one nullable relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = null |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -478,7 +480,7 @@ let tests =
     testJob "PATCH to-one nullable relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toOneNullable?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = null |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -489,7 +491,7 @@ let tests =
     testJob "GET to-many relationship related: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -507,7 +509,7 @@ let tests =
     testJob "GET to-many relationship related: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -517,7 +519,7 @@ let tests =
     testJob "GET to-many relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testStatusCode 400
@@ -535,7 +537,7 @@ let tests =
     testJob "GET to-many relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Get (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.jsonApiHeaders
         |> getResponse
       response |> testSuccessStatusCode
@@ -545,7 +547,7 @@ let tests =
     testJob "POST to-many relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Post (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Post (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = [||] |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -564,7 +566,7 @@ let tests =
     testJob "POST to-many relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Post (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Post (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = [||] |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -575,7 +577,7 @@ let tests =
     testJob "PATCH to-many relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = [||] |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -594,7 +596,7 @@ let tests =
     testJob "PATCH to-many relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Patch (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = [||] |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -605,7 +607,7 @@ let tests =
     testJob "DELETE to-many relationship self: Returns errors for each unknown query parameter" {
       let client = createServerAndGetClient false
       let! response =
-        Request.createWithClient client Delete (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Delete (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = [||] |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -624,7 +626,7 @@ let tests =
     testJob "DELETE to-many relationship self: Does not return errors for unknown query parameters in warn-only mode" {
       let client = createServerAndGetClient true
       let! response =
-        Request.createWithClient client Delete (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include="))
+        Request.createWithClient client Delete (Uri("http://example.com/as/1/relationships/toMany?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
         |> Request.bodySerialized {| data = [||] |}
         |> Request.jsonApiHeaders
         |> getResponse
@@ -638,7 +640,7 @@ let tests =
       testJob $"{namePrefix} custom operation without validation does not validate query parameters" {
         let client = createServerAndGetClient false
         let! response =
-          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithoutValidation?a1=bar&a2=baz&fields[a]=&include="))
+          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithoutValidation?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
           |> Request.jsonApiHeaders
           |> getResponse
         response |> testStatusCode 200
@@ -648,7 +650,7 @@ let tests =
       testJob $"{namePrefix} custom operation with validation: Returns errors for each unknown query parameter" {
         let client = createServerAndGetClient false
         let! response =
-          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithValidation?customQueryParam=foo&a1=bar&a2=baz&fields[a]=&include="))
+          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithValidation?customQueryParam=foo&a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
           |> Request.jsonApiHeaders
           |> getResponse
         response |> testStatusCode 400
@@ -666,7 +668,7 @@ let tests =
       testJob $"{namePrefix} custom operation with validation: Does not return errors for unknown query parameters in warn-only mode" {
         let client = createServerAndGetClient true
         let! response =
-          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithValidation?customQueryParam=foo&a1=bar&a2=baz&fields[a]=&include="))
+          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithValidation?customQueryParam=foo&a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
           |> Request.jsonApiHeaders
           |> getResponse
         response |> testSuccessStatusCode
