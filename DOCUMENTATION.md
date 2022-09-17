@@ -1795,7 +1795,7 @@ Only query parameters parsed with RequestParser/RequestParserHelper (as shown in
 
 #### No query parameter validation for custom operations
 
-Felicity does not perform strict mode query parameter validation for custom operations (`define.Operation.CustomLink`).
+Felicity does not perform strict mode query parameter validation for custom operations (`define.Operation.CustomLink`). This is because there is no place to perform the validation and safely return an error: Before calling your code, query parameters have not been parsed yet, and after calling your code, the operation is complete and any changes are presumably committed, meaning an error response can not safely be returned.
 
 
 #### Sparse fieldsets and include paths are not checked
