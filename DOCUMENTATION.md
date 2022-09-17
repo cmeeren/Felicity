@@ -1040,12 +1040,15 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 Custom operations/links
 -----------------------
 
+**Note: Custom links in the resource's `links` object are [not supported by the JSON:API specification](https://github.com/json-api/json-api/issues/1656), and were implemented based on a misunderstanding of the specification. Please always use `SkipLink`when using custom operations, as demonstrated below. It is not enabled by default for backward compatibility reasons.**
+
 Custom resource operations/links allow you to do more or less anything you want, and may be useful for operations which do not easily map to a CRUD model. You have access to the same request parser as in several other requests (see section TODO), as well as a helper that writes a JSON:API document based on a resource (automatically supporting includes and sparse fieldsets as normal). This helper returns a Giraffe `HttpHandler`, making it easy to combine with other handlers. Your operation returns `Async<Result<HttpHandler, Error list>>`, meaning that you don’t have to think about how to format a proper error response; Felicity does that for you.
 
 ```f#
 let linkName =
   define.Operation
     .CustomLink()
+    .SkipLink()
     .Post(fun ctx parser respond entity ->
       async {
         let! someParam = parser.GetRequiredAsync(Query.Bool("someQueryParam"))
@@ -1246,6 +1249,7 @@ As we saw earlier, a custom operation can look like this:
 let linkName =
   define.Operation
     .CustomLink()
+    .SkipLink()
     .Post(fun ctx parser respond entity ->
       async {
         let! someParam = parser.GetRequiredAsync(Query.Bool("someQueryParam"))
@@ -1266,6 +1270,7 @@ The other possible way to use the parser in custom operation is to use it exactl
 let linkName =
   define.Operation
     .CustomLink()
+    .SkipLink()
     .Post(fun ctx parser respond entity ->
       asyncResult {  // asyncResult CE from e.g. FsToolkit.ErrorHandling
         let! myArgs =
@@ -1683,6 +1688,7 @@ The same applies for custom operations where you use the responder to return mul
 let customOp =
   define.Operation
     .CustomLink()
+    .SkipLink()
     .GetAsync(fun _ _ respond _ ->
       asyncResult {
         return

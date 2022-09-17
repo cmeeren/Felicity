@@ -341,6 +341,24 @@ module A10 =
       .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 
 
+type Ctx11 = Ctx11
+
+module A11 =
+
+  let define = Define<Ctx11, A, string>()
+  let resId = define.Id.Simple(fun (a: A) -> a.Id)
+  let resDef = define.Resource("a", resId).CollectionName("entities")
+  let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" } )
+
+  let get = define.Operation.GetResource()
+
+  let customOp =
+    define.Operation
+      .CustomLink()
+      .SkipLink()
+      .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
 [<Tests>]
 let tests =
   testList "Custom links" [
@@ -1476,6 +1494,22 @@ let tests =
     testJob "DELETE does not check query parameter names if configured to skip this validation" {
       let! response =
         Request.delete Ctx10 "/entities/a1/customOp?invalid"
+        |> getResponse
+      response |> testStatusCode 200
+    }
+
+    testJob "Link is not added to resource if using SkipLink" {
+      let! resourceResponse =
+        Request.get Ctx11 "/entities/a1"
+        |> getResponse
+      resourceResponse |> testStatusCode 200
+      let! json = resourceResponse |> Response.readBodyAsString
+      test <@ json |> hasPath "data.links.self" @>
+      test <@ json |> hasNoPath "data.links.customOp" @>
+
+      // Verify that operation still works
+      let! response =
+        Request.get Ctx11 "/entities/a1/customOp"
         |> getResponse
       response |> testStatusCode 200
     }

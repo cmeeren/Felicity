@@ -223,19 +223,21 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
           |> Task.mapWhenAll (fun op ->
               task {
                 let selfUrl = selfUrlOpt |> Option.defaultWith (fun () -> failwith $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
-                let! href, meta = op.HrefAndMeta ctx selfUrl entity
-                return op.Name, href, meta
+                match! op.HrefAndMeta ctx selfUrl entity with
+                | None -> return None
+                | Some (href, meta) -> return Some (op.Name, href, meta)
               }
           )
         else Task.result emptyLinkArrayNeverModify
 
       return
         (Map.empty, opNamesHrefsAndMeta)
-        ||> Array.fold (fun links (name, href, meta) ->
-              match href, meta with
-              | None, None -> links
-              | Some href, None -> links |> Links.addOpt name (Some href)
-              | hrefOpt, Some meta -> links |> Links.addOptWithMeta name hrefOpt meta
+        ||> Array.fold (fun links nameHrefAndMetaOpt ->
+              match nameHrefAndMetaOpt with
+              | None -> links
+              | Some (_, None, None) -> links
+              | Some (name, Some href, None) -> links |> Links.addOpt name (Some href)
+              | Some (name, hrefOpt, Some meta) -> links |> Links.addOptWithMeta name hrefOpt meta
         )
         |> match selfUrlOpt with
            | Some selfUrl when linkCfg.ShouldUseStandardLinks(httpCtx) -> Links.addOpt "self" (Some selfUrl)

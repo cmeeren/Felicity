@@ -1201,7 +1201,7 @@ type internal RequestValidationConfig = {
 type internal CustomOperation<'ctx> =
   abstract Name: LinkName
   abstract HasModifyingOperations: bool
-  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Task<string option * Map<string, obj> option>
+  abstract HrefAndMeta: 'ctx -> uri: string -> BoxedEntity -> Task<(string option * Map<string, obj> option) option>
   abstract Get: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Post: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
   abstract Patch: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> Preconditions<'ctx> -> BoxedEntity -> HttpHandler) option
@@ -1215,6 +1215,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   getMeta: ('ctx -> 'entity -> Map<string, obj>) option
   condition: 'ctx -> 'entity -> Task<Result<unit, Error list>>
   validationConfig: RequestValidationConfig
+  skipLink: bool
   get: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
   post: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
   patch: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
@@ -1232,6 +1233,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
         ValidateContentType = true
         ValidateQueryParams = true
       }
+      skipLink = false
       get = None
       post = None
       patch = None
@@ -1266,11 +1268,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.HrefAndMeta ctx selfUrl entity =
       task {
-        if this.get.IsNone && this.post.IsNone && this.patch.IsNone && this.delete.IsNone then
-          return None, None
+        if this.skipLink then
+          return None
+        elif this.get.IsNone && this.post.IsNone && this.patch.IsNone && this.delete.IsNone then
+          return Some (None, None)
         else
           match! this.mapCtx ctx (unbox<'entity> entity) with
-          | Error _ -> return None, None
+          | Error _ -> return Some (None, None)
           | Ok mappedCtx ->
               let meta =
                 this.getMeta
@@ -1280,8 +1284,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                 |> Option.filter (not << Map.isEmpty)
 
               match! this.condition mappedCtx (unbox<'entity> entity) with
-              | Ok () -> return Some (selfUrl + "/" + this.name), meta
-              | Error _ -> return None, meta
+              | Ok () -> return Some (Some (selfUrl + "/" + this.name), meta)
+              | Error _ -> return Some (None, meta)
       }
       
 
@@ -1388,6 +1392,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
   member this.DeleteAsync(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.DeleteTask(Task.liftAsyncFunc4 delete)
+
+  /// If called, Felicity does not add the link to the resource's 'links' object. Using this is required in order to be
+  /// JSON:API compliant, but is not enabled by default for backward compatibility reasons.
+  ///
+  /// For more information, see https://github.com/json-api/json-api/issues/1656
+  member this.SkipLink() =
+    { this with skipLink = true }
 
 
 
