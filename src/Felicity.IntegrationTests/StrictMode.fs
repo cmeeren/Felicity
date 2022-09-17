@@ -84,6 +84,23 @@ module A =
 
   let delete = define.Operation.Delete(fun _ -> ())
 
+  let customOpWithoutValidation =
+    define.Operation
+      .CustomLink()
+      .GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+
+  let customOpWithValidation =
+    define.Operation
+      .CustomLink()
+      .ValidateStrictModeQueryParams("customQueryParam")
+      .GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PostAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+      .PatchAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+      .DeleteAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+
 
 
 let createServerAndGetClient warnOnly =
@@ -613,6 +630,47 @@ let tests =
         |> getResponse
       response |> testSuccessStatusCode
     }
+
+
+    for namePrefix, method in [("GET", Get); ("POST", Post); ("PATCH", Patch); ("DELETE", Delete)] do
+
+
+      testJob $"{namePrefix} custom operation without validation does not validate query parameters" {
+        let client = createServerAndGetClient false
+        let! response =
+          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithoutValidation?a1=bar&a2=baz&fields[a]=&include="))
+          |> Request.jsonApiHeaders
+          |> getResponse
+        response |> testStatusCode 200
+      }
+
+
+      testJob $"{namePrefix} custom operation with validation: Returns errors for each unknown query parameter" {
+        let client = createServerAndGetClient false
+        let! response =
+          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithValidation?customQueryParam=foo&a1=bar&a2=baz&fields[a]=&include="))
+          |> Request.jsonApiHeaders
+          |> getResponse
+        response |> testStatusCode 400
+        let! json = response |> Response.readBodyAsString
+        test <@ json |> getPath "errors[0].status" = "400" @>
+        test <@ json |> getPath "errors[0].detail" = "Query parameter 'a1' is not recognized for this operation" @>
+        test <@ json |> getPath "errors[0].source.parameter" = "a1" @>
+        test <@ json |> getPath "errors[1].status" = "400" @>
+        test <@ json |> getPath "errors[1].detail" = "Query parameter 'a2' is not recognized for this operation" @>
+        test <@ json |> getPath "errors[1].source.parameter" = "a2" @>
+        test <@ json |> hasNoPath "errors[2]" @>
+      }
+
+
+      testJob $"{namePrefix} custom operation with validation: Does not return errors for unknown query parameters in warn-only mode" {
+        let client = createServerAndGetClient true
+        let! response =
+          Request.createWithClient client method (Uri("http://example.com/as/1/customOpWithValidation?customQueryParam=foo&a1=bar&a2=baz&fields[a]=&include="))
+          |> Request.jsonApiHeaders
+          |> getResponse
+        response |> testSuccessStatusCode
+      }
 
 
     testJob "Does not return errors if an allowed query parameter is used multiple times" {

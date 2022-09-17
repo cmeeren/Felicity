@@ -5,6 +5,7 @@ Release notes
 
 * Fix: Make strict mode work with query parameters parsed using request parser's `ParseAsync`/`ParseTask`
 * Added `SKipLink` to custom operations, which will make Felicity not add the link to the resource's `links` object. Using this is [required in order to be JSON:API compliant](https://github.com/json-api/json-api/issues/1656), but it is not enabled by default for backward compatibility reasons.
+* Now supports strict mode validation of query parameters in custom operations using `ValidateStrictModeQueryParams` (search the documentation for details)
 
 ### 0.20.10 (2022-09-16)
 

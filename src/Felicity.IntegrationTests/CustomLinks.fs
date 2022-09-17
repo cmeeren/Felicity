@@ -96,6 +96,7 @@ module A =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .ConditionRes(fun ctx _ -> ctx.Condition)
       .GetAsync(fun ctx parser responder _ -> ctx.GetOperation responder |> async.Return)
       .PostAsync(fun ctx parser responder _ -> ctx.PostOperation responder |> async.Return)
@@ -118,6 +119,7 @@ module B =
     define.Operation
       .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .GetAsync(fun _ _ _ _ -> failwith "not used")
       .PostAsync(fun _ _ _ _ -> failwith "not used")
 
@@ -134,6 +136,7 @@ module C =
     define.Operation
       .ForContextRes(fun ctx -> ctx.MapCtx ctx)
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PatchAsync(fun _ _ _ _ -> failwith "not used")
       .DeleteAsync(fun _ _ _ _ -> failwith "not used")
 
@@ -183,12 +186,14 @@ module A2 =
   let customOpWithGetAndPost =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .GetAsync(fun _ _ _ _ -> failwith "not used")
       .PostAsync(fun _ _ _ _ -> failwith "not used")
 
   let customOpWithPatchAndDelete =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PatchAsync(fun _ _ _ _ -> failwith "not used")
       .DeleteAsync(fun _ _ _ _ -> failwith "not used")
 
@@ -230,6 +235,7 @@ module A5 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -250,6 +256,7 @@ module A6 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -270,6 +277,7 @@ module A7 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .PatchAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .DeleteAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -290,6 +298,7 @@ module A8 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .SkipStandardAcceptValidation()
       .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -312,6 +321,7 @@ module A9 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .SkipStandardContentTypeValidation()
       .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -334,6 +344,7 @@ module A10 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams("invalid")
       .SkipStandardQueryParamNameValidation()
       .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
       .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -355,6 +366,7 @@ module A11 =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .SkipLink()
       .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
 

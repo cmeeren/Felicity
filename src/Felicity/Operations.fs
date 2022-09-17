@@ -1215,6 +1215,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
   getMeta: ('ctx -> 'entity -> Map<string, obj>) option
   condition: 'ctx -> 'entity -> Task<Result<unit, Error list>>
   validationConfig: RequestValidationConfig
+  validateStrictModeAllowedQueryParams: Set<QueryParamName> option
   skipLink: bool
   get: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
   post: ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
@@ -1233,6 +1234,7 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
         ValidateContentType = true
         ValidateQueryParams = true
       }
+      validateStrictModeAllowedQueryParams = None
       skipLink = false
       get = None
       post = None
@@ -1254,9 +1256,18 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                 match preconditions.Validate httpCtx ctx entity with
                 | Error errors -> return! handleErrors errors next httpCtx
                 | Ok () ->
-                    match! operation ctx mappedCtx req responder (unbox<'entity> entity) with
-                    | Ok handler -> return! handler next httpCtx
-                    | Error errors -> return! handleErrors errors next httpCtx
+                    let validateQueryParamsResult =
+                      match this.validateStrictModeAllowedQueryParams with
+                      | None -> Ok ()
+                      | Some validQueryParams ->
+                          StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req validQueryParams
+
+                    match validateQueryParamsResult with
+                    | Error errs -> return! handleErrors errs next httpCtx
+                    | Ok () ->
+                        match! operation ctx mappedCtx req responder (unbox<'entity> entity) with
+                        | Ok handler -> return! handler next httpCtx
+                        | Error errors -> return! handleErrors errors next httpCtx
       }
 
 
@@ -1392,6 +1403,11 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
   member this.DeleteAsync(delete: Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>) =
     this.DeleteTask(Task.liftAsyncFunc4 delete)
+
+  /// If called, will enable query parameter validation for this custom operation by treating the specified query
+  /// parameters as the only allowed query parameters (in addition to standard JSON:API query parameters).
+  member this.ValidateStrictModeQueryParams([<ParamArray>] allowedQueryParamNames: string []) =
+    { this with validateStrictModeAllowedQueryParams = Some (Set.ofArray allowedQueryParamNames) }
 
   /// If called, Felicity does not add the link to the resource's 'links' object. Using this is required in order to be
   /// JSON:API compliant, but is not enabled by default for backward compatibility reasons.

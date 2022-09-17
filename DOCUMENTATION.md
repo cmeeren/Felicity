@@ -1799,9 +1799,19 @@ An alternative is to use `Prohibit` (e.g. `.Prohibit(Filter.Field(articleType))`
 Only query parameters parsed with RequestParser/RequestParserHelper (as shown in the example above) are considered known/used. If you only read them manually from ASP.Net Core's `HttpContext`, Felicity does not know that they are used, and it will be caught by strict mode.
 
 
-#### No query parameter validation for custom operations
+#### Limited query parameter validation for custom operations
 
-Felicity does not perform strict mode query parameter validation for custom operations (`define.Operation.CustomLink`). This is because there is no place to perform the validation and safely return an error: Before calling your code, query parameters have not been parsed yet, and after calling your code, the operation is complete and any changes are presumably committed, meaning an error response can not safely be returned.
+To enable strict mode query parameter validation for custom operations (`define.Operation.CustomLink`), use the `ValidateStrictModeQueryParams` method and supply all allowed query parameters. For example:
+
+```f#
+let linkName =
+  define.Operation
+    .CustomLink()
+    .ValidateStrictModeQueryParams("paramName1", "paramName2")
+    ...
+```
+
+The reason Felicity can not automatically perform strict mode query parameter validation for custom operations, is because there is no place to perform the validation automatically and safely return an error: Before calling your code, query parameters have not been parsed yet, and after calling your code, the operation is complete and any changes are presumably committed, meaning an error response can not be returned.
 
 
 #### Sparse fieldsets and include paths are not checked

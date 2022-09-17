@@ -244,6 +244,7 @@ module A =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .GetAsync(fun _ _ respond _ -> respond.WithEntity(B.resDef, B "1") |> Ok |> async.Return)
       .PostAsync(fun _ _ respond _ -> respond.WithOptEntity(B.resDef, None) |> Ok |> async.Return)
       .PatchAsync(fun _ _ respond _ -> respond.WithEntities(B.resDef, []) |> Ok |> async.Return)
@@ -354,6 +355,7 @@ module G =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .GetAsync(fun _ _ respond _ -> respond.WithEntity(resDef, "G1") |> Ok |> async.Return)
 
 
@@ -385,6 +387,7 @@ module H =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .GetAsync(fun _ _ respond _ -> respond.WithEntity(resDef, "H1") |> Ok |> async.Return)
 
 

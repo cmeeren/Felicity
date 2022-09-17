@@ -25,7 +25,11 @@ module X =
   let toOneNullable = define.Relationship.ToOne(resDef, "toOneNullableCustomName").Get(fun _ _ -> X)
   let toMany = define.Relationship.ToOne(resDef, "toManyCustomName").Get(fun _ _ -> X)
 
-  let customOp = define.Operation.CustomLink("customOpCustomName").GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+  let customOp =
+    define.Operation
+      .CustomLink("customOpCustomName")
+      .ValidateStrictModeQueryParams()
+      .GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
 
   let lookup = define.Operation.Lookup(fun _ -> Some X)
   let getColl = define.Operation.GetCollection(fun () -> [X])

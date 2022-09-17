@@ -29,6 +29,7 @@ module A =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -47,6 +48,7 @@ module B =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -76,6 +78,7 @@ module C =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -114,6 +117,7 @@ module D =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun ctx parser responder _ ->
         async {
           do! Async.Sleep 10000
@@ -175,6 +179,7 @@ module E =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -205,6 +210,7 @@ module F =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -223,6 +229,7 @@ module G =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun ctx parser responder _ ->
         async {
           do! Async.Sleep 10000
@@ -325,6 +332,7 @@ module H =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (MultiLockCtx (_, _, _, i)) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -348,6 +356,7 @@ module I =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -436,6 +445,7 @@ module N =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -458,6 +468,7 @@ module O =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
@@ -478,6 +489,7 @@ module P =
   let customOp =
     define.Operation
       .CustomLink()
+      .ValidateStrictModeQueryParams()
       .PostAsync(fun (Ctx i) parser responder _ -> i := !i + 1; setStatusCode 200 |> Ok |> async.Return)
 
 
