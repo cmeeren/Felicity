@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Fix: Strict mode now correctly recognizes query parameters parsed in arity 2 `RequestParserHelper.For...` methods.
+
 ### 0.20.11 (2022-09-17)
 
 * Fix: Make strict mode work with query parameters parsed using request parser's `ParseAsync`/`ParseTask`

@@ -275,7 +275,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
 
   member _.ForTaskRes (create: 'p1 -> 'p2 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
     [| p1.FieldName; p2.FieldName |] |> Array.iter (Option.iter (consumedFields.Add >> ignore))
-    [| p1.QueryParamName; p2.QueryParamName |] |> Array.iter (Option.iter (consumedFields.Add >> ignore))
+    [| p1.QueryParamName; p2.QueryParamName |] |> Array.iter (Option.iter (consumedParams.Add >> ignore))
     RequestParser<'ctx, 'a>.Create (consumedFields, consumedParams, includedTypeAndId, ctx, req, fun c r -> create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
 
   member this.ForAsyncRes (create: 'p1 -> 'p2 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
