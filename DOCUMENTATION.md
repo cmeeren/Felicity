@@ -1040,7 +1040,7 @@ See section TODO for how to do precondition validation (using `ETag`/`Last-Modif
 Custom operations/links
 -----------------------
 
-**Note: Custom links in the resource's `links` object are [not supported by the JSON:API specification](https://github.com/json-api/json-api/issues/1656), and were implemented based on a misunderstanding of the specification. Please always use `SkipLink`when using custom operations, as demonstrated below. It is not enabled by default for backward compatibility reasons.**
+**Note: Custom links in the resource's `links` object are [not supported by the JSON:API specification](https://github.com/json-api/json-api/issues/1656), and were implemented based on a misunderstanding of the specification. Please always use `SkipLink` when using custom operations, as demonstrated below. It is not enabled by default for backward compatibility reasons.**
 
 Custom resource operations/links allow you to do more or less anything you want, and may be useful for operations which do not easily map to a CRUD model. You have access to the same request parser as in several other requests (see section TODO), as well as a helper that writes a JSON:API document based on a resource (automatically supporting includes and sparse fieldsets as normal). This helper returns a Giraffe `HttpHandler`, making it easy to combine with other handlers. Your operation returns `Async<Result<HttpHandler, Error list>>`, meaning that you don’t have to think about how to format a proper error response; Felicity does that for you.
 
@@ -1061,7 +1061,7 @@ let linkName =
     )
 ```
 
-As defined above, the resource will have a link named `linkName`, and the URL will be the resource’s self URL plus `/linkName`.
+As defined above, the URL will be the resource’s self URL plus `/linkName`. If `SkipLink` were omitted, the resource would have a link named `linkName` with this URL.
 
 ### Conditional availability
 
@@ -1069,11 +1069,15 @@ Using `Condition`, you can specify a condition for when the operation is availab
 
 ### Meta
 
+**Note that this has no effect if using `SkipLink()`, which as previously mentioned should always be used.**
+
 You can add link meta by using `AddMeta` and `AddMetaOpt`. The former allows you to specify the meta key, value, and an optional condition for when to add it, and the latter allows you to return an `option`-wrapped value where the meta item will only be added if it is `Some`.
 
 If links have meta, they use the `href/meta` object form; otherwise they are simple strings.
 
 ### When is the link present on the resource?
+
+**Note that this applies only if not using `SkipLink()`, which as previously mentioned should always be used.**
 
 If the context is successfully transformed (if applicable; see section TODO) and the condition is `true`/`Ok`, then the link is present.
 
