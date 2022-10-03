@@ -53,8 +53,8 @@
     <PackageReference Include="Expecto.Hopac" Version="9.0.4" />
     <PackageReference Include="Hopac" Version="0.5.1" />
     <PackageReference Include="Http.fs" Version="5.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="6.0.8" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="6.0.9" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Unquote" Version="6.1.0" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.13.3" />
