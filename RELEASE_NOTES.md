@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Updated FSharp.SystemTextJson from 0.19.13 to 1.0.5. There is no change in behavior in Felicity, but note that this comes with a breaking change if you use it in other places: When deserializing missing fields of type `option` or `voption`, an error will now be returned instead of deserializing to `null`. Either wrap such fields in `Skippable`, or enable the option `IgnoreNullValues = true`. You can find [more details here](https://tarmil.fr/article/2022/9/25/systemtextjson-v1.0).  
+
 ### 0.20.12 (2022-09-18)
 
 * Fix: Strict mode now correctly recognizes query parameters parsed in arity 2 `RequestParserHelper.For...` methods.
