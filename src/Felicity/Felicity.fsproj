@@ -13,7 +13,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>f# fsharp jsonapi json-api json:api api rest rest-api api-rest api-server api-client web-api asp-net-core aspnetcore giraffe framework</PackageTags>
     <PackageIcon>felicity-logo-128x128.png</PackageIcon>
-    <Version>0.21.0</Version>
+    <Version>0.21.1</Version>
     <PackageReleaseNotes>https://github.com/cmeeren/Felicity/blob/master/RELEASE_NOTES.md</PackageReleaseNotes>
   </PropertyGroup>
   
@@ -57,9 +57,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.SystemTextJson" Version="1.0.5" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.0.6" />
     <PackageReference Include="Giraffe" Version="6.0.0" />
-    <PackageReference Update="FSharp.Core" Version="6.0.5" />
+    <PackageReference Update="FSharp.Core" Version="6.0.6" />
   </ItemGroup>
 
 </Project>
