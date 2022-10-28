@@ -112,6 +112,12 @@
     |> Error.setDetail $"Member '%s{memberName}' may not be null"
     |> Error.setSourcePointer pointer
 
+  let invalidNullArrayItem arrayMemberName pointer =
+    Error.create 400
+    |> Error.setTitle "Null not allowed"
+    |> Error.setDetail $"Array '%s{arrayMemberName}' may not have null items"
+    |> Error.setSourcePointer pointer
+
   let requiredMemberMissing memberName pointer =
     Error.create 400
     |> Error.setTitle "Missing required member"

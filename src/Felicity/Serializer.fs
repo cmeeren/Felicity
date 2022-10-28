@@ -85,7 +85,13 @@ module private ToDocumentModel =
       }
     else
       d.data
-      |> Array.traverseResultAIndexed (fun i d -> resourceIdentifier (ptr + "/data/" + string i) d)
+      |> Array.traverseResultAIndexed (fun i d ->
+          let ptr = ptr + "/data/" + string i
+          if isNull d then
+            Error [invalidNullArrayItem "data" ptr]
+          else
+            resourceIdentifier ptr d
+      )
       |> Result.map (fun data ->
           {
             links = Skip
@@ -240,7 +246,15 @@ module private ToDocumentModel =
     let data =
       if LanguagePrimitives.PhysicalEquality d.data skippedResourceIdentifierArray then Error [requiredMemberMissing "data" ""]
       elif isNull d.data then Error [invalidNull "data" "/data"]
-      else d.data |> Array.traverseResultAIndexed (fun i d -> resourceIdentifier ("/data/" + string i) d)
+      else
+        d.data
+        |> Array.traverseResultAIndexed (fun i d ->
+          let ptr = "/data/" + string i
+          if isNull d then
+            Error [invalidNullArrayItem "data" ptr]
+          else
+            resourceIdentifier ptr d
+        )
     data |> Result.map (fun d ->
       {
         jsonapi = Skip

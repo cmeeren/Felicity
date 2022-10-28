@@ -847,6 +847,23 @@ let tests =
       test <@ json |> hasNoPath "errors[1]" @>
     }
 
+    testJob "Returns 400 for each null resource identifier" {
+      let db = Db ()
+      let! response =
+        Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
+        |> Request.bodySerialized {| data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ] |}
+        |> getResponse
+      response |> testStatusCode 400
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "errors[0].status" = "400" @>
+      test <@ json |> getPath "errors[0].detail" = "Array 'data' may not have null items" @>
+      test <@ json |> getPath "errors[0].source.pointer" = "/data/0" @>
+      test <@ json |> getPath "errors[1].status" = "400" @>
+      test <@ json |> getPath "errors[1].detail" = "Array 'data' may not have null items" @>
+      test <@ json |> getPath "errors[1].source.pointer" = "/data/2" @>
+      test <@ json |> hasNoPath "errors[2]" @>
+    }
+
     testJob "Returns 400 for each missing type" {
       let db = Db ()
       let! response =
