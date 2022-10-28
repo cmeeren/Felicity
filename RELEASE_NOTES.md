@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.21.2 (2022-10-28)
 
 * Fixed inadvertently returning a 500 error instead of a 400 error when a request has `null` items in a to-many relationship's `data` array or in a resource identifier collection document's primary `data` array. 
 
