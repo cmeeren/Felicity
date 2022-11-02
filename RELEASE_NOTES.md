@@ -1,7 +1,7 @@
 Release notes
 ============== 
 
-### Unreleased
+### 0.21.3 (2022-11-02)
 
 * The invalid value is now included in the error mesage for attribute parse errors. The value is limited to 200 characters. * Parse error messages for attributes defined with overloads that return user-defined error messages (e.g. `Result<_, string>`) are generally of the form `Attribute 'name' got invalid value 'invalidValue': <User-defined error message>`
 
