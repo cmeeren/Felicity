@@ -309,7 +309,7 @@
         |> Error.setTitle "Invalid ID"
         |> Error.setDetail $"Got invalid resource ID value '%s{data.Value}': %s{errMsg}"
 
-  let invalidEnum (info: ParsedValueInfo) invalidValue allowedValues =
+  let invalidEnum (info: ParsedValueInfo) allowedValues =
     let expectedStr =
       match allowedValues with
       | [x] -> x
@@ -324,25 +324,25 @@
         if data.NumValues > 1 then
           Error.create 400
           |> Error.setTitle "Invalid query parameter value"
-          |> Error.setDetail $"Comma-separated query parameter '%s{data.Name}' got invalid value '%s{invalidValue}' for item %i{data.ValueIndex + 1}; expected %s{expectedStr}"
+          |> Error.setDetail $"Comma-separated query parameter '%s{data.Name}' got invalid value '%s{data.Value}' for item %i{data.ValueIndex + 1}; expected %s{expectedStr}"
           |> Error.setSourceParam data.Name
         else
           Error.create 400
           |> Error.setTitle "Invalid query parameter value"
-          |> Error.setDetail $"Query parameter '%s{data.Name}' got invalid value '%s{invalidValue}'; expected %s{expectedStr}"
+          |> Error.setDetail $"Query parameter '%s{data.Name}' got invalid value '%s{data.Value}'; expected %s{expectedStr}"
           |> Error.setSourceParam data.Name
     | FromHeader data ->
         Error.create 400
         |> Error.setTitle "Invalid header value"
-        |> Error.setDetail $"Header '%s{data.Name}' got invalid value'%s{invalidValue}'; expected %s{expectedStr}"
+        |> Error.setDetail $"Header '%s{data.Name}' got invalid value'%s{data.Value}'; expected %s{expectedStr}"
     | FromBodyAttribute data ->
         Error.create 400
         |> Error.setTitle "Invalid attribute value"
         |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value; expected %s{expectedStr}"
-    | FromBodyId _ ->
+    | FromBodyId data ->
         Error.create 400
         |> Error.setTitle "Invalid ID"
-        |> Error.setDetail $"Got invalid resource ID value '%s{invalidValue}'; expected %s{expectedStr}"
+        |> Error.setDetail $"Got invalid resource ID value '%s{data.Value}'; expected %s{expectedStr}"
 
   let queryNotSingular paramName numValues =
     Error.create 400

@@ -10,47 +10,47 @@ module private QueryParseHelpers =
 
   open System.Text.RegularExpressions
 
-  let parseBool (data: ParsedValueFromQueryData) =
-    match data.Value with
+  let parseBool getData value =
+    match value with
     | "true" -> Ok true
     | "false" -> Ok false
-    | invalid -> Error [invalidEnum (FromQuery data) invalid ["true"; "false"]]
+    | invalid -> Error [invalidEnum (FromQuery (getData value)) ["true"; "false"]]
 
-  let parseInt (data: ParsedValueFromQueryData) =
-    match Int32.TryParse data.Value with
+  let parseInt getData (value: string) =
+    match Int32.TryParse value with
     | true, x -> Ok x
-    | false, _ -> Error [invalidParsedErrMsg (FromQuery data) "The value must be a valid integer"]
+    | false, _ -> Error [invalidParsedErrMsg (FromQuery (getData value)) "The value must be a valid integer"]
 
-  let parseFloat (data: ParsedValueFromQueryData) =
-    match Double.TryParse data.Value with
+  let parseFloat getData (value: string) =
+    match Double.TryParse value with
     | true, x -> Ok x
-    | false, _ -> Error [invalidParsedErrMsg (FromQuery data) "The value must be a valid number"]
+    | false, _ -> Error [invalidParsedErrMsg (FromQuery (getData value)) "The value must be a valid number"]
 
   /// Converts a string conforming to the ISO 8601-1:2019 format to a DateTime.
-  let parseDateTime (data: ParsedValueFromQueryData) =
-    try System.Text.Json.JsonSerializer.Deserialize<DateTime> ("\"" + data.Value + "\"") |> Ok
-    with _ -> Error [invalidParsedErrMsg (FromQuery data) "The value must be a valid ISO 8601-1:2019 date-time"]
+  let parseDateTime getData value =
+    try System.Text.Json.JsonSerializer.Deserialize<DateTime> ("\"" + value + "\"") |> Ok
+    with _ -> Error [invalidParsedErrMsg (FromQuery (getData value)) "The value must be a valid ISO 8601-1:2019 date-time"]
 
   /// Converts a string conforming to the ISO 8601-1:2019 format to a DateTimeOffset.
-  let parseDateTimeOffsetAllowMissingOffset (data: ParsedValueFromQueryData) =
-    try System.Text.Json.JsonSerializer.Deserialize<DateTimeOffset> ("\"" + data.Value + "\"") |> Ok
-    with _ -> Error [invalidParsedErrMsg (FromQuery data) "The value must be a valid ISO 8601-1:2019 date-time"]
+  let parseDateTimeOffsetAllowMissingOffset getData value =
+    try System.Text.Json.JsonSerializer.Deserialize<DateTimeOffset> ("\"" + value + "\"") |> Ok
+    with _ -> Error [invalidParsedErrMsg (FromQuery (getData value)) "The value must be a valid ISO 8601-1:2019 date-time"]
 
 
   /// Converts a string conforming to the ISO 8601-1:2019 format to a DateTimeOffset.
   let parseDateTimeOffset =
     let offsetRegex = Regex("(?>Z|(?>\+|-)\d\d:\d\d)$", RegexOptions.Compiled)  // Matches e.g.'Z' or '+01:00'
-    fun (data: ParsedValueFromQueryData) ->
+    fun getData value ->
       let errMsg = "The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')"
       try
-        let res = System.Text.Json.JsonSerializer.Deserialize<DateTimeOffset> ("\"" + data.Value + "\"")
-        if offsetRegex.IsMatch data.Value then Ok res
-        else Error [invalidParsedErrMsg (FromQuery data) errMsg]
-      with _ -> Error [invalidParsedErrMsg (FromQuery data) errMsg]
+        let res = System.Text.Json.JsonSerializer.Deserialize<DateTimeOffset> ("\"" + value + "\"")
+        if offsetRegex.IsMatch value then Ok res
+        else Error [invalidParsedErrMsg (FromQuery (getData value)) errMsg]
+      with _ -> Error [invalidParsedErrMsg (FromQuery (getData value)) errMsg]
 
 
 
-type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> ParsedValueFromQueryData -> Task<Result<'a, Error list>>, ?operator: string) =
+type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>, ?operator: string) =
 
   let addOperator s =
     match operator with
@@ -72,13 +72,13 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> ParsedValu
               |> fun values ->
                   values
                   |> Array.traverseTaskResultAIndexed (fun i value ->
-                      let valueData = {
+                      let getValueData value = {
                         Name = queryParamName
                         Value = value
                         NumValues = values.Length
                         ValueIndex = i
                       }
-                      parse ctx valueData
+                      parse ctx getValueData value
                   )
                   |> TaskResult.map (Array.toList >> Some)
     }
@@ -109,11 +109,11 @@ type ListFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> ParsedValu
     ListFilter<'ctx, 'a>(fieldName, parse, operator)
 
   member _.Bool : ListFilter<'ctx, bool> =
-    ListFilter<'ctx, bool>(fieldName, (fun _ i -> parseBool i |> Task.result), ?operator=operator)
+    ListFilter<'ctx, bool>(fieldName, (fun _ getData v -> parseBool getData v |> Task.result), ?operator=operator)
 
 
 
-type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> ParsedValueFromQueryData -> Task<Result<'a, Error list>>, ?operator: string, ?allowCommas: bool) =
+type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>, ?operator: string, ?allowCommas: bool) =
 
   let addOperator s =
     match operator with
@@ -136,13 +136,13 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> ParsedVa
                 let numElements = str.Split(',').Length
                 Error [queryNotSingular queryParamName numElements] |> Task.result
               else
-                let valueData = {
+                let getValueData value = {
                   Name = queryParamName
-                  Value = str
+                  Value = value
                   NumValues = 1
                   ValueIndex = 0
                 }
-                parse ctx valueData
+                parse ctx getValueData str
                 |> TaskResult.map Some
     }
 
@@ -177,10 +177,10 @@ type SingleFilter<'ctx, 'a> internal (fieldName: string, parse: 'ctx -> ParsedVa
     ListFilter<'ctx, 'a>(fieldName, parse, ?operator=operator)
 
   member _.Bool : SingleFilter<'ctx, bool> =
-    SingleFilter<'ctx, bool>(fieldName, (fun _ i -> parseBool i |> Task.result), ?operator=operator, ?allowCommas=allowCommas)
+    SingleFilter<'ctx, bool>(fieldName, (fun _ getData v -> parseBool getData v |> Task.result), ?operator=operator, ?allowCommas=allowCommas)
 
 
-type ListSort<'ctx, 'a> internal (parse: 'ctx -> ParsedValueFromQueryData -> Task<Result<'a, Error list>>) =
+type ListSort<'ctx, 'a> internal (parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) =
 
   let queryParamName = "sort"
   
@@ -208,13 +208,13 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> ParsedValueFromQueryData -> Tas
                   // of each sort column.
                   |> Array.distinctBy fst
                   |> Array.traverseTaskResultAIndexed (fun i (value, isDescending) ->
-                       let valueData = {
+                       let getValueData value = {
                          Name = queryParamName
                          Value = value
                          NumValues = values.Length
                          ValueIndex = i
                        }
-                       parse ctx valueData
+                       parse ctx getValueData value
                        |> TaskResult.map (fun s -> s, isDescending)
                   )
                   |> TaskResult.map (Array.toList >> Some)
@@ -243,7 +243,7 @@ type ListSort<'ctx, 'a> internal (parse: 'ctx -> ParsedValueFromQueryData -> Tas
 
 
 
-type SingleSort<'ctx, 'a> internal (parse: 'ctx -> ParsedValueFromQueryData -> Task<Result<'a, Error list>>) =
+type SingleSort<'ctx, 'a> internal (parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) =
 
   let queryParamName = "sort"
 
@@ -264,14 +264,14 @@ type SingleSort<'ctx, 'a> internal (parse: 'ctx -> ParsedValueFromQueryData -> T
                   then str.Substring(1), true
                   else str, false
 
-                let valueData = {
+                let getValueData value = {
                   Name = queryParamName
                   Value = value
                   NumValues = 1
                   ValueIndex = 0
                 }
 
-                parse ctx valueData
+                parse ctx getValueData value
                 |> TaskResult.map (fun s -> Some (s, isDescending))
     }
 
@@ -355,7 +355,7 @@ type PageParam<'ctx> internal (pageName: string, ?min: int , ?max: int) =
     PageParam<'ctx>(pageName, ?min = min, max = maxValue)
 
 
-type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> ParsedValueFromQueryData -> Task<Result<'a, Error list>>) =
+type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) =
 
   member _.Optional =
     { new RequestGetter<'ctx, 'a option> with
@@ -365,13 +365,13 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> ParsedV
           match req.Query.TryGetValue queryParamName with
           | false, _ -> Ok None |> Task.result
           | true, str ->
-              let valueData = {
+              let getValueData value = {
                 Name = queryParamName
-                Value = str
+                Value = value
                 NumValues = 1
                 ValueIndex = 0
               }
-              parse ctx valueData
+              parse ctx getValueData str
               |> TaskResult.map Some
     }
 
@@ -397,7 +397,7 @@ type CustomQueryParam<'ctx, 'a> internal (queryParamName, parse: 'ctx -> ParsedV
       | true, _ -> [reqParserProhibitedQueryParam queryParamName]
 
 
-type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> ParsedValueFromHeaderData -> Task<Result<'a, Error list>>) =
+type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> (string -> ParsedValueFromHeaderData) -> string -> Task<Result<'a, Error list>>) =
 
   member _.Optional =
     { new RequestGetter<'ctx, 'a option> with
@@ -407,11 +407,11 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> ParsedValueFr
           match req.Headers.TryGetValue headerName with
           | false, _ -> Ok None |> Task.result
           | true, value ->
-              let valueData: ParsedValueFromHeaderData = {
+              let valueData value : ParsedValueFromHeaderData = {
                 Name = headerName
                 Value = value
               }
-              parse ctx valueData |> TaskResult.map Some
+              parse ctx valueData value |> TaskResult.map Some
     }
 
   interface OptionalRequestGetter<'ctx, 'a> with
@@ -440,16 +440,16 @@ type Header<'ctx, 'a> internal (headerName: string, parse: 'ctx -> ParsedValueFr
 type Filter =
 
   static member Field(id: Id<'ctx, 'entity, 'id>) =
-    SingleFilter<'ctx, 'id>("id", fun ctx d -> id.toDomain ctx d.Value |> TaskResult.mapError (List.map (fun f -> f (FromQuery d))))
+    SingleFilter<'ctx, 'id>("id", fun ctx getData v -> id.toDomain ctx v |> TaskResult.mapError (List.map (fun f -> f (FromQuery (getData v)))))
 
-  static member private Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: ParsedValueFromQueryData -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(field.Name, fun ctx d -> toSerialized d |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+  static member private Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: (string -> ParsedValueFromQueryData) -> string -> Result<'serialized, Error list>) =
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx getData v -> toSerialized getData v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) =
-    SingleFilter<'ctx, 'attr>(field.Name, fun ctx d -> toSerialized d.Value |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx getData v -> toSerialized v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) =
-    SingleFilter<'ctx, 'attr>(field.Name, fun ctx d -> toSerialized d.Value |> Result.requireSome [invalidParsedNone (FromQuery d)] |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(field.Name, fun ctx getData v -> toSerialized v |> Result.requireSome [invalidParsedNone (getData v |> FromQuery)] |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, string>) =
     Filter.Field(field, Ok)
@@ -470,14 +470,14 @@ type Filter =
     // Note: We allow missing offset here because it's checked in the attribute, if relevant.
     Filter.Field(field, parseDateTimeOffsetAllowMissingOffset)
 
-  static member private Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: ParsedValueFromQueryData -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx d -> toSerialized d |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+  static member private Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: (string -> ParsedValueFromQueryData) -> string -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx getData v -> toSerialized getData v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx d -> toSerialized d.Value |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> 'serialized option) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx d -> toSerialized d.Value |> Result.requireSome [invalidParsedNone (FromQuery d)] |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.requireSome [invalidParsedNone (getData v |> FromQuery)] |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, string>) : SingleFilter<'ctx, 'attr> =
     Filter.Field(path, field, Ok)
@@ -498,14 +498,14 @@ type Filter =
     // Note: We allow missing offset here because it's checked in the attribute, if relevant.
     Filter.Field(path, field, parseDateTimeOffsetAllowMissingOffset)
 
-  static member private Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: ParsedValueFromQueryData -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx d -> toSerialized d |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+  static member private Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: (string -> ParsedValueFromQueryData) -> string -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx getData v -> toSerialized getData v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx d -> toSerialized d.Value |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> 'serialized option) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx d -> toSerialized d.Value |> Result.requireSome [invalidParsedNone (FromQuery d)]  |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.requireSome [invalidParsedNone (getData v |> FromQuery)]  |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, string>) : SingleFilter<'ctx, 'attr> =
     Filter.Field(path1, path2, field, Ok)
@@ -526,14 +526,14 @@ type Filter =
     // Note: We allow missing offset here because it's checked in the attribute, if relevant.
     Filter.Field(path1, path2, field, parseDateTimeOffsetAllowMissingOffset)
 
-  static member private Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: ParsedValueFromQueryData -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx d -> toSerialized d |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+  static member private Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: (string -> ParsedValueFromQueryData) -> string -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx getData v -> toSerialized getData v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, Error list>) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx d -> toSerialized d.Value |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> 'serialized option) : SingleFilter<'ctx, 'attr> =
-    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx d -> toSerialized d.Value |> Result.requireSome [invalidParsedNone (FromQuery d)] |> Task.result |> TaskResult.bind (field.ToDomain ctx (FromQuery d)))
+    SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.requireSome [invalidParsedNone (getData v |> FromQuery)] |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
 
   static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, string>) : SingleFilter<'ctx, 'attr> =
     Filter.Field(path1, path2, path3, field, Ok)
@@ -555,19 +555,19 @@ type Filter =
     Filter.Field(path1, path2, path3, field, parseDateTimeOffsetAllowMissingOffset)
 
   static member ParsedTaskRes(name, parse: 'ctx -> string -> Task<Result<'a, Error list>>) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, fun ctx d -> parse ctx d.Value)
+    SingleFilter<'ctx, 'a>(name, fun ctx getData v -> parse ctx v)
 
   static member ParsedTaskRes(name, parse: string -> Task<Result<'a, Error list>>) : SingleFilter<'ctx, 'a> =
     Filter.ParsedTaskRes(name, fun _ s -> parse s)
 
   static member ParsedTaskRes(name, parse: 'ctx -> string -> Task<Result<'a, string>>) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, fun ctx d -> parse ctx d.Value |> TaskResult.mapError (invalidParsedErrMsg (FromQuery d) >> List.singleton))
+    SingleFilter<'ctx, 'a>(name, fun ctx getData v -> parse ctx v |> TaskResult.mapError (invalidParsedErrMsg (FromQuery (getData v)) >> List.singleton))
 
   static member ParsedTaskRes(name, parse: string -> Task<Result<'a, string>>) : SingleFilter<'ctx, 'a> =
     Filter.ParsedTaskRes(name, fun _ s -> parse s)
 
   static member ParsedTaskRes(name, parse: 'ctx -> string -> Task<Result<'a, string list>>) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, fun ctx d -> parse ctx d.Value |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery d))))
+    SingleFilter<'ctx, 'a>(name, fun ctx getData v -> parse ctx v |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery (getData v)))))
 
   static member ParsedTaskRes(name, parse: string -> Task<Result<'a, string list>>) : SingleFilter<'ctx, 'a> =
     Filter.ParsedTaskRes(name, fun _ s -> parse s)
@@ -591,7 +591,7 @@ type Filter =
     Filter.ParsedTaskRes(name, Task.liftAsync parse)
 
   static member ParsedTaskOpt(name, parse: 'ctx -> string -> Task<'a option>) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, fun ctx d -> parse ctx d.Value |> Task.map (Result.requireSome [invalidParsedNone (FromQuery d)]))
+    SingleFilter<'ctx, 'a>(name, fun ctx getData v -> parse ctx v |> Task.map (Result.requireSome [invalidParsedNone (FromQuery (getData v))]))
 
   static member ParsedTaskOpt(name, parse: string -> Task<'a option>) : SingleFilter<'ctx, 'a> =
     Filter.ParsedTaskOpt(name, fun _ s -> parse s)
@@ -603,10 +603,10 @@ type Filter =
     Filter.ParsedTaskOpt(name, Task.liftAsync parse)
 
   static member ParsedTask(name, parse: 'ctx -> string -> Task<'a>) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, fun ctx d -> parse ctx d.Value |> Task.map Ok)
+    SingleFilter<'ctx, 'a>(name, fun ctx _ v -> parse ctx v |> Task.map Ok)
 
   static member ParsedTask(name, parse: string -> Task<'a>) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, fun _ d -> parse d.Value |> Task.map Ok)
+    SingleFilter<'ctx, 'a>(name, fun _ _ v -> parse v |> Task.map Ok)
 
   static member ParsedAsync(name, parse: 'ctx -> string -> Async<'a>) : SingleFilter<'ctx, 'a> =
     Filter.ParsedTask(name, Task.liftAsync2 parse)
@@ -639,37 +639,37 @@ type Filter =
     Filter.ParsedTaskOpt(name, Task.lift parse)
 
   static member Parsed(name: string, parse: string -> 'a) : SingleFilter<'ctx, 'a> =
-    SingleFilter<'ctx, 'a>(name, TaskResult.lift2 (fun _ d -> parse d.Value))
+    SingleFilter<'ctx, 'a>(name, TaskResult.lift3 (fun _ _ v -> parse v))
 
   static member String(name) : SingleFilter<'ctx, string> =
-    SingleFilter<'ctx, string>(name, fun _ d -> d.Value |> Ok |> Task.result)
+    SingleFilter<'ctx, string>(name, fun _ _ v -> v |> Ok |> Task.result)
 
   static member Bool(name) : SingleFilter<'ctx, bool> =
-    SingleFilter<'ctx, bool>(name, fun _ -> parseBool >> Task.result)
+    SingleFilter<'ctx, bool>(name, fun _ getData v -> parseBool getData v |> Task.result)
 
   static member Int(name) : SingleFilter<'ctx, int> =
-    SingleFilter<'ctx, int>(name, fun _ -> parseInt >> Task.result)
+    SingleFilter<'ctx, int>(name, fun _ getData v -> parseInt getData v |> Task.result)
 
   static member Float(name) : SingleFilter<'ctx, double> =
-    SingleFilter<'ctx, float>(name, fun _ -> parseFloat >> Task.result)
+    SingleFilter<'ctx, float>(name, fun _ getData v -> parseFloat getData v |> Task.result)
 
   static member DateTime(name) : SingleFilter<'ctx, DateTime> =
-    SingleFilter<'ctx, DateTime>(name, fun _ -> parseDateTime >> Task.result)
+    SingleFilter<'ctx, DateTime>(name, fun _ getData v -> parseDateTime getData v |> Task.result)
 
   static member DateTimeOffset(name) : SingleFilter<'ctx, DateTimeOffset> =
-    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffset >> Task.result)
+    SingleFilter<'ctx, DateTimeOffset>(name, fun _ getData v -> parseDateTimeOffset getData v |> Task.result)
 
   static member DateTimeOffsetAllowMissingOffset(name) : SingleFilter<'ctx, DateTimeOffset> =
-    SingleFilter<'ctx, DateTimeOffset>(name, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Task.result)
+    SingleFilter<'ctx, DateTimeOffset>(name, fun _ getData v -> parseDateTimeOffsetAllowMissingOffset getData v |> Task.result)
 
   static member Enum(name, enumMap: (string * 'a) list) : SingleFilter<'ctx, 'a> =
     let d = dict enumMap
     let allowed = enumMap |> List.map fst |> List.distinct
-    let parse (data: ParsedValueFromQueryData) =
-      match d.TryGetValue data.Value with
+    let parse (getData: string -> ParsedValueFromQueryData) value =
+      match d.TryGetValue value with
       | true, v -> Ok v
-      | false, _ -> Error [invalidEnum (FromQuery data) data.Value allowed]
-    SingleFilter<'ctx, 'a>(name, fun _ d -> parse d |> Task.result)
+      | false, _ -> Error [invalidEnum (FromQuery (getData value)) allowed]
+    SingleFilter<'ctx, 'a>(name, fun _ getData v -> parse getData v |> Task.result)
 
 
 
@@ -681,29 +681,29 @@ module FilterExtensions =
   type Filter with
 
     static member Parsed(name: string, parse: 'ctx -> string -> 'a) : SingleFilter<'ctx, 'a> =
-      SingleFilter<'ctx, 'a>(name, fun ctx d -> parse ctx d.Value |> Ok |> Task.result)
+      SingleFilter<'ctx, 'a>(name, fun ctx _ v -> parse ctx v |> Ok |> Task.result)
 
 
 
 type Sort =
 
-  static member private ParsedTaskRes'(parse: 'ctx -> ParsedValueFromQueryData -> Task<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
+  static member private ParsedTaskRes'(parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
     SingleSort<'ctx, 'a>(parse)
 
   static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
-    Sort.ParsedTaskRes'(fun ctx d -> parse ctx d.Value)
+    Sort.ParsedTaskRes'(fun ctx _ v -> parse ctx v)
 
   static member ParsedTaskRes(parse: string -> Task<Result<'a, Error list>>) : SingleSort<'ctx, 'a> =
     Sort.ParsedTaskRes(fun _ s -> parse s)
 
   static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, string>>) : SingleSort<'ctx, 'a> =
-    Sort.ParsedTaskRes'(fun ctx d -> parse ctx d.Value |> TaskResult.mapError (invalidParsedErrMsg (FromQuery d) >> List.singleton))
+    Sort.ParsedTaskRes'(fun ctx getData v -> parse ctx v |> TaskResult.mapError (invalidParsedErrMsg (FromQuery (getData v)) >> List.singleton))
 
   static member ParsedTaskRes(parse: string -> Task<Result<'a, string>>) : SingleSort<'ctx, 'a> =
     Sort.ParsedTaskRes(fun _ s -> parse s)
 
   static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, string list>>) : SingleSort<'ctx, 'a> =
-    Sort.ParsedTaskRes'(fun ctx d -> parse ctx d.Value |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery d))))
+    Sort.ParsedTaskRes'(fun ctx getData v -> parse ctx v |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery (getData v)))))
 
   static member ParsedTaskRes(parse: string -> Task<Result<'a, string list>>) : SingleSort<'ctx, 'a> =
     Sort.ParsedTaskRes(fun _ s -> parse s)
@@ -727,7 +727,7 @@ type Sort =
     Sort.ParsedTaskRes(Task.liftAsync parse)
 
   static member ParsedTaskOpt(parse: 'ctx -> string -> Task<'a option>) : SingleSort<'ctx, 'a> =
-    Sort.ParsedTaskRes'(fun ctx d -> parse ctx d.Value |> Task.map (Result.requireSome [invalidParsedNone (FromQuery d)]))
+    Sort.ParsedTaskRes'(fun ctx getData v -> parse ctx v |> Task.map (Result.requireSome [invalidParsedNone (FromQuery (getData v))]))
 
   static member ParsedTaskOpt(parse: string -> Task<'a option>) : SingleSort<'ctx, 'a> =
     Sort.ParsedTaskOpt(fun _ s -> parse s)
@@ -739,10 +739,10 @@ type Sort =
     Sort.ParsedTaskOpt(Task.liftAsync parse)
 
   static member ParsedTask(parse: 'ctx -> string -> Task<'a>) : SingleSort<'ctx, 'a> =
-    SingleSort<'ctx, 'a>(fun ctx d -> parse ctx d.Value |> Task.map Ok)
+    SingleSort<'ctx, 'a>(fun ctx _ v -> parse ctx v |> Task.map Ok)
 
   static member ParsedTask(parse: string -> Task<'a>) : SingleSort<'ctx, 'a> =
-    SingleSort<'ctx, 'a>(TaskResult.liftTask2 (fun _ d -> parse d.Value))
+    SingleSort<'ctx, 'a>(TaskResult.liftTask3 (fun _  _ v -> parse v))
 
   static member ParsedAsync(parse: 'ctx -> string -> Async<'a>) : SingleSort<'ctx, 'a> =
     Sort.ParsedTask(Task.liftAsync2 parse)
@@ -775,16 +775,16 @@ type Sort =
     Sort.ParsedTaskOpt(Task.lift parse)
 
   static member Parsed(parse: string -> 'a) : SingleSort<'ctx, 'a> =
-    SingleSort<'ctx, 'a>(fun _ d -> parse d.Value |> Ok |> Task.result)
+    SingleSort<'ctx, 'a>(fun _ _ v -> parse v |> Ok |> Task.result)
 
   static member Enum(sortMap: (string * 'a) list) : SingleSort<'ctx, 'a> =
     let d = dict sortMap
     let allowed = sortMap |> List.map fst |> List.distinct
-    let parse (data: ParsedValueFromQueryData) =
-      match d.TryGetValue data.Value with
+    let parse (getData: string -> ParsedValueFromQueryData) value =
+      match d.TryGetValue value with
       | true, v -> Ok v
-      | false, _ -> Error [invalidEnum (FromQuery data) data.Value allowed]
-    SingleSort<'ctx, 'a>(fun _ d -> parse d |> Task.result)
+      | false, _ -> Error [invalidEnum (FromQuery (getData value)) allowed]
+    SingleSort<'ctx, 'a>(fun _ getData v -> parse getData v |> Task.result)
 
 
 
@@ -795,7 +795,7 @@ module SortExtensions =
   type Sort with
 
     static member Parsed(parse: 'ctx -> string -> 'a) : SingleSort<'ctx, 'a> =
-      SingleSort<'ctx, 'a>(fun ctx d -> parse ctx d.Value |> Ok |> Task.result)
+      SingleSort<'ctx, 'a>(fun ctx _ v -> parse ctx v |> Ok |> Task.result)
 
 
 
@@ -814,19 +814,19 @@ type Page<'ctx> =
 type Query =
 
   static member ParsedTaskRes(queryParamName, parse: 'ctx -> string -> Task<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx d -> parse ctx d.Value)
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx _ v -> parse ctx v)
 
   static member ParsedTaskRes(queryParamName, parse: string -> Task<Result<'a, Error list>>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedTaskRes(queryParamName, fun _ s -> parse s)
 
   static member ParsedTaskRes(queryParamName, parse: 'ctx -> string -> Task<Result<'a, string>>) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx d -> parse ctx d.Value |> TaskResult.mapError (invalidParsedErrMsg (FromQuery d) >> List.singleton))
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx getData v -> parse ctx v |> TaskResult.mapError (invalidParsedErrMsg (FromQuery (getData v)) >> List.singleton))
 
   static member ParsedTaskRes(queryParamName, parse: string -> Task<Result<'a, string>>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedTaskRes(queryParamName, fun _ s -> parse s)
 
   static member ParsedTaskRes(queryParamName, parse: 'ctx -> string -> Task<Result<'a, string list>>) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx d -> parse ctx d.Value |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery d))))
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx getData v -> parse ctx v |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery (getData v)))))
 
   static member ParsedTaskRes(queryParamName, parse: string -> Task<Result<'a, string list>>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedTaskRes(queryParamName, fun _ s -> parse s)
@@ -850,7 +850,7 @@ type Query =
     Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
   static member ParsedTaskOpt(queryParamName, parse: 'ctx -> string -> Task<'a option>) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx d -> parse ctx d.Value |> Task.map (Result.requireSome [invalidParsedNone (FromQuery d)]))
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx getData v -> parse ctx v |> Task.map (Result.requireSome [invalidParsedNone (FromQuery (getData v))]))
 
   static member ParsedTaskOpt(queryParamName, parse: string -> Task<'a option>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedTaskOpt(queryParamName, fun _ s -> parse s)
@@ -862,10 +862,10 @@ type Query =
     Query.ParsedTaskOpt(queryParamName, Task.liftAsync parse)
 
   static member ParsedTask(queryParamName, parse: 'ctx -> string -> Task<'a>) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx d -> parse ctx d.Value |> Task.map Ok)
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx _ v -> parse ctx v |> Task.map Ok)
 
   static member ParsedTask(queryParamName, parse: string -> Task<'a>) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ d -> parse d.Value |> Task.map Ok)
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ _ v -> parse v |> Task.map Ok)
 
   static member ParsedAsync(queryParamName, parse: 'ctx -> string -> Async<'a>) : CustomQueryParam<'ctx, 'a> =
     Query.ParsedTask(queryParamName, Task.liftAsync2 parse)
@@ -898,41 +898,41 @@ type Query =
     Query.ParsedTaskOpt(queryParamName, Task.lift parse)
 
   static member Parsed(queryParamName, parse: string -> 'a) : CustomQueryParam<'ctx, 'a> =
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ d -> parse d.Value |> Ok |> Task.result)
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ _ v -> parse v |> Ok |> Task.result)
 
   // Note: When adding more overloads, consider adding them to Filter, too.
 
   static member String(queryParamName) : CustomQueryParam<'ctx, string> =
-    CustomQueryParam<'ctx, string>(queryParamName, fun _ d -> d.Value |> Ok |> Task.result)
+    CustomQueryParam<'ctx, string>(queryParamName, fun _ _ v -> v |> Ok |> Task.result)
 
   static member Bool(queryParamName) : CustomQueryParam<'ctx, bool> =
-    CustomQueryParam<'ctx, bool>(queryParamName, fun _ -> parseBool >> Task.result)
+    CustomQueryParam<'ctx, bool>(queryParamName, fun _ getData v -> parseBool getData v |> Task.result)
 
   static member Int(queryParamName) : CustomQueryParam<'ctx, int> =
-    CustomQueryParam<'ctx, int>(queryParamName, fun _ -> parseInt >> Task.result)
+    CustomQueryParam<'ctx, int>(queryParamName, fun _ getData v -> parseInt getData v |> Task.result)
 
   static member Float(queryParamName) : CustomQueryParam<'ctx, float> =
-    CustomQueryParam<'ctx, float>(queryParamName, fun _ -> parseFloat >> Task.result)
+    CustomQueryParam<'ctx, float>(queryParamName, fun _ getData v -> parseFloat getData v |> Task.result)
 
   static member DateTime(queryParamName) : CustomQueryParam<'ctx, DateTime> =
-    CustomQueryParam<'ctx, DateTime>(queryParamName, fun _ -> parseDateTime >> Task.result)
+    CustomQueryParam<'ctx, DateTime>(queryParamName, fun _ getData v -> parseDateTime getData v |> Task.result)
 
   static member DateTimeOffset(queryParamName) : CustomQueryParam<'ctx, DateTimeOffset> =
-    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffset >> Task.result)
+    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ getData v -> parseDateTimeOffset getData v |> Task.result)
 
   static member DateTimeOffsetAllowMissingOffset(queryParamName) : CustomQueryParam<'ctx, DateTimeOffset> =
-    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ -> parseDateTimeOffsetAllowMissingOffset >> Task.result)
+    CustomQueryParam<'ctx, DateTimeOffset>(queryParamName, fun _ getData v -> parseDateTimeOffsetAllowMissingOffset getData v |> Task.result)
 
   // Note: When adding more overloads, consider adding them to Filter, too.
 
   static member Enum(queryParamName, enumMap: (string * 'a) list) : CustomQueryParam<'ctx, 'a> =
     let d = dict enumMap
     let allowed = enumMap |> List.map fst |> List.distinct
-    let parse (data: ParsedValueFromQueryData) =
-      match d.TryGetValue data.Value with
+    let parse (getData: string -> ParsedValueFromQueryData) value =
+      match d.TryGetValue value with
       | true, v -> Ok v
-      | false, _ -> Error [invalidEnum (FromQuery data) data.Value allowed]
-    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ s -> parse s |> Task.result)
+      | false, _ -> Error [invalidEnum (FromQuery (getData value)) allowed]
+    CustomQueryParam<'ctx, 'a>(queryParamName, fun _ getData v -> parse getData v |> Task.result)
 
 
 
@@ -943,29 +943,29 @@ module QueryExtensions =
   type Query with
 
     static member Parsed(queryParamName, parse: 'ctx -> string -> 'a) : CustomQueryParam<'ctx, 'a> =
-      CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx d -> parse ctx d.Value |> Ok |> Task.result)
+      CustomQueryParam<'ctx, 'a>(queryParamName, fun ctx _ v -> parse ctx v |> Ok |> Task.result)
 
 
 
 type Header =
 
   static member String(headerName) : Header<'ctx, string> =
-    Header<'ctx, string>(headerName, fun _ d -> d.Value |> Ok |> Task.result)
+    Header<'ctx, string>(headerName, fun _ _ v -> v |> Ok |> Task.result)
 
   static member ParsedTaskRes(headerName, parse: 'ctx -> string -> Task<Result<'a, Error list>>) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun ctx d -> parse ctx d.Value)
+    Header<'ctx, 'a>(headerName, fun ctx _ v -> parse ctx v)
 
   static member ParsedTaskRes(headerName, parse: string -> Task<Result<'a, Error list>>) : Header<'ctx, 'a> =
     Header.ParsedTaskRes(headerName, fun _ s -> parse s)
 
   static member ParsedTaskRes(headerName, parse: 'ctx -> string -> Task<Result<'a, string>>) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun ctx d -> parse ctx d.Value |> TaskResult.mapError (invalidParsedErrMsg (FromHeader d) >> List.singleton))
+    Header<'ctx, 'a>(headerName, fun ctx getData v -> parse ctx v |> TaskResult.mapError (invalidParsedErrMsg (FromHeader (getData v)) >> List.singleton))
 
   static member ParsedTaskRes(headerName, parse: string -> Task<Result<'a, string>>) : Header<'ctx, 'a> =
     Header.ParsedTaskRes(headerName, fun _ s -> parse s)
 
   static member ParsedTaskRes(headerName, parse: 'ctx -> string -> Task<Result<'a, string list>>) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun ctx d -> parse ctx d.Value |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromHeader d))))
+    Header<'ctx, 'a>(headerName, fun ctx getData v -> parse ctx v |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromHeader (getData v)))))
 
   static member ParsedTaskRes(headerName, parse: string -> Task<Result<'a, string list>>) : Header<'ctx, 'a> =
     Header.ParsedTaskRes(headerName, fun _ s -> parse s)
@@ -989,7 +989,7 @@ type Header =
     Header.ParsedTaskRes(headerName, Task.liftAsync parse)
 
   static member ParsedTaskOpt(headerName, parse: 'ctx -> string -> Task<'a option>) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun ctx d -> parse ctx d.Value |> Task.map (Result.requireSome [invalidParsedNone (FromHeader d)]))
+    Header<'ctx, 'a>(headerName, fun ctx getData v -> parse ctx v |> Task.map (Result.requireSome [invalidParsedNone (FromHeader (getData v))]))
 
   static member ParsedTaskOpt(headerName, parse: string -> Task<'a option>) : Header<'ctx, 'a> =
     Header.ParsedTaskOpt(headerName, fun _ s -> parse s)
@@ -1001,10 +1001,10 @@ type Header =
     Header.ParsedTaskOpt(headerName, Task.liftAsync parse)
 
   static member ParsedTask(headerName, parse: 'ctx -> string -> Task<'a>) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun ctx d -> parse ctx d.Value |> Task.map Ok)
+    Header<'ctx, 'a>(headerName, fun ctx _ v -> parse ctx v |> Task.map Ok)
 
   static member ParsedTask(headerName, parse: string -> Task<'a>) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun _ d -> parse d.Value |> Task.map Ok)
+    Header<'ctx, 'a>(headerName, fun _ _ v -> parse v |> Task.map Ok)
 
   static member ParsedAsync(headerName, parse: 'ctx -> string -> Async<'a>) : Header<'ctx, 'a> =
     Header.ParsedTask(headerName, Task.liftAsync2 parse)
@@ -1037,7 +1037,7 @@ type Header =
     Header.ParsedTaskOpt(headerName, Task.lift parse)
 
   static member Parsed(headerName, parse: string -> 'a) : Header<'ctx, 'a> =
-    Header<'ctx, 'a>(headerName, fun _ d -> parse d.Value |> Ok |> Task.result)
+    Header<'ctx, 'a>(headerName, fun _ getData v -> parse v |> Ok |> Task.result)
 
 
 
@@ -1048,4 +1048,4 @@ module HeaderExtensions =
   type Header with
 
     static member Parsed(headerName, parse: 'ctx -> string -> 'a) : Header<'ctx, 'a> =
-      Header<'ctx, 'a>(headerName, fun ctx d -> parse ctx d.Value |> Ok |> Task.result)
+      Header<'ctx, 'a>(headerName, fun ctx _ v -> parse ctx v |> Ok |> Task.result)

@@ -355,10 +355,10 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
   interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
     member this.Name = this.name
-    member this.ToDomain ctx info str =
+    member this.ToDomain ctx getInfo str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
-      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr info))
+      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr (getInfo str)))
       | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
@@ -1379,10 +1379,10 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
   interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
     member this.Name = this.name
-    member this.ToDomain ctx info str =
+    member this.ToDomain ctx getInfo str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
-      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr info))
+      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr (getInfo str)))
       | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 
@@ -2510,10 +2510,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
   interface FieldQueryParser<'ctx, 'entity, 'relatedId, string> with
     member this.Name = this.name
-    member this.ToDomain ctx info str =
+    member this.ToDomain ctx getInfo str =
       match this.idParsers |> Option.defaultValue Map.empty |> Map.toList with
       | [] -> failwith $"Relationship '%s{this.name}' does not contain any ID parsers and may not be used to parse query IDs"
-      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr info))
+      | [_, parseId] -> parseId ctx str |> TaskResult.mapError (List.map (fun getErr -> getErr (getInfo str)))
       | _::_::_ -> failwith $"Relationship '%s{this.name}' contains ID parsers for several types and may therefore not be used to parse query IDs"
 
 

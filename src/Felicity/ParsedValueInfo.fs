@@ -15,6 +15,7 @@ type ParsedValueFromHeaderData = {
 
 type ParsedValueFromAttributeData = {
   Name: AttributeName
+  StringValue: string
 }
 
 type ParsedValueFromRelationshipIdData = {
