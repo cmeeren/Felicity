@@ -275,9 +275,10 @@
         |> Error.setTitle "Invalid header value"
         |> Error.setDetail $"Header '%s{data.Name}' got invalid value '%s{data.Value}'"
     | FromBodyAttribute data ->
+        let value =  data.StringValue |> String.truncate "…" 200
         Error.create 400
         |> Error.setTitle "Invalid attribute value"
-        |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value"
+        |> Error.setDetail $"Attribute '%s{data.Name}' got invalid value '%s{value}'"
     | FromBodyId data ->
         Error.create 400
         |> Error.setTitle "Invalid ID"
@@ -301,9 +302,10 @@
         |> Error.setTitle "Invalid header value"
         |> Error.setDetail $"Header '%s{data.Name}' got invalid value '%s{data.Value}': %s{errMsg}"
     | FromBodyAttribute data ->
+        let value =  data.StringValue |> String.truncate "…" 200
         Error.create 400
         |> Error.setTitle "Invalid attribute value"
-        |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value: %s{errMsg}"
+        |> Error.setDetail $"Attribute '%s{data.Name}' got invalid value '%s{value}': %s{errMsg}"
     | FromBodyId data ->
         Error.create 400
         |> Error.setTitle "Invalid ID"
@@ -336,9 +338,10 @@
         |> Error.setTitle "Invalid header value"
         |> Error.setDetail $"Header '%s{data.Name}' got invalid value'%s{data.Value}'; expected %s{expectedStr}"
     | FromBodyAttribute data ->
+        let value =  data.StringValue |> String.truncate "…" 200
         Error.create 400
         |> Error.setTitle "Invalid attribute value"
-        |> Error.setDetail $"Attribute '%s{data.Name}' got an invalid value; expected %s{expectedStr}"
+        |> Error.setDetail $"Attribute '%s{data.Name}' got invalid value '%s{value}'; expected %s{expectedStr}"
     | FromBodyId data ->
         Error.create 400
         |> Error.setTitle "Invalid ID"

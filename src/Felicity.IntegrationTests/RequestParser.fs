@@ -1506,7 +1506,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableOpt' got an invalid value" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableOpt' got invalid value 'invalidValue'" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableOpt" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1518,7 +1518,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableOpt' got an invalid value" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableOpt' got invalid value 'invalidValue'" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableOpt" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1530,7 +1530,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableRes' got an invalid value: Custom message" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableRes' got invalid value 'invalidValue': Custom message" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableRes" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1542,7 +1542,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableRes' got an invalid value: Custom message" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableRes' got invalid value 'invalidValue': Custom message" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableRes" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1554,7 +1554,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableEnum' got an invalid value; expected one of 'a', 'b'" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableEnum' got invalid value 'invalidValue'; expected one of 'a', 'b'" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableEnum" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1566,7 +1566,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableEnum' got an invalid value; expected one of 'a', 'b'" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableEnum' got invalid value 'invalidValue'; expected one of 'a', 'b'" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableEnum" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1578,7 +1578,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableDateTimeOffset' got an invalid value: The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nonNullableDateTimeOffset' got invalid value 'invalidValue': The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nonNullableDateTimeOffset" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }
@@ -1590,7 +1590,7 @@ let tests =
       response |> testStatusCode 400
       let! json = response |> Response.readBodyAsString
       test <@ json |> getPath "errors[0].status" = "400" @>
-      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableDateTimeOffset' got an invalid value: The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
+      test <@ json |> getPath "errors[0].detail" = "Attribute 'nullableDateTimeOffset' got invalid value 'invalidValue': The value must be a valid ISO 8601-1:2019 date-time including an offset (e.g. 'Z' or '+01:00')" @>
       test <@ json |> getPath "errors[0].source.pointer" = "/data/attributes/nullableDateTimeOffset" @>
       test <@ json |> hasNoPath "errors[1]" @>
     }

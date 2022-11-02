@@ -448,6 +448,11 @@ module String =
   let join (separator: string) (strings: seq<string>) =
     String.Join(separator, strings)
 
+  /// Truncates the string using the specified suffix.
+  let truncate (suffix: string) maxLength (str: string) =
+    if str.Length <= maxLength then str
+    else str.Substring(0, maxLength - suffix.Length) + suffix
+
 
 
 /// A semaphore with FIFO semantics (operations are guaranteed to be executed
