@@ -3,7 +3,7 @@ Release notes
 
 ### Unreleased
 
-* Fixed 500 Internal Server Error when primary data contains duplicate resources (in GET collection and GET to-many relationship related/self). Now logs a warning instead (since this should not happen in client code) and returns distinct resources. 
+* Fixed 500 Internal Server Error when primary data contains duplicate resources in GET collection and GET to-many relationship related. For these operations as well as GET to-many relationship self, now logs a warning instead (since this should not happen in client code) and returns distinct resources. 
 
 ### 0.21.3 (2022-11-02)
 
