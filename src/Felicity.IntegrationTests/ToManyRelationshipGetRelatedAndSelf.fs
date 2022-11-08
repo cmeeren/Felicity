@@ -1,8 +1,10 @@
 ﻿module ``To-many relationship GET related and self``
 
+open System
 open System.Text.Json.Serialization
 open Expecto
 open HttpFs.Client
+open Microsoft.Extensions.Logging
 open Swensen.Unquote
 open Giraffe
 open Felicity
@@ -278,6 +280,38 @@ let tests1 =
       test <@ response.headers[NonStandard "Foo"] = "Bar" @>
     }
 
+    testJob "Returns distinct resources if primary data has duplicates, and logs warning once per duplicated resource" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with GetParent1Children = fun _ -> Include [ C2 { Id = "c1" }; C2 { Id = "c1" }; C2 { Id = "c3" }; C2 { Id = "c2" }; C2 { Id = "c1" }; C2 { Id = "c2" } ] }
+      let testClient, logSink = startTestServerWithLogSink ctx
+      let! response =
+        Request.createWithClient testClient Get (Uri("http://example.com/parents/p1/children"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data[0].type" = "child2" @>
+      test <@ json |> getPath "data[0].id" = "c1" @>
+      test <@ json |> getPath "data[1].type" = "child2" @>
+      test <@ json |> getPath "data[1].id" = "c3" @>
+      test <@ json |> getPath "data[2].type" = "child2" @>
+      test <@ json |> getPath "data[2].id" = "c2" @>
+      test <@ json |> hasNoPath "data[3]" @>
+
+      let warnEntries =
+        logSink.LogEntries
+         |> Seq.filter (fun e -> e.LogLevel = LogLevel.Warning)
+         |> Seq.map (fun e -> e.Message)
+         |> Seq.toList
+
+      let expected = [
+        "Resource with type 'child2' and ID 'c1' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used."
+        "Resource with type 'child2' and ID 'c2' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used."
+      ]
+
+      test <@ warnEntries = expected @>
+    }
+
     testJob "Returns 403 if Skip" {
       let db = Db ()
       let ctx = { Ctx.WithDb db with GetParent1Children = fun _ -> Skip }
@@ -462,6 +496,38 @@ let tests2 =
       test <@ json |> hasNoPath "included" @>
 
       test <@ response.headers[NonStandard "Foo"] = "Bar" @>
+    }
+
+    testJob "Returns distinct resources if primary data has duplicates, and logs warning once per duplicated resource" {
+      let db = Db ()
+      let ctx = { Ctx.WithDb db with GetParent1Children = fun _ -> Include [ C2 { Id = "c1" }; C2 { Id = "c1" }; C2 { Id = "c3" }; C2 { Id = "c2" }; C2 { Id = "c1" }; C2 { Id = "c2" } ] }
+      let testClient, logSink = startTestServerWithLogSink ctx
+      let! response =
+        Request.createWithClient testClient Get (Uri("http://example.com/parents/p1/relationships/children"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data[0].type" = "child2" @>
+      test <@ json |> getPath "data[0].id" = "c1" @>
+      test <@ json |> getPath "data[1].type" = "child2" @>
+      test <@ json |> getPath "data[1].id" = "c3" @>
+      test <@ json |> getPath "data[2].type" = "child2" @>
+      test <@ json |> getPath "data[2].id" = "c2" @>
+      test <@ json |> hasNoPath "data[3]" @>
+
+      let warnEntries =
+        logSink.LogEntries
+         |> Seq.filter (fun e -> e.LogLevel = LogLevel.Warning)
+         |> Seq.map (fun e -> e.Message)
+         |> Seq.toList
+
+      let expected = [
+        "Resource identifier with type 'child2' and ID 'c1' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used."
+        "Resource identifier with type 'child2' and ID 'c2' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used."
+      ]
+
+      test <@ warnEntries = expected @>
     }
 
     testJob "Returns 403 if Skip" {

@@ -2698,17 +2698,32 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                   | Skip -> return! handleErrors [getRelWhileSkip ()] next httpCtx
                   | Include relatedEntities ->
                       let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+
+                      let data =
+                        relatedEntities
+                        |> Seq.map (fun e ->
+                            let b = resolveEntity e
+                            { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
+                        )
+                        |> Seq.toArray
+
+                      let data =
+                        let distinct = Array.distinct data
+                        if data.Length = distinct.Length then
+                          data
+                        else
+                          let loggerFactory = httpCtx.GetService<ILoggerFactory>()
+                          let logger = loggerFactory.CreateLogger("Felicity.ResourceBuilder")
+                          let duplicates = data |> Array.countBy id |> Array.filter (snd >> fun x -> x > 1) |> Array.map fst
+                          for d in duplicates do
+                            logger.LogWarning("Resource identifier with type '{ResourceType}' and ID '{ResourceId}' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used.", d.``type``, d.id)
+                          distinct
+
                       let doc : ResourceIdentifierCollectionDocument = {
                         jsonapi = Skip
                         links = Skip
                         meta = Skip
-                        data =
-                          relatedEntities
-                          |> Seq.map (fun e ->
-                              let b = resolveEntity e
-                              { ``type`` = b.resourceDef.TypeName; id = b.resourceDef.GetIdBoxed b.entity }
-                          )
-                          |> Seq.toArray
+                        data = data
                         included = included
                       }
 

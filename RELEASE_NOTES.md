@@ -1,6 +1,10 @@
 Release notes
 ============== 
 
+### Unreleased
+
+* Fixed 500 Internal Server Error when primary data contains duplicate resources (in GET collection and GET to-many relationship related/self). Now logs a warning instead (since this should not happen in client code) and returns distinct resources. 
+
 ### 0.21.3 (2022-11-02)
 
 * The invalid value is now included in the error message for attribute parse errors. The value is limited to 200 characters. * Parse error messages for attributes defined with overloads that return user-defined error messages (e.g. `Result<_, string>`) are generally of the form `Attribute 'name' got invalid value 'invalidValue': <User-defined error message>`

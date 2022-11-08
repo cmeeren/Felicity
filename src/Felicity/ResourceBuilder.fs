@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Text.Json.Serialization
 open System.Threading.Tasks
+open Microsoft.Extensions.Logging
 
 let private emptyMetaDictNeverModify = Dictionary(0)
 let emptyLinkArrayNeverModify = [||]
@@ -310,7 +311,7 @@ let internal includedResourceComparer =
         LanguagePrimitives.GenericComparer.Compare(struct (x.``type``, x.id), struct (y.``type``, y.id))
   }
 
-let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
+let internal build (loggerFactory: ILoggerFactory) (mainBuilders: ResourceBuilder<'ctx> list) =
   task {
     let allResources = Dictionary<ResourceIdentifier, Resource voption>()
     let additionalRelationships = Dictionary<ResourceIdentifier, IDictionary<RelationshipName, IRelationship>>()
@@ -354,13 +355,32 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
 
     let mainResources = Array.zeroCreate(numMainBuilders)
 
+    let mutable hasDuplicates = false
+
     mainBuilders |> List.iteri (fun i b ->
       let res = ref ValueNone
       if allResources.Remove(b.Identifier, res) then
         mainResources[i] <- res.Value.Value
       else
-        failwith "Framework bug: Built resource not found in dict"
+        hasDuplicates <- true
     )
+
+    let mainResources =
+      if not hasDuplicates then
+        mainResources
+      else
+        let logger = loggerFactory.CreateLogger("Felicity.ResourceBuilder")
+
+        let duplicates =
+          mainBuilders
+          |> List.countBy (fun x -> x.Identifier)
+          |> List.filter (snd >> fun x -> x > 1)
+          |> List.map fst
+
+        for identifier in duplicates do
+          logger.LogWarning("Resource with type '{ResourceType}' and ID '{ResourceId}' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used.", identifier.``type``, identifier.id)
+
+        mainResources |> Array.filter (not << isBoxedNull)
 
     let includedResources = Array.zeroCreate(allResources.Count)
 
@@ -374,8 +394,8 @@ let internal build (mainBuilders: ResourceBuilder<'ctx> list) =
 /// Builds the specified main resource and returns the built resource along
 /// with any included resources. Included resources are deterministically
 /// sorted (but the actual sorting is an implementation detail).
-let internal buildOne (mainBuilder: ResourceBuilder<'ctx>) =
+let internal buildOne loggerFactory (mainBuilder: ResourceBuilder<'ctx>) =
   task {
-    let! main, included = build [mainBuilder]
+    let! main, included = build loggerFactory [mainBuilder]
     return main[0], included
   }

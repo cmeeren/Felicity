@@ -6,6 +6,7 @@ open System.Text.Json.Serialization
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Errors
+open Microsoft.Extensions.Logging
 
 
 type internal RelationshipOperations<'ctx> = {
@@ -54,7 +55,7 @@ module internal RoutingOperations =
             let resourceDef, e = rDefEntity
             let! main, included =
               ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, resourceDef, e)
-              |> ResourceBuilder.buildOne
+              |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
             return {
               ResourceDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
@@ -70,7 +71,7 @@ module internal RoutingOperations =
             let! main, included =
               rDefsEntities
               |> List.map (fun (rDef, e) -> ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, rDef, e))
-              |> ResourceBuilder.build
+              |> ResourceBuilder.build (httpCtx.GetService<ILoggerFactory>())
             return {
               ResourceCollectionDocument.jsonapi = Skip  // support later when valid use-cases arrive
               links = Skip  // support later when valid use-cases arrive; remember to check LinkConfig
@@ -87,7 +88,7 @@ module internal RoutingOperations =
               rDefEntity
               |> Option.map (fun (rDef, e) ->
                   ResourceBuilder.ResourceBuilder(resourceModuleMap, getBaseUrl httpCtx, [], linkCfg, httpCtx, ctx, req, rDef, e)
-                  |> ResourceBuilder.buildOne
+                  |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
                   |> Task.map (fun (res, inc) -> Some res, Include inc)
               )
               |> Option.defaultValue (Task.result (None, Skip))

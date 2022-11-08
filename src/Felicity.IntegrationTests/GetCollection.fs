@@ -1,7 +1,9 @@
 ﻿module ``GET collection``
 
+open System
 open Expecto
 open HttpFs.Client
+open Microsoft.Extensions.Logging
 open Swensen.Unquote
 open Giraffe
 open Felicity
@@ -19,6 +21,11 @@ let a1 = {
 
 let a2 = {
   Id = "2"
+  A = false
+}
+
+let a3 = {
+  Id = "3"
   A = false
 }
 
@@ -114,6 +121,37 @@ let tests =
       test <@ json |> getPath "data[1].type" = "a" @>
       test <@ json |> getPath "data[1].id" = "2" @>
       test <@ json |> getPath "data[1].attributes.a" = false @>
+    }
+
+    testJob "Returns distinct resources if primary data has duplicates, and logs warning once per duplicated resource" {
+      let ctx = { Ctx.Default with GetColl = fun () -> Ok [a1; a1; a3; a2; a1; a2] }
+      let testClient, logSink = startTestServerWithLogSink ctx
+      let! response =
+        Request.createWithClient testClient Get (Uri("http://example.com/as"))
+        |> Request.jsonApiHeaders
+        |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> getPath "data[0].type" = "a" @>
+      test <@ json |> getPath "data[0].id" = "1" @>
+      test <@ json |> getPath "data[1].type" = "a" @>
+      test <@ json |> getPath "data[1].id" = "3" @>
+      test <@ json |> getPath "data[2].type" = "a" @>
+      test <@ json |> getPath "data[2].id" = "2" @>
+      test <@ json |> hasNoPath "data[3]" @>
+
+      let warnEntries =
+        logSink.LogEntries
+         |> Seq.filter (fun e -> e.LogLevel = LogLevel.Warning)
+         |> Seq.map (fun e -> e.Message)
+         |> Seq.toList
+
+      let expected = [
+        "Resource with type 'a' and ID '1' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used."
+        "Resource with type 'a' and ID '2' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used."
+      ]
+
+      test <@ warnEntries = expected @>
     }
 
     testJob "Modifies response if successful" {
