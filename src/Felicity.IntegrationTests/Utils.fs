@@ -2,6 +2,7 @@
 module Utils
 
 open System
+open MELT
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.TestHost
 open Microsoft.AspNetCore.Hosting
@@ -10,6 +11,7 @@ open Expecto
 open Giraffe
 open Hopac
 open HttpFs.Client
+open Microsoft.Extensions.Logging
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open Felicity
@@ -33,12 +35,21 @@ let hasPath (path: string) (json: string) =
 type SecondCtx = SecondCtx
 
 
+type SpyLogger () =
+  interface ILogger with
+    member this.BeginScope(state) = { new IDisposable with member _.Dispose() = () }
+    member this.IsEnabled(logLevel) = true
+    member this.Log(logLevel, eventId, state, ``exception``, formatter) = failwith "todo"
+
+
 let private startTestServer' useStrictMode (ctx: 'ctx) =
+  let testLoggerFactory = TestLoggerFactory.Create()
   let server =
     new TestServer(
       WebHostBuilder()
         .ConfigureServices(fun services ->
           services
+            .AddSingleton<ILoggerFactory>(fun _ -> testLoggerFactory :> ILoggerFactory)
             .AddGiraffe()
             .AddRouting()
             .AddJsonApi()
@@ -55,10 +66,13 @@ let private startTestServer' useStrictMode (ctx: 'ctx) =
           |> ignore
         )
     )
-  server.CreateClient ()
+  server.CreateClient (),
+  testLoggerFactory.Sink
 
 
-let startTestServer ctx = startTestServer' true ctx
+let startTestServer ctx = startTestServer' true ctx |> fst
+
+let startTestServerWithLogSink ctx = startTestServer' true ctx
 
 
 
@@ -73,22 +87,22 @@ module Request =
     req |> Request.bodyString (JsonConvert.SerializeObject body)
 
   let private get' useStrictMode ctx path =
-    let testClient = startTestServer' useStrictMode ctx
+    let testClient = startTestServer' useStrictMode ctx |> fst
     Request.createWithClient testClient Get (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
   let private post' useStrictMode ctx path =
-    let testClient = startTestServer' useStrictMode  ctx
+    let testClient = startTestServer' useStrictMode  ctx |> fst
     Request.createWithClient testClient Post (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
   let private patch' useStrictMode ctx path =
-    let testClient = startTestServer' useStrictMode  ctx
+    let testClient = startTestServer' useStrictMode  ctx |> fst
     Request.createWithClient testClient Patch (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
   let private delete' useStrictMode ctx path =
-    let testClient = startTestServer' useStrictMode  ctx
+    let testClient = startTestServer' useStrictMode  ctx |> fst
     Request.createWithClient testClient Delete (Uri("http://example.com" + path))
     |> jsonApiHeaders
 
