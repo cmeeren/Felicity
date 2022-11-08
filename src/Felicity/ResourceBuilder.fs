@@ -114,14 +114,14 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         if shouldUseField r.Name false then
                           addRelationship r.Name { ToOne.links = links; data = Skip; meta = meta }
                     | Include (rDef, e) ->
-                        let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                         if shouldUseField r.Name false then
+                          let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                           addRelationship r.Name { ToOne.links = links; data = Include id; meta = meta }
                         addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
                 | true, None | false, Some _ | false, None ->
-                    let! data = r.GetLinkageIfNotIncluded ctx entity
                     if shouldUseField r.Name false then
+                      let! data = r.GetLinkageIfNotIncluded ctx entity
                       addRelationship r.Name { ToOne.links = links; data = data; meta = meta }
               }
               :> Task
@@ -154,14 +154,14 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         if shouldUseField r.Name false then
                           addRelationship r.Name { ToOneNullable.links = links; data = Include None; meta = meta }
                     | Include (Some (rDef, e)) ->
-                        let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                         if shouldUseField r.Name false then
+                          let id = { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e }
                           addRelationship r.Name { ToOneNullable.links = links; data = Include (Some id); meta = meta }
                         addBuilder (ResourceBuilder<'ctx>(resourceModuleMap, baseUrl, currentIncludePath @ [r.Name], linkCfg, httpCtx, ctx, req, rDef, e))
 
                 | true, None | false, Some _ | false, None ->
-                    let! data = r.GetLinkageIfNotIncluded ctx entity
                     if shouldUseField r.Name false then
+                      let! data = r.GetLinkageIfNotIncluded ctx entity
                       addRelationship r.Name { ToOneNullable.links = links; data = data; meta = meta }
               }
               :> Task
@@ -191,8 +191,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         if shouldUseField r.Name false then
                           addRelationship r.Name { ToMany.links = links; data = Skip; meta = meta }
                     | Include xs ->
-                        let data = xs |> List.map (fun (rDef, e) -> { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e })
                         if shouldUseField r.Name false then
+                          let data = xs |> List.map (fun (rDef, e) -> { ``type`` = rDef.TypeName; id = rDef.GetIdBoxed e })
                           addRelationship r.Name { ToMany.links = links; data = Include data; meta = meta }
                         xs
                         |> List.iter (fun (rDef, e) ->
@@ -200,8 +200,8 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
                         )
 
                 | true, None | false, Some _ | false, None ->
-                    let! data = r.GetLinkageIfNotIncluded ctx entity
                     if shouldUseField r.Name false then
+                      let! data = r.GetLinkageIfNotIncluded ctx entity
                       addRelationship r.Name { ToMany.links = links; data = data; meta = meta }
               }
               :> Task
