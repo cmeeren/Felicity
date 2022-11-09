@@ -1,7 +1,7 @@
 Release notes
 ============== 
 
-### Unreleased
+### 0.21.5 (2022-11-09)
 
 * Added `Filter.Field` overloads accepting parsers that return `Result<_, string>` and `Result<_, string list>`
 
