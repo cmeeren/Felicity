@@ -680,6 +680,30 @@ module FilterExtensions =
 
   type Filter with
 
+    static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string>) =
+      SingleFilter<'ctx, 'attr>(field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (invalidParsedErrMsg (getData v |> FromQuery) >> List.singleton) |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string list>) =
+      SingleFilter<'ctx, 'attr>(field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (List.map (invalidParsedErrMsg (getData v |> FromQuery))) |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string>) : SingleFilter<'ctx, 'attr> =
+      SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (invalidParsedErrMsg (getData v |> FromQuery) >> List.singleton) |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(path: Relationship<'ctx, 'entity, 'relatedEntity, 'relatedId>, field: FieldQueryParser<'ctx, 'relatedEntity, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string list>) : SingleFilter<'ctx, 'attr> =
+      SingleFilter<'ctx, 'attr>(path.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (List.map (invalidParsedErrMsg (getData v |> FromQuery))) |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string>) : SingleFilter<'ctx, 'attr> =
+      SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (invalidParsedErrMsg (getData v |> FromQuery) >> List.singleton)  |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, field: FieldQueryParser<'ctx, 'relatedEntity2, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string list>) : SingleFilter<'ctx, 'attr> =
+      SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (List.map (invalidParsedErrMsg (getData v |> FromQuery)))  |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string>) : SingleFilter<'ctx, 'attr> =
+      SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (invalidParsedErrMsg (getData v |> FromQuery) >> List.singleton) |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
+    static member Field(path1: Relationship<'ctx, 'entity, 'relatedEntity1, 'relatedId1>, path2: Relationship<'ctx, 'relatedEntity1, 'relatedEntity2, 'relatedId2>, path3: Relationship<'ctx, 'relatedEntity2, 'relatedEntity3, 'relatedId3>, field: FieldQueryParser<'ctx, 'relatedEntity3, 'attr, 'serialized>, toSerialized: string -> Result<'serialized, string list>) : SingleFilter<'ctx, 'attr> =
+      SingleFilter<'ctx, 'attr>(path1.Name + "." + path2.Name + "." + path3.Name + "." + field.Name, fun ctx getData v -> toSerialized v |> Result.mapError (List.map (invalidParsedErrMsg (getData v |> FromQuery))) |> Task.result |> TaskResult.bind (field.ToDomain ctx (string<'serialized> >> getData >> FromQuery)))
+
     static member Parsed(name: string, parse: 'ctx -> string -> 'a) : SingleFilter<'ctx, 'a> =
       SingleFilter<'ctx, 'a>(name, fun ctx _ v -> parse ctx v |> Ok |> Task.result)
 

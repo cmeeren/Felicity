@@ -1,6 +1,10 @@
 Release notes
 ============== 
 
+### Unreleased
+
+* Added `Filter.Field` overloads accepting parsers that return `Result<_, string>` and `Result<_, string list>`
+
 ### 0.21.4 (2022-11-08)
 
 * Fixed 500 Internal Server Error when primary data contains duplicate resources in GET collection and GET to-many relationship related. For these operations as well as GET to-many relationship self, now logs a warning instead (since this should not happen in client code) and returns distinct resources. 
