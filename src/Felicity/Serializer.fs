@@ -267,7 +267,26 @@ module private ToDocumentModel =
 
 
 
-type internal Serializer<'ctx>(loggerFactory, fieldStrictMode: UnknownFieldStrictMode<'ctx>, getFieldType, getFieldSerializationOrder, configureOptions) =
+type internal Serializer<'ctx>
+    (
+      loggerFactory: ILoggerFactory,
+      invalidJsonRequestBodyLogLevel,
+      invalidJsonRequestBodyMaxSize,
+      fieldStrictMode: UnknownFieldStrictMode<'ctx>,
+      getFieldType,
+      getFieldSerializationOrder,
+      configureOptions
+    ) =
+
+    let logInvalidJsonRequestBody (json: string) (ex: JsonException) =
+      match invalidJsonRequestBodyLogLevel with
+      | None -> ()
+      | Some logLevel ->
+          let logger = loggerFactory.CreateLogger "Felicity.RequestBody"
+          match invalidJsonRequestBodyMaxSize with
+          | None -> logger.Log(logLevel, ex, "Deserialization failed for the following request body:\n\n{RequestBody}", json)
+          | Some maxSize -> logger.Log(logLevel, ex, "Deserialization failed for the following request body (first {MaxSize} of {Size} characters shown):\n\n{RequestBody}", maxSize, json.Length, json.Substring(0, maxSize))
+
 
     let options = JsonSerializerOptions()
 
@@ -304,6 +323,7 @@ type internal Serializer<'ctx>(loggerFactory, fieldStrictMode: UnknownFieldStric
           |> ToDocumentModel.resourceDocument loggerFactory fieldStrictMode getFieldType options
           |> Result.map Some
         with :? JsonException as ex ->
+          logInvalidJsonRequestBody json ex
           Error [invalidJson ex]
 
     member _.DeserializeResourceIdentifierDocument (json: string) =
@@ -314,6 +334,7 @@ type internal Serializer<'ctx>(loggerFactory, fieldStrictMode: UnknownFieldStric
           |> ToDocumentModel.resourceIdentifierDocument
           |> Result.map Some
         with :? JsonException as ex ->
+          logInvalidJsonRequestBody json ex
           Error [invalidJson ex]
 
     member _.DeserializeResourceIdentifierCollectionDocument (json: string) =
@@ -324,4 +345,5 @@ type internal Serializer<'ctx>(loggerFactory, fieldStrictMode: UnknownFieldStric
           |> ToDocumentModel.resourceIdentifierCollectionDocument
           |> Result.map Some
         with :? JsonException as ex ->
+          logInvalidJsonRequestBody json ex
           Error [invalidJson ex]
