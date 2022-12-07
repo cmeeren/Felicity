@@ -1,7 +1,7 @@
 {
   "version": 1,
   "dependencies": {
-    "net6.0": {
+    "net7.0": {
       "BenchmarkDotNet": {
         "type": "Direct",
         "requested": "[0.13.2, )",
@@ -36,17 +36,17 @@
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[6.0.6, )",
-        "resolved": "6.0.6",
-        "contentHash": "oSbTFqPtsp+EGkWAHwYIYYHyXLJRnbzVwcmM06kmXNLdWsp3P6XZViPSJJ2qUQS8feNK+nyPA0qtpNZXANGB7w=="
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "xPww0dhsH7o373ZNFY1Y08WRsJJUUzqGk0AIUxxUxSJkWqul0UwCBXg6UmqJX76VdiSvvEXn4SYwX8lYQaZzuQ=="
       },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Direct",
-        "requested": "[6.0.10, )",
-        "resolved": "6.0.10",
-        "contentHash": "RuJClyh5eomPQ68aYgIT+JJmnsBDFSaA5e8S7RHCryTJbJ1KFO2YCl6WYQbqR+nV03HFskhCeKetgdhf7QxTeA==",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "D56j4P78MAVLWnNZ1w84ZiWWAazf4ASeRsXzTfY5tkX25d1MM9ktjcD8ZanLLy5RUJoFUfHIcxtOC6s4DlPzeQ==",
         "dependencies": {
-          "System.IO.Pipelines": "6.0.3"
+          "System.IO.Pipelines": "7.0.0"
         }
       },
       "BenchmarkDotNet.Annotations": {
@@ -302,8 +302,8 @@
       },
       "System.IO.Pipelines": {
         "type": "Transitive",
-        "resolved": "6.0.3",
-        "contentHash": "ryTgF+iFkpGZY1vRQhfCzX0xTdlV3pyaTTqRu2ETbEv+HlV7O6y7hyQURnghNIXvctl5DuZ//Dpks6HdL/Txgw=="
+        "resolved": "7.0.0",
+        "contentHash": "jRn6JYnNPW6xgQazROBLSfpdoczRw694vO5kKvMcNnpXuolEixUyw6IBuBs2Y2mlSX/LdLvyyWmfXhaI3ND1Yg=="
       },
       "System.Management": {
         "type": "Transitive",

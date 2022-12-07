@@ -2,7 +2,7 @@
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
@@ -54,12 +54,12 @@
     <PackageReference Include="Hopac" Version="0.5.1" />
     <PackageReference Include="Http.fs" Version="5.4.0" />
     <PackageReference Include="MELT" Version="0.8.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="6.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="7.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
     <PackageReference Include="Unquote" Version="6.1.0" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.13.3" />
-    <PackageReference Update="FSharp.Core" Version="6.0.6" />
+    <PackageReference Update="FSharp.Core" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>
