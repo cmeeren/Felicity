@@ -35,13 +35,6 @@ let hasPath (path: string) (json: string) =
 type SecondCtx = SecondCtx
 
 
-type SpyLogger () =
-  interface ILogger with
-    member this.BeginScope(state) = { new IDisposable with member _.Dispose() = () }
-    member this.IsEnabled(logLevel) = true
-    member this.Log(logLevel, eventId, state, ``exception``, formatter) = failwith "todo"
-
-
 let private startTestServer' useStrictMode (ctx: 'ctx) =
   let testLoggerFactory = TestLoggerFactory.Create()
   let server =
