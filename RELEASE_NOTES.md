@@ -4,6 +4,7 @@ Release notes
 ### Unreleased
 
 * Added support for logging request bodies with invalid JSON using `LogInvalidJsonRequestBodies` when configuring Felicity. See the method's doc comment for more details.
+* Updated FSharp.SystemTextJson from 1.0.6 to 1.0.7
 
 ### 0.21.5 (2022-11-09)
 
