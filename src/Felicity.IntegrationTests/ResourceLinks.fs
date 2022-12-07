@@ -210,6 +210,13 @@ let tests =
       test <@ json |> hasNoPath "data[0].relationships.toMany.links" @>
     }
 
+    testJob "Top-level relationships object is present if the resource has a collection name but not a get operation and no relationships are included" {
+      let! response = Request.get Ctx "/ys" |> getResponse
+      response |> testSuccessStatusCode
+      let! json = response |> Response.readBodyAsString
+      test <@ json |> hasNoPath "data[0].relationships" @>
+    }
+
     // Links for custom operations are tested together with other custom operation tests
 
   ]

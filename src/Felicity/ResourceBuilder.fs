@@ -86,8 +86,15 @@ type ResourceBuilder<'ctx>(resourceModuleMap: Map<ResourceTypeName, Type>, baseU
       let relationships = Dictionary<RelationshipName, IRelationship>()
       let builders = ResizeArray<ResourceBuilder<'ctx>>()
 
-      let addRelationship relName rel =
-        lock relationships (fun () -> relationships[relName] <- rel)
+      let addRelationship relName (rel: IRelationship) =
+        let isEmpty =
+          match rel with
+          | :? ToOne as r -> r.data.isSkip && r.links.isSkip && r.meta.isSkip
+          | :? ToOneNullable as r -> r.data.isSkip && r.links.isSkip && r.meta.isSkip
+          | :? ToMany as r -> r.data.isSkip && r.links.isSkip && r.meta.isSkip
+          | _ -> failwith $"Framework bug: Invalid relationship type %s{rel.GetType().FullName}"
+        if not isEmpty then
+          lock relationships (fun () -> relationships[relName] <- rel)
 
       let addBuilder builder =
         lock builders (fun () -> builders.Add(builder))
@@ -331,7 +338,7 @@ let internal build (loggerFactory: ILoggerFactory) (mainBuilders: ResourceBuilde
         | (true, (:? ToOneNullable as rOld)), (:? ToOneNullable as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
         | (true, (:? ToMany as rOld)), (:? ToMany as rNew) -> rOld.data <- rOld.data |> Skippable.orElse rNew.data
         | (true, rOld), rNew -> failwith $"Framework bug: Attempted to merge different relationship types %s{rOld.GetType().Name} and %s{rNew.GetType().Name}"
-        | (false, _), _ -> failwith "Framework bug: Relationships should never be included and empty"
+        | (false, _), rNew -> existingRels.Add(relName, rNew)
 
     let addRelationships resId (relsToAdd: IDictionary<RelationshipName, IRelationship>) =
       if relsToAdd.Count > 0 then
