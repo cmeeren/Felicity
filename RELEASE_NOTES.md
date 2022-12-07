@@ -1,6 +1,10 @@
 Release notes
 ============== 
 
+### Unreleased
+
+* Added support for logging request bodies with invalid JSON using `LogInvalidJsonRequestBodies` when configuring Felicity. See the method's doc comment for more details.
+
 ### 0.21.5 (2022-11-09)
 
 * Added `Filter.Field` overloads accepting parsers that return `Result<_, string>` and `Result<_, string list>`

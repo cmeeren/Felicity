@@ -26,6 +26,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
   trackFieldUsage: (IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>) option
   unknownFieldStrictMode: UnknownFieldStrictMode<'ctx>
   unknownQueryParamStrictMode: UnknownQueryParamStrictMode<'ctx>
+  invalidJsonRequestBodyLogLevel: LogLevel option
+  invalidJsonRequestBodyMaxSize: int option
 } with
 
   static member internal DefaultFor services : JsonApiConfigBuilder<'ctx> = {
@@ -40,6 +42,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
     trackFieldUsage = None
     unknownFieldStrictMode = UnknownFieldStrictMode.Ignore
     unknownQueryParamStrictMode = UnknownQueryParamStrictMode.Ignore
+    invalidJsonRequestBodyLogLevel = None
+    invalidJsonRequestBodyMaxSize = None
   }
 
   /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
@@ -148,6 +152,19 @@ type JsonApiConfigBuilder<'ctx> = internal {
     let warnOnly = defaultArg warnOnly false
     let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
     { this with unknownQueryParamStrictMode = if warnOnly then UnknownQueryParamStrictMode<'ctx>.Warn warnLogLevel else UnknownQueryParamStrictMode<'ctx>.Error }
+
+  /// Logs request bodies that contain invalid JSON. By default, these request bodies are not logged. The logLevel
+  /// parameter defaults to Trace/Verbose. If maxSize is specified, only the first maxSize characters in the request
+  /// body are logged.
+  ///
+  /// Note that this does not log request bodies that deserialize correctly but are invalid for other reasons. However,
+  /// any returned errors are always logged (using the logger category 'Felicity.ErrorHandler') and normally provide
+  /// sufficient details to debug invalid requests. Request body logging as enabled by this method is intended to aid
+  /// debugging request bodies with invalid JSON (i.e., where a JsonException was thrown when deserializing), where the
+  /// returned error is fairly generic (to avoid leaking server implementation details).
+  member this.LogInvalidJsonRequestBodies<'ctx>(?logLevel, ?maxSize) =
+    let logLevel = defaultArg logLevel LogLevel.Trace
+    { this with invalidJsonRequestBodyLogLevel = Some logLevel; invalidJsonRequestBodyMaxSize = maxSize }
 
 
   member this.Add() =
@@ -265,8 +282,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
       .AddSingleton<UnknownFieldStrictMode<'ctx>>(this.unknownFieldStrictMode)
       .AddSingleton<UnknownQueryParamStrictMode<'ctx>>(this.unknownQueryParamStrictMode)
       .AddSingleton<JsonApiEndpoints<'ctx>>(JsonApiEndpoints (jsonApiEndpoints relativeRootWithLeadingSlash getCtx collections))
-      .AddSingleton<Serializer<'ctx>>(fun sp -> Serializer<'ctx>(sp.GetRequiredService(), sp.GetRequiredService(), getFieldType, getFieldSerializationOrder, configureSerializerOptions))
-      .AddSingleton<Serializer<ErrorSerializerCtx>>(fun sp -> Serializer<ErrorSerializerCtx>(sp.GetRequiredService(), UnknownFieldStrictMode<ErrorSerializerCtx>.Ignore, getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<Serializer<'ctx>>(fun sp -> Serializer<'ctx>(sp.GetRequiredService(), this.invalidJsonRequestBodyLogLevel, this.invalidJsonRequestBodyMaxSize, sp.GetRequiredService(), getFieldType, getFieldSerializationOrder, configureSerializerOptions))
+      .AddSingleton<Serializer<ErrorSerializerCtx>>(fun sp -> Serializer<ErrorSerializerCtx>(sp.GetRequiredService(), None, None, UnknownFieldStrictMode<ErrorSerializerCtx>.Ignore, getFieldType, getFieldSerializationOrder, configureSerializerOptions))
       .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
       .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
       .AddSingleton<LinkConfig<'ctx>>(LinkConfig<'ctx>(this.skipStandardLinksQueryParamNames, this.skipCustomLinksQueryParamNames))
