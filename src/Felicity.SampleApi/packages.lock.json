@@ -63,8 +63,8 @@
       },
       "FSharp.SystemTextJson": {
         "type": "Transitive",
-        "resolved": "1.0.6",
-        "contentHash": "pIO3Ktj+fu+kejjrdrXCdKLgDEQIalnTvuJ9lfAM4xNsszK1WkwzH+WxEzasc2bGdeJYsupOSQre7zpm7YObQw==",
+        "resolved": "1.0.7",
+        "contentHash": "PXzfKM4I1daKB/nb2LY12POuTtTLCnfHboAgvUv3rgO65vy4zPWmBqbVQS19725yDVaL1rhMluasWz4lCyOjJw==",
         "dependencies": {
           "FSharp.Core": "4.7.0",
           "System.Text.Json": "6.0.0"
@@ -460,7 +460,7 @@
         "type": "Project",
         "dependencies": {
           "FSharp.Core": "[6.0.6, )",
-          "FSharp.SystemTextJson": "[1.0.6, )",
+          "FSharp.SystemTextJson": "[1.0.7, )",
           "Giraffe": "[6.0.0, )"
         }
       }
