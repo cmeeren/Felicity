@@ -22,9 +22,9 @@
       },
       "FsToolkit.ErrorHandling": {
         "type": "Direct",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "TV9k/aQjyjAkfT+jyoXNkvq905ZhA1AJNdLjgBsZAUOcabW6YxQFSLNoeoUunWFp2vv+/Gyp06icD5hxa6i0TA==",
+        "requested": "[4.2.1, )",
+        "resolved": "4.2.1",
+        "contentHash": "gyIoNmkxIn968dgeMfb+vPPMjmclYIGvjRBnp3MAAK02BIX/uZA+GISfRCsgY3076uRef40QUYxd9kwN6YZTiQ==",
         "dependencies": {
           "FSharp.Core": "7.0.0"
         }
@@ -459,7 +459,7 @@
       "felicity": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[6.0.6, )",
+          "FSharp.Core": "[7.0.0, )",
           "FSharp.SystemTextJson": "[1.0.7, )",
           "Giraffe": "[6.0.0, )"
         }
