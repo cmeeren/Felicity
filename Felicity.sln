@@ -25,6 +25,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{5BC571A2
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Felicity.Benchmarks", "src\Felicity.Benchmarks\Felicity.Benchmarks.fsproj", "{7049A7AE-DBA9-4AD9-A478-05103D670CD1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{410ADF6F-0ADA-4403-A457-0F52DC0015E8}"
+	ProjectSection(SolutionItems) = preProject
+		.github\CONTRIBUTING.md = .github\CONTRIBUTING.md
+		.github\dependabot.yml = .github\dependabot.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{75F2235C-F0ED-4CD2-8C79-CD2B45F6DD7D}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,6 +65,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{2BE81693-5656-4AFA-B680-673E22F2E67E} = {5BC571A2-6E6B-40F4-AF0A-D6724A51D392}
 		{7049A7AE-DBA9-4AD9-A478-05103D670CD1} = {5BC571A2-6E6B-40F4-AF0A-D6724A51D392}
+		{410ADF6F-0ADA-4403-A457-0F52DC0015E8} = {3684145D-FA7E-47E5-BE3A-1A3B90EB7CE0}
+		{75F2235C-F0ED-4CD2-8C79-CD2B45F6DD7D} = {410ADF6F-0ADA-4403-A457-0F52DC0015E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A1769E92-7930-4E06-9315-CAF809996945}
