@@ -14,342 +14,345 @@ entirely up to you.
 *)
 
 
-type PersonId = private PersonId of Guid with
-  static member toString (PersonId x) = string x
-  static member fromString = Guid.tryParse >> Option.map PersonId
+type PersonId =
+    private
+    | PersonId of Guid
 
-type FirstName = private FirstName of string with
-  static member toString (FirstName x) = x
-  static member fromString = FirstName
+    static member toString(PersonId x) = string x
+    static member fromString = Guid.tryParse >> Option.map PersonId
 
-type LastName = private LastName of string with
-  static member toString (LastName x) = x
-  static member fromString = LastName
+type FirstName =
+    private
+    | FirstName of string
 
-type TwitterHandle = private TwitterHandle of string with
-  static member toString (TwitterHandle x) = x
-  static member fromString = TwitterHandle
+    static member toString(FirstName x) = x
+    static member fromString = FirstName
+
+type LastName =
+    private
+    | LastName of string
+
+    static member toString(LastName x) = x
+    static member fromString = LastName
+
+type TwitterHandle =
+    private
+    | TwitterHandle of string
+
+    static member toString(TwitterHandle x) = x
+    static member fromString = TwitterHandle
 
 
 type Gender =
-  | Male
-  | Female
-  | Other
-  with
+    | Male
+    | Female
+    | Other
 
-  static member toString = function
-    | Male -> "male"
-    | Female -> "female"
-    | Other -> "other"
+    static member toString =
+        function
+        | Male -> "male"
+        | Female -> "female"
+        | Other -> "other"
 
-  static member fromStringMap = [
-    "male", Male
-    "female", Female
-    "other", Other
-  ]
+    static member fromStringMap = [ "male", Male; "female", Female; "other", Other ]
 
 
 type Person = {
-  Id: PersonId
-  FirstName: FirstName
-  LastName: LastName
-  Twitter: TwitterHandle option
-  Gender: Gender option
+    Id: PersonId
+    FirstName: FirstName
+    LastName: LastName
+    Twitter: TwitterHandle option
+    Gender: Gender option
 }
 
 
 [<RequireQualifiedAccess>]
 type PersonSort =
-  | FirstName
-  | LastName
+    | FirstName
+    | LastName
 
-  static member fromStringMap = [
-    "firstName", LastName
-    "lastName", LastName
-  ]
+    static member fromStringMap = [ "firstName", LastName; "lastName", LastName ]
 
 
 // Arguments used for searching for persons (in GET /persons)
 type PersonSearchArgs = {
-  FirstName: FirstName option
-  LastName: LastName option
-  Twitter: TwitterHandle option
-  Genders: Gender list option
-  SortBy: PersonSort
-  SortDescending: bool
-  Offset: int
-  Limit: int
+    FirstName: FirstName option
+    LastName: LastName option
+    Twitter: TwitterHandle option
+    Genders: Gender list option
+    SortBy: PersonSort
+    SortDescending: bool
+    Offset: int
+    Limit: int
 }
 
 
 module Person =
 
-  let create firstName lastName = {
-    Id = Guid.NewGuid () |> PersonId
-    FirstName = firstName
-    LastName = lastName
-    Twitter = None
-    Gender = None
-  }
+    let create firstName lastName = {
+        Id = Guid.NewGuid() |> PersonId
+        FirstName = firstName
+        LastName = lastName
+        Twitter = None
+        Gender = None
+    }
 
-  let setFirstName firstName (person: Person) =
-    { person with FirstName = firstName }
+    let setFirstName firstName (person: Person) = { person with FirstName = firstName }
 
-  let setLastName lastName (person: Person) =
-    { person with LastName = lastName }
+    let setLastName lastName (person: Person) = { person with LastName = lastName }
 
-  let setTwitter twitter (person: Person) =
-    { person with Twitter = twitter }
+    let setTwitter twitter (person: Person) = { person with Twitter = twitter }
 
-  let setGender gender (person: Person) =
-    { person with Gender = gender }
+    let setGender gender (person: Person) = { person with Gender = gender }
 
 
 module PersonSearchArgs =
 
-  let empty = {
-    FirstName = None
-    LastName = None
-    Twitter = None
-    Genders = None
-    SortBy = PersonSort.LastName
-    SortDescending = false
-    Offset = 0
-    Limit = 10
-  }
+    let empty = {
+        FirstName = None
+        LastName = None
+        Twitter = None
+        Genders = None
+        SortBy = PersonSort.LastName
+        SortDescending = false
+        Offset = 0
+        Limit = 10
+    }
 
-  let setFirstName firstName (args: PersonSearchArgs) =
-    { args with FirstName = Some firstName }
+    let setFirstName firstName (args: PersonSearchArgs) =
+        { args with FirstName = Some firstName }
 
-  let setLastName lastName (args: PersonSearchArgs) =
-    { args with LastName = Some lastName }
+    let setLastName lastName (args: PersonSearchArgs) = { args with LastName = Some lastName }
 
-  let setTwitter twitter (args: PersonSearchArgs) =
-    { args with Twitter = Some twitter }
+    let setTwitter twitter (args: PersonSearchArgs) = { args with Twitter = Some twitter }
 
-  let setGenders genders (args: PersonSearchArgs) =
-    { args with Genders = Some genders }
+    let setGenders genders (args: PersonSearchArgs) = { args with Genders = Some genders }
 
-  let setSort (sortBy, sortDesc) (args: PersonSearchArgs) =
-    { args with SortBy = sortBy; SortDescending = sortDesc }
+    let setSort (sortBy, sortDesc) (args: PersonSearchArgs) =
+        { args with
+            SortBy = sortBy
+            SortDescending = sortDesc
+        }
 
-  let setOffset offset (args: PersonSearchArgs) =
-    { args with Offset = offset }
+    let setOffset offset (args: PersonSearchArgs) = { args with Offset = offset }
 
-  let setLimit limit (args: PersonSearchArgs) =
-    { args with Limit = limit }
+    let setLimit limit (args: PersonSearchArgs) = { args with Limit = limit }
 
 
-type ArticleId = private ArticleId of Guid with
-  static member toString (ArticleId x) = string x
-  static member fromString = Guid.tryParse >> Option.map ArticleId
+type ArticleId =
+    private
+    | ArticleId of Guid
 
-type ArticleTitle = private ArticleTitle of string with
-  static member toString (ArticleTitle x) = x
-  static member fromString = ArticleTitle
+    static member toString(ArticleId x) = string x
+    static member fromString = Guid.tryParse >> Option.map ArticleId
 
-type ArticleBody = private ArticleBody of string with
-  static member toString (ArticleBody x) = x
-  static member fromString = ArticleBody
+type ArticleTitle =
+    private
+    | ArticleTitle of string
+
+    static member toString(ArticleTitle x) = x
+    static member fromString = ArticleTitle
+
+type ArticleBody =
+    private
+    | ArticleBody of string
+
+    static member toString(ArticleBody x) = x
+    static member fromString = ArticleBody
 
 
 type ArticleType =
-  | Personal
-  | Commercial
-  with
+    | Personal
+    | Commercial
 
-  static member toString = function
-    | Personal -> "personal"
-    | Commercial -> "commercial"
+    static member toString =
+        function
+        | Personal -> "personal"
+        | Commercial -> "commercial"
 
-  static member fromStringMap = [
-    "personal", Personal
-    "commercial", Commercial
-  ]
-
+    static member fromStringMap = [ "personal", Personal; "commercial", Commercial ]
 
 
 
 type Article = {
-  Id: ArticleId
-  AuthorId: PersonId
-  Title: ArticleTitle
-  Body: ArticleBody
-  Type: ArticleType
-  CreatedAt: DateTimeOffset
-  UpdatedAt: DateTimeOffset option
+    Id: ArticleId
+    AuthorId: PersonId
+    Title: ArticleTitle
+    Body: ArticleBody
+    Type: ArticleType
+    CreatedAt: DateTimeOffset
+    UpdatedAt: DateTimeOffset option
 }
 
 
 [<RequireQualifiedAccess>]
 type ArticleSort =
-  | Title
-  | CreatedAt
+    | Title
+    | CreatedAt
 
-  static member fromStringMap = [
-    "title", Title
-    "createdAt", CreatedAt
-  ]
+    static member fromStringMap = [ "title", Title; "createdAt", CreatedAt ]
 
 
 // Arguments used for searching for articles (in GET /articles)
 type ArticleSearchArgs = {
-  Title: ArticleTitle option
-  Types: ArticleType list option
-  CreatedAfter: DateTimeOffset option
-  CreatedBefore: DateTimeOffset option
-  SortBy: ArticleSort
-  SortDescending: bool
-  Offset: int
-  Limit: int
+    Title: ArticleTitle option
+    Types: ArticleType list option
+    CreatedAfter: DateTimeOffset option
+    CreatedBefore: DateTimeOffset option
+    SortBy: ArticleSort
+    SortDescending: bool
+    Offset: int
+    Limit: int
 }
 
 
 module Article =
 
-  let create authorId title body = {
-    Id = Guid.NewGuid () |> ArticleId
-    AuthorId = authorId
-    Title = title
-    Body = body
-    Type = Personal
-    CreatedAt = DateTimeOffset.Now
-    UpdatedAt = None
-  }
+    let create authorId title body = {
+        Id = Guid.NewGuid() |> ArticleId
+        AuthorId = authorId
+        Title = title
+        Body = body
+        Type = Personal
+        CreatedAt = DateTimeOffset.Now
+        UpdatedAt = None
+    }
 
-  let setAuthor authorId (article: Article) =
-    { article with AuthorId = authorId }
+    let setAuthor authorId (article: Article) = { article with AuthorId = authorId }
 
-  let setTitle title (article: Article) =
-    { article with Title = title }
+    let setTitle title (article: Article) = { article with Title = title }
 
-  let setBody body (article: Article) =
-    { article with Body = body }
+    let setBody body (article: Article) = { article with Body = body }
 
-  let setType articleType (article: Article) =
-    { article with Type = articleType }
+    let setType articleType (article: Article) = { article with Type = articleType }
 
-  let setUpdated updatedAt (article: Article) =
-    { article with UpdatedAt = updatedAt }
+    let setUpdated updatedAt (article: Article) = { article with UpdatedAt = updatedAt }
 
 
 module ArticleSearchArgs =
 
-  let empty = {
-    Title = None
-    Types = None
-    CreatedAfter = None
-    CreatedBefore = None
-    SortBy = ArticleSort.CreatedAt
-    SortDescending = true
-    Offset = 0
-    Limit = 10
-  }
+    let empty = {
+        Title = None
+        Types = None
+        CreatedAfter = None
+        CreatedBefore = None
+        SortBy = ArticleSort.CreatedAt
+        SortDescending = true
+        Offset = 0
+        Limit = 10
+    }
 
-  let setTitle title (args: ArticleSearchArgs) =
-    { args with Title = Some title }
+    let setTitle title (args: ArticleSearchArgs) = { args with Title = Some title }
 
-  let setTypes types (args: ArticleSearchArgs) =
-    { args with Types = Some types }
+    let setTypes types (args: ArticleSearchArgs) = { args with Types = Some types }
 
-  let setCreatedAfter createdAfter (args: ArticleSearchArgs) =
-    { args with CreatedAfter = Some createdAfter }
+    let setCreatedAfter createdAfter (args: ArticleSearchArgs) =
+        { args with
+            CreatedAfter = Some createdAfter
+        }
 
-  let setCreatedBefore createdBefore (args: ArticleSearchArgs) =
-    { args with CreatedBefore = Some createdBefore }
+    let setCreatedBefore createdBefore (args: ArticleSearchArgs) =
+        { args with
+            CreatedBefore = Some createdBefore
+        }
 
-  let setSort (sortBy, sortDesc) (args: ArticleSearchArgs) =
-    { args with SortBy = sortBy; SortDescending = sortDesc }
+    let setSort (sortBy, sortDesc) (args: ArticleSearchArgs) =
+        { args with
+            SortBy = sortBy
+            SortDescending = sortDesc
+        }
 
-  let setOffset offset (args: ArticleSearchArgs) =
-    { args with Offset = offset }
+    let setOffset offset (args: ArticleSearchArgs) = { args with Offset = offset }
 
-  let setLimit limit (args: ArticleSearchArgs) =
-    { args with Limit = limit }
+    let setLimit limit (args: ArticleSearchArgs) = { args with Limit = limit }
 
 
-type CommentId = private CommentId of Guid with
-  static member toString (CommentId x) = string x
-  static member fromString = Guid.tryParse >> Option.map CommentId
+type CommentId =
+    private
+    | CommentId of Guid
 
-type CommentBody = private CommentBody of string with
-  static member toString (CommentBody x) = x
-  static member fromString = CommentBody
+    static member toString(CommentId x) = string x
+    static member fromString = Guid.tryParse >> Option.map CommentId
+
+type CommentBody =
+    private
+    | CommentBody of string
+
+    static member toString(CommentBody x) = x
+    static member fromString = CommentBody
 
 
 type Comment = {
-  Id: CommentId
-  AuthorId: PersonId
-  ArticleId: ArticleId
-  Body: CommentBody
-  CreatedAt: DateTimeOffset
-  UpdatedAt: DateTimeOffset option
+    Id: CommentId
+    AuthorId: PersonId
+    ArticleId: ArticleId
+    Body: CommentBody
+    CreatedAt: DateTimeOffset
+    UpdatedAt: DateTimeOffset option
 }
 
 
 [<RequireQualifiedAccess>]
 type CommentSort =
-  | CreatedAt
+    | CreatedAt
 
-  static member fromStringMap = [
-    "createdAt", CreatedAt
-  ]
+    static member fromStringMap = [ "createdAt", CreatedAt ]
 
 
 // Arguments used for searching for comments (in GET /comments)
 type CommentSearchArgs = {
-  Author: PersonId option
-  AuthorFirstName: FirstName option
-  SortBy: CommentSort
-  SortDescending: bool
-  Offset: int
-  Limit: int
+    Author: PersonId option
+    AuthorFirstName: FirstName option
+    SortBy: CommentSort
+    SortDescending: bool
+    Offset: int
+    Limit: int
 }
 
 
 module Comment =
 
-  // This function accepts an entire article object instead of just an article ID, to
-  // demonstrate how simple it is to use related entities instead of just IDs.
+    // This function accepts an entire article object instead of just an article ID, to
+    // demonstrate how simple it is to use related entities instead of just IDs.
 
-  let create authorId (article: Article) body = {
-    Id = Guid.NewGuid () |> CommentId
-    AuthorId = authorId
-    ArticleId = article.Id
-    Body = body
-    CreatedAt = DateTimeOffset.Now
-    UpdatedAt = None
-  }
+    let create authorId (article: Article) body = {
+        Id = Guid.NewGuid() |> CommentId
+        AuthorId = authorId
+        ArticleId = article.Id
+        Body = body
+        CreatedAt = DateTimeOffset.Now
+        UpdatedAt = None
+    }
 
-  let setBody body (comment: Comment) =
-    { comment with Body = body }
+    let setBody body (comment: Comment) = { comment with Body = body }
 
-  let setUpdated updatedAt (comment: Comment) =
-    { comment with UpdatedAt = updatedAt }
+    let setUpdated updatedAt (comment: Comment) = { comment with UpdatedAt = updatedAt }
 
 
 module CommentSearchArgs =
 
-  let empty = {
-    Author = None
-    AuthorFirstName = None
-    SortBy = CommentSort.CreatedAt
-    SortDescending = true
-    Offset = 0
-    Limit = 10
-  }
+    let empty = {
+        Author = None
+        AuthorFirstName = None
+        SortBy = CommentSort.CreatedAt
+        SortDescending = true
+        Offset = 0
+        Limit = 10
+    }
 
-  let setAuthorId authorId (args: CommentSearchArgs) =
-    { args with Author = Some authorId }
+    let setAuthorId authorId (args: CommentSearchArgs) = { args with Author = Some authorId }
 
-  let setAuthorFirstName authorFirstName (args: CommentSearchArgs) =
-    { args with AuthorFirstName = Some authorFirstName }
+    let setAuthorFirstName authorFirstName (args: CommentSearchArgs) =
+        { args with
+            AuthorFirstName = Some authorFirstName
+        }
 
-  let setSort (sortBy, sortDesc) (args: CommentSearchArgs) =
-    { args with SortBy = sortBy; SortDescending = sortDesc }
+    let setSort (sortBy, sortDesc) (args: CommentSearchArgs) =
+        { args with
+            SortBy = sortBy
+            SortDescending = sortDesc
+        }
 
-  let setOffset offset (args: CommentSearchArgs) =
-    { args with Offset = offset }
+    let setOffset offset (args: CommentSearchArgs) = { args with Offset = offset }
 
-  let setLimit limit (args: CommentSearchArgs) =
-    { args with Limit = limit }
+    let setLimit limit (args: CommentSearchArgs) = { args with Limit = limit }

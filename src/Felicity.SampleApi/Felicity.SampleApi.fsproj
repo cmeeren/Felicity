@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
-  
+
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Domain.fs" />
@@ -13,7 +13,7 @@
     <Compile Include="Startup.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="FsToolkit.ErrorHandling" Version="4.0.0" />
     <PackageReference Include="Serilog" Version="2.12.0" />
@@ -21,9 +21,9 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
     <PackageReference Update="FSharp.Core" Version="7.0.0" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <ProjectReference Include="..\Felicity\Felicity.fsproj" />
   </ItemGroup>
-  
+
 </Project>

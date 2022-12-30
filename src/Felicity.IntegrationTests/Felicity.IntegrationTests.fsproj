@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="MultipleContexts.fs" />
@@ -65,5 +65,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Felicity\Felicity.fsproj" />
   </ItemGroup>
-  
+
 </Project>

@@ -3,22 +3,22 @@ info:
   version: 1.0.0
   title: Sample API
   description: |
-    
+
     # Introduction
-    
+
     This API and specification is a demo for showing how to create (and
     document) an API using [Felicity](https://github.com/cmeeren/Felicity/).
-    
-    
-    
+
+
+
     ## Contact
-    
+
     *You might want to have contact details for API clients.*
-      
-    
-    
+
+
+
     ## Definitions
-    
+
     The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
     "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
     "OPTIONAL" in this document are to be interpreted as described in [BCP
@@ -26,14 +26,14 @@ info:
     [[RFC2119](https://tools.ietf.org/html/rfc2119)]
     [[RFC8174](https://tools.ietf.org/html/rfc8174)] when, and only when, they
     appear in all capitals, as shown here.
-    
-    
-    
+
+
+
     ## Versioning
-    
+
     This API specification follows [Semantic Versioning
     v2.0.0](https://semver.org/spec/v2.0.0.html). In particular:
-    
+
     * The **major** version is incremented for backwards incompatible changes
       (e.g. removing deprecated interfaces).
     * The **minor** version is incremented when new functionality is added in a
@@ -41,28 +41,28 @@ info:
     * The **patch** version is optionally incremented for backwards compatible
       changes that do not add new functionality, such as bug fixes or editorial
       changes not affecting the functionality.
-    
-    
+
+
     ### Version history
-    
+
     #### 1.0.0 (YYYY-MM-DD)
-    
+
     * Initial release
-    
-    
+
+
     ## On the format of this specification
-    
+
     This API conforms to the [JSON:API](http://jsonapi.org) standard.
     Familiarity with the [JSON:API v1.0 specification](https://jsonapi.org/format/1.0/)
     is assumed throughout this documentation.
-    
+
     The central part of this documentation is the definition of the JSON:API
     resources provided by the API, together with the endpoints and operations by
     which these resources may be queried and manipulated. The technicalities of
     the JSON:API response format and its semantics, as well as some runtime
     behavior (such as guaranteed status codes for some specific error
     conditions), are handled by the JSON:API specification.
-    
+
     You can use the download button at the top of this page to download the raw
     OpenAPI YAML file used to generate this page, with all model definitions,
     operations, etc. Note however that the sole purpose of the YAML file is to
@@ -71,38 +71,38 @@ info:
     is a complex and rich specification that does not mesh perfectly with
     OpenAPI, so API clients might be better off using an existing JSON:API
     client library rather than using the YAML file to generate client code.
-    
+
     To facilitate simpler testing and integration, this is not a purely
     link-driven hypermedia API. In particular, this specification guarantees a
     static URL structure that may be safely hardcoded. (However, clients are of
     course free to use any documented links provided in the responses if
     desired).
-    
+
     *Note: OpenAPI is path-focused, but if you wish not to document a static URL
     structure, you can work around it by for example replacing paths such as
     `/persons/{id}` with `{person.links.self}` and `/persons/{id}/articles` with
     `{person.relationships.articles.links.related}`. This is by no means a
     standard, but is hopefully understandable to human readers.*
-    
-    
+
+
     ### Conventions
-    
+
     * Unless otherwise specified, all operations support `fields` and `include`.
       By default, all fields are included, and no related resources are
       included.
-      
+
     * All resource relationship endpoints work according to the JSON:API
       specification and will not be listed here unless they provide additional
       non-standard functionality.
-    
+
     * The response formats and examples only specify the most important data.
       Responses may contain additional data such as included resources and
       relationship linkage as per the JSON:API specification.
-    
+
     * The stand-alone resource definitions are provided from a response
       perspective (e.g. whether properties are marked as "required", see the
       section below on optional vs. required parameters).
-    
+
     * As per the JSON:API specification, links may be simple strings or objects with
       `href` and/or `meta` properties. For simplicity, links without any current
       meta may be documented as simple strings. However, any link may be
@@ -110,47 +110,47 @@ info:
       change. Therefore, as per the JSON:API specification, clients MUST be able
       to parse links as both simple strings and as objects with `href` and/or
       `meta` properties.
-    
-    
+
+
     ## Technical requirements and recommendations
-    
-    
+
+
     ### Comply with the JSON:API specification
-    
+
     Clients and servers MUST comply with the JSON:API specification unless
     otherwise noted. Any parts of this specification that does not comply with
     the JSON:API specification MUST explicitly state that it deviates from the
     JSON:API specification.
-    
+
     If this specification deviates from the JSON:API specification without
     explicitly stating so, this should be considered a bug in the specification
     and the documented behavior is undefined. Please contact us to report bugs
     in the API or its specification.
-    
-    
+
+
     ### Don't depend on unspecified runtime behaviour
-    
+
     Clients MUST NOT depend on observed runtime behavior not recognized by this
     specification or the JSON:API specification. This includes, but is not
     limited to, HTTP status codes. Behaviour that is not guaranteed by this
     specification or the JSON:API specification may change at any time. This
     specification is the sole contract by which clients and servers should
     communicate.
-    
+
     If the server implementation violates this specification, that must be
     considered a bug in either the specification or the server implementation.
     Please contact us to report bugs in the API or its specification.
-    
-    
+
+
     ### Resource IDs have no semantic meaning or implicit structure
-    
+
     Clients MUST NOT parse or construct resource IDs based on assumed semantic
     meaning.
-    
+
     If clients need to act on semantic information that only seems to be present
     in a resource identifier, please contact us to have the specification
     extended with the necessary semantic information/functionality.
-    
+
     Furthermore, resource IDs are strings without any implicit structure. For
     example, even if a resource ID looks like a valid GUID, that may not be the
     case for all resources of that type, or it may not be the case in the
@@ -158,99 +158,99 @@ info:
     with an undefined length. If you need to know the maximum length of an ID
     with unspecified length, e.g. in order to store the ID in a database, please
     contact us to have the specifiation extended with the necessary guarantees.
-    
-    
+
+
     ### Ignore unrecognized members
-    
+
     Clients and servers MUST ignore members, headers, and parameters not
     recognized by this specification or the JSON:API specification.
-    
-    
+
+
     ### Parameters are non-null by default
-    
+
     Clients and servers MUST NOT use `null` as a value for any parameter unless
     the parameter is explicitly specified as nullable. Note that nullability of
     globally defined parameters (e.g. resource fields) may be explicitly
     overridden (by this specification) for specific requests/responses.
-    
-    
+
+
     ### Parameters are optional by default
-    
+
     Clients MAY omit any request parameter (in query, header, or body) and
     servers MAY omit any response parameter (in header or body) unless
     explicitly required by this specification or the JSON:API specification.
     Note that whether a globally defined parameter (e.g. a resource field) is
     required may be overridden for specific requests/responses.
-    
+
       * Exception: Resource fields (attributes and relationships) marked as
         required may still be excluded from responses according to
         client-supplied sparse fieldsets.
       * Exception: If all attributes or relationships are excluded using sparse
         fieldsets, the `attributes` and `relationships` objects may be omitted
         even if marked as required
-    
-    
+
+
     ### Consider using sparse fieldsets
-    
+
     Clients SHOULD use sparse fieldsets to specify the desired attributes and
     relationships.
-    
+
     Using sparse fieldsets to exclude unneeded attributes and relationships may
     have a notable impact on performance for large responses. This particularly
     goes for relationships due to the overhead of the relationship links.
-    
+
     Even if a client needs all currently defined fields for a resource, using
     sparse fieldsets means that the addition of new fields won't slow down
     existing requests.
-    
+
     Furthermore, always using sparse fieldsets makes it easier for the API
     developers to monitor which fields are used. This makes it easier to tune
     performance and safer to remove deprecated fields.
-    
-    
+
+
     ### Deprecation
-    
+
     Responses to any request using deprecated interfaces (such as deprecated
     request parameters) SHOULD contain a `Deprecated` header describing which
     deprecated interfaces were used. Clients SHOULD monitor this header.
-    
+
     Deprecated interfaces SHOULD specify a time of removal in this specification
     and in the `Deprecated` header, and MAY be removed earlier than the
     pre-determined time if the interface is unused.
-    
+
     Clients MUST NOT use deprecated interfaces they previously did not use.
-    
-    
+
+
     ### Error responses
-    
+
     The returned JSON:API error objects SHOULD contain an error code that
     unambiguously specifies the error condition.
-    
+
     Servers MAY return other error codes than those recognized by this
     specification. For example, endpoints may return unspecified error codes
     related to contract violations (e.g. invalid syntax, missing required
     parameters), which are expected to be caught in development/testing and are
     not useful to govern client runtime behavior.
-   
+
     The following error codes may occur for any operation:
-    
+
     | Code               | Description |
     |--------------------|-------------|
     | `UnknownError`     | An unknown error occurred.
     | `Unauthorized`     | The authorization was missing or invalid for this operation.
     | `ResourceNotFound` | The operation refers to a resource that does not exist.
-    
-    
+
+
     ## API implementation notes
-   
+
     The following points are intended as helpful notes regarding our API
     implementation. They are not part of the specification.
-   
+
     * Some database queries have long cache times under the assumption that the
       data changes very infrequently and that when they do change, API clients
       do not need 100% up-to-date data. Please contact us if you find stale API
       data to be a problem.
-    
+
     * Since pagination is implemented using offset/limit, the pagination windows
       are unstable (i.e., new data may be added or deleted at any time,
       potentially causing missed or duplicated results when switching pages).
@@ -266,21 +266,21 @@ tags:
     description: |
       Represents a single physical person that may be an author of an article or
       a comment.
-      
+
       <SchemaDefinition schemaRef="#/components/schemas/personResponse" />
 
   - name: Article
     description: |
       Represents a piece of writing.
-      
+
       <SchemaDefinition schemaRef="#/components/schemas/articleResponse" />
 
   - name: Comment
     description: |
       Represents a comment to an article.
-      
+
       <SchemaDefinition schemaRef="#/components/schemas/commentResponse" />
-    
+
 
 paths:
 
@@ -541,7 +541,7 @@ paths:
           application/vnd.api+json:
             schema:
               $ref: '#/components/schemas/articlePostDocument'
-                              
+
       responses:
         2XX:
           description: OK
@@ -692,7 +692,7 @@ paths:
           application/vnd.api+json:
             schema:
               $ref: '#/components/schemas/commentPostDocument'
-                              
+
       responses:
         2XX:
           description: OK
@@ -909,7 +909,7 @@ components:
                   items:
                     properties:
                       type:
-                        enum: ["article"]
+                        enum: [ "article" ]
 
     personRelationshipsResponseRequired:
       required:
@@ -1055,7 +1055,7 @@ components:
                 data:
                   properties:
                     type:
-                      enum: ["person"]
+                      enum: [ "person" ]
         comments:
           allOf:
             - $ref: '#/components/schemas/relationshipLinkRelated'
@@ -1068,7 +1068,7 @@ components:
                   items:
                     properties:
                       type:
-                        enum: ["comment"]
+                        enum: [ "comment" ]
 
     articleRelationshipsResponseRequired:
       required:
@@ -1224,7 +1224,7 @@ components:
                 data:
                   properties:
                     type:
-                      enum: ["person"]
+                      enum: [ "person" ]
         article:
           allOf:
             - $ref: '#/components/schemas/relationshipLinkRelated'
@@ -1235,7 +1235,7 @@ components:
                 data:
                   properties:
                     type:
-                      enum: ["article"]
+                      enum: [ "article" ]
 
     commentRelationshipsResponseRequired:
       required:

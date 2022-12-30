@@ -3,7 +3,10 @@ Contributor guidelines
 
 First of all – thanks for taking the time to contribute!
 
-We welcome the contributions from non-members. That said, we’d like to do things right rather than fast. To make everyone's experience as enjoyable as possible, read [Don't "Push" Your Pull Requests](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) and please keep the following things in mind:
+We welcome the contributions from non-members. That said, we’d like to do things right rather than fast. To make
+everyone's experience as enjoyable as possible,
+read [Don't "Push" Your Pull Requests](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) and please keep
+the following things in mind:
 
 - Unless it's a trivial fix, consider opening an issue first to discuss it with the team.
 - For all pull requests, please follow the workflow described below.
@@ -11,7 +14,8 @@ We welcome the contributions from non-members. That said, we’d like to do thin
 Opening an issue
 ----------------
 
-- Before opening an issue, please check if there's a known workaround, existing issue, or already a work in progress to address it.
+- Before opening an issue, please check if there's a known workaround, existing issue, or already a work in progress to
+  address it.
 - Provide as much relevant info as possible. If there’s an issue template, follow it if it makes sense.
 
 Creating a pull request
@@ -19,7 +23,8 @@ Creating a pull request
 
 (Based on https://github.com/App-vNext/Polly/wiki/Git-Workflow)
 
-To contribute to Felicity while ensuring a smooth experience for all involved, please ensure you follow all of these steps:
+To contribute to Felicity while ensuring a smooth experience for all involved, please ensure you follow all of these
+steps:
 
 1. Fork Felicity on GitHub
 2. Clone your fork locally
@@ -30,25 +35,32 @@ To contribute to Felicity while ensuring a smooth experience for all involved, p
 7. Push the branch up to GitHub: `git push origin myBranch`
 8. Send a Pull Request on GitHub
 
-You should **never** work on a clone of master, and you should **never** send a pull request from master - always from a branch. The reasons for this are detailed below.
+You should **never** work on a clone of master, and you should **never** send a pull request from master - always from a
+branch. The reasons for this are detailed below.
 
 ### Rebasing when handling updates from `upstream/master`
 
-While you're working on your branch it's quite possible that your upstream master may be updated. If this happens you should:
+While you're working on your branch it's quite possible that your upstream master may be updated. If this happens you
+should:
 
 1. [Stash](https://git-scm.com/book/en/v2/Git-Tools-Stashing-and-Cleaning) any un-committed changes you need to
 2. `git checkout master`
 3. `git pull upstream master`
 4. `git rebase master myBranch`
-5.  `git push origin master` (optional; this this makes sure your remote master is up to date)
+5. `git push origin master` (optional; this this makes sure your remote master is up to date)
 
-This ensures that your history is “clean”, with one branch off from master containing your changes in a straight line. Failing to do this ends up with several messy merges in your history, which we’d rather avoid in order to keep the project history understandable. This is the reason why you should always work in a branch and you should never be working in, or sending pull requests from, `master`.
+This ensures that your history is “clean”, with one branch off from master containing your changes in a straight line.
+Failing to do this ends up with several messy merges in your history, which we’d rather avoid in order to keep the
+project history understandable. This is the reason why you should always work in a branch and you should never be
+working in, or sending pull requests from, `master`.
 
-If you have pushed your branch to GitHub and you need to rebase like this (including after you have created a pull request), you need to use `git push -f` to force rewrite the remote branch.
+If you have pushed your branch to GitHub and you need to rebase like this (including after you have created a pull
+request), you need to use `git push -f` to force rewrite the remote branch.
 
 Also consider cleaning your commit history by squashing commits in an interactive rebase (not mandatory).
 
-More on rebasing and squashing can be found in [this guide](https://robots.thoughtbot.com/git-interactive-rebase-squash-amend-rewriting-history).
+More on rebasing and squashing can be found
+in [this guide](https://robots.thoughtbot.com/git-interactive-rebase-squash-amend-rewriting-history).
 
 ## Deployment checklist
 
@@ -58,4 +70,5 @@ For maintainers.
 * Update the changelog
 * Update the version and release notes in the fsproj files
 * Commit and tag the commit in the format `v/x.y.z` (this is what triggers deployment from AppVeyor)
-* Push the changes and the tag to the repo. If the AppVeyor build succeeds, the package is automatically published to NuGet.
+* Push the changes and the tag to the repo. If the AppVeyor build succeeds, the package is automatically published to
+  NuGet.

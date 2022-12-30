@@ -7,8 +7,7 @@ open Giraffe
 open Giraffe.EndpointRouting
 
 
-let endpoints : Endpoint list =
-  [
+let endpoints: Endpoint list = [
     // Redirect API root to specification/documentation
     route "/" (redirectTo false "/spec")
-  ]
+]

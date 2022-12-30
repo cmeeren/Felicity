@@ -2,8 +2,8 @@
 <html>
 <head>
   <title>Felicity Sample API specification</title>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport">
   <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
   <style>
     body {
@@ -17,21 +17,21 @@
   </style>
 </head>
 <body>
-  <div id="redoc-container"></div>
-  <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"></script>
-  <script>
-    Redoc.init(
-      "spec.yaml",
-      {
-        pathInMiddlePanel: true,
-        expandResponses: "all",
-        schemaExpansionLevel: 1,
-        hideSchemaTitles: true,
-        hideDownloadButton: true,
-        enumSkipQuotes: true
-      },
-      document.getElementById("redoc-container")
-    )
-  </script>
+<div id="redoc-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"></script>
+<script>
+  Redoc.init(
+    "spec.yaml",
+    {
+      pathInMiddlePanel: true,
+      expandResponses: "all",
+      schemaExpansionLevel: 1,
+      hideSchemaTitles: true,
+      hideDownloadButton: true,
+      enumSkipQuotes: true
+    },
+    document.getElementById("redoc-container")
+  )
+</script>
 </body>
 </html>
