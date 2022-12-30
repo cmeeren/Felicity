@@ -18,21 +18,20 @@
 </head>
 <body>
   <div id="redoc-container"></div>
-  <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js?cachebusterversion=1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"></script>
   <script>
     Redoc.init(
       "spec.yaml",
       {
-        pathInMiddlePanel: true
+        pathInMiddlePanel: true,
+        expandResponses: "all",
+        schemaExpansionLevel: 1,
+        hideSchemaTitles: true,
+        hideDownloadButton: true,
+        enumSkipQuotes: true
       },
-      document.getElementById("redoc-container"),
-      function () {
-        var els = document.querySelectorAll('td');
-        for (el of els) {
-          el.click();
-        }
-        setTimeout(function () { window.location.hash = window.location.hash; })
-      })
+      document.getElementById("redoc-container")
+    )
   </script>
 </body>
 </html>
