@@ -209,8 +209,6 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> =
                         failwith
                             $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
                     | false, _ -> None |> Ok |> Task.result
-
-
         }
 
     interface OptionalRequestGetter<'ctx, 'relatedEntity> with
@@ -1506,8 +1504,6 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
                         failwith
                             $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
                     | false, _ -> None |> Ok |> Task.result
-
-
         }
 
     interface OptionalRequestGetter<'ctx, 'relatedEntity option> with
@@ -2936,8 +2932,6 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> =
                         failwith
                             $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
                     | false, _ -> None |> Ok |> Task.result
-
-
         }
 
     interface OptionalRequestGetter<'ctx, 'relatedEntity list> with
