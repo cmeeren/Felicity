@@ -1,4 +1,4 @@
-﻿openapi: 3.0.2
+﻿openapi: 3.0.3
 info:
   version: 1.0.0
   title: Sample API
@@ -294,25 +294,25 @@ paths:
         - Person
       parameters:
         - in: query
-          name: "filter[firstName]"
+          name: filter[firstName]
           description: Only return persons with this specific first name.
           schema:
             type: string
           example: John
         - in: query
-          name: "filter[lastName]"
+          name: filter[lastName]
           description: Only return persons with this specific last name.
           schema:
             type: string
           example: Doe
         - in: query
-          name: "filter[twitter]"
+          name: filter[twitter]
           description: Only return persons with this specific Twitter handle.
           schema:
             type: string
-          example: "@johndoe"
+          example: '@johndoe'
         - in: query
-          name: "filter[gender]"
+          name: filter[gender]
           description: Only return persons with one of these genders.
           explode: false
           schema:
@@ -324,7 +324,7 @@ paths:
               - female
         - in: query
           name: sort
-          description: >
+          description: |
             As per the JSON:API specification. Supports a single value, which
             may be ascending or descending.
           schema:
@@ -335,7 +335,7 @@ paths:
             default: firstName
             example: -firstName
         - in: query
-          name: "page[offset]"
+          name: page[offset]
           description: Skip this many results.
           schema:
             type: integer
@@ -343,7 +343,7 @@ paths:
             default: 0
             example: 10
         - in: query
-          name: "page[limit]"
+          name: page[limit]
           description: Return at most this many results.
           schema:
             type: integer
@@ -351,7 +351,7 @@ paths:
             default: 10
             example: 20
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -359,10 +359,6 @@ paths:
                 $ref: '#/components/schemas/personResponseCollectionDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     post:
       summary: Create person
@@ -376,7 +372,7 @@ paths:
             schema:
               $ref: '#/components/schemas/personPostDocument'
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -384,10 +380,6 @@ paths:
                 $ref: '#/components/schemas/personResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
 
   /persons/{id}:
@@ -400,12 +392,12 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The person's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -413,10 +405,6 @@ paths:
                 $ref: '#/components/schemas/personResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     patch:
       summary: Update person
@@ -426,8 +414,8 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The person's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       requestBody:
@@ -437,7 +425,7 @@ paths:
             schema:
               $ref: '#/components/schemas/personPatchDocument'
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -445,10 +433,6 @@ paths:
                 $ref: '#/components/schemas/personResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     delete:
       summary: Delete person
@@ -458,19 +442,15 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The person's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       responses:
-        "2XX":
+        2XX:
           description: OK
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
 
   /articles:
@@ -482,13 +462,13 @@ paths:
         - Article
       parameters:
         - in: query
-          name: "filter[title]"
+          name: filter[title]
           description: Only return articles with this specific title.
           schema:
             type: string
           example: Moon
         - in: query
-          name: "filter[type]"
+          name: filter[type]
           description: Only return articles with one of these types.
           explode: false
           schema:
@@ -499,22 +479,22 @@ paths:
               - personal
               - commercial
         - in: query
-          name: "filter[createdAt][ge]"
+          name: filter[createdAt][ge]
           description: Only return articles created on or after this time.
           schema:
             type: string
             format: date-time
-          example: "2019-09-06T19:43:45Z"
+          example: 2019-09-06T19:43:45Z
         - in: query
-          name: "filter[createdAt][le]"
+          name: filter[createdAt][le]
           description: Only return articles created on or before this time.
           schema:
             type: string
             format: date-time
-          example: "2019-09-06T19:43:45Z"
+          example: 2019-09-06T19:43:45Z
         - in: query
           name: sort
-          description: >
+          description: |
             As per the JSON:API specification. Supports a single value, which
             may be ascending or descending.
           schema:
@@ -525,7 +505,7 @@ paths:
             default: -createdAt
             example: title
         - in: query
-          name: "page[offset]"
+          name: page[offset]
           description: Skip this many results.
           schema:
             type: integer
@@ -533,7 +513,7 @@ paths:
             default: 0
             example: 10
         - in: query
-          name: "page[limit]"
+          name: page[limit]
           description: Return at most this many results.
           schema:
             type: integer
@@ -541,7 +521,7 @@ paths:
             default: 10
             example: 20
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -549,10 +529,6 @@ paths:
                 $ref: '#/components/schemas/articleResponseCollectionDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     post:
       summary: Create article
@@ -567,7 +543,7 @@ paths:
               $ref: '#/components/schemas/articlePostDocument'
                               
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -575,10 +551,6 @@ paths:
                 $ref: '#/components/schemas/articleResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
 
   /article/{id}:
@@ -591,12 +563,12 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The article's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -604,10 +576,6 @@ paths:
                 $ref: '#/components/schemas/articleResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     patch:
       summary: Update article
@@ -617,8 +585,8 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The article's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       requestBody:
@@ -628,7 +596,7 @@ paths:
             schema:
               $ref: '#/components/schemas/articlePatchDocument'
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -636,10 +604,6 @@ paths:
                 $ref: '#/components/schemas/articleResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     delete:
       summary: Delete article
@@ -649,19 +613,15 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The article's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       responses:
-        "2XX":
+        2XX:
           description: OK
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
 
   /comments:
@@ -673,20 +633,20 @@ paths:
         - Comment
       parameters:
         - in: query
-          name: "filter[author]"
+          name: filter[author]
           description: Only return comments authored by the `person` with the specified `id`.
           schema:
             type: string
           example: ff011ab753e44d46
         - in: query
-          name: "filter[author.firstName]"
+          name: filter[author.firstName]
           description: Only return comments whose author has the specified `firstName`.
           schema:
             type: string
           example: John
         - in: query
           name: sort
-          description: >
+          description: |
             As per the JSON:API specification. Supports a single value, which
             may be ascending or descending.
           schema:
@@ -696,7 +656,7 @@ paths:
             default: -createdAt
             example: createdAt
         - in: query
-          name: "page[offset]"
+          name: page[offset]
           description: Skip this many results.
           schema:
             type: integer
@@ -704,7 +664,7 @@ paths:
             default: 0
             example: 10
         - in: query
-          name: "page[limit]"
+          name: page[limit]
           description: Return at most this many results.
           schema:
             type: integer
@@ -712,7 +672,7 @@ paths:
             default: 10
             example: 20
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -720,10 +680,6 @@ paths:
                 $ref: '#/components/schemas/commentResponseCollectionDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     post:
       summary: Create comment
@@ -738,7 +694,7 @@ paths:
               $ref: '#/components/schemas/commentPostDocument'
                               
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -746,10 +702,6 @@ paths:
                 $ref: '#/components/schemas/commentResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
 
   /comment/{id}:
@@ -762,12 +714,12 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The comment's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -775,10 +727,6 @@ paths:
                 $ref: '#/components/schemas/commentResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     patch:
       summary: Update comment
@@ -788,8 +736,8 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The comment's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       requestBody:
@@ -799,7 +747,7 @@ paths:
             schema:
               $ref: '#/components/schemas/commentPatchDocument'
       responses:
-        "2XX":
+        2XX:
           description: OK
           content:
             application/vnd.api+json:
@@ -807,10 +755,6 @@ paths:
                 $ref: '#/components/schemas/commentResponseDocument'
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
     delete:
       summary: Delete comment
@@ -820,19 +764,15 @@ paths:
       parameters:
         - in: path
           required: true
-          name: "id"
-          description: The comment's `id`.
+          name: id
+          description: The resource's `id`.
           schema:
             type: string
       responses:
-        "2XX":
+        2XX:
           description: OK
         default:
           description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/errorDocument'
 
 
 
@@ -857,47 +797,7 @@ components:
         - commercial
 
 
-    error:
-      properties:
-        id:
-          description: >
-            A unique string intended to help find this specific
-            occurrence in debug logs. Can be communicated to API developers
-            to help investigate the events leading up to this particular error.
-          type: string
-          example: e47f2b5615204d5e8217d5061f0511ee
-        code:
-          type: string
-          description: >
-            Identifies a specific error condition. Intended for programmatic parsing
-            and will not change for a given error condition.
-          example: SomeErrorCode
-        title:
-          type: string
-          description: >
-            A short description of the problem. Intended as a helpful message to developers.
-            The message may change without notice for any given error condition.
-          example: Some Error
-        detail:
-          description: >
-            A more detailed description of the problem. Intended as a helpful message
-            to developers. The message may change without notice for any given error condition.
-          type: string
-          example: A helpful description for the developer
-
-    errorDocument:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            allOf:
-              - $ref: "#/components/schemas/error"
-
-
     selfLink:
-      type: object
-      readOnly: true
       required:
         - self
       properties:
@@ -908,8 +808,6 @@ components:
           description: As per the JSON:API specification.
 
     relatedLink:
-      type: object
-      readOnly: true
       required:
         - related
       properties:
@@ -921,7 +819,6 @@ components:
 
 
     resourceIdentifier:
-      type: object
       description: A resource identifier.
       required:
         - type
@@ -938,17 +835,13 @@ components:
 
 
     relationshipLinkRelated:
-      type: object
       required:
         - links
       properties:
         links:
-          allOf:
-            - $ref: '#/components/schemas/relatedLink'
-
+          $ref: '#/components/schemas/relatedLink'
 
     relationshipDataToMany:
-      type: object
       properties:
         data:
           type: array
@@ -957,7 +850,6 @@ components:
 
 
     relationshipDataToOneNullable:
-      type: object
       properties:
         data:
           allOf:
@@ -966,15 +858,11 @@ components:
 
 
     relationshipDataToOneNonNullable:
-      type: object
       properties:
         data:
-          allOf:
-            - $ref: '#/components/schemas/resourceIdentifier'
-
+          $ref: '#/components/schemas/resourceIdentifier'
 
     personAttributes:
-      type: object
       properties:
         firstName:
           type: string
@@ -987,7 +875,7 @@ components:
         twitter:
           type: string
           nullable: true
-          example: "@johndoe"
+          example: '@johndoe'
           description: The person's Twitter handle.
         gender:
           allOf:
@@ -996,7 +884,6 @@ components:
               description: The person's gender.
 
     personAttributesResponseRequired:
-      type: object
       required:
         - firstName
         - lastName
@@ -1004,13 +891,11 @@ components:
         - gender
 
     personAttributesPostRequired:
-      type: object
       required:
         - firstName
         - lastName
 
     personRelationships:
-      type: object
       properties:
         articles:
           allOf:
@@ -1018,7 +903,6 @@ components:
             - $ref: '#/components/schemas/relationshipDataToMany'
             - type: object
               description: To-many `article`. All articles this person is an author of.
-              readOnly: true
               properties:
                 data:
                   type: array
@@ -1028,12 +912,10 @@ components:
                         enum: ["article"]
 
     personRelationshipsResponseRequired:
-      type: object
       required:
         - articles
 
     personResponse:
-      type: object
       required:
         - type
         - id
@@ -1063,16 +945,14 @@ components:
             - $ref: '#/components/schemas/selfLink'
 
     personResponseDocument:
-      type: object
       required:
         - data
       properties:
         data:
           allOf:
-            - $ref: "#/components/schemas/personResponse"
+            - $ref: '#/components/schemas/personResponse'
 
     personResponseCollectionDocument:
-      type: object
       required:
         - data
       properties:
@@ -1080,15 +960,13 @@ components:
           type: array
           items:
             allOf:
-              - $ref: "#/components/schemas/personResponse"
+              - $ref: '#/components/schemas/personResponse'
 
     personPostDocument:
-      type: object
       required:
         - data
       properties:
         data:
-          type: object
           required:
             - type
             - attributes
@@ -1104,12 +982,10 @@ components:
                 - $ref: '#/components/schemas/personAttributesPostRequired'
 
     personPatchDocument:
-      type: object
       required:
         - data
       properties:
         data:
-          type: object
           required:
             - type
             - id
@@ -1129,7 +1005,6 @@ components:
 
 
     articleAttributes:
-      type: object
       properties:
         title:
           type: string
@@ -1137,7 +1012,7 @@ components:
           description: The article's title.
         body:
           type: string
-          example: "One small step for a man, one giant leap for mankind"
+          example: One small step for a man, one giant leap for mankind
           description: The article's body.
         type:
           allOf:
@@ -1146,19 +1021,16 @@ components:
         createdAt:
           type: string
           format: date-time
-          readOnly: true
           description: The time the article was created.
         updatedAt:
           type: string
           format: date-time
           nullable: true
-          readOnly: true
-          description: >
+          description: |
             The time the article was last updated. `null` if the article has not
             been updated.
 
     articleAttributesResponseRequired:
-      type: object
       required:
         - title
         - body
@@ -1167,13 +1039,11 @@ components:
         - updatedAt
 
     articleAttributesPostRequired:
-      type: object
       required:
         - title
         - body
 
     articleRelationships:
-      type: object
       properties:
         author:
           allOf:
@@ -1192,7 +1062,6 @@ components:
             - $ref: '#/components/schemas/relationshipDataToMany'
             - type: object
               description: To-many `comment`. The article's comments.
-              readOnly: true
               properties:
                 data:
                   type: array
@@ -1202,18 +1071,15 @@ components:
                         enum: ["comment"]
 
     articleRelationshipsResponseRequired:
-      type: object
       required:
         - author
         - comments
 
     articleRelationshipsPostRequired:
-      type: object
       required:
         - author
 
     articleResponse:
-      type: object
       required:
         - type
         - id
@@ -1243,16 +1109,14 @@ components:
             - $ref: '#/components/schemas/selfLink'
 
     articleResponseDocument:
-      type: object
       required:
         - data
       properties:
         data:
           allOf:
-            - $ref: "#/components/schemas/articleResponse"
+            - $ref: '#/components/schemas/articleResponse'
 
     articleResponseCollectionDocument:
-      type: object
       required:
         - data
       properties:
@@ -1260,15 +1124,13 @@ components:
           type: array
           items:
             allOf:
-              - $ref: "#/components/schemas/articleResponse"
+              - $ref: '#/components/schemas/articleResponse'
 
     articlePostDocument:
-      type: object
       required:
         - data
       properties:
         data:
-          type: object
           required:
             - type
             - attributes
@@ -1293,12 +1155,10 @@ components:
                         - data
 
     articlePatchDocument:
-      type: object
       required:
         - data
       properties:
         data:
-          type: object
           required:
             - type
             - id
@@ -1325,7 +1185,6 @@ components:
 
 
     commentAttributes:
-      type: object
       properties:
         body:
           type: string
@@ -1334,31 +1193,26 @@ components:
         createdAt:
           type: string
           format: date-time
-          readOnly: true
           description: The time the comment was created.
         updatedAt:
           type: string
           format: date-time
           nullable: true
-          readOnly: true
-          description: >
+          description: |
             The time the comment was last updated. `null` if the comment has not
             been updated.
 
     commentAttributesResponseRequired:
-      type: object
       required:
         - body
         - createdAt
         - updatedAt
 
     commentAttributesPostRequired:
-      type: object
       required:
         - body
 
     commentRelationships:
-      type: object
       properties:
         author:
           allOf:
@@ -1384,19 +1238,16 @@ components:
                       enum: ["article"]
 
     commentRelationshipsResponseRequired:
-      type: object
       required:
         - author
         - article
 
     commentRelationshipsPostRequired:
-      type: object
       required:
         - author
         - article
 
     commentResponse:
-      type: object
       required:
         - type
         - id
@@ -1426,16 +1277,14 @@ components:
             - $ref: '#/components/schemas/selfLink'
 
     commentResponseDocument:
-      type: object
       required:
         - data
       properties:
         data:
           allOf:
-            - $ref: "#/components/schemas/commentResponse"
+            - $ref: '#/components/schemas/commentResponse'
 
     commentResponseCollectionDocument:
-      type: object
       required:
         - data
       properties:
@@ -1443,15 +1292,13 @@ components:
           type: array
           items:
             allOf:
-              - $ref: "#/components/schemas/commentResponse"
+              - $ref: '#/components/schemas/commentResponse'
 
     commentPostDocument:
-      type: object
       required:
         - data
       properties:
         data:
-          type: object
           required:
             - type
             - attributes
@@ -1479,12 +1326,10 @@ components:
                         - data
 
     commentPatchDocument:
-      type: object
       required:
         - data
       properties:
         data:
-          type: object
           required:
             - type
             - id
