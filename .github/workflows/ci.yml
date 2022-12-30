@@ -1,0 +1,35 @@
+name: CI
+
+on: [ push, pull_request ]
+
+jobs:
+  ci:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Check code format
+        run: dotnet fantomas --check --recurse .
+
+      - name: Restore dependencies
+        run: dotnet restore --locked-mode
+
+      - name: Build
+        run: dotnet build -c Release --no-restore -maxCpuCount
+
+      - name: Test
+        run: dotnet test -c Release --no-build -- Expecto.fail-on-focused-tests=true
+
+      - name: Push
+        if: startsWith(github.ref, 'refs/tags/v/')
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push "**/*.nupkg" -s "https://api.nuget.org/v3/index.json" -k "$NUGET_API_KEY" --skip-duplicate
