@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Reduced memory usage for responses with very many resources
+
 ### 0.21.6 (2022-12-07)
 
 * Added support for logging request bodies with invalid JSON using `LogInvalidJsonRequestBodies` when configuring

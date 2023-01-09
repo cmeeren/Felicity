@@ -77,11 +77,12 @@ module internal RoutingOperations =
             member _.Write httpCtx ctx req rDefEntity = task {
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
                 let resourceDef, e = rDefEntity
+                let baseUrl = getBaseUrl httpCtx
 
                 let! main, included =
                     ResourceBuilder.ResourceBuilder(
                         resourceModuleMap,
-                        getBaseUrl httpCtx,
+                        baseUrl,
                         [],
                         linkCfg,
                         httpCtx,
@@ -110,13 +111,14 @@ module internal RoutingOperations =
 
             member _.WriteList httpCtx ctx req rDefsEntities = task {
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+                let baseUrl = getBaseUrl httpCtx
 
                 let! main, included =
                     rDefsEntities
                     |> List.map (fun (rDef, e) ->
                         ResourceBuilder.ResourceBuilder(
                             resourceModuleMap,
-                            getBaseUrl httpCtx,
+                            baseUrl,
                             [],
                             linkCfg,
                             httpCtx,
@@ -145,13 +147,14 @@ module internal RoutingOperations =
 
             member _.WriteOpt httpCtx ctx req rDefEntity = task {
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+                let baseUrl = getBaseUrl httpCtx
 
                 let! main, included =
                     rDefEntity
                     |> Option.map (fun (rDef, e) ->
                         ResourceBuilder.ResourceBuilder(
                             resourceModuleMap,
-                            getBaseUrl httpCtx,
+                            baseUrl,
                             [],
                             linkCfg,
                             httpCtx,
