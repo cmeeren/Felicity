@@ -15,7 +15,8 @@ type ResourceBuilder<'ctx>
         resourceModuleMap: Map<ResourceTypeName, Type>,
         baseUrl: string,
         currentIncludePath: RelationshipName list,
-        linkCfg: LinkConfig<'ctx>,
+        shouldUseStandardLinks,
+        shouldUseCustomLinks,
         httpCtx,
         ctx: 'ctx,
         req: Request,
@@ -128,11 +129,7 @@ type ResourceBuilder<'ctx>
                     task {
                         let links: Skippable<IDictionary<_, _>> =
                             match selfUrlOpt with
-                            | Some u when
-                                not onlyData
-                                && linkCfg.ShouldUseStandardLinks(httpCtx)
-                                && (r.SelfLink || r.RelatedLink)
-                                ->
+                            | Some u when not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink) ->
                                 let links = Dictionary()
 
                                 if r.SelfLink then
@@ -184,7 +181,8 @@ type ResourceBuilder<'ctx>
                                         resourceModuleMap,
                                         baseUrl,
                                         currentIncludePath @ [ r.Name ],
-                                        linkCfg,
+                                        shouldUseStandardLinks,
+                                        shouldUseCustomLinks,
                                         httpCtx,
                                         ctx,
                                         req,
@@ -221,11 +219,7 @@ type ResourceBuilder<'ctx>
                     task {
                         let links: Skippable<IDictionary<_, _>> =
                             match selfUrlOpt with
-                            | Some u when
-                                not onlyData
-                                && linkCfg.ShouldUseStandardLinks(httpCtx)
-                                && (r.SelfLink || r.RelatedLink)
-                                ->
+                            | Some u when not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink) ->
                                 let links = Dictionary()
 
                                 if r.SelfLink then
@@ -286,7 +280,8 @@ type ResourceBuilder<'ctx>
                                         resourceModuleMap,
                                         baseUrl,
                                         currentIncludePath @ [ r.Name ],
-                                        linkCfg,
+                                        shouldUseStandardLinks,
+                                        shouldUseCustomLinks,
                                         httpCtx,
                                         ctx,
                                         req,
@@ -323,11 +318,7 @@ type ResourceBuilder<'ctx>
                     task {
                         let links: Skippable<IDictionary<_, _>> =
                             match selfUrlOpt with
-                            | Some u when
-                                not onlyData
-                                && linkCfg.ShouldUseStandardLinks(httpCtx)
-                                && (r.SelfLink || r.RelatedLink)
-                                ->
+                            | Some u when not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink) ->
                                 let links = Dictionary()
 
                                 if r.SelfLink then
@@ -383,7 +374,8 @@ type ResourceBuilder<'ctx>
                                             resourceModuleMap,
                                             baseUrl,
                                             currentIncludePath @ [ r.Name ],
-                                            linkCfg,
+                                            shouldUseStandardLinks,
+                                            shouldUseCustomLinks,
                                             httpCtx,
                                             ctx,
                                             req,
@@ -419,7 +411,7 @@ type ResourceBuilder<'ctx>
 
     member _.Links() : Task<Map<string, Link>> = task {
         let! opNamesHrefsAndMeta =
-            if linkCfg.ShouldUseCustomLinks(httpCtx) then
+            if shouldUseCustomLinks then
                 ResourceModule.customOps<'ctx> resourceModule
                 |> Task.mapWhenAll (fun op -> task {
                     let selfUrl =
@@ -444,7 +436,7 @@ type ResourceBuilder<'ctx>
                 | Some(name, Some href, None) -> links |> Links.addOpt name (Some href)
                 | Some(name, hrefOpt, Some meta) -> links |> Links.addOptWithMeta name hrefOpt meta)
             |> match selfUrlOpt with
-               | Some selfUrl when linkCfg.ShouldUseStandardLinks(httpCtx) -> Links.addOpt "self" (Some selfUrl)
+               | Some selfUrl when shouldUseStandardLinks -> Links.addOpt "self" (Some selfUrl)
                | _ -> id
     }
 

@@ -78,13 +78,16 @@ module internal RoutingOperations =
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
                 let resourceDef, e = rDefEntity
                 let baseUrl = getBaseUrl httpCtx
+                let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
+                let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
 
                 let! main, included =
                     ResourceBuilder.ResourceBuilder(
                         resourceModuleMap,
                         baseUrl,
                         [],
-                        linkCfg,
+                        shouldUseStandardLinks,
+                        shouldUseCustomLinks,
                         httpCtx,
                         ctx,
                         req,
@@ -112,6 +115,8 @@ module internal RoutingOperations =
             member _.WriteList httpCtx ctx req rDefsEntities = task {
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
                 let baseUrl = getBaseUrl httpCtx
+                let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
+                let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
 
                 let! main, included =
                     rDefsEntities
@@ -120,7 +125,8 @@ module internal RoutingOperations =
                             resourceModuleMap,
                             baseUrl,
                             [],
-                            linkCfg,
+                            shouldUseStandardLinks,
+                            shouldUseCustomLinks,
                             httpCtx,
                             ctx,
                             req,
@@ -148,6 +154,8 @@ module internal RoutingOperations =
             member _.WriteOpt httpCtx ctx req rDefEntity = task {
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
                 let baseUrl = getBaseUrl httpCtx
+                let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
+                let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
 
                 let! main, included =
                     rDefEntity
@@ -156,7 +164,8 @@ module internal RoutingOperations =
                             resourceModuleMap,
                             baseUrl,
                             [],
-                            linkCfg,
+                            shouldUseStandardLinks,
+                            shouldUseCustomLinks,
                             httpCtx,
                             ctx,
                             req,
