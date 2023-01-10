@@ -1,17 +1,19 @@
 ﻿module internal Felicity.ResourceModule
 
 open System
-open System.Collections.Concurrent
+open System.Collections.Generic
 open System.Reflection
 
 
 
-let private allDict = ConcurrentDictionary<Type, Type[]>()
+let private allDict = Dictionary<Type, Type[]>()
 
 let all<'ctx> =
-    allDict.GetOrAdd(
-        typeof<'ctx>,
-        fun _ ->
+    let key = typeof<'ctx>
+    match allDict.TryGetValue key with
+    | true, x -> x
+    | false, _ ->
+        let value =
             AppDomain.CurrentDomain.GetAssemblies()
             |> Array.collect (fun a ->
                 try
@@ -20,16 +22,19 @@ let all<'ctx> =
             |> Array.filter (fun t ->
                 t.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                 |> Array.exists (fun pi -> typeof<ResourceDefinition<'ctx>>.IsAssignableFrom pi.PropertyType))
-    )
+        allDict[key] <- value
+        value
 
 
 
-let private resourceDefinitionDict = ConcurrentDictionary<Type * Type, obj>()
+let private resourceDefinitionDict = Dictionary<struct (Type * Type), obj>()
 
 let resourceDefinition<'ctx> (m: Type) =
-    resourceDefinitionDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match resourceDefinitionDict.TryGetValue key with
+    | true, x -> x |> unbox<ResourceDefinition<'ctx>>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<ResourceDefinition<'ctx>>)
             |> function
@@ -38,17 +43,18 @@ let resourceDefinition<'ctx> (m: Type) =
                 | xs ->
                     failwith
                         $"Resource module '%s{m.Name}' contains %i{xs.Length} public resource definitions; only one is allowed"
-            |> box<ResourceDefinition<'ctx>>
-    )
-    |> unbox<ResourceDefinition<'ctx>>
+        resourceDefinitionDict[key] <- box value
+        value
 
 
-let private lockSpecDict = ConcurrentDictionary<Type * string, obj>()
+let private lockSpecDict = Dictionary<struct (Type * string), obj>()
 
 let lockSpec<'ctx> (collName: CollectionName) =
-    lockSpecDict.GetOrAdd(
-        (typeof<'ctx>, collName),
-        fun _ ->
+    let key = struct (typeof<'ctx>, collName)
+    match lockSpecDict.TryGetValue key with
+    | true, x -> x |> unbox<(LockSpecification<'ctx> list * TimeSpan option) option>
+    | false, _ ->
+        let value =
             all<'ctx>
             |> Array.collect (fun m -> m.GetProperties(BindingFlags.Public ||| BindingFlags.Static))
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<ResourceDefinitionLockSpec<'ctx>>)
@@ -60,100 +66,106 @@ let lockSpec<'ctx> (collName: CollectionName) =
                 | xs ->
                     failwith
                         $"Collection name '%s{collName}' contains %i{xs.Length} resources with lock definitions; only one lock definition per collection is allowed"
-            |> box<(LockSpecification<'ctx> list * TimeSpan option) option>
-    )
-    |> unbox<(LockSpecification<'ctx> list * TimeSpan option) option>
+        lockSpecDict[key] <- box value
+        value
 
 
-let private fieldsDict = ConcurrentDictionary<Type * Type, obj>()
+let private fieldsDict = Dictionary<struct (Type * Type), obj>()
 
 let fields<'ctx> (m: Type) =
-    fieldsDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match fieldsDict.TryGetValue key with
+    | true, x -> x |> unbox<Field<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<Field<'ctx>>)
-            |> box<Field<'ctx>[]>
-    )
-    |> unbox<Field<'ctx>[]>
+        fieldsDict[key] <- box value
+        value
 
 
-let private constrainedFieldsDict = ConcurrentDictionary<Type * Type, obj>()
+let private constrainedFieldsDict = Dictionary<struct (Type * Type), obj>()
 
 let constrainedFields<'ctx> (m: Type) =
-    constrainedFieldsDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match constrainedFieldsDict.TryGetValue key with
+    | true, x -> x |> unbox<ConstrainedField<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<ConstrainedField<'ctx>>)
-            |> box<ConstrainedField<'ctx>[]>
-    )
-    |> unbox<ConstrainedField<'ctx>[]>
+        constrainedFieldsDict[key] <- box value
+        value
 
 
-let private attributesDict = ConcurrentDictionary<Type * Type, obj>()
+let private attributesDict = Dictionary<struct (Type * Type), obj>()
 
 let attributes<'ctx> (m: Type) =
-    attributesDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match attributesDict.TryGetValue key with
+    | true, x -> x |> unbox<Attribute<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<Attribute<'ctx>>)
-            |> box<Attribute<'ctx>[]>
-    )
-    |> unbox<Attribute<'ctx>[]>
+        attributesDict[key] <- box value
+        value
 
 
-let private toOneRelsDict = ConcurrentDictionary<Type * Type, obj>()
+let private toOneRelsDict = Dictionary<struct (Type * Type), obj>()
 
 let toOneRels<'ctx> (m: Type) =
-    toOneRelsDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match toOneRelsDict.TryGetValue key with
+    | true, x -> x |> unbox<ToOneRelationship<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<ToOneRelationship<'ctx>>)
-            |> box<ToOneRelationship<'ctx>[]>
-    )
-    |> unbox<ToOneRelationship<'ctx>[]>
+        toOneRelsDict[key] <- box value
+        value
 
 
-let private toOneNullableRelsDict = ConcurrentDictionary<Type * Type, obj>()
+let private toOneNullableRelsDict = Dictionary<struct (Type * Type), obj>()
 
 let toOneNullableRels<'ctx> (m: Type) =
-    toOneNullableRelsDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match toOneNullableRelsDict.TryGetValue key with
+    | true, x -> x |> unbox<ToOneNullableRelationship<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<ToOneNullableRelationship<'ctx>>)
-            |> box<ToOneNullableRelationship<'ctx>[]>
-    )
-    |> unbox<ToOneNullableRelationship<'ctx>[]>
+        toOneNullableRelsDict[key] <- box value
+        value
 
 
-let private toManyRelsDict = ConcurrentDictionary<Type * Type, obj>()
+let private toManyRelsDict = Dictionary<struct (Type * Type), obj>()
 
 let toManyRels<'ctx> (m: Type) =
-    toManyRelsDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match toManyRelsDict.TryGetValue key with
+    | true, x -> x |> unbox<ToManyRelationship<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<ToManyRelationship<'ctx>>)
-            |> box<ToManyRelationship<'ctx>[]>
-    )
-    |> unbox<ToManyRelationship<'ctx>[]>
+        toManyRelsDict[key] <- box value
+        value
 
 
-let private customOpsDict = ConcurrentDictionary<Type * Type, obj>()
+let private customOpsDict = Dictionary<struct (Type * Type), obj>()
 
 let customOps<'ctx> (m: Type) =
-    customOpsDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match customOpsDict.TryGetValue key with
+    | true, x -> x |> unbox<CustomOperation<'ctx>[]>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun pi -> pi.GetValue(null) |> tryUnbox<CustomOperation<'ctx>>)
-            |> box<CustomOperation<'ctx>[]>
-    )
-    |> unbox<CustomOperation<'ctx>[]>
+        customOpsDict[key] <- box value
+        value
 
 
 let collectionName<'ctx> (resourceModule: Type) =
@@ -229,12 +241,14 @@ let preconditions<'ctx> (m: Type) =
 let hasPreconditions<'ctx> m = preconditions<'ctx> m |> Option.isSome
 
 
-let private getResourceOperationDict = ConcurrentDictionary<Type * Type, obj>()
+let private getResourceOperationDict = Dictionary<struct (Type * Type), obj>()
 
 let getResourceOperation<'ctx> (m: Type) =
-    getResourceOperationDict.GetOrAdd(
-        (typeof<'ctx>, m),
-        fun _ ->
+    let key = struct (typeof<'ctx>, m)
+    match getResourceOperationDict.TryGetValue key with
+    | true, x -> x |> unbox<GetResourceOperation<'ctx> option>
+    | false, _ ->
+        let value =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<GetResourceOperation<'ctx>>)
             |> function
@@ -243,9 +257,8 @@ let getResourceOperation<'ctx> (m: Type) =
                 | xs ->
                     failwith
                         $"Resource module '%s{m.Name}' contains %i{xs.Length} public GET resource operations; only one is allowed"
-            |> box<GetResourceOperation<'ctx> option>
-    )
-    |> unbox<GetResourceOperation<'ctx> option>
+        getResourceOperationDict[key] <- box value
+        value
 
 
 let hasGetResourceOperation<'ctx> = getResourceOperation<'ctx> >> Option.isSome
