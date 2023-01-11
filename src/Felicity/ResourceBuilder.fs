@@ -50,9 +50,11 @@ type ResourceBuilder<'ctx>
                 $"Framework bug: Attempted to build resource '%s{resourceDef.TypeName}', but no resource module was found"
 
     let selfUrlOpt =
-        resourceDef.CollectionName
-        |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + identifier.id)
-        |> Option.filter (fun _ -> ResourceModule.hasGetResourceOperation<'ctx> resourceModule)
+        if ResourceModule.hasGetResourceOperation<'ctx> resourceModule then
+            resourceDef.CollectionName
+            |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + identifier.id)
+        else
+            None
 
     let constrainedFields = ResourceModule.constrainedFields<'ctx> resourceModule
 
