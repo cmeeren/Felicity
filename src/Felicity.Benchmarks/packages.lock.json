@@ -4,11 +4,11 @@
     "net7.0": {
       "BenchmarkDotNet": {
         "type": "Direct",
-        "requested": "[0.13.3, )",
-        "resolved": "0.13.3",
-        "contentHash": "Y0aNdOZ9LdcwVniiAmQEcdYnpR8qe+BOSmqMBukJ1+ez7PiyqpwJHbppOJ1ibHKh28qdq781l8hsPIld5lvsIw==",
+        "requested": "[0.13.4, )",
+        "resolved": "0.13.4",
+        "contentHash": "P6avThzS0HRJEjcCfnJdaMIujCMBoWQXSJiVYYFtMltrVeEMaIhg7r5qiGPyx9O2ZXuNpqIxVEg1JqgvfwnI2Q==",
         "dependencies": {
-          "BenchmarkDotNet.Annotations": "0.13.3",
+          "BenchmarkDotNet.Annotations": "0.13.4",
           "CommandLineParser": "2.4.3",
           "Gee.External.Capstone": "2.3.0",
           "Iced": "1.17.0",
@@ -40,17 +40,17 @@
       },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Direct",
-        "requested": "[7.0.1, )",
-        "resolved": "7.0.1",
-        "contentHash": "I58R30e092fSlTfvqe/fWibMtgsOiY/+jeLJAWtNerSXq2iVRuc0fSpt0TR1C6uSx3KSkdWPEZe1ScdfC/SGrg==",
+        "requested": "[7.0.2, )",
+        "resolved": "7.0.2",
+        "contentHash": "yBkJfNnIdux3pXTLI6zMch+T/FphI09I1DCfEI6RL+D2ibR7i7WnlCwaD3qZUIL1mdrYnCvjc3HZ0qxXU5ZvKQ==",
         "dependencies": {
           "System.IO.Pipelines": "7.0.0"
         }
       },
       "BenchmarkDotNet.Annotations": {
         "type": "Transitive",
-        "resolved": "0.13.3",
-        "contentHash": "p0ur0mig3KCtyqs88V33ciTGH+iKr3u2bzJWwkm11/4u5EZs47dDgAq1VuZBj076E3QLjEYpe0utjttCwcGMdw=="
+        "resolved": "0.13.4",
+        "contentHash": "bc2q4S7xvOrqh7qRaMGyDdHVv8SITtN4crx5neIU289ra+LaP+OAmHPXxCY2djrnguZ8kfDddyJSg30wt7DvKg=="
       },
       "CommandLineParser": {
         "type": "Transitive",
