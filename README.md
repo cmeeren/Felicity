@@ -101,24 +101,22 @@ type FirstName = FirstName of string
 type LastName = LastName of string
 
 type Person = {
-  Id: PersonId
-  FirstName: FirstName
-  LastName: LastName
+    Id: PersonId
+    FirstName: FirstName
+    LastName: LastName
 }
 
 module Person =
 
-  let create firstName lastName = {
-    Id = Guid.NewGuid () |> PersonId
-    FirstName = firstName
-    LastName = lastName
-  }
+    let create firstName lastName = {
+        Id = Guid.NewGuid() |> PersonId
+        FirstName = firstName
+        LastName = lastName
+    }
 
-  let setFirstName firstName (person: Person) =
-    { person with FirstName = firstName }
+    let setFirstName firstName (person: Person) = { person with FirstName = firstName }
 
-  let setLastName lastName (person: Person) =
-    { person with LastName = lastName }
+    let setLastName lastName (person: Person) = { person with LastName = lastName }
 ```
 
 ### Installation
@@ -153,10 +151,10 @@ section.
 [<AutoOpen>]
 module Errors =
 
-  let unauthorized =
-    Error.create 401
-    |> Error.setTitle "Unauthorized"
-    |> Error.setDetail "The authorization was missing or invalid for this operation"
+    let unauthorized =
+        Error.create 401
+        |> Error.setTitle "Unauthorized"
+        |> Error.setDetail "The authorization was missing or invalid for this operation"
 ```
 
 #### 2. Define your global context type and how to create it from `HttpContext`
@@ -167,19 +165,19 @@ want here.
 
 ```f#
 type Principal =
-  | Anonymous
-  | Authenticated of Username
+    | Anonymous
+    | Authenticated of Username
 
-type Context =
-  { Principal: Principal }
+type Context = { Principal: Principal }
 
 module Context =
 
-  // Simulate asynchronous authentication (e.g. DB or external auth service)
-  let getCtx (ctx: HttpContext) =
-    async {
-      if false then return Error [unauthorized]
-      else return Ok { Principal = Anonymous }
+    // Simulate asynchronous authentication (e.g. DB or external auth service)
+    let getCtx (ctx: HttpContext) = async {
+        if false then
+            return Error [ unauthorized ]
+        else
+            return Ok { Principal = Anonymous }
     }
 ```
 
@@ -192,87 +190,76 @@ definition; they are removed below for brevity.
 ```f#
 module Article =
 
-  let define = Define<Context, Article, ArticleId>()
+    let define = Define<Context, Article, ArticleId>()
 
-  let resId = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
+    let resId =
+        define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, (fun a -> a.Id))
 
-  let resourceDef = define.Resource("article", resId).CollectionName("articles")
+    let resourceDef = define.Resource("article", resId).CollectionName("articles")
 
-  let title =
-    define.Attribute
-      .Parsed(ArticleTitle.toString, ArticleTitle.fromString)
-      .Get(fun a -> a.Title)
-      .Set(Article.setTitle)
+    let title =
+        define.Attribute
+            .Parsed(ArticleTitle.toString, ArticleTitle.fromString)
+            .Get(fun a -> a.Title)
+            .Set(Article.setTitle)
 
-  let body =
-    define.Attribute
-      .Parsed(ArticleBody.toString, ArticleBody.fromString)
-      .Get(fun a -> a.Body)
-      .Set(Article.setBody)
+    let body =
+        define.Attribute
+            .Parsed(ArticleBody.toString, ArticleBody.fromString)
+            .Get(fun a -> a.Body)
+            .Set(Article.setBody)
 
-  let articleType =
-    define.Attribute
-      .Enum(ArticleType.toString, ArticleType.fromStringMap)
-      .Get(fun a -> a.Type)
-      .Set(Article.setType)
+    let articleType =
+        define.Attribute
+            .Enum(ArticleType.toString, ArticleType.fromStringMap)
+            .Get(fun a -> a.Type)
+            .Set(Article.setType)
 
-  let createdAt =
-    define.Attribute
-      .Simple()
-      .Get(fun a -> a.CreatedAt)
+    let createdAt = define.Attribute.Simple().Get(fun a -> a.CreatedAt)
 
-  let updatedAt =
-    define.Attribute
-      .Nullable
-      .Simple()
-      .Get(fun a -> a.UpdatedAt)
+    let updatedAt = define.Attribute.Nullable.Simple().Get(fun a -> a.UpdatedAt)
 
-  let author =
-    define.Relationship
-      .ToOne(Person.resourceDef)
-      .GetAsync(Db.Person.authorForArticle)
-      .Set(Article.setAuthor)
+    let author =
+        define.Relationship
+            .ToOne(Person.resourceDef)
+            .GetAsync(Db.Person.authorForArticle)
+            .Set(Article.setAuthor)
 
-  let comments =
-    define.Relationship
-      .ToMany(Comment.resourceDef)
-      .GetAsync(Db.Comment.allForArticle)
+    let comments =
+        define.Relationship
+            .ToMany(Comment.resourceDef)
+            .GetAsync(Db.Comment.allForArticle)
 
-  let getCollection =
-    define.Operation
-      .GetCollection(fun ctx parser ->
-        parser.For(ArticleSearchArgs.empty)
-          .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
-          .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
-          .Add(ArticleSearchArgs.setSort, Sort.Enum(ArticleSort.fromStringMap))
-          .Add(ArticleSearchArgs.setOffset, Page.Offset)
-          .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
-          .BindAsync(Db.Article.search)
-      )
+    let getCollection =
+        define.Operation.GetCollection(fun ctx parser ->
+            parser
+                .For(ArticleSearchArgs.empty)
+                .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
+                .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
+                .Add(ArticleSearchArgs.setSort, Sort.Enum(ArticleSort.fromStringMap))
+                .Add(ArticleSearchArgs.setOffset, Page.Offset)
+                .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
+                .BindAsync(Db.Article.search))
 
-  let post =
-    define.Operation
-      .Post(fun ctx parser -> parser.For(Article.create, author, title, body))
-      .AfterCreateAsync(Db.Article.save)
+    let post =
+        define.Operation
+            .Post(fun ctx parser -> parser.For(Article.create, author, title, body))
+            .AfterCreateAsync(Db.Article.save)
 
-  let lookup = define.Operation.LookupAsync(Db.Article.byId)
+    let lookup = define.Operation.LookupAsync(Db.Article.byId)
 
-  let get =
-    define.Operation
-      .GetResource()
+    let get = define.Operation.GetResource()
 
-  let patch =
-    define.Operation
-      .Patch()
-      .AfterUpdateAsync(fun a -> async {
-        let a = a |> Article.setUpdated (Some DateTimeOffset.Now)
-        do! Db.Article.save a
-        return a
-      })
+    let patch =
+        define.Operation
+            .Patch()
+            .AfterUpdateAsync(fun a -> async {
+                let a = a |> Article.setUpdated (Some DateTimeOffset.Now)
+                do! Db.Article.save a
+                return a
+            })
 
-  let delete =
-    define.Operation
-      .DeleteAsync(Db.Article.delete)
+    let delete = define.Operation.DeleteAsync(Db.Article.delete)
 ```
 
 #### 5. Register a JSON:API handler for the context type in `ConfigureServices` and register/add the routes
@@ -280,24 +267,24 @@ module Article =
 ```f#
 type Startup() =
 
-  member _.ConfigureServices(services: IServiceCollection) : unit =
-    services
-      .AddGiraffe()
-      .AddRouting()
-      .AddJsonApi()
-        .GetCtxAsyncRes(Context.getCtx)
-        .Add()
-      .AddOtherServices(..)
+    member _.ConfigureServices(services: IServiceCollection) : unit =
+        services
+            .AddGiraffe()
+            .AddRouting()
+            .AddJsonApi()
+            .GetCtxAsyncRes(Context.getCtx)
+            .Add()
+            .AddOtherServices
+            (..)
 
-  member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) : unit =
-    app
-      .UseGiraffeErrorHandler(fun ex _ ->
-        Log.Error(ex, "Unhandled exception while executing request")
-        returnUnknownError
-      )
-      .UseRouting()
-      .UseJsonApiEndpoints<Context>()
-    |> ignore
+    member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) : unit =
+        app
+            .UseGiraffeErrorHandler(fun ex _ ->
+                Log.Error(ex, "Unhandled exception while executing request")
+                returnUnknownError)
+            .UseRouting()
+            .UseJsonApiEndpoints<Context>()
+        |> ignore
 ```
 
 #### 6. Enable server garbage collection
