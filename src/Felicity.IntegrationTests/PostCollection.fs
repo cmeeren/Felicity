@@ -115,17 +115,13 @@ module A =
     let x = define.Attribute.SimpleString().Get(fun a -> a.X).Set(ADomain.setX)
 
     let nullable =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun a -> a.Nullable)
             .Set(ADomain.setNullable)
 
     let nullableNotNullWhenSet =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun a -> a.NullableNotNullWhenSet)
             .SetNonNull(ADomain.setNullableNotNullWhenSet)
@@ -138,8 +134,7 @@ module A =
     let readonly = define.Attribute.SimpleString().Get(fun _ -> "test")
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser ->
                 parser.ForRes(
                     ADomain.create,
@@ -164,8 +159,7 @@ module B =
     let y = define.Attribute.SimpleString().Get(fun b -> b.Y).Set(BDomain.setY)
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser -> parser.For(BDomain.create, resId, b))
             .AfterCreate(fun (ctx: Ctx) b -> ctx.Db.SaveB b)
             .Return202Accepted()
@@ -191,8 +185,7 @@ module C =
     let resDef = define.Resource("c", resId).CollectionName("cs")
 
     let post =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ])
             .Post(fun (_: Ctx3) -> failwith<A> "not used")
             .AfterCreate(ignore)
@@ -221,25 +214,21 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = "foo"
-                                        nullableNotNullWhenSet = "bar"
-                                    |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = "foo"
+                                nullableNotNullWhenSet = "bar"
                             |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -271,19 +260,16 @@ let tests =
                 Request.post ctx "/abs/"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -302,12 +288,11 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "b"
-                                id = "123"
-                                attributes = {| b = 2; y = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "b"
+                            id = "123"
+                            attributes = {| b = 2; y = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -336,19 +321,16 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = null |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = null |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -373,22 +355,19 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = "foo"
-                                        nullableNotNullWhenSet = "bar"
-                                    |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated = {| data = null |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = "foo"
+                                nullableNotNullWhenSet = "bar"
                             |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {| data = null |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -421,19 +400,16 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = false; x = "abc" |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = false; x = "abc" |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -452,19 +428,16 @@ let tests =
                 Request.post (Ctx.WithDb db) "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true; readonly = "foo" |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true; readonly = "foo" |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -483,23 +456,19 @@ let tests =
                 Request.post (Ctx.WithDb db) "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes =
-                                    {|
-                                        a = true
-                                        nullableNotNullWhenSet = null
-                                    |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {|
+                                a = true
+                                nullableNotNullWhenSet = null
                             |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -523,12 +492,11 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "b"
-                                id = "123"
-                                attributes = {| b = "2" |}
-                            |}
+                        data = {|
+                            ``type`` = "b"
+                            id = "123"
+                            attributes = {| b = "2" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -552,20 +520,17 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "foo"
-                                attributes = {| a = true |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "foo"
+                            attributes = {| a = true |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -710,11 +675,10 @@ let tests =
                 Request.post (Ctx.WithDb db) "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = null
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            ``type`` = null
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -786,11 +750,10 @@ let tests =
                 Request.post ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                relationships = null
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            relationships = null
+                        |}
                     |}
                 |> getResponse
 
@@ -814,26 +777,22 @@ let tests =
                 Request.postWithoutStrictMode ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = "foo"
-                                        nonExistentAttribute = "foo"
-                                    |}
-                                relationships =
-                                    {|
-                                        nullableChild = {| data = null |}
-                                        nullableChildNotNullWhenCreated =
-                                            {|
-                                                data = {| ``type`` = "child"; id = "c" |}
-                                            |}
-                                        nonExistentRelationship = {| data = null |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = "foo"
+                                nonExistentAttribute = "foo"
                             |}
+                            relationships = {|
+                                nullableChild = {| data = null |}
+                                nullableChildNotNullWhenCreated = {|
+                                    data = {| ``type`` = "child"; id = "c" |}
+                                |}
+                                nonExistentRelationship = {| data = null |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -880,11 +839,10 @@ let tests =
                 Request.post Ctx3 "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true; x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true; x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 

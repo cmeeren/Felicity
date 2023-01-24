@@ -79,8 +79,7 @@ module rec ResourceModules =
         let parent = define.Relationship.ToOne(Parent.resDef)
 
         let post =
-            define
-                .Operation
+            define.Operation
                 .PostBackRef(
                     parent.Related(Parent.lookup),
                     fun (_ctx: Ctx, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
@@ -101,8 +100,7 @@ module rec ResourceModules =
         let get = define.Operation.GetResource()
 
         let ``as`` =
-            define
-                .Relationship
+            define.Relationship
                 .ToMany(Child.resDef)
                 .Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
@@ -128,15 +126,13 @@ module rec ResourceModules2 =
         let resDef = define.Resource("child", resId).CollectionName("children")
 
         let parent =
-            define
-                .Relationship
+            define.Relationship
                 .ToOne(Parent2.resDef)
                 .Set(fun _ _ _ -> failwith "Should never be called")
                 .AfterModifySelf(ignore)
 
         let post =
-            define
-                .Operation
+            define.Operation
                 .PostBackRef(
                     parent.Related(Parent2.lookup),
                     fun (_ctx: Ctx2, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
@@ -157,8 +153,7 @@ module rec ResourceModules2 =
         let get = define.Operation.GetResource()
 
         let ``as`` =
-            define
-                .Relationship
+            define.Relationship
                 .ToMany(Child2.resDef)
                 .Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
@@ -177,8 +172,7 @@ module rec ResourceModulesPreconditions =
         let parent = define.Relationship.ToOne(Parent.resDef)
 
         let post =
-            define
-                .Operation
+            define.Operation
                 .PostBackRef(
                     parent.Related(Parent.lookup),
                     fun (_ctx: Ctx3, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
@@ -200,8 +194,7 @@ module rec ResourceModulesPreconditions =
         let get = define.Operation.GetResource()
 
         let children =
-            define
-                .Relationship
+            define.Relationship
                 .ToMany(Child.resDef)
                 .Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
@@ -220,8 +213,7 @@ module rec ResourceModulesPreconditionsOptional =
         let parent = define.Relationship.ToOne(Parent.resDef)
 
         let post =
-            define
-                .Operation
+            define.Operation
                 .PostBackRef(
                     parent.Related(Parent.lookup),
                     fun (_ctx: Ctx4, parent: Parent) parser -> parser.For(ParentDomain.createChild parent, resId)
@@ -243,8 +235,7 @@ module rec ResourceModulesPreconditionsOptional =
         let get = define.Operation.GetResource()
 
         let children =
-            define
-                .Relationship
+            define.Relationship
                 .ToMany(Child.resDef)
                 .Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
@@ -269,18 +260,15 @@ let tests =
                 Request.post ctx "/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -317,18 +305,15 @@ let tests =
                 Request.post ctx "/children/"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -343,18 +328,15 @@ let tests =
                 Request.post ctx "/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
             // Will fail with exception if setter is run, so just check for success status code
@@ -386,18 +368,15 @@ let tests =
                 Request.post Ctx3 "/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -418,18 +397,15 @@ let tests =
                 |> Request.setHeader (IfMatch "\"invalid-etag\"")
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -451,18 +427,15 @@ let tests =
                 |> Request.setHeader (IfMatch "\"valid-etag\"")
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -475,18 +448,15 @@ let tests =
                 Request.post Ctx3 "/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -507,18 +477,15 @@ let tests =
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -540,18 +507,15 @@ let tests =
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -564,18 +528,15 @@ let tests =
                 Request.post Ctx4 "/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -587,18 +548,15 @@ let tests =
                 |> Request.setHeader (IfMatch "\"invalid-etag\"")
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -620,18 +578,15 @@ let tests =
                 |> Request.setHeader (IfMatch "\"valid-etag\"")
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -644,18 +599,15 @@ let tests =
                 Request.post Ctx4 "/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -667,18 +619,15 @@ let tests =
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -700,18 +649,15 @@ let tests =
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "child"
-                                id = "c2"
-                                relationships =
-                                    {|
-                                        parent =
-                                            {|
-                                                data = {| ``type`` = "parent"; id = "p1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "child"
+                            id = "c2"
+                            relationships = {|
+                                parent = {|
+                                    data = {| ``type`` = "parent"; id = "p1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 

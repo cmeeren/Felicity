@@ -15,8 +15,7 @@ module A =
     let resDef = define.Resource("a", resId).CollectionName("as")
 
     let a =
-        define
-            .Attribute
+        define.Attribute
             .SimpleBool()
             .SetRes(fun _ _ _ -> Error [ Error.create 400 |> Error.appendPointer "/foo/bar" ])
 
@@ -34,12 +33,11 @@ let tests =
                 Request.patch Ctx "/as/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 

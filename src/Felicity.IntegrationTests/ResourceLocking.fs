@@ -27,8 +27,7 @@ module A =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -46,8 +45,7 @@ module B =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -74,16 +72,14 @@ module C =
     let get = define.Operation.GetResource()
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun (Ctx i) parser ->
                 i := !i + 1
                 parser.For(id, b))
             .AfterCreate(ignore)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -105,8 +101,7 @@ module C2 =
             .LockOtherForResourceCreation(B.resDef, bNullable)
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun (Ctx i) parser ->
                 i := !i + 1
                 parser.For((fun _ -> ""), bNullable))
@@ -129,8 +124,7 @@ module D =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun ctx parser responder _ -> async {
@@ -209,8 +203,7 @@ module E =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -238,16 +231,14 @@ module F =
     let get = define.Operation.GetResource()
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun (Ctx i) parser ->
                 i := !i + 1
                 parser.For(ResourceId.value, e))
             .AfterCreate(ignore)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -268,8 +259,7 @@ module G =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun ctx parser responder _ -> async {
@@ -373,8 +363,7 @@ module H =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (MultiLockCtx(_, _, _, i)) parser responder _ ->
@@ -398,16 +387,14 @@ module I =
     let get = define.Operation.GetResource()
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun (Ctx i) ->
                 i := !i + 1
                 "")
             .AfterCreate(ignore)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -458,8 +445,7 @@ module L =
             .LockOtherForModification(K.resDef, id)
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun _ parser -> parser.For((fun _ -> ""), j))
             .AfterCreate(ignore)
 
@@ -483,8 +469,7 @@ module M =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
@@ -507,8 +492,7 @@ module N =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -536,8 +520,7 @@ module O =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -563,8 +546,7 @@ module P =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
@@ -586,8 +568,7 @@ module Q =
             .LockOtherForResourceCreation(K.resDef, k)
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun _ parser -> parser.For((fun _ -> ""), k))
             .AfterCreate(ignore)
 
@@ -682,17 +663,14 @@ let tests =
                     Request.createWithClient testClient Post (Uri("http://example.com/cs"))
                     |> Request.bodySerialized
                         {|
-                            data =
-                                {|
-                                    ``type`` = "c"
-                                    relationships =
-                                        {|
-                                            b =
-                                                {|
-                                                    data = {| ``type`` = "b"; id = "someId" |}
-                                                |}
-                                        |}
+                            data = {|
+                                ``type`` = "c"
+                                relationships = {|
+                                    b = {|
+                                        data = {| ``type`` = "b"; id = "someId" |}
+                                    |}
                                 |}
+                            |}
                         |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
@@ -716,17 +694,14 @@ let tests =
                     Request.createWithClient testClient Post (Uri("http://example.com/c2s"))
                     |> Request.bodySerialized
                         {|
-                            data =
-                                {|
-                                    ``type`` = "c2"
-                                    relationships =
-                                        {|
-                                            bNullable =
-                                                {|
-                                                    data = {| ``type`` = "b"; id = "someId" |}
-                                                |}
-                                        |}
+                            data = {|
+                                ``type`` = "c2"
+                                relationships = {|
+                                    bNullable = {|
+                                        data = {| ``type`` = "b"; id = "someId" |}
+                                    |}
                                 |}
+                            |}
                         |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
@@ -750,11 +725,10 @@ let tests =
                     Request.createWithClient testClient Post (Uri("http://example.com/c2s"))
                     |> Request.bodySerialized
                         {|
-                            data =
-                                {|
-                                    ``type`` = "c2"
-                                    relationships = {| bNullable = {| data = null |} |}
-                                |}
+                            data = {|
+                                ``type`` = "c2"
+                                relationships = {| bNullable = {| data = null |} |}
+                            |}
                         |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
@@ -860,17 +834,14 @@ let tests =
                     Request.createWithClient testClient Post (Uri("http://example.com/fs"))
                     |> Request.bodySerialized
                         {|
-                            data =
-                                {|
-                                    ``type`` = "f"
-                                    relationships =
-                                        {|
-                                            e =
-                                                {|
-                                                    data = {| ``type`` = "e"; id = "someId" |}
-                                                |}
-                                        |}
+                            data = {|
+                                ``type`` = "f"
+                                relationships = {|
+                                    e = {|
+                                        data = {| ``type`` = "e"; id = "someId" |}
+                                    |}
                                 |}
+                            |}
                         |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
@@ -1245,17 +1216,14 @@ let tests =
                 |> Request.jsonApiHeaders
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "l"
-                                relationships =
-                                    {|
-                                        j =
-                                            {|
-                                                data = {| ``type`` = "j"; id = "someId" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "l"
+                            relationships = {|
+                                j = {|
+                                    data = {| ``type`` = "j"; id = "someId" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1314,11 +1282,10 @@ let tests =
                 Request.createWithClient testClient Post (Uri("http://example.com/qs"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "q"
-                                relationships = {| k = {| data = null |} |}
-                            |}
+                        data = {|
+                            ``type`` = "q"
+                            relationships = {| k = {| data = null |} |}
+                        |}
                     |}
                 |> Request.jsonApiHeaders
                 |> getResponse

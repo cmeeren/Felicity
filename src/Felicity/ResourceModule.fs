@@ -330,7 +330,9 @@ let private ensureCollectionNameIfNeeded<'ctx> (m: Type) =
             // relationship is gettable, and it may be possible to get related resources as
             // includes in a compound document even though the parent resource does not have a
             // self link.
-            | :? RelationshipHandlers<'ctx> as op when op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome ->
+            | :? RelationshipHandlers<'ctx> as op when
+                op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome
+                ->
                 failwith
                     $"Resource module '%s{m.Name}' has no collection name, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a collection name"
             | _ -> ())
@@ -356,7 +358,9 @@ let private ensureHasGetResourceOpIfNeeded<'ctx> (m: Type) =
             // relationship is gettable, and it may be possible to get related resources as
             // includes in a compound document even though the parent resource does not have a
             // self link.
-            | :? RelationshipHandlers<'ctx> as op when op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome ->
+            | :? RelationshipHandlers<'ctx> as op when
+                op.PostSelf.IsSome || op.PatchSelf.IsSome || op.DeleteSelf.IsSome
+                ->
                 failwith
                     $"Resource module '%s{m.Name}' has no GET resource operation, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a GET resource operation"
             | _ -> ())

@@ -72,8 +72,7 @@ module A =
     let a = define.Attribute.SimpleBool().Get(fun a -> a.A)
 
     let get =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .GetResource()
             .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyAResponse)
@@ -90,8 +89,7 @@ module B =
     let b = define.Attribute.SimpleInt().Get(fun b -> b.B)
 
     let get =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .GetResource()
             .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyBResponse)
@@ -124,11 +122,9 @@ module AB =
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
     let lookup =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
-            .Polymorphic
-            .LookupRes(
+            .Polymorphic.LookupRes(
                 (fun ctx id -> ctx.GetById id),
                 function
                 | A a -> A.resDef.PolymorphicFor a

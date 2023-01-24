@@ -93,15 +93,13 @@ module Article =
     // There are variants of Parsed and Set that allow parsing and setting to fail.
 
     let title =
-        define
-            .Attribute
+        define.Attribute
             .Parsed(ArticleTitle.toString, ArticleTitle.fromString)
             .Get(fun a -> a.Title)
             .Set(Article.setTitle)
 
     let body =
-        define
-            .Attribute
+        define.Attribute
             .Parsed(ArticleBody.toString, ArticleBody.fromString)
             .Get(fun a -> a.Body)
             .Set(Article.setBody)
@@ -111,8 +109,7 @@ module Article =
     // containing string-domain pairs.
 
     let articleType =
-        define
-            .Attribute
+        define.Attribute
             .Enum(ArticleType.toString, ArticleType.fromStringMap)
             .Get(fun a -> a.Type)
             .Set(Article.setType)
@@ -142,8 +139,7 @@ module Article =
     // link, but this isn't used in this example API.
 
     let author =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(Person.resourceDef)
             .GetAsync(Db.Person.authorForArticle)
             .Set(Article.setAuthor)
@@ -151,8 +147,7 @@ module Article =
 
 
     let comments =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Comment.resourceDef)
             .GetAsync(Db.Comment.allForArticle)
             .AfterModifySelfAsync(Db.Article.save)
@@ -170,16 +165,10 @@ module Article =
             parser
                 .For(ArticleSearchArgs.empty)
                 // Filter.Field(title) will give a filter parameter called filter[title].
-                .Add(
-                    ArticleSearchArgs.setTitle,
-                    Filter.Field(title)
-                )
+                .Add(ArticleSearchArgs.setTitle, Filter.Field(title))
                 // Add .List after the filter definition to allow multiple comma-separated
                 // values. The setter must then of course accept a list.
-                .Add(
-                    ArticleSearchArgs.setTypes,
-                    Filter.Field(articleType).List
-                )
+                .Add(ArticleSearchArgs.setTypes, Filter.Field(articleType).List)
                 // Two new things here. Firstly, the 'created' attribute is serialized as a
                 // DateTimeOffset, but all query parameters are strings. As a convenience,
                 // Felicity can handle query parameter value conversion to int/float/bool
@@ -190,33 +179,22 @@ module Article =
                 // needed here.) Secondly, we add an operator "ge" (greater-equals) to the
                 // query parameter name. This means the query parameter will be called
                 // filter[createdAt][ge]. The operator only affects the name of the parameter.
-                .Add(
-                    ArticleSearchArgs.setCreatedAfter,
-                    Filter.Field(createdAt).Operator("ge")
-                )
+                .Add(ArticleSearchArgs.setCreatedAfter, Filter.Field(createdAt).Operator("ge"))
                 .Add(ArticleSearchArgs.setCreatedBefore, Filter.Field(createdAt).Operator("le"))
                 // The Sort class is used to parse the 'sort' query parameter. For example, it
                 // can be parsed to a DU representing the fields available for sorting. It is
                 // parsed to 'a * bool where 'a is the domain type and the bool indicates
                 // whether to sort descending ('-' before the sort field).
-                .Add(
-                    ArticleSearchArgs.setSort,
-                    Sort.Enum(ArticleSort.fromStringMap)
-                )
+                .Add(ArticleSearchArgs.setSort, Sort.Enum(ArticleSort.fromStringMap))
                 // The Page class has parsers for the 'page[]' query parameter, parsing values
                 // as ints and checking that they are within sensible default bounds (e.g.
                 // non-negative or positive, depending on which page parameter it is). The
                 // limits can be overridden as shown below.
-                .Add(
-                    ArticleSearchArgs.setOffset,
-                    Page.Offset
-                )
+                .Add(ArticleSearchArgs.setOffset, Page.Offset)
                 .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
                 // Now we have a parser for ArticleSearchArgs. We need a parser for a list of
                 // domain entities, so we call the search function.
-                .BindAsync(
-                    Db.Article.search
-                ))
+                .BindAsync(Db.Article.search))
 
     // A POST operation creates an entity using the specified function. Below, the related
     // author's ID, title, and body are all required when creating a person. We pass in the
@@ -233,8 +211,7 @@ module Article =
     // setter has run. In AfterCreate we specify the function that persists the entity.
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser -> parser.For(Article.create, author, title, body))
             .AfterCreateAsync(Db.Article.save)
 
@@ -258,8 +235,7 @@ module Article =
     // A PATCH resource operation enables operations like PATCH /articles/123.
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .Patch()
             .AfterUpdateAsync(fun a -> async {
                 let a = a |> Article.setUpdated (Some DateTimeOffset.Now)
@@ -281,31 +257,25 @@ module Person =
     let resourceDef = define.Resource("person", id).CollectionName("persons")
 
     let firstName =
-        define
-            .Attribute
+        define.Attribute
             .Parsed(FirstName.toString, FirstName.fromString)
             .Get(fun p -> p.FirstName)
             .Set(Person.setFirstName)
 
     let lastName =
-        define
-            .Attribute
+        define.Attribute
             .Parsed(LastName.toString, LastName.fromString)
             .Get(fun p -> p.LastName)
             .Set(Person.setLastName)
 
     let twitter =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .Parsed(TwitterHandle.toString, TwitterHandle.fromString)
             .Get(fun p -> p.Twitter)
             .Set(Person.setTwitter)
 
     let gender =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .Enum(Gender.toString, Gender.fromStringMap)
             .Get(fun p -> p.Gender)
             .Set(Person.setGender)
@@ -328,10 +298,7 @@ module Person =
                 //
                 // which will give you a filter parameter called filter[twitter][isNull]
                 // accepting "true" or "false".
-                .Add(
-                    PersonSearchArgs.setTwitter,
-                    Filter.Field(twitter)
-                )
+                .Add(PersonSearchArgs.setTwitter, Filter.Field(twitter))
                 .Add(PersonSearchArgs.setGenders, Filter.Field(gender).List)
                 .Add(PersonSearchArgs.setSort, Sort.Enum(PersonSort.fromStringMap))
                 .Add(PersonSearchArgs.setOffset, Page.Offset)
@@ -339,8 +306,7 @@ module Person =
                 .BindAsync(Db.Person.search))
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser -> parser.For(Person.create, firstName, lastName))
             .AfterCreateAsync(Db.Person.save)
 
@@ -364,8 +330,7 @@ module Comment =
     let resourceDef = define.Resource("comment", id).CollectionName("comments")
 
     let body =
-        define
-            .Attribute
+        define.Attribute
             .Parsed(CommentBody.toString, CommentBody.fromString)
             .Get(fun c -> c.Body)
             .Set(Comment.setBody)
@@ -376,8 +341,7 @@ module Comment =
         define.Attribute.Nullable.SimpleDateTimeOffset().Get(fun c -> c.UpdatedAt)
 
     let author =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(Person.resourceDef)
             .GetAsync(Db.Person.authorForComment)
 
@@ -391,10 +355,7 @@ module Comment =
                 .Add(CommentSearchArgs.setAuthorId, Filter.Field(author))
                 // This will parse a query parameter named filter[author.firstName], using the
                 // information in Person.firstName for parsing the value.
-                .Add(
-                    CommentSearchArgs.setAuthorFirstName,
-                    Filter.Field(author, Person.firstName)
-                )
+                .Add(CommentSearchArgs.setAuthorFirstName, Filter.Field(author, Person.firstName))
                 .Add(CommentSearchArgs.setSort, Sort.Enum(CommentSort.fromStringMap))
                 .Add(CommentSearchArgs.setOffset, Page.Offset)
                 .Add(CommentSearchArgs.setLimit, Page.Limit.Max(20))
@@ -405,8 +366,7 @@ module Comment =
     // for the related resource type.
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser -> parser.For(Comment.create, author, article.Related(Article.lookup), body))
             .AfterCreateAsync(Db.Comment.save)
 
@@ -415,8 +375,7 @@ module Comment =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .Patch()
             .AfterUpdateAsync(fun c -> async {
                 let c = c |> Comment.setUpdated (Some DateTimeOffset.Now)

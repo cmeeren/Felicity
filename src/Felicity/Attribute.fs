@@ -715,10 +715,7 @@ module private AttributeParsers =
 
 
 type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
-    internal
-    (
-        mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-    ) =
+    internal (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>) =
 
     member _.MapSetContextTaskRes
         (mapSetCtx: 'ctx -> 'entity -> Task<Result<'mappedSetCtx, Error list>>)
@@ -753,8 +750,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
     member _.SimpleUnsafe
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
         : NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized> =
-        NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create
-            (name, mapSetCtx, id, (fun _ _ -> Ok >> Task.result))
+        NullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>
+            .Create(name, mapSetCtx, id, (fun _ _ -> Ok >> Task.result))
 
     member this.SimpleBool
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
@@ -809,15 +806,17 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
     member _.SimpleDateTimeOffset
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
         : NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string> =
-        NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>.Create
-            (name,
-             mapSetCtx,
-             stringifyDateTimeOffset,
-             (fun _ getInfo v ->
-                 v
-                 |> parseDateTimeOffset
-                 |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                 |> Task.result))
+        NullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>
+            .Create(
+                name,
+                mapSetCtx,
+                stringifyDateTimeOffset,
+                (fun _ getInfo v ->
+                    v
+                    |> parseDateTimeOffset
+                    |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
+                    |> Task.result)
+            )
 
     member this.SimpleGuid
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
@@ -835,7 +834,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>,
             [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string
         ) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
-        NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create (name, mapSetCtx, fromDomain, toDomain)
+        NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>
+            .Create(name, mapSetCtx, fromDomain, toDomain)
 
     member this.ParsedTaskRes
         (
@@ -1180,12 +1180,13 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 | false, _ -> Error [ invalidEnum (getInfo serialized) allowed ]
                 | true, attr -> Ok attr
 
-        NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>.Create
-            (name, mapSetCtx, fromDomain, (fun _ getInfo v -> v |> toDomain getInfo |> Task.result))
+        NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>
+            .Create(name, mapSetCtx, fromDomain, (fun _ getInfo v -> v |> toDomain getInfo |> Task.result))
 
 
 
-type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>) =
+type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>)
+    =
 
     member _.Nullable = NullableAttributeHelper<'ctx, 'setCtx, 'entity>(mapSetCtx)
 
@@ -1220,8 +1221,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
     member _.SimpleUnsafe
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
         : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized> =
-        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>.Create
-            (name, mapSetCtx, id, (fun _ _ -> Ok >> Task.result))
+        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'serialized, 'serialized>
+            .Create(name, mapSetCtx, id, (fun _ _ -> Ok >> Task.result))
 
     member this.SimpleBool
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
@@ -1276,15 +1277,17 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
     member _.SimpleDateTimeOffset
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
         : NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string> =
-        NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>.Create
-            (name,
-             mapSetCtx,
-             stringifyDateTimeOffset,
-             (fun _ getInfo v ->
-                 v
-                 |> parseDateTimeOffset
-                 |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                 |> Task.result))
+        NonNullableAttribute<'ctx, 'setCtx, 'entity, DateTimeOffset, string>
+            .Create(
+                name,
+                mapSetCtx,
+                stringifyDateTimeOffset,
+                (fun _ getInfo v ->
+                    v
+                    |> parseDateTimeOffset
+                    |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
+                    |> Task.result)
+            )
 
     member this.SimpleGuid
         ([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string)
@@ -1302,7 +1305,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>,
             [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string
         ) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
-        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create (name, mapSetCtx, fromDomain, toDomain)
+        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>
+            .Create(name, mapSetCtx, fromDomain, toDomain)
 
     member this.ParsedTaskRes
         (
@@ -1645,5 +1649,5 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             | false, _ -> Error [ invalidEnum (getInfo serialized) allowed ]
             | true, attr -> Ok attr
 
-        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>.Create
-            (name, mapSetCtx, fromDomain, (fun _ getInfo v -> v |> toDomain getInfo |> Task.result))
+        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, string>
+            .Create(name, mapSetCtx, fromDomain, (fun _ getInfo v -> v |> toDomain getInfo |> Task.result))

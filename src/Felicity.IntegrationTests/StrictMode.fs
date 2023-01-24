@@ -33,8 +33,7 @@ module A =
                 .IgnoreStrictMode(Query.String("ignoredQueryParam")))
 
     let post =
-        define
-            .Operation
+        define.Operation
             .PostAsyncRes(fun ctx parser -> async {
                 // Also test free-standing parsing using RequestParser
                 let! _ = parser.For((fun _ -> ()), Query.String("customQueryParam")).ParseAsync()
@@ -47,24 +46,21 @@ module A =
     let get = define.Operation.GetResource()
 
     let toOne =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(resDef)
             .Get(id)
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let toOneNullable =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .Get(Some)
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let toMany =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .Get(fun _ -> [])
             .SetAll(fun _ a -> a)
@@ -73,8 +69,7 @@ module A =
             .AfterModifySelf(ignore)
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .Patch()
             .AddCustomSetter(fun ctx a parser ->
                 parser
@@ -85,8 +80,7 @@ module A =
     let delete = define.Operation.Delete(fun _ -> ())
 
     let customOpWithoutValidation =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
             .PostAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -94,8 +88,7 @@ module A =
             .DeleteAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
 
     let customOpWithValidation =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams("customQueryParam")
             .GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -181,12 +174,11 @@ let tests =
                 Request.createWithClient client Post (Uri("http://example.com/as"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| attr = null |}
-                                relationships = {| rel = {|  |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| attr = null |}
+                            relationships = {| rel = {| |} |}
+                        |}
                     |}
                 |> Request.jsonApiHeaders
                 |> getResponse
@@ -241,12 +233,11 @@ let tests =
                     ))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| attr = null |}
-                                relationships = {| rel = {|  |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| attr = null |}
+                            relationships = {| rel = {| |} |}
+                        |}
                     |}
                 |> Request.jsonApiHeaders
                 |> getResponse
@@ -300,13 +291,12 @@ let tests =
                 Request.createWithClient client Patch (Uri("http://example.com/as/1"))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "1"
-                                attributes = {| attr = null |}
-                                relationships = {| rel = {|  |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "1"
+                            attributes = {| attr = null |}
+                            relationships = {| rel = {| |} |}
+                        |}
                     |}
                 |> Request.jsonApiHeaders
                 |> getResponse
@@ -364,13 +354,12 @@ let tests =
                     ))
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "1"
-                                attributes = {| attr = null |}
-                                relationships = {| rel = {|  |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "1"
+                            attributes = {| attr = null |}
+                            relationships = {| rel = {| |} |}
+                        |}
                     |}
                 |> Request.jsonApiHeaders
                 |> getResponse

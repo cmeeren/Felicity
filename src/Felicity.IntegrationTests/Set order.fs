@@ -17,8 +17,7 @@ module X =
     let get = define.Operation.GetResource()
 
     let a =
-        define
-            .Attribute
+        define.Attribute
             .SimpleString()
             .SetOrder(5)
             .Set(fun (Ctx xs) _ e ->
@@ -26,17 +25,14 @@ module X =
                 e)
 
     let b =
-        define
-            .Attribute
+        define.Attribute
             .SimpleString()
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
                 e)
 
     let c =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .SetOrder(-3)
             .Set(fun (Ctx xs) _ e ->
@@ -44,17 +40,14 @@ module X =
                 e)
 
     let d =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
                 e)
 
     let e =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(resDef)
             .SetOrder(20)
             .Set(fun (Ctx xs) _ e ->
@@ -63,8 +56,7 @@ module X =
             .AfterModifySelf(ignore)
 
     let f =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(resDef)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
@@ -72,8 +64,7 @@ module X =
             .AfterModifySelf(ignore)
 
     let g =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .SetOrder(-80)
             .Set(fun (Ctx xs) _ e ->
@@ -82,8 +73,7 @@ module X =
             .AfterModifySelf(ignore)
 
     let h =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
@@ -91,8 +81,7 @@ module X =
             .AfterModifySelf(ignore)
 
     let i =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .SetOrder(6)
             .SetAll(fun (Ctx xs) _ e ->
@@ -101,8 +90,7 @@ module X =
             .AfterModifySelf(ignore)
 
     let j =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .SetAll(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
@@ -126,44 +114,35 @@ let tests =
                 Request.post ctx "/as"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes =
-                                    {|
-                                        a = "ignored"
-                                        b = "ignored"
-                                        c = "ignored"
-                                        d = "ignored"
-                                    |}
-                                relationships =
-                                    {|
-                                        e =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        f =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        g =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        h =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        i =
-                                            {|
-                                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                            |}
-                                        j =
-                                            {|
-                                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {|
+                                a = "ignored"
+                                b = "ignored"
+                                c = "ignored"
+                                d = "ignored"
                             |}
+                            relationships = {|
+                                e = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                f = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                g = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                h = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                i = {|
+                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
+                                |}
+                                j = {|
+                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
+                                |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -180,45 +159,36 @@ let tests =
                 Request.patch ctx "/as/someId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "someId"
-                                attributes =
-                                    {|
-                                        a = "ignored"
-                                        b = "ignored"
-                                        c = "ignored"
-                                        d = "ignored"
-                                    |}
-                                relationships =
-                                    {|
-                                        e =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        f =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        g =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        h =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "ignored" |}
-                                            |}
-                                        i =
-                                            {|
-                                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                            |}
-                                        j =
-                                            {|
-                                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "someId"
+                            attributes = {|
+                                a = "ignored"
+                                b = "ignored"
+                                c = "ignored"
+                                d = "ignored"
                             |}
+                            relationships = {|
+                                e = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                f = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                g = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                h = {|
+                                    data = {| ``type`` = "a"; id = "ignored" |}
+                                |}
+                                i = {|
+                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
+                                |}
+                                j = {|
+                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
+                                |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 

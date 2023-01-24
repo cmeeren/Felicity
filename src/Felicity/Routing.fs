@@ -227,7 +227,7 @@ let internal jsonApiEndpoints
                          verifyPathCase expectedCollPath
                          >=> validateRequest
                          >=> fun next (httpCtx: HttpContext) ->
-                                 handleErrors [ methodNotAllowed httpCtx.Request.Method allowHeader ] next httpCtx)
+                             handleErrors [ methodNotAllowed httpCtx.Request.Method allowHeader ] next httpCtx)
 
 
                     // Specific resource operations
@@ -301,7 +301,7 @@ let internal jsonApiEndpoints
                             verifyPathCase expectedPath
                             >=> validateRequest
                             >=> fun next (httpCtx: HttpContext) ->
-                                    handleErrors [ methodNotAllowed httpCtx.Request.Method allowHeader ] next httpCtx)
+                                handleErrors [ methodNotAllowed httpCtx.Request.Method allowHeader ] next httpCtx)
 
 
                         // Resource relationship 'related' operations
@@ -327,15 +327,15 @@ let internal jsonApiEndpoints
                                 verifyPathCase expectedPath
                                 >=> validateRequest
                                 >=> fun next ctx ->
-                                        let allowHeader =
-                                            [
-                                                if rel.getRelated.IsSome then
-                                                    "GET"
-                                                    "HEAD"
-                                            ]
-                                            |> String.concat ", "
+                                    let allowHeader =
+                                        [
+                                            if rel.getRelated.IsSome then
+                                                "GET"
+                                                "HEAD"
+                                        ]
+                                        |> String.concat ", "
 
-                                        handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx)
+                                    handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx)
 
 
                         // Resource relationship 'self' operations
@@ -424,21 +424,21 @@ let internal jsonApiEndpoints
                                 verifyPathCase expectedPath
                                 >=> validateRequest
                                 >=> fun next ctx ->
-                                        let allowHeader =
-                                            [
-                                                if rel.getSelf.IsSome then
-                                                    "GET"
-                                                    "HEAD"
-                                                if rel.patchSelf.IsSome then
-                                                    "PATCH"
-                                                if rel.postSelf.IsSome then
-                                                    "POST"
-                                                if rel.deleteSelf.IsSome then
-                                                    "DELETE"
-                                            ]
-                                            |> String.concat ", "
+                                    let allowHeader =
+                                        [
+                                            if rel.getSelf.IsSome then
+                                                "GET"
+                                                "HEAD"
+                                            if rel.patchSelf.IsSome then
+                                                "PATCH"
+                                            if rel.postSelf.IsSome then
+                                                "POST"
+                                            if rel.deleteSelf.IsSome then
+                                                "DELETE"
+                                        ]
+                                        |> String.concat ", "
 
-                                        handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx)
+                                    handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx)
 
 
 
@@ -562,16 +562,16 @@ let internal jsonApiEndpoints
                                 verifyPathCase expectedPath
                                 >=> validateRequest
                                 >=> fun next ctx ->
-                                        handleErrors
-                                            [
-                                                customOpVerbNotDefinedForAnyResource
-                                                    linkName
-                                                    ctx.Request.Method
-                                                    collName
-                                                    (getLinkAllowHeader link)
-                                            ]
-                                            next
-                                            ctx)
+                                    handleErrors
+                                        [
+                                            customOpVerbNotDefinedForAnyResource
+                                                linkName
+                                                ctx.Request.Method
+                                                collName
+                                                (getLinkAllowHeader link)
+                                        ]
+                                        next
+                                        ctx)
 
 
                         // Fallbacks

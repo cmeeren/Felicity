@@ -172,16 +172,14 @@ module A =
     let a = define.Attribute.SimpleBool().Get(fun a -> a.A).SetRes(fun ctx -> ctx.SetA)
 
     let aMapped =
-        define
-            .Attribute
+        define.Attribute
             .MapSetContextRes(fun ctx -> ctx.MapCtx ctx)
             .SimpleBool()
             .Get(fun a -> a.A)
             .SetRes(fun (ctx: MappedCtx) -> ctx.SetA)
 
     let aEntityMapped =
-        define
-            .Attribute
+        define.Attribute
             .MapSetContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .SimpleBool()
             .Get(fun a -> a.A)
@@ -190,35 +188,27 @@ module A =
     let x = define.Attribute.SimpleString().Get(fun a -> a.X).Set(ADomain.setX)
 
     let nullable =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun a -> a.Nullable)
             .Set(ADomain.setNullable)
 
     let nullableMapped =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .MapSetContextRes(fun ctx -> ctx.MapCtx ctx)
             .SimpleString()
             .Get(fun a -> a.Nullable)
             .Set(fun (_ctx: MappedCtx) x a -> ADomain.setNullable x a)
 
     let nullableEntityMapped =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .MapSetContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .SimpleString()
             .Get(fun a -> a.Nullable)
             .Set(fun (_ctx: MappedCtx) x a -> ADomain.setNullable x a)
 
     let nullableNotNullWhenSet =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun a -> a.NullableNotNullWhenSet)
             .SetNonNull(ADomain.setNullableNotNullWhenSet)
@@ -226,8 +216,7 @@ module A =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .Patch()
             .BeforeUpdateRes(fun (ctx: MappedCtx) a -> ctx.BeforeUpdateA a)
@@ -251,8 +240,7 @@ module B =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .Patch()
             .AfterUpdate(fun (ctx: MappedCtx) b -> ctx.Db.SaveB b)
@@ -278,8 +266,7 @@ module D =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .Patch()
             .AfterUpdate(fun (ctx: MappedCtx) a -> ctx.AfterUpdateA a)
@@ -300,11 +287,9 @@ module AB =
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
     let lookup =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
-            .Polymorphic
-            .Lookup(
+            .Polymorphic.Lookup(
                 (fun (ctx: MappedCtx) id -> ctx.Db.TryGet id),
                 function
                 | A a -> A.resDef.PolymorphicFor a
@@ -416,7 +401,9 @@ module A6 =
     let patch = define.Operation.Patch().AfterUpdate(ignore)
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
 
 type Ctx7 = Ctx7 of Db
@@ -430,8 +417,7 @@ module A7 =
     let readonly = define.Attribute.SimpleString().Get(fun (a: A) -> a.ReadOnly)
 
     let x =
-        define
-            .Attribute
+        define.Attribute
             .SimpleString()
             .Get(fun a -> a.X)
             .Set(fun _ _ -> failwith<A> "not used")
@@ -447,8 +433,7 @@ module A7 =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .Patch()
             .AddCustomSetter(fun ctx a parser ->
                 parser
@@ -490,31 +475,25 @@ module A8 =
     let lookup = define.Operation.Lookup(fun (Ctx8 d) _ -> Some !d)
 
     let nonNullable =
-        define
-            .Attribute
+        define.Attribute
             .SimpleDateTimeOffset()
             .Get(fun d -> d.NonNullable)
             .Set(fun v d -> { d with NonNullable = v })
 
     let nonNullableAllowMissingOffset =
-        define
-            .Attribute
+        define.Attribute
             .SimpleDateTimeOffsetAllowMissingOffset()
             .Get(fun d -> d.NonNullable)
             .Set(fun v d -> { d with NonNullable = v })
 
     let nullable =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleDateTimeOffset()
             .Get(fun d -> d.Nullable)
             .Set(fun v (d: D) -> { d with Nullable = v })
 
     let nullableAllowMissingOffset =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleDateTimeOffsetAllowMissingOffset()
             .Get(fun d -> d.Nullable)
             .Set(fun v (d: D) -> { d with Nullable = v })
@@ -539,18 +518,16 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = null
-                                        nullableNotNullWhenSet = "bar"
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = null
+                                nullableNotNullWhenSet = "bar"
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -592,18 +569,16 @@ let tests =
                 Request.patch ctx "/abs/a1/"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = null
-                                        nullableNotNullWhenSet = "bar"
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = null
+                                nullableNotNullWhenSet = "bar"
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -618,12 +593,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| aMapped = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| aMapped = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -645,12 +619,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| aEntityMapped = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| aEntityMapped = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -676,12 +649,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| aMapped = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| aMapped = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -705,12 +677,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| aEntityMapped = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| aEntityMapped = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -739,12 +710,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| aEntityMapped = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| aEntityMapped = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -759,12 +729,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| nullableMapped = "foobar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| nullableMapped = "foobar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -786,12 +755,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| nullableEntityMapped = "foobar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| nullableEntityMapped = "foobar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -817,12 +785,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| nullableMapped = "foobar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| nullableMapped = "foobar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -846,12 +813,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| nullableEntityMapped = "foobar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| nullableEntityMapped = "foobar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -880,12 +846,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| nullableEntityMapped = "foobar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| nullableEntityMapped = "foobar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -904,12 +869,11 @@ let tests =
                 Request.patch ctx "/abs/b2"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "b"
-                                id = "b2"
-                                attributes = {| b = 2; y = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "b"
+                            id = "b2"
+                            attributes = {| b = 2; y = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -938,12 +902,11 @@ let tests =
                 Request.patch ctx "/as/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| readonly = "foo"; x = "bar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| readonly = "foo"; x = "bar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -972,12 +935,11 @@ let tests =
                 Request.patch ctx "/as/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| x = "bar" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| x = "bar" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1006,12 +968,11 @@ let tests =
                 Request.patch ctx "/as/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| y = "foo" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| y = "foo" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1035,12 +996,11 @@ let tests =
                 Request.patch ctx "/abs/b2"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "b"
-                                id = "b2"
-                                attributes = {| b = "2" |}
-                            |}
+                        data = {|
+                            ``type`` = "b"
+                            id = "b2"
+                            attributes = {| b = "2" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1085,18 +1045,16 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = null
-                                        nullableNotNullWhenSet = "bar"
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = null
+                                nullableNotNullWhenSet = "bar"
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1272,12 +1230,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1306,12 +1263,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| a = true; x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| a = true; x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1340,12 +1296,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| a = true; x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| a = true; x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1376,12 +1331,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| readonly = "foo" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| readonly = "foo" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1405,12 +1359,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = {| nullableNotNullWhenSet = null |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {| nullableNotNullWhenSet = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1531,11 +1484,10 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                id = "a1"
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            id = "a1"
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1554,12 +1506,11 @@ let tests =
                 Request.patch (Ctx.WithDb db) "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = null
-                                id = "a1"
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            ``type`` = null
+                            id = "a1"
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1628,12 +1579,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes = null
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = null
+                        |}
                     |}
                 |> getResponse
 
@@ -1657,12 +1607,11 @@ let tests =
                 Request.patch ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                relationships = null
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            relationships = null
+                        |}
                     |}
                 |> getResponse
 
@@ -1686,20 +1635,17 @@ let tests =
                 Request.patchWithoutStrictMode ctx "/abs/a1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "a1"
-                                attributes =
-                                    {|
-                                        a = true
-                                        nonExistentAttribute = "foo"
-                                    |}
-                                relationships =
-                                    {|
-                                        nonExistentRelationship = {| data = null |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "a1"
+                            attributes = {|
+                                a = true
+                                nonExistentAttribute = "foo"
                             |}
+                            relationships = {|
+                                nonExistentRelationship = {| data = null |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1718,15 +1664,13 @@ let tests =
                 Request.patch ctx "/ds/d1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "d"
-                                id = "d1"
-                                attributes =
-                                    {|
-                                        nonNullable = "2000-01-01T15:49:23"
-                                    |}
+                        data = {|
+                            ``type`` = "d"
+                            id = "d1"
+                            attributes = {|
+                                nonNullable = "2000-01-01T15:49:23"
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1755,12 +1699,11 @@ let tests =
                 Request.patch ctx "/ds/d1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "d"
-                                id = "d1"
-                                attributes = {| nullable = "2000-01-01T15:49:23" |}
-                            |}
+                        data = {|
+                            ``type`` = "d"
+                            id = "d1"
+                            attributes = {| nullable = "2000-01-01T15:49:23" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1790,16 +1733,14 @@ let tests =
                 Request.patch ctx "/ds/d1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "d"
-                                id = "d1"
-                                attributes =
-                                    {|
-                                        nonNullable = "2000-01-01T15:49:23Z"
-                                        nullable = "2000-01-01T15:49:23+05:00"
-                                    |}
+                        data = {|
+                            ``type`` = "d"
+                            id = "d1"
+                            attributes = {|
+                                nonNullable = "2000-01-01T15:49:23Z"
+                                nullable = "2000-01-01T15:49:23+05:00"
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1838,16 +1779,14 @@ let tests =
                 Request.patch ctx "/ds/d1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "d"
-                                id = "d1"
-                                attributes =
-                                    {|
-                                        nonNullableAllowMissingOffset = "2000-01-01T15:49:23"
-                                        nullableAllowMissingOffset = "2000-01-01T15:49:23"
-                                    |}
+                        data = {|
+                            ``type`` = "d"
+                            id = "d1"
+                            attributes = {|
+                                nonNullableAllowMissingOffset = "2000-01-01T15:49:23"
+                                nullableAllowMissingOffset = "2000-01-01T15:49:23"
                             |}
+                        |}
                     |}
                 |> getResponse
 

@@ -153,8 +153,7 @@ module Parent1 = // set and get - PATCH resource/self OK
     let get = define.Operation.GetResource()
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -171,8 +170,7 @@ module Parent1 = // set and get - PATCH resource/self OK
             .ModifyPatchSelfOkResponse(fun ctx -> ctx.ModifyPatchSelfOkResponse)
 
     let otherChild =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -191,8 +189,7 @@ module Parent1 = // set and get - PATCH resource/self OK
             .ModifyPatchSelfAcceptedResponse(fun ctx -> ctx.ModifyPatchSelfAcceptedResponse)
 
     let nullableNotNullWhenSet =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -223,8 +220,7 @@ module Parent2 = // set without get - PATCH resource OK, PATCH self error
     let get = define.Operation.GetResource()
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -248,8 +244,7 @@ module Parent3 = // no set - PATCH resource/self error
     let get = define.Operation.GetResource()
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -331,8 +326,7 @@ module Parent7 = // ETag precondition
         define.Preconditions.ETag(fun _ -> EntityTagHeaderValue.FromString false "valid-etag")
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .Get(fun ctx -> None)
             .Set(fun ctx e -> e)
@@ -353,8 +347,7 @@ module Parent8 = // LastModified precondition
         define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .Get(fun ctx -> None)
             .Set(fun ctx e -> e)
@@ -372,11 +365,12 @@ module Parent9 = // Optional precondition
     let get = define.Operation.GetResource()
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .Get(fun ctx -> None)
             .Set(fun ctx e -> e)
@@ -396,8 +390,7 @@ module MapCtxCompileTest =
     let get = define.Operation.GetResource()
 
     let rel =
-        define
-            .Relationship
+        define.Relationship
             .MapSetContext(fun _ -> MappedCtx)
             .ToOneNullable(resDef)
             .Get(fun _ _ -> failwith "never called")
@@ -423,26 +416,21 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1?include=child,otherChild,nullableNotNullWhenSet"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                        otherChild =
-                                            {|
-                                                data = {| ``type`` = "child1"; id = "c1" |}
-                                            |}
-                                        nullableNotNullWhenSet =
-                                            {|
-                                                data = {| ``type`` = "child1"; id = "c1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
+                                otherChild = {|
+                                    data = {| ``type`` = "child1"; id = "c1" |}
+                                |}
+                                nullableNotNullWhenSet = {|
+                                    data = {| ``type`` = "child1"; id = "c1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -475,16 +463,14 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1?include=child,otherChild"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child = {| data = null |}
-                                        otherChild = {| data = null |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {| data = null |}
+                                otherChild = {| data = null |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -512,18 +498,15 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p2?include=child"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent2"
-                                id = "p2"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child1"; id = "c1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent2"
+                            id = "p2"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child1"; id = "c1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -554,18 +537,15 @@ let tests1 =
                 Request.patch ctx "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -589,18 +569,15 @@ let tests1 =
                 Request.patch ctx "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -624,18 +601,15 @@ let tests1 =
                 Request.patch ctx "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -664,18 +638,15 @@ let tests1 =
                 Request.patch ctx "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -704,18 +675,15 @@ let tests1 =
                 Request.patch ctx "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        otherChild =
-                                            {|
-                                                data = {| ``type`` = "child1"; id = "c1" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                otherChild = {|
+                                    data = {| ``type`` = "child1"; id = "c1" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -739,18 +707,15 @@ let tests1 =
                 Request.patch ctx "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        otherChild =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                otherChild = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -774,18 +739,15 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p3"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent3"
-                                id = "p3"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = "c2" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent3"
+                            id = "p3"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = "c2" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -804,15 +766,13 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        nullableNotNullWhenSet = {| data = null |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                nullableNotNullWhenSet = {| data = null |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -834,12 +794,11 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships = {| child = obj () |}
-                            |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {| child = obj () |}
+                        |}
                     |}
                 |> getResponse
 
@@ -861,18 +820,15 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "invalid"; id = "foo" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "invalid"; id = "foo" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -896,15 +852,13 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child = {| data = {| id = "foo" |} |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {| data = {| id = "foo" |} |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -923,18 +877,15 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = null; id = "foo" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = null; id = "foo" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -953,15 +904,13 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child = {| data = {| ``type`` = "child2" |} |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {| data = {| ``type`` = "child2" |} |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -980,18 +929,15 @@ let tests1 =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "parent1"
-                                id = "p1"
-                                relationships =
-                                    {|
-                                        child =
-                                            {|
-                                                data = {| ``type`` = "child2"; id = null |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "parent1"
+                            id = "p1"
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child2"; id = null |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 

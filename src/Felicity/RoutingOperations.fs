@@ -359,7 +359,8 @@ module internal RoutingOperations =
         |> Array.collect (fun m ->
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<RelationshipHandlers<'ctx>>)
-            |> Array.map (fun op -> op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
+            |> Array.map (fun op ->
+                op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
         |> Array.groupBy (fun (op, _, _) -> op.Name)
         |> Array.map (fun (relName, opsAndResDefs) ->
             let opsMap =
@@ -505,7 +506,8 @@ module internal RoutingOperations =
         |> Array.collect (fun m ->
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<CustomOperation<'ctx>>)
-            |> Array.map (fun op -> op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
+            |> Array.map (fun op ->
+                op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
         |> Array.groupBy (fun (op, _, _) -> op.Name)
         |> Array.map (fun (opName, opsAndResDefs) ->
 
@@ -547,7 +549,8 @@ module internal RoutingOperations =
                         Some
                         <| fun getValidationHandler ctx req resDef entity ->
                             match opsMap.TryGetValue resDef.TypeName with
-                            | false, _ -> handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
+                            | false, _ ->
+                                handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
                             | true, (op, _) ->
                                 match op.Get with
                                 | None ->
@@ -567,7 +570,8 @@ module internal RoutingOperations =
                         Some
                         <| fun getValidationHandler ctx req resDef entity ->
                             match opsMap.TryGetValue resDef.TypeName with
-                            | false, _ -> handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
+                            | false, _ ->
+                                handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
                             | true, (op, prec) ->
                                 match op.Post with
                                 | None ->
@@ -587,7 +591,8 @@ module internal RoutingOperations =
                         Some
                         <| fun getValidationHandler ctx req resDef entity ->
                             match opsMap.TryGetValue resDef.TypeName with
-                            | false, _ -> handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
+                            | false, _ ->
+                                handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
                             | true, (op, prec) ->
                                 match op.Patch with
                                 | None ->
@@ -607,7 +612,8 @@ module internal RoutingOperations =
                         Some
                         <| fun getValidationHandler ctx req resDef entity ->
                             match opsMap.TryGetValue resDef.TypeName with
-                            | false, _ -> handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
+                            | false, _ ->
+                                handleErrors [ customOpNotDefinedPolymorphic opName resDef.TypeName collName ]
                             | true, (op, prec) ->
                                 match op.Delete with
                                 | None ->

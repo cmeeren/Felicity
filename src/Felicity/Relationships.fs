@@ -485,8 +485,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
 
 
     member this.Related(getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
-        ToOneRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create
-            (this.name, this.OptionalWithIdentifier, getRelated)
+        ToOneRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>
+            .Create(this.name, this.OptionalWithIdentifier, getRelated)
 
 
     member this.Included(getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -574,8 +574,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                     | Some parsers ->
                                         let primaryResourceTypes = parsers.Keys |> Seq.toList
 
-                                        httpCtx
-                                            .RequestServices
+                                        httpCtx.RequestServices
                                             .GetRequiredService<FieldTracker<'ctx>>()
                                             .TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
 
@@ -624,8 +623,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                 }
 
                                 let! fieldTrackerHandler =
-                                    httpCtx
-                                        .RequestServices
+                                    httpCtx.RequestServices
                                         .GetRequiredService<FieldTracker<'ctx>>()
                                         .TrackFields(
                                             [ resDef.TypeName ],
@@ -723,14 +721,15 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                                             let handler =
                                                                 setStatusCode 202
                                                                 >=> this.modifyPatchSelfAcceptedResponse
-                                                                        setCtx
-                                                                        (unbox<'entity> entity2)
+                                                                    setCtx
+                                                                    (unbox<'entity> entity2)
 
                                                             return! handler next httpCtx
                                                         else
                                                             match! getRelated ctx (unbox<'entity> entity3) with
                                                             | Skip ->
-                                                                let logger = httpCtx.GetLogger("Felicity.Relationships")
+                                                                let logger =
+                                                                    httpCtx.GetLogger("Felicity.Relationships")
 
                                                                 logger.LogError(
                                                                     "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
@@ -769,8 +768,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                                                 }
 
                                                                 let! fieldTrackerHandler =
-                                                                    httpCtx
-                                                                        .RequestServices
+                                                                    httpCtx.RequestServices
                                                                         .GetRequiredService<FieldTracker<'ctx>>()
                                                                         .TrackFields(
                                                                             [ resDef.TypeName ],
@@ -783,9 +781,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                                                 let handler =
                                                                     setStatusCode 200
                                                                     >=> this.modifyPatchSelfOkResponse
-                                                                            setCtx
-                                                                            (unbox<'entity> entity3)
-                                                                            relatedEntity
+                                                                        setCtx
+                                                                        (unbox<'entity> entity3)
+                                                                        relatedEntity
                                                                     >=> fieldTrackerHandler
                                                                     >=> jsonApiWithETag<'ctx> doc
 
@@ -1447,8 +1445,8 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
                 }
             }
 
-        ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (this.name, nonNullIdGetter, this.getRelated)
+        ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(this.name, nonNullIdGetter, this.getRelated)
 
 
 type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
@@ -1788,8 +1786,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
 
     member this.Related(getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
-        ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create
-            (this.name, this.OptionalWithIdentifier, getRelated)
+        ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>
+            .Create(this.name, this.OptionalWithIdentifier, getRelated)
 
 
     member this.Included(getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -1884,8 +1882,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                     | Some parsers ->
                                         let primaryResourceTypes = parsers.Keys |> Seq.toList
 
-                                        httpCtx
-                                            .RequestServices
+                                        httpCtx.RequestServices
                                             .GetRequiredService<FieldTracker<'ctx>>()
                                             .TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
 
@@ -1936,8 +1933,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                 }
 
                                 let! fieldTrackerHandler =
-                                    httpCtx
-                                        .RequestServices
+                                    httpCtx.RequestServices
                                         .GetRequiredService<FieldTracker<'ctx>>()
                                         .TrackFields(
                                             [ resDef.TypeName ],
@@ -2017,7 +2013,12 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                             relatedResourceNotFound id.``type`` id.id "/data"
                                                         ]))
                                                 |> TaskResult.bind (fun relIdWithIdentifier ->
-                                                    set ctx setCtx "/data" relIdWithIdentifier (unbox<'entity> entity1))
+                                                    set
+                                                        ctx
+                                                        setCtx
+                                                        "/data"
+                                                        relIdWithIdentifier
+                                                        (unbox<'entity> entity1))
 
                                             match entity2Res with
                                             | Error errs -> return! handleErrors errs next httpCtx
@@ -2034,8 +2035,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                         let handler =
                                                             setStatusCode 202
                                                             >=> this.modifyPatchSelfAcceptedResponse
-                                                                    setCtx
-                                                                    (unbox<'entity> entity3)
+                                                                setCtx
+                                                                (unbox<'entity> entity3)
 
                                                         return! handler next httpCtx
                                                     else
@@ -2078,8 +2079,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                             }
 
                                                             let! fieldTrackerHandler =
-                                                                httpCtx
-                                                                    .RequestServices
+                                                                httpCtx.RequestServices
                                                                     .GetRequiredService<FieldTracker<'ctx>>()
                                                                     .TrackFields(
                                                                         [ resDef.TypeName ],
@@ -2092,9 +2092,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                             let handler =
                                                                 setStatusCode 200
                                                                 >=> this.modifyPatchSelfOkResponse
-                                                                        setCtx
-                                                                        (unbox<'entity> entity3)
-                                                                        relatedEntity
+                                                                    setCtx
+                                                                    (unbox<'entity> entity3)
+                                                                    relatedEntity
                                                                 >=> fieldTrackerHandler
                                                                 >=> jsonApiWithETag<'ctx> doc
 
@@ -3209,7 +3209,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                     match idParsers.TryGetValue id.``type`` with
                                     | false, _ ->
                                         let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                        let pointer = "/data/relationships/" + this.name + "/data/" + string i + "/type"
+
+                                        let pointer =
+                                            "/data/relationships/" + this.name + "/data/" + string i + "/type"
 
                                         Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
                                         |> Task.result
@@ -3273,8 +3275,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
 
 
     member this.Related(getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) =
-        ToManyRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>.Create
-            (this.name, this.OptionalWithIdentifier, getRelated)
+        ToManyRelationshipRelatedGetter<'ctx, 'entity, 'lookupType, 'relatedId>
+            .Create(this.name, this.OptionalWithIdentifier, getRelated)
 
 
     member this.Included(getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>) =
@@ -3375,7 +3377,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                                     // Ignore ID parsing errors; in the context of fetching a related resource by ID,
                                                     // this just means that the resource does not exist, which is a more helpful result.
                                                     |> TaskResult.mapError (fun _ -> [
-                                                        relatedResourceNotFound id.``type`` id.id ("/data/" + string i)
+                                                        relatedResourceNotFound
+                                                            id.``type``
+                                                            id.id
+                                                            ("/data/" + string i)
                                                     ]))
                                             |> TaskResult.bind (fun domain ->
                                                 f ctx setCtx "/data" (Array.toList domain) (unbox<'entity> entity1))
@@ -3384,7 +3389,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                         | Error errs -> return! handleErrors errs next httpCtx
                                         | Ok entity2 ->
                                             match!
-                                                afterModifySelf setCtx (unbox<'entity> entity0) (unbox<'entity> entity2)
+                                                afterModifySelf
+                                                    setCtx
+                                                    (unbox<'entity> entity0)
+                                                    (unbox<'entity> entity2)
                                             with
                                             | Error errors -> return! handleErrors errors next httpCtx
                                             | Ok entity3 ->
@@ -3434,8 +3442,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                                         }
 
                                                         let! fieldTrackerHandler =
-                                                            httpCtx
-                                                                .RequestServices
+                                                            httpCtx.RequestServices
                                                                 .GetRequiredService<FieldTracker<'ctx>>()
                                                                 .TrackFields(
                                                                     [ resDef.TypeName ],
@@ -3448,9 +3455,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                                         let handler =
                                                             setStatusCode 200
                                                             >=> modifyOkResponse
-                                                                    setCtx
-                                                                    (unbox<'entity> entity3)
-                                                                    relatedEntities
+                                                                setCtx
+                                                                (unbox<'entity> entity3)
+                                                                relatedEntities
                                                             >=> fieldTrackerHandler
                                                             >=> jsonApiWithETag<'ctx> doc
 
@@ -3517,8 +3524,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                         | Some parsers ->
                                             let primaryResourceTypes = parsers.Keys |> Seq.toList
 
-                                            httpCtx
-                                                .RequestServices
+                                            httpCtx.RequestServices
                                                 .GetRequiredService<FieldTracker<'ctx>>()
                                                 .TrackFields(
                                                     primaryResourceTypes,
@@ -3601,8 +3607,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                                 }
 
                                 let! fieldTrackerHandler =
-                                    httpCtx
-                                        .RequestServices
+                                    httpCtx.RequestServices
                                         .GetRequiredService<FieldTracker<'ctx>>()
                                         .TrackFields(
                                             [ resDef.TypeName ],
@@ -4505,27 +4510,25 @@ type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'rela
         { this with resolveId = Some getResDef }
 
     member this.ToOne([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-        ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
+        ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
 
     member this.ToOneNullable([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-        ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
+        ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
 
     member this.ToMany([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-        ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
+        ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(name, this.mapSetCtx, this.resolveEntity, this.resolveId, this.idParsers)
 
 
 
 type RelationshipHelper<'ctx, 'setCtx, 'entity>
-    internal
-    (
-        mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-    ) =
+    internal (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>) =
 
     member _.Polymorphic() =
-        PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create (mapSetCtx)
+        PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(mapSetCtx)
 
     member _.MapSetContextTaskRes(mapSetCtx: 'ctx -> 'entity -> Task<Result<'mappedSetCtx, Error list>>) =
         RelationshipHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)
@@ -4554,8 +4557,8 @@ type RelationshipHelper<'ctx, 'setCtx, 'entity>
         let resolveEntity = resourceDef.PolymorphicFor
         let resolveId = fun _ -> resourceDef
 
-        ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
+        ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
 
     member _.ToOneNullable
         (
@@ -4566,8 +4569,8 @@ type RelationshipHelper<'ctx, 'setCtx, 'entity>
         let resolveEntity = resourceDef.PolymorphicFor
         let resolveId = fun _ -> resourceDef
 
-        ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
+        ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
 
     member _.ToMany
         (
@@ -4578,5 +4581,5 @@ type RelationshipHelper<'ctx, 'setCtx, 'entity>
         let resolveEntity = resourceDef.PolymorphicFor
         let resolveId = fun _ -> resourceDef
 
-        ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create
-            (name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)
+        ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
+            .Create(name, mapSetCtx, Some resolveEntity, Some resolveId, Some idParsers)

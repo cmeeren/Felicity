@@ -72,11 +72,9 @@ module AB =
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
     let getColl =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
-            .Polymorphic
-            .GetCollectionRes(
+            .Polymorphic.GetCollectionRes(
                 (fun (ctx: MappedCtx) -> ctx.GetColl()),
                 function
                 | A a -> A.resDef.PolymorphicFor a

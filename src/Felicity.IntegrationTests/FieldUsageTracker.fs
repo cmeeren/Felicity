@@ -33,24 +33,21 @@ module C =
     let c = define.Attribute.SimpleString().Get(fun _ -> "")
 
     let relToOne =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(resDef)
             .Get(fun _ -> C "1")
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let relToOneNullable =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .Get(fun _ -> None)
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let relToMany =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .Get(fun _ -> [])
             .SetAll(fun _ a -> a)
@@ -73,24 +70,21 @@ module D =
     let c = define.Attribute.SimpleString().Get(fun _ -> "")
 
     let relToOne =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(C.resDef)
             .Get(fun _ -> C "1")
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let relToOneNullable =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(C.resDef)
             .Get(fun _ -> None)
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let relToMany =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(C.resDef)
             .Get(fun _ -> [])
             .SetAll(fun _ a -> a)
@@ -169,8 +163,7 @@ module A =
     let resDef = define.Resource("a", resId).CollectionName("as")
 
     let attrA =
-        define
-            .Attribute
+        define.Attribute
             .SimpleString()
             .Get(fun _ -> "")
             .Set(fun _ a -> a)
@@ -185,24 +178,21 @@ module A =
     let attrCAndDSetter = define.Operation.Set2((fun _ _ a -> a), attrC, attrD)
 
     let relB =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(B.resDef)
             .Get(fun _ -> B "1")
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let relBNone =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(B.resDef)
             .Get(fun _ -> None)
             .Set(fun _ a -> a)
             .AfterModifySelf(ignore)
 
     let relBEmpty =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(B.resDef)
             .Get(fun _ -> [])
             .SetAll(fun _ a -> a)
@@ -215,8 +205,7 @@ module A =
     let relD = define.Relationship.ToOne(D.resDef).Get(fun _ -> D "1")
 
     let relCDToOne =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(C.resDef)
             .AddIdParser(D.resDef)
@@ -231,8 +220,7 @@ module A =
             .AfterModifySelf(ignore)
 
     let relCDToOneNullable =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(C.resDef)
             .AddIdParser(D.resDef)
@@ -247,8 +235,7 @@ module A =
             .AfterModifySelf(ignore)
 
     let relCDToMany =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(C.resDef)
             .AddIdParser(D.resDef)
@@ -273,15 +260,13 @@ module A =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .Patch()
             .AddCustomSetter(fun ctx a parser -> parser.For((fun _ -> a), attrB.Optional))
             .AfterUpdate(ignore)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .GetAsync(fun _ _ respond _ -> respond.WithEntity(B.resDef, B "1") |> Ok |> async.Return)
@@ -364,8 +349,7 @@ module F =
     let r = define.Relationship.ToOneNullable(resDef)
 
     let postBackRefParser =
-        define
-            .Operation
+        define.Operation
             .PostBackRef(r, (fun (_, _) parser -> parser.For("1")))
             .AfterCreate(ignore)
 
@@ -378,8 +362,7 @@ module G =
     let resDef = define.Resource("g", resId).CollectionName("ghs")
 
     let r =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(resDef)
             .AddIdParser(C.resDef)
@@ -394,8 +377,7 @@ module G =
     let patch = define.Operation.Patch().AfterUpdate(ignore)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .GetAsync(fun _ _ respond _ -> respond.WithEntity(resDef, "G1") |> Ok |> async.Return)
@@ -409,8 +391,7 @@ module H =
     let resDef = define.Resource("h", resId).CollectionName("ghs")
 
     let r =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(resDef)
             .AddIdParser(D.resDef)
@@ -425,8 +406,7 @@ module H =
     let patch = define.Operation.Patch().AfterUpdate(ignore)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .GetAsync(fun _ _ respond _ -> respond.WithEntity(resDef, "H1") |> Ok |> async.Return)
@@ -478,9 +458,7 @@ module GHAlt =
     let resDef = define.PolymorphicResource(resId).CollectionName("ghsAlt")
 
     let getColl =
-        define
-            .Operation
-            .Polymorphic
+        define.Operation.Polymorphic
             .GetCollection((fun () -> []), (fun _ -> G.resDef.PolymorphicFor("")))
             .RegisterResourceType(G.resDef)
             .RegisterResourceType(H.resDef)
@@ -502,25 +480,19 @@ module X =
         define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(false)
 
     let nullableRequiresExplicitInclude =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun _ -> None)
             .RequireExplicitInclude()
 
     let nullableRequiresExplicitIncludeTrue =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun _ -> None)
             .RequireExplicitInclude(true)
 
     let nullableRequiresExplicitIncludeFalse =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleString()
             .Get(fun _ -> None)
             .RequireExplicitInclude(false)
@@ -677,11 +649,10 @@ let tests =
                     "http://example.com/as"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "a"
-                                    attributes = {| attrA = "" |}
-                                |}
+                            data = {|
+                                ``type`` = "a"
+                                attributes = {| attrA = "" |}
+                            |}
                         |})
                     [
                         ("a", "attrA"), FieldUsage.Explicit
@@ -704,14 +675,12 @@ let tests =
                     "http://example.com/cds"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "c"
-                                    relationships =
-                                        {|
-                                            relToOneNullable = {| data = null |}
-                                        |}
+                            data = {|
+                                ``type`` = "c"
+                                relationships = {|
+                                    relToOneNullable = {| data = null |}
                                 |}
+                            |}
                         |})
                     [ ("c", "relToOneNullable"), FieldUsage.Explicit ]
         }
@@ -723,11 +692,10 @@ let tests =
                     "http://example.com/bs"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "b"
-                                    attributes = {| a = ""; b = "" |}
-                                |}
+                            data = {|
+                                ``type`` = "b"
+                                attributes = {| a = ""; b = "" |}
+                            |}
                         |})
                     [
                         ("b", "a"), FieldUsage.Explicit
@@ -743,12 +711,11 @@ let tests =
                     "http://example.com/cds"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "d"
-                                    id = "1"
-                                    attributes = {| c = "" |}
-                                |}
+                            data = {|
+                                ``type`` = "d"
+                                id = "1"
+                                attributes = {| c = "" |}
+                            |}
                         |})
                     [ ("d", "id"), FieldUsage.Explicit; ("d", "c"), FieldUsage.Explicit ]
         }
@@ -760,11 +727,10 @@ let tests =
                     "http://example.com/es"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "e"
-                                    relationships = {| r = {| data = null |} |}
-                                |}
+                            data = {|
+                                ``type`` = "e"
+                                relationships = {| r = {| data = null |} |}
+                            |}
                         |})
                     [ ("e", "a"), FieldUsage.Implicit; ("e", "r"), FieldUsage.Explicit ]
         }
@@ -776,11 +742,10 @@ let tests =
                     "http://example.com/fs"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "f"
-                                    relationships = {| r = {| data = null |} |}
-                                |}
+                            data = {|
+                                ``type`` = "f"
+                                relationships = {| r = {| data = null |} |}
+                            |}
                         |})
                     [ ("f", "a"), FieldUsage.Implicit; ("f", "r"), FieldUsage.Explicit ]
         }
@@ -824,19 +789,17 @@ let tests =
                     "http://example.com/as/1"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "a"
-                                    id = "1"
-                                    attributes =
-                                        {|
-                                            attrA = ""
-                                            attrB = ""
-                                            attrC = ""
-                                            attrD = ""
-                                        |}
-                                    relationships = {| relBNone = {| data = null |} |}
+                            data = {|
+                                ``type`` = "a"
+                                id = "1"
+                                attributes = {|
+                                    attrA = ""
+                                    attrB = ""
+                                    attrC = ""
+                                    attrD = ""
                                 |}
+                                relationships = {| relBNone = {| data = null |} |}
+                            |}
                         |})
                     [
                         ("a", "attrA"), FieldUsage.Explicit
@@ -862,12 +825,11 @@ let tests =
                     "http://example.com/es/1"
                     (Some
                         {|
-                            data =
-                                {|
-                                    ``type`` = "e"
-                                    id = "1"
-                                    attributes = {| a = "" |}
-                                |}
+                            data = {|
+                                ``type`` = "e"
+                                id = "1"
+                                attributes = {| a = "" |}
+                            |}
                         |})
                     [ ("e", "a"), FieldUsage.Explicit ]
         }

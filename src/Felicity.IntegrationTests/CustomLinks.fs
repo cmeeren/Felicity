@@ -102,8 +102,7 @@ module A =
     let someRel = define.Relationship.ToOne(resDef).Get(fun _ -> { A.Id = "test" })
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .CustomLink()
             .ValidateStrictModeQueryParams()
@@ -126,8 +125,7 @@ module B =
     let x = define.Attribute.SimpleInt().Get(fun _ -> 2)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .CustomLink()
             .ValidateStrictModeQueryParams()
@@ -144,8 +142,7 @@ module C =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .CustomLink()
             .ValidateStrictModeQueryParams()
@@ -197,16 +194,14 @@ module A2 =
     let get = define.Operation.GetResource()
 
     let customOpWithGetAndPost =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .GetAsync(fun _ _ _ _ -> failwith "not used")
             .PostAsync(fun _ _ _ _ -> failwith "not used")
 
     let customOpWithPatchAndDelete =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PatchAsync(fun _ _ _ _ -> failwith "not used")
@@ -251,8 +246,7 @@ module A5 =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -276,8 +270,7 @@ module A6 =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -294,15 +287,16 @@ module A7 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
@@ -319,15 +313,16 @@ module A8 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .SkipStandardAcceptValidation()
@@ -346,15 +341,16 @@ module A9 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .SkipStandardContentTypeValidation()
@@ -373,15 +369,16 @@ module A10 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams("invalid")
             .SkipStandardQueryParamNameValidation()
@@ -403,8 +400,7 @@ module A11 =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .SkipLink()

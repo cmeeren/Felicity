@@ -33,8 +33,7 @@ module A =
     let get = define.Operation.GetResource()
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .PostAsync(fun ctx parser respond a -> async { return Ok(respond.WithEntity(resDef, a)) })

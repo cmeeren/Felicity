@@ -108,8 +108,7 @@ module Parent1 =
     let resDef = define.Resource("parent1", resId).CollectionName("parents")
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -133,8 +132,7 @@ module Parent2 =
     let resDef = define.Resource("parent2", resId).CollectionName("parents")
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -156,8 +154,7 @@ module Parent3 =
     let resDef = define.Resource("parent3", resId).CollectionName("parents")
 
     let child =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)

@@ -26,8 +26,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
                 primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
 
             let! fieldTrackerHandler =
-                httpCtx
-                    .RequestServices
+                httpCtx.RequestServices
                     .GetRequiredService<FieldTracker<'ctx>>()
                     .TrackFields(primaryResourceTypes, ctx, req)
 
@@ -42,8 +41,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
                 primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
 
             let! fieldTrackerHandler =
-                httpCtx
-                    .RequestServices
+                httpCtx.RequestServices
                     .GetRequiredService<FieldTracker<'ctx>>()
                     .TrackFields(primaryResourceTypes, ctx, req)
 
@@ -59,8 +57,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
                 |> Option.defaultValue (polyBuilders |> List.map (fun b -> b.resourceDef.TypeName) |> List.distinct)
 
             let! fieldTrackerHandler =
-                httpCtx
-                    .RequestServices
+                httpCtx.RequestServices
                     .GetRequiredService<FieldTracker<'ctx>>()
                     .TrackFields(primaryResourceTypes, ctx, req)
 
@@ -75,8 +72,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
                 primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
 
             let! fieldTrackerHandler =
-                httpCtx
-                    .RequestServices
+                httpCtx.RequestServices
                     .GetRequiredService<FieldTracker<'ctx>>()
                     .TrackFields(primaryResourceTypes, ctx, req)
 

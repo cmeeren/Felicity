@@ -89,8 +89,7 @@ module C =
     let resDef = define.Resource("c", resId).CollectionName("cs")
 
     let post: CustomPostOperation<Ctx2, Ctx2, A> =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ])
             .PostCustomTask(fun _ _ _ -> failwith "not used")
 
@@ -145,11 +144,10 @@ let tests =
                 Request.post Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true; x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true; x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -168,11 +166,10 @@ let tests =
                 Request.post Ctx "/abs/"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true; x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true; x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -184,11 +181,10 @@ let tests =
                 Request.post Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -203,11 +199,10 @@ let tests =
                 Request.post Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true; readonly = "foo" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true; readonly = "foo" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -224,12 +219,11 @@ let tests =
                 Request.post Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "foo"
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "foo"
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -342,11 +336,10 @@ let tests =
                 Request.post Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = null
-                                attributes = {| a = true |}
-                            |}
+                        data = {|
+                            ``type`` = null
+                            attributes = {| a = true |}
+                        |}
                     |}
                 |> getResponse
 
@@ -397,11 +390,10 @@ let tests =
                 Request.post Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                relationships = null
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            relationships = null
+                        |}
                     |}
                 |> getResponse
 
@@ -418,21 +410,18 @@ let tests =
                 Request.postWithoutStrictMode Ctx "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes =
-                                    {|
-                                        a = true
-                                        x = "abc"
-                                        nullable = "foo"
-                                        nonExistentAttribute = "foo"
-                                    |}
-                                relationships =
-                                    {|
-                                        nonExistentRelationship = {| data = null |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {|
+                                a = true
+                                x = "abc"
+                                nullable = "foo"
+                                nonExistentAttribute = "foo"
                             |}
+                            relationships = {|
+                                nonExistentRelationship = {| data = null |}
+                            |}
+                        |}
                     |}
                 |> getResponse
 
@@ -477,11 +466,10 @@ let tests =
                 Request.post Ctx3 "/abs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| a = true; x = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| a = true; x = "abc" |}
+                        |}
                     |}
                 |> getResponse
 

@@ -262,8 +262,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> =
                         let! doc = resp.Write httpCtx ctx req (resDef, entity)
 
                         let! fieldTrackerHandler =
-                            httpCtx
-                                .RequestServices
+                            httpCtx.RequestServices
                                 .GetRequiredService<FieldTracker<'originalCtx>>()
                                 .TrackFields([ resDef.TypeName ], ctx, req)
 
@@ -333,8 +332,7 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> =
                                 let! doc = resp.WriteList httpCtx ctx req (entities |> List.map (fun e -> resDef, e))
 
                                 let! fieldTrackerHandler =
-                                    httpCtx
-                                        .RequestServices
+                                    httpCtx.RequestServices
                                         .GetRequiredService<FieldTracker<'originalCtx>>()
                                         .TrackFields([ resDef.TypeName ], ctx, req)
 
@@ -426,8 +424,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> =
                                         this.polymorphicResourceTypesForFieldTracking
 
                                 let! fieldTrackerHandler =
-                                    httpCtx
-                                        .RequestServices
+                                    httpCtx.RequestServices
                                         .GetRequiredService<FieldTracker<'originalCtx>>()
                                         .TrackFields(collectionResTypes, ctx, req)
 
@@ -564,8 +561,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> =
                                         | Ok entity1 ->
                                             if this.return202Accepted then
                                                 let! fieldTrackerHandler =
-                                                    httpCtx
-                                                        .RequestServices
+                                                    httpCtx.RequestServices
                                                         .GetRequiredService<FieldTracker<'originalCtx>>()
                                                         .TrackFields(
                                                             [],
@@ -595,8 +591,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> =
                                                     | _ -> fun next ctx -> next ctx
 
                                                 let! fieldTrackerHandler =
-                                                    httpCtx
-                                                        .RequestServices
+                                                    httpCtx.RequestServices
                                                         .GetRequiredService<FieldTracker<'originalCtx>>()
                                                         .TrackFields(
                                                             [ rDef.TypeName ],
@@ -784,8 +779,7 @@ type PostCustomHelper<'ctx, 'entity>
     member this.Return202Accepted() : HttpHandler =
         fun next httpCtx -> task {
             let! fieldTrackerHandler =
-                httpCtx
-                    .RequestServices
+                httpCtx.RequestServices
                     .GetRequiredService<FieldTracker<'ctx>>()
                     .TrackFields([], ctx, req, consumedFieldNamesWithType = (rDef.TypeName, this.ConsumedFieldNames))
 
@@ -807,8 +801,7 @@ type PostCustomHelper<'ctx, 'entity>
                 | _ -> fun next ctx -> next ctx
 
             let! fieldTrackerHandler =
-                httpCtx
-                    .RequestServices
+                httpCtx.RequestServices
                     .GetRequiredService<FieldTracker<'ctx>>()
                     .TrackFields(
                         [ rDef.TypeName ],
@@ -1002,8 +995,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> =
                                             | Ok entity4 ->
                                                 if this.return202Accepted then
                                                     let! fieldTrackerHandler =
-                                                        httpCtx
-                                                            .RequestServices
+                                                        httpCtx.RequestServices
                                                             .GetRequiredService<FieldTracker<'originalCtx>>()
                                                             .TrackFields(
                                                                 [],
@@ -1023,8 +1015,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> =
                                                     let! doc = resp.Write httpCtx ctx req (rDef, entity4)
 
                                                     let! fieldTrackerHandler =
-                                                        httpCtx
-                                                            .RequestServices
+                                                        httpCtx.RequestServices
                                                             .GetRequiredService<FieldTracker<'originalCtx>>()
                                                             .TrackFields(
                                                                 [ rDef.TypeName ],
@@ -1563,12 +1554,11 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> =
         name = name
         getMeta = None
         condition = fun _ _ -> Ok() |> Task.result
-        validationConfig =
-            {
-                ValidateAccept = true
-                ValidateContentType = true
-                ValidateQueryParams = true
-            }
+        validationConfig = {
+            ValidateAccept = true
+            ValidateContentType = true
+            ValidateQueryParams = true
+        }
         validateStrictModeAllowedQueryParams = None
         skipLink = false
         get = None
@@ -1589,31 +1579,31 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> =
         =
         validateRequest this.validationConfig
         >=> fun next httpCtx -> task {
-                match! this.mapCtx ctx (unbox<'entity> entity) with
+            match! this.mapCtx ctx (unbox<'entity> entity) with
+            | Error errors -> return! handleErrors errors next httpCtx
+            | Ok mappedCtx ->
+                match! this.condition mappedCtx (unbox<'entity> entity) with
                 | Error errors -> return! handleErrors errors next httpCtx
-                | Ok mappedCtx ->
-                    match! this.condition mappedCtx (unbox<'entity> entity) with
+                | Ok() ->
+                    match preconditions.Validate httpCtx ctx entity with
                     | Error errors -> return! handleErrors errors next httpCtx
                     | Ok() ->
-                        match preconditions.Validate httpCtx ctx entity with
-                        | Error errors -> return! handleErrors errors next httpCtx
-                        | Ok() ->
-                            let validateQueryParamsResult =
-                                match this.validateStrictModeAllowedQueryParams with
-                                | None -> Ok()
-                                | Some validQueryParams ->
-                                    StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx>
-                                        httpCtx
-                                        req
-                                        validQueryParams
+                        let validateQueryParamsResult =
+                            match this.validateStrictModeAllowedQueryParams with
+                            | None -> Ok()
+                            | Some validQueryParams ->
+                                StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx>
+                                    httpCtx
+                                    req
+                                    validQueryParams
 
-                            match validateQueryParamsResult with
-                            | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok() ->
-                                match! operation ctx mappedCtx req responder (unbox<'entity> entity) with
-                                | Ok handler -> return! handler next httpCtx
-                                | Error errors -> return! handleErrors errors next httpCtx
-            }
+                        match validateQueryParamsResult with
+                        | Error errs -> return! handleErrors errs next httpCtx
+                        | Ok() ->
+                            match! operation ctx mappedCtx req responder (unbox<'entity> entity) with
+                            | Ok handler -> return! handler next httpCtx
+                            | Error errors -> return! handleErrors errors next httpCtx
+        }
 
 
     interface CustomOperation<'originalCtx> with
@@ -1851,18 +1841,15 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> =
 
 
 type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
-    internal
-    (
-        mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>
-    ) =
+    internal (mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>) =
 
     member _.LookupTaskRes
         (
             getById: Func<'ctx, 'id, Task<Result<'entity option, Error list>>>,
             getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
         ) =
-        PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id>.Create
-            (mapCtx, (fun ctx id -> getById.Invoke(ctx, id)), getPolyBuilder)
+        PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id>
+            .Create(mapCtx, (fun ctx id -> getById.Invoke(ctx, id)), getPolyBuilder)
 
     member this.LookupTaskRes
         (
@@ -1946,10 +1933,13 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
             getCollection: Func<'ctx, Task<Result<'entity list, Error list>>>,
             getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
         ) =
-        PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create
-            (mapCtx,
-             (fun _origCtx ctx _req -> getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs)),
-             getPolyBuilder)
+        PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>
+            .Create(
+                mapCtx,
+                (fun _origCtx ctx _req ->
+                    getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs)),
+                getPolyBuilder
+            )
 
     member this.GetCollectionTaskRes
         (
@@ -1964,12 +1954,14 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
                 Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>,
             getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
         ) =
-        PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create
-            (mapCtx,
-             (fun origCtx ctx req ->
-                 getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-                 |> TaskResult.bind (fun p -> p.ParseWithConsumed())),
-             getPolyBuilder)
+        PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>
+            .Create(
+                mapCtx,
+                (fun origCtx ctx req ->
+                    getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
+                    |> TaskResult.bind (fun p -> p.ParseWithConsumed())),
+                getPolyBuilder
+            )
 
     member this.GetCollectionAsyncRes
         (
@@ -2083,20 +2075,17 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
 
 
 type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
-    internal
-    (
-        mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
-    ) =
+    internal (mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>) =
 
     member _.GetResource() =
-        GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create (mapCtx)
+        GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx)
 
     member _.Patch() =
-        PatchOperation<'originalCtx, 'ctx, 'entity>.Create (mapCtx)
+        PatchOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx)
 
     member _.DeleteTaskRes(delete: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
-        DeleteOperation<'originalCtx, 'ctx, 'entity>.Create
-            (mapCtx, (fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity)))
+        DeleteOperation<'originalCtx, 'ctx, 'entity>
+            .Create(mapCtx, (fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity)))
 
     member this.DeleteTaskRes(delete: Func<'entity, Task<Result<unit, Error list>>>) =
         this.DeleteTaskRes(fun _ e -> delete.Invoke e)
@@ -2105,11 +2094,13 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
         (getRequestParser:
             Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, unit>, Error list>>>)
         =
-        DeleteOperation<'originalCtx, 'ctx, 'entity>.Create
-            (mapCtx,
-             fun origCtx ctx req entity ->
-                 getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
-                 |> TaskResult.bind (fun p -> p.ParseTask()))
+        DeleteOperation<'originalCtx, 'ctx, 'entity>
+            .Create(
+                mapCtx,
+                fun origCtx ctx req entity ->
+                    getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
+                    |> TaskResult.bind (fun p -> p.ParseTask())
+            )
 
     member this.DeleteTaskRes
         (getRequestParser:
@@ -2204,7 +2195,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
         this.DeleteTaskRes(TaskResult.liftFunc2 getRequestParser)
 
     member _.CustomLink([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
-        CustomOperation<'originalCtx, 'ctx, 'entity>.Create (mapCtx, name)
+        CustomOperation<'originalCtx, 'ctx, 'entity>.Create(mapCtx, name)
 
     member _.Set2TaskRes
         (
@@ -2380,7 +2371,8 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
 
 
 
-type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>) =
+type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>)
+    =
     inherit OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>(fun ctx _ -> mapCtx ctx)
 
     member _.Polymorphic =
@@ -2414,7 +2406,8 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         this.ForContextTaskRes(TaskResult.lift2 mapCtx)
 
     member _.LookupTaskRes(getById: Func<'ctx, 'id, Task<Result<'entity option, Error list>>>) =
-        ResourceLookup<'originalCtx, 'ctx, 'entity, 'id>.Create (mapCtx, (fun ctx id -> getById.Invoke(ctx, id)))
+        ResourceLookup<'originalCtx, 'ctx, 'entity, 'id>
+            .Create(mapCtx, (fun ctx id -> getById.Invoke(ctx, id)))
 
     member this.LookupTaskRes(getById: Func<'id, Task<Result<'entity option, Error list>>>) =
         this.LookupTaskRes(fun _ id -> getById.Invoke id)
@@ -2450,9 +2443,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         this.LookupTaskRes(TaskResult.liftFunc getById)
 
     member _.GetCollectionTaskRes(getCollection: Func<'ctx, Task<Result<'entity list, Error list>>>) =
-        GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create
-            (mapCtx,
-             fun _origCtx ctx _req -> getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs))
+        GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>
+            .Create(
+                mapCtx,
+                fun _origCtx ctx _req -> getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs)
+            )
 
     member this.GetCollectionTaskRes(getCollection: Func<unit, Task<Result<'entity list, Error list>>>) =
         this.GetCollectionTaskRes(fun (_: 'ctx) -> getCollection.Invoke())
@@ -2461,11 +2456,13 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         (getRequestParser:
             Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>)
         =
-        GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>.Create
-            (mapCtx,
-             fun origCtx ctx req ->
-                 getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-                 |> TaskResult.bind (fun p -> p.ParseWithConsumed()))
+        GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>
+            .Create(
+                mapCtx,
+                fun origCtx ctx req ->
+                    getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
+                    |> TaskResult.bind (fun p -> p.ParseWithConsumed())
+            )
 
     member this.GetCollectionAsyncRes(getCollection: Func<'ctx, Async<Result<'entity list, Error list>>>) =
         this.GetCollectionTaskRes(Task.liftAsyncFunc getCollection)
@@ -2527,9 +2524,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         this.GetCollectionTaskRes(TaskResult.liftFunc2 getRequestParser)
 
     member _.PostTaskRes(createEntity: Func<'ctx, Task<Result<'entity, Error list>>>) =
-        PostOperation<'originalCtx, 'ctx, 'entity>.Create
-            ((fun ctx _res -> mapCtx ctx),
-             fun _origCtx ctx _res -> createEntity.Invoke ctx |> TaskResult.map (fun e -> Set.empty, Set.empty, e))
+        PostOperation<'originalCtx, 'ctx, 'entity>
+            .Create(
+                (fun ctx _res -> mapCtx ctx),
+                fun _origCtx ctx _res -> createEntity.Invoke ctx |> TaskResult.map (fun e -> Set.empty, Set.empty, e)
+            )
 
     member this.PostTaskRes(createEntity: Func<unit, Task<Result<'entity, Error list>>>) =
         this.PostTaskRes(fun (ctx: 'ctx) -> createEntity.Invoke())
@@ -2538,11 +2537,13 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         (getRequestParser:
             Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>>)
         =
-        PostOperation<'originalCtx, 'ctx, 'entity>.Create
-            ((fun ctx _ -> mapCtx ctx),
-             fun origCtx ctx req ->
-                 getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-                 |> TaskResult.bind (fun p -> p.ParseWithConsumed()))
+        PostOperation<'originalCtx, 'ctx, 'entity>
+            .Create(
+                (fun ctx _ -> mapCtx ctx),
+                fun origCtx ctx req ->
+                    getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
+                    |> TaskResult.bind (fun p -> p.ParseWithConsumed())
+            )
 
     member this.PostAsyncRes(createEntity: Func<'ctx, Async<Result<'entity, Error list>>>) =
         this.PostTaskRes(Task.liftAsyncFunc createEntity)
@@ -2615,11 +2616,13 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
             | None -> Set.empty
             | Some fn -> Set.empty.Add fn
 
-        PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create
-            (mapCtxWithBackRef,
-             fun _origCtx ctx _res ->
-                 createEntity.Invoke ctx
-                 |> TaskResult.map (fun e -> consumedFieldNames, Set.empty, e))
+        PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>
+            .Create(
+                mapCtxWithBackRef,
+                fun _origCtx ctx _res ->
+                    createEntity.Invoke ctx
+                    |> TaskResult.map (fun e -> consumedFieldNames, Set.empty, e)
+            )
 
     member this.PostBackRefTaskRes
         (
@@ -2643,12 +2646,14 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
             | None -> id
             | Some fn -> Set.add fn
 
-        PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>.Create
-            (mapCtxWithBackRef,
-             fun origCtx ctx req ->
-                 getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-                 |> TaskResult.bind (fun p -> p.ParseWithConsumed())
-                 |> TaskResult.map (fun (fns, qns, e) -> addBackRefFieldName fns, qns, e))
+        PostOperation<'originalCtx, 'ctx * 'backRefEntity, 'entity>
+            .Create(
+                mapCtxWithBackRef,
+                fun origCtx ctx req ->
+                    getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
+                    |> TaskResult.bind (fun p -> p.ParseWithConsumed())
+                    |> TaskResult.map (fun (fns, qns, e) -> addBackRefFieldName fns, qns, e)
+            )
 
     member this.PostBackRefAsyncRes
         (
@@ -2760,10 +2765,12 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         (operation:
             Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Task<Result<HttpHandler, Error list>>>)
         =
-        CustomPostOperation<'originalCtx, 'ctx, 'entity>.Create
-            (mapCtx,
-             fun origCtx ctx req helper ->
-                 operation.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), helper))
+        CustomPostOperation<'originalCtx, 'ctx, 'entity>
+            .Create(
+                mapCtx,
+                fun origCtx ctx req helper ->
+                    operation.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), helper)
+            )
 
     member this.PostCustomAsync
         (operation:

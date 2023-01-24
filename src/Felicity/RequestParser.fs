@@ -312,12 +312,12 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
     // Arity 0
 
     member _.ForTaskRes(create: Task<Result<'a, Error list>>) =
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields, consumedParams, includedTypeAndId, ctx, req, (fun _ _ -> create))
+        RequestParser<'ctx, 'a>
+            .Create(consumedFields, consumedParams, includedTypeAndId, ctx, req, (fun _ _ -> create))
 
     member _.ForAsyncRes(create: Async<Result<'a, Error list>>) =
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields, consumedParams, includedTypeAndId, ctx, req, (fun _ _ -> Task.fromAsync create))
+        RequestParser<'ctx, 'a>
+            .Create(consumedFields, consumedParams, includedTypeAndId, ctx, req, (fun _ _ -> Task.fromAsync create))
 
     member this.ForTask(create: Task<'a>) = this.ForTaskRes(create |> Task.map Ok)
 
@@ -336,13 +336,15 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         [| p1.QueryParamName |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r -> create <!> p1.Get(c, r, includedTypeAndId) |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r -> create <!> p1.Get(c, r, includedTypeAndId) |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes(create: 'p1 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>) =
         this.ForTaskRes(Task.liftAsync create, p1)
@@ -373,15 +375,17 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         [| p1.QueryParamName; p2.QueryParamName |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId) <*> p2.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (
@@ -423,17 +427,19 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId)
-                 <*> p2.Get(c, r, includedTypeAndId)
-                 <*> p3.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId)
+                    <*> p2.Get(c, r, includedTypeAndId)
+                    <*> p3.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (
@@ -496,18 +502,20 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         [| p1.QueryParamName; p2.QueryParamName; p3.QueryParamName; p4.QueryParamName |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId)
-                 <*> p2.Get(c, r, includedTypeAndId)
-                 <*> p3.Get(c, r, includedTypeAndId)
-                 <*> p4.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId)
+                    <*> p2.Get(c, r, includedTypeAndId)
+                    <*> p3.Get(c, r, includedTypeAndId)
+                    <*> p4.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (
@@ -582,19 +590,21 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId)
-                 <*> p2.Get(c, r, includedTypeAndId)
-                 <*> p3.Get(c, r, includedTypeAndId)
-                 <*> p4.Get(c, r, includedTypeAndId)
-                 <*> p5.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId)
+                    <*> p2.Get(c, r, includedTypeAndId)
+                    <*> p3.Get(c, r, includedTypeAndId)
+                    <*> p4.Get(c, r, includedTypeAndId)
+                    <*> p5.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (
@@ -683,20 +693,22 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId)
-                 <*> p2.Get(c, r, includedTypeAndId)
-                 <*> p3.Get(c, r, includedTypeAndId)
-                 <*> p4.Get(c, r, includedTypeAndId)
-                 <*> p5.Get(c, r, includedTypeAndId)
-                 <*> p6.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId)
+                    <*> p2.Get(c, r, includedTypeAndId)
+                    <*> p3.Get(c, r, includedTypeAndId)
+                    <*> p4.Get(c, r, includedTypeAndId)
+                    <*> p5.Get(c, r, includedTypeAndId)
+                    <*> p6.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (
@@ -801,21 +813,23 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId)
-                 <*> p2.Get(c, r, includedTypeAndId)
-                 <*> p3.Get(c, r, includedTypeAndId)
-                 <*> p4.Get(c, r, includedTypeAndId)
-                 <*> p5.Get(c, r, includedTypeAndId)
-                 <*> p6.Get(c, r, includedTypeAndId)
-                 <*> p7.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId)
+                    <*> p2.Get(c, r, includedTypeAndId)
+                    <*> p3.Get(c, r, includedTypeAndId)
+                    <*> p4.Get(c, r, includedTypeAndId)
+                    <*> p5.Get(c, r, includedTypeAndId)
+                    <*> p6.Get(c, r, includedTypeAndId)
+                    <*> p7.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (
@@ -965,22 +979,24 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         |]
         |> Array.iter (Option.iter (consumedParams.Add >> ignore))
 
-        RequestParser<'ctx, 'a>.Create
-            (consumedFields,
-             consumedParams,
-             includedTypeAndId,
-             ctx,
-             req,
-             fun c r ->
-                 create <!> p1.Get(c, r, includedTypeAndId)
-                 <*> p2.Get(c, r, includedTypeAndId)
-                 <*> p3.Get(c, r, includedTypeAndId)
-                 <*> p4.Get(c, r, includedTypeAndId)
-                 <*> p5.Get(c, r, includedTypeAndId)
-                 <*> p6.Get(c, r, includedTypeAndId)
-                 <*> p7.Get(c, r, includedTypeAndId)
-                 <*> p8.Get(c, r, includedTypeAndId)
-                 |> TaskResult.bind id)
+        RequestParser<'ctx, 'a>
+            .Create(
+                consumedFields,
+                consumedParams,
+                includedTypeAndId,
+                ctx,
+                req,
+                fun c r ->
+                    create <!> p1.Get(c, r, includedTypeAndId)
+                    <*> p2.Get(c, r, includedTypeAndId)
+                    <*> p3.Get(c, r, includedTypeAndId)
+                    <*> p4.Get(c, r, includedTypeAndId)
+                    <*> p5.Get(c, r, includedTypeAndId)
+                    <*> p6.Get(c, r, includedTypeAndId)
+                    <*> p7.Get(c, r, includedTypeAndId)
+                    <*> p8.Get(c, r, includedTypeAndId)
+                    |> TaskResult.bind id
+            )
 
     member this.ForAsyncRes
         (

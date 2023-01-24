@@ -30,8 +30,7 @@ module A =
             [ A ])
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun (ctx: Ctx1) ->
                 ctx.Meta <-
                     Map.empty.Add(
@@ -47,16 +46,14 @@ module A =
             .AfterCreate(ignore)
 
     let get =
-        define
-            .Operation
+        define.Operation
             .GetResource()
             .ModifyResponse(fun (ctx: Ctx1) _a ->
                 ctx.Meta <- Map.empty
                 fun next ctx -> next ctx)
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .Patch()
             .ModifyResponse(fun (ctx: Ctx1) _a ->
                 ctx.Meta <- Map.empty

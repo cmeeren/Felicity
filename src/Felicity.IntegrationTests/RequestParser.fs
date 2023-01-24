@@ -103,33 +103,27 @@ module X =
     let resDef = define.Resource("x", resId).CollectionName("xs")
 
     let nonEmptyString =
-        define
-            .Attribute
+        define.Attribute
             .ParsedOpt(NonEmptyString.value, NonEmptyString.create)
             .Get(fun _ -> NonEmptyString "foo")
 
     let nonNegativeInt =
-        define
-            .Attribute
+        define.Attribute
             .ParsedOpt(NonNegativeInt.value, NonNegativeInt.create)
             .Get(fun _ -> NonNegativeInt 1)
 
     let nonNegativeFloat =
-        define
-            .Attribute
+        define.Attribute
             .ParsedOpt(NonNegativeFloat.value, NonNegativeFloat.create)
             .Get(fun _ -> NonNegativeFloat 1)
 
     let trueBool =
-        define
-            .Attribute
+        define.Attribute
             .ParsedOpt(TrueBool.value, TrueBool.create)
             .Get(fun _ -> TrueBool true)
 
     let nullableNonEmptyString =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .ParsedOpt(NonEmptyString.value, NonEmptyString.create)
             .Get(fun _ -> None)
 
@@ -148,8 +142,7 @@ module X =
         define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X))
             .AfterCreate(ignore)
 
@@ -246,8 +239,7 @@ module Y =
         define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
 
     let post =
-        define
-            .Operation
+        define.Operation
             .Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X))
             .AfterCreate(ignore)
 
@@ -341,7 +333,10 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nonEmptyString).Operator("isEmpty").Bool))
+                    parser.For(
+                        (fun x -> calledWith <- Some x),
+                        Filter.Field(X.nonEmptyString).Operator("isEmpty").Bool
+                    ))
 
             let! response = Request.get ctx "/xs?filter[nonEmptyString][isEmpty]=false" |> getResponse
 
@@ -486,11 +481,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = "val" |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = "val" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -509,11 +503,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = null |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -529,11 +522,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = obj ()
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = obj ()
+                        |}
                     |}
                 |> getResponse
 
@@ -561,11 +553,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = "val" |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = "val" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -582,11 +573,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = null |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -606,11 +596,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = obj ()
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = obj ()
+                        |}
                     |}
                 |> getResponse
 
@@ -638,11 +627,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = "val" |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = "val" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -662,11 +650,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = null |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -686,11 +673,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = obj ()
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = obj ()
+                        |}
                     |}
                 |> getResponse
 
@@ -710,11 +696,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = "val" |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = "val" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -731,11 +716,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nullableNonEmptyString = null |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nullableNonEmptyString = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -758,11 +742,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = obj ()
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = obj ()
+                        |}
                     |}
                 |> getResponse
 
@@ -782,17 +765,14 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                relationships =
-                                    {|
-                                        a =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "someId" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "x"
+                            relationships = {|
+                                a = {|
+                                    data = {| ``type`` = "a"; id = "someId" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -877,7 +857,8 @@ let tests =
             let mutable calledWith = None
 
             let ctx =
-                Ctx.Create(fun parser -> parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List))
+                Ctx.Create(fun parser ->
+                    parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List))
 
             let! response = Request.get ctx "/xs?sort=1,-2" |> getResponse
 
@@ -890,7 +871,8 @@ let tests =
             let mutable calledWith = None
 
             let ctx =
-                Ctx.Create(fun parser -> parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List))
+                Ctx.Create(fun parser ->
+                    parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List))
 
             let! response = Request.get ctx "/xs?sort=1,-1,-2,1,-2,2" |> getResponse
 
@@ -976,12 +958,12 @@ let tests =
             test
                 <@
                     calledWith' = Some
-                                      {|
-                                          Offset = 4
-                                          Limit = 5
-                                          Number = 6
-                                          Size = 7
-                                      |}
+                        {|
+                            Offset = 4
+                            Limit = 5
+                            Number = 6
+                            Size = 7
+                        |}
                 @>
         }
 
@@ -1299,17 +1281,17 @@ let tests =
 
         testJob "Names are case sensitive when not using strict mode" {
             let ctx =
-                Ctx.Create(fun parser -> parser.For((fun _ _ -> ()), Filter.Field(X.nonEmptyString), X.nonNegativeFloat))
+                Ctx.Create(fun parser ->
+                    parser.For((fun _ _ -> ()), Filter.Field(X.nonEmptyString), X.nonNegativeFloat))
 
             let! response =
                 Request.postWithoutStrictMode ctx "/xs?filter[NonEmptyString]=foo"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| NonNegativeFloat = 1. |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| NonNegativeFloat = 1. |}
+                        |}
                     |}
                 |> getResponse
 
@@ -1346,18 +1328,15 @@ let tests =
                 Request.post ctx "/xs?filter[nonEmptyString]=val"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nonNegativeInt = 2 |}
-                                relationships =
-                                    {|
-                                        a =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "someId" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nonNegativeInt = 2 |}
+                            relationships = {|
+                                a = {|
+                                    data = {| ``type`` = "a"; id = "someId" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> Request.setHeader (Custom("HeaderName", "val"))
                 |> getResponse
@@ -1434,11 +1413,10 @@ let tests =
                 Request.post ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| nonEmptyString = "val" |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| nonEmptyString = "val" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2006,11 +1984,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                id = "invalidValue"
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            id = "invalidValue"
+                        |}
                     |}
                 |> getResponse
 
@@ -2029,11 +2006,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                id = "invalidValue"
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            id = "invalidValue"
+                        |}
                     |}
                 |> getResponse
 
@@ -2055,11 +2031,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes = {| nonNullableOpt = "invalidValue" |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {| nonNullableOpt = "invalidValue" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2081,11 +2056,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes = {| nullableOpt = "invalidValue" |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {| nullableOpt = "invalidValue" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2104,11 +2078,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes = {| nonNullableRes = "invalidValue" |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {| nonNullableRes = "invalidValue" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2132,11 +2105,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes = {| nullableRes = "invalidValue" |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {| nullableRes = "invalidValue" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2160,11 +2132,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes = {| nonNullableEnum = "invalidValue" |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {| nonNullableEnum = "invalidValue" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2188,11 +2159,10 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes = {| nullableEnum = "invalidValue" |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {| nullableEnum = "invalidValue" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2216,14 +2186,12 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes =
-                                    {|
-                                        nonNullableDateTimeOffset = "invalidValue"
-                                    |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {|
+                                nonNullableDateTimeOffset = "invalidValue"
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -2247,14 +2215,12 @@ let tests =
                 Request.post ctx "/ys"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                attributes =
-                                    {|
-                                        nullableDateTimeOffset = "invalidValue"
-                                    |}
+                        data = {|
+                            ``type`` = "y"
+                            attributes = {|
+                                nullableDateTimeOffset = "invalidValue"
                             |}
+                        |}
                     |}
                 |> getResponse
 

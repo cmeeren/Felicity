@@ -20,8 +20,7 @@ module X =
     let resDef = define.Resource("x", resId).CollectionName("xs")
 
     let a =
-        define
-            .Attribute
+        define.Attribute
             .SimpleBool()
             .AddConstraint("foo", 1)
             .AddConstraint("bar", true)
@@ -31,9 +30,7 @@ module X =
             .Get(fun _ -> true)
 
     let b =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleBool()
             .AddConstraint("foo5", 5)
             .AddConstraint("bar5", true)
@@ -43,8 +40,7 @@ module X =
             .Get(fun _ -> Some false)
 
     let toOne =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(resDef)
             .AddConstraint("foo2", 2)
             .AddConstraint("bar2", false)
@@ -55,8 +51,7 @@ module X =
     // getter
 
     let toOneNullable =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .AddConstraint("foo3", 3)
             .AddConstraint("bar3", true)
@@ -66,8 +61,7 @@ module X =
             .Get(fun _ _ -> failwith "not used")
 
     let toMany =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .AddConstraint("foo4", 4)
             .AddConstraint("bar4", false)
@@ -80,30 +74,25 @@ module X =
         define.Attribute.SimpleBool().AddConstraint("a", true).Get(fun _ -> true)
 
     let bSkip =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleBool()
             .AddConstraint("a", true)
             .GetSkip(fun _ _ -> Skip)
 
     let toOneSkip =
-        define
-            .Relationship
+        define.Relationship
             .ToOne(resDef)
             .AddConstraint("a", true)
             .GetSkip(fun _ _ -> Skip)
 
     let toOneNullableSkip =
-        define
-            .Relationship
+        define.Relationship
             .ToOneNullable(resDef)
             .AddConstraint("a", true)
             .GetSkip(fun _ _ -> Skip)
 
     let toManySkip =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .AddConstraint("a", true)
             .GetSkip(fun _ _ -> Skip)
@@ -194,11 +183,10 @@ let tests =
                 Request.post Ctx "/xs"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                attributes = {| constraints = obj () |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            attributes = {| constraints = obj () |}
+                        |}
                     |}
                 |> getResponse
 
@@ -214,12 +202,11 @@ let tests =
                 Request.patch Ctx "/xs/someId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "x"
-                                id = "someId"
-                                attributes = {| constraints = obj () |}
-                            |}
+                        data = {|
+                            ``type`` = "x"
+                            id = "someId"
+                            attributes = {| constraints = obj () |}
+                        |}
                     |}
                 |> getResponse
 
@@ -242,12 +229,11 @@ let tests =
                 Request.patch Ctx "/ys/someId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "y"
-                                id = "someId"
-                                attributes = {| constraints = true |}
-                            |}
+                        data = {|
+                            ``type`` = "y"
+                            id = "someId"
+                            attributes = {| constraints = true |}
+                        |}
                     |}
                 |> getResponse
 

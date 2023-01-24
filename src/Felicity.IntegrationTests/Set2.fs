@@ -61,20 +61,17 @@ module A =
     let nullRel = define.Relationship.ToOneNullable(resDef)
 
     let setNonNull =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .Set2((fun ctx x e -> ctx.SetNonNull x e), nonNull1, nonNull2)
 
     let setNull12 =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .Set2((fun ctx x e -> ctx.SetNull12 x e), null1, null2)
 
     let setNull34 =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .Set2SameNull((fun ctx x e -> ctx.SetNull34 x e), null3, nullRel)
 
@@ -106,12 +103,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
+                        |}
                     |}
                 |> getResponse
 
@@ -135,12 +131,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null1 = "abc"; null2 = null |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null1 = "abc"; null2 = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -164,19 +159,16 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null3 = 123 |}
-                                relationships =
-                                    {|
-                                        nullRel =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "abc" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null3 = 123 |}
+                            relationships = {|
+                                nullRel = {|
+                                    data = {| ``type`` = "a"; id = "abc" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -200,13 +192,12 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null3 = null |}
-                                relationships = {| nullRel = {| data = null |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null3 = null |}
+                            relationships = {| nullRel = {| data = null |} |}
+                        |}
                     |}
                 |> getResponse
 
@@ -222,12 +213,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| nonNull1 = "abc" |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| nonNull1 = "abc" |}
+                        |}
                     |}
                 |> getResponse
 
@@ -251,12 +241,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| nonNull2 = 123 |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| nonNull2 = 123 |}
+                        |}
                     |}
                 |> getResponse
 
@@ -280,12 +269,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null3 = null |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null3 = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -309,12 +297,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                relationships = {| nullRel = {| data = null |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            relationships = {| nullRel = {| data = null |} |}
+                        |}
                     |}
                 |> getResponse
 
@@ -338,19 +325,16 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null3 = null |}
-                                relationships =
-                                    {|
-                                        nullRel =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "abc" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null3 = null |}
+                            relationships = {|
+                                nullRel = {|
+                                    data = {| ``type`` = "a"; id = "abc" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -374,13 +358,12 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null3 = 123 |}
-                                relationships = {| nullRel = {| data = null |} |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null3 = 123 |}
+                            relationships = {| nullRel = {| data = null |} |}
+                        |}
                     |}
                 |> getResponse
 
@@ -412,11 +395,10 @@ let tests =
                 Request.post ctx "/as"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
+                        |}
                     |}
                 |> getResponse
 
@@ -440,18 +422,15 @@ let tests =
                 Request.post ctx "/as"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                attributes = {| null3 = 123 |}
-                                relationships =
-                                    {|
-                                        nullRel =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "abc" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| null3 = 123 |}
+                            relationships = {|
+                                nullRel = {|
+                                    data = {| ``type`` = "a"; id = "abc" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -470,12 +449,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
+                        |}
                     |}
                 |> getResponse
 
@@ -497,19 +475,16 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null3 = 123 |}
-                                relationships =
-                                    {|
-                                        nullRel =
-                                            {|
-                                                data = {| ``type`` = "a"; id = "abc" |}
-                                            |}
-                                    |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null3 = 123 |}
+                            relationships = {|
+                                nullRel = {|
+                                    data = {| ``type`` = "a"; id = "abc" |}
+                                |}
                             |}
+                        |}
                     |}
                 |> getResponse
 
@@ -531,12 +506,11 @@ let tests =
                 Request.patch ctx "/as/ignoredId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "ignoredId"
-                                attributes = {| null1 = "abc"; null2 = null |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "ignoredId"
+                            attributes = {| null1 = "abc"; null2 = null |}
+                        |}
                     |}
                 |> getResponse
 
@@ -564,12 +538,11 @@ let tests =
                 Request.patch ctx "/as/someResourceId"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            {|
-                                ``type`` = "a"
-                                id = "someResourceId"
-                                attributes = {| null1 = "abc"; null2 = null |}
-                            |}
+                        data = {|
+                            ``type`` = "a"
+                            id = "someResourceId"
+                            attributes = {| null1 = "abc"; null2 = null |}
+                        |}
                     |}
                 |> getResponse
 

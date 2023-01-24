@@ -43,8 +43,7 @@ module ApplicationBuilderExtensions =
 module Setup =
 
     let setupLogger _hostingContext (loggerConfiguration: LoggerConfiguration) =
-        loggerConfiguration
-            .MinimumLevel
+        loggerConfiguration.MinimumLevel
             .Override("Microsoft", LogEventLevel.Information)
             .MinimumLevel.Override("Giraffe", LogEventLevel.Information)
             .Enrich.FromLogContext()

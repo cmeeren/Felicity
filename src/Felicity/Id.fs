@@ -62,7 +62,7 @@ type Id<'ctx, 'entity, 'id> =
 type IdHelper<'ctx, 'entity, 'id> internal () =
 
     member _.Simple(getId: 'entity -> string) : Id<'ctx, 'entity, string> =
-        Id<'ctx, 'entity, string>.Create (id, (fun _ -> Ok >> Task.result), getId)
+        Id<'ctx, 'entity, string>.Create(id, (fun _ -> Ok >> Task.result), getId)
 
     member private _.ParsedTaskRes'
         (
@@ -70,7 +70,7 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             toDomain: 'ctx -> string -> Task<Result<'id, (ParsedValueInfo -> Error) list>>,
             getId: 'entity -> 'id
         ) : Id<'ctx, 'entity, 'id> =
-        Id<'ctx, 'entity, 'id>.Create (fromDomain, toDomain, getId)
+        Id<'ctx, 'entity, 'id>.Create(fromDomain, toDomain, getId)
 
     member _.ParsedTaskRes
         (
@@ -78,8 +78,12 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             toDomain: 'ctx -> string -> Task<Result<'id, Error list>>,
             getId: 'entity -> 'id
         ) : Id<'ctx, 'entity, 'id> =
-        Id<'ctx, 'entity, 'id>.Create
-            (fromDomain, (fun ctx v -> toDomain ctx v |> TaskResult.mapError (List.map (fun err _ -> err))), getId)
+        Id<'ctx, 'entity, 'id>
+            .Create(
+                fromDomain,
+                (fun ctx v -> toDomain ctx v |> TaskResult.mapError (List.map (fun err _ -> err))),
+                getId
+            )
 
     member this.ParsedAsyncRes
         (

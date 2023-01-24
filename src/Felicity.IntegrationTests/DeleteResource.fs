@@ -94,8 +94,7 @@ module A =
     let get = define.Operation.GetResource()
 
     let delete =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .DeleteRes(fun (ctx: MappedCtx) a -> ctx.DeleteA a)
             .BeforeDeleteRes(fun (ctx: MappedCtx) a -> ctx.BeforeDeleteA a)
@@ -112,8 +111,7 @@ module B =
     let get = define.Operation.GetResource()
 
     let patch =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx e -> ctx.MapCtxWithEntity ctx e)
             .Delete(fun (ctx: MappedCtx) b -> ctx.DeleteB b)
             .Return202Accepted()
@@ -141,11 +139,9 @@ module AB =
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
     let lookup =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
-            .Polymorphic
-            .Lookup(
+            .Polymorphic.Lookup(
                 (fun (ctx: MappedCtx) id -> ctx.Db.TryGet id),
                 function
                 | A a -> A.resDef.PolymorphicFor a
@@ -217,7 +213,9 @@ module A6 =
     let delete = define.Operation.Delete(ignore)
 
     let preconditions =
-        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
+        define.Preconditions
+            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
+            .Optional
 
 
 

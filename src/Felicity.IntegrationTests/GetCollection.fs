@@ -50,8 +50,7 @@ module A =
     let a = define.Attribute.SimpleBool().Get(fun a -> a.A)
 
     let getColl =
-        define
-            .Operation
+        define.Operation
             .ForContextRes(fun ctx -> ctx.MapCtx ctx)
             .GetCollectionRes(fun (ctx: MappedCtx) -> ctx.GetColl())
             .ModifyResponse(fun (ctx: MappedCtx) -> ctx.ModifyResponse)

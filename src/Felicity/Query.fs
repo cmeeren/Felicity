@@ -230,10 +230,7 @@ type SingleFilter<'ctx, 'a>
 
 
 type ListSort<'ctx, 'a>
-    internal
-    (
-        parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>
-    ) =
+    internal (parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) =
 
     let queryParamName = "sort"
 
@@ -300,10 +297,7 @@ type ListSort<'ctx, 'a>
 
 
 type SingleSort<'ctx, 'a>
-    internal
-    (
-        parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>
-    ) =
+    internal (parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) =
 
     let queryParamName = "sort"
 
@@ -441,10 +435,7 @@ type PageParam<'ctx> internal (pageName: string, ?min: int, ?max: int) =
 
 type CustomQueryParam<'ctx, 'a>
     internal
-    (
-        queryParamName,
-        parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>
-    ) =
+    (queryParamName, parse: 'ctx -> (string -> ParsedValueFromQueryData) -> string -> Task<Result<'a, Error list>>) =
 
     member _.Optional =
         { new RequestGetter<'ctx, 'a option> with
@@ -492,10 +483,8 @@ type CustomQueryParam<'ctx, 'a>
 
 type Header<'ctx, 'a>
     internal
-    (
-        headerName: string,
-        parse: 'ctx -> (string -> ParsedValueFromHeaderData) -> string -> Task<Result<'a, Error list>>
-    ) =
+    (headerName: string, parse: 'ctx -> (string -> ParsedValueFromHeaderData) -> string -> Task<Result<'a, Error list>>)
+    =
 
     member _.Optional =
         { new RequestGetter<'ctx, 'a option> with

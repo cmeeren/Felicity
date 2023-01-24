@@ -83,7 +83,7 @@ type ResourceBuilder<'ctx>
                                |> Include
                                |> Skippable.filter (not << Array.isEmpty)
                                |> Skippable.map (dict >> box)
-                          }
+                       }
 
                    member _.RequiresExplicitInclude = false
                }

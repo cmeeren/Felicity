@@ -155,8 +155,7 @@ module Parent1 = // remove and get - DELETE self OK
     let get = define.Operation.GetResource()
 
     let children =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -173,8 +172,7 @@ module Parent1 = // remove and get - DELETE self OK
             .ModifyDeleteSelfOkResponse(fun ctx -> ctx.ModifyDeleteSelfOkResponse)
 
     let otherChildren =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -193,8 +191,7 @@ module Parent1 = // remove and get - DELETE self OK
             .ModifyDeleteSelfAcceptedResponse(fun ctx -> ctx.ModifyDeleteSelfAcceptedResponse)
 
     let supportsPatch: ToManyRelationship<Ctx, Ctx, Parent1, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .SetAll(fun (_: string list) _ -> failwith "not used")
@@ -202,8 +199,7 @@ module Parent1 = // remove and get - DELETE self OK
             .AfterModifySelf(ignore)
 
     let supportsPost: ToManyRelationship<Ctx, Ctx, Parent1, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .Add(fun (_: string list) _ -> failwith "not used")
@@ -211,8 +207,7 @@ module Parent1 = // remove and get - DELETE self OK
             .AfterModifySelf(ignore)
 
     let supportsPatchAndPost: ToManyRelationship<Ctx, Ctx, Parent1, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .SetAll(fun (_: string list) _ -> failwith "not used")
@@ -229,8 +224,7 @@ module Parent3 = // no remove - DELETE self error
     let get = define.Operation.GetResource()
 
     let children =
-        define
-            .Relationship
+        define.Relationship
             .Polymorphic()
             .AddIdParser(Child1.resDef, id)
             .AddIdParser(Child2.resDef, id)
@@ -243,24 +237,21 @@ module Parent3 = // no remove - DELETE self error
             .Get(fun _ -> [])
 
     let supportsPatch: ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .SetAll(fun (_: string list) _ -> failwith "not used")
             .AfterModifySelf(ignore)
 
     let supportsPost: ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .Add(fun (_: string list) _ -> failwith "not used")
             .AfterModifySelf(ignore)
 
     let supportsPatchAndPost: ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .SetAll(fun (_: string list) _ -> failwith "not used")
@@ -268,24 +259,21 @@ module Parent3 = // no remove - DELETE self error
             .AfterModifySelf(ignore)
 
     let supportsPatchUnique: ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .SetAll(fun (_: string list) _ -> failwith "not used")
             .AfterModifySelf(ignore)
 
     let supportsPostUnique: ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .Add(fun (_: string list) _ -> failwith "not used")
             .AfterModifySelf(ignore)
 
     let supportsPatchAndPostUnique: ToManyRelationship<Ctx, Ctx, Parent3, Child1, string> =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(Child1.resDef)
             .Get(fun _ _ -> failwith "not used")
             .SetAll(fun (_: string list) _ -> failwith "not used")
@@ -358,8 +346,7 @@ module Parent7 = // ETag precondition
         define.Preconditions.ETag(fun _ -> EntityTagHeaderValue.FromString false "valid-etag")
 
     let children =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .Get(fun ctx -> [])
             .Remove(fun ctx e -> e)
@@ -380,8 +367,7 @@ module Parent8 = // LastModified precondition
         define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
 
     let children =
-        define
-            .Relationship
+        define.Relationship
             .ToMany(resDef)
             .Get(fun ctx -> [])
             .Remove(fun ctx e -> e)
@@ -401,8 +387,7 @@ module MapCtxCompileTest =
     let get = define.Operation.GetResource()
 
     let rel =
-        define
-            .Relationship
+        define.Relationship
             .MapSetContext(fun _ -> MappedCtx)
             .ToMany(resDef)
             .Get(fun _ _ -> failwith "never called")
@@ -1142,11 +1127,10 @@ let tests =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
                 |> Request.bodySerialized
                     {|
-                        data =
-                            [
-                                {| ``type`` = "invalid1"; id = "foo1" |}
-                                {| ``type`` = "invalid2"; id = "foo2" |}
-                            ]
+                        data = [
+                            {| ``type`` = "invalid1"; id = "foo1" |}
+                            {| ``type`` = "invalid2"; id = "foo2" |}
+                        ]
                     |}
                 |> getResponse
 

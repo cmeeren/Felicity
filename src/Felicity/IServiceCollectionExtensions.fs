@@ -269,7 +269,7 @@ type JsonApiConfigBuilder<'ctx> =
                             && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NullableAttribute<_, _, _, _, _>>)
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> Attribute<'ctx>).Name,
-                            typedefof<Option<_>>.MakeGenericType (pi.PropertyType.GetGenericArguments()[4]))
+                            typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments()[4]))
 
                     let toOneRelTypesByName =
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
@@ -361,8 +361,7 @@ type JsonApiConfigBuilder<'ctx> =
                 let relativeRoot = Uri(url).PathAndQuery.Trim('/')
                 if relativeRoot = "" then "" else "/" + relativeRoot
 
-        this
-            .services
+        this.services
             .AddSingleton<UnknownFieldStrictMode<'ctx>>(this.unknownFieldStrictMode)
             .AddSingleton<UnknownQueryParamStrictMode<'ctx>>(this.unknownQueryParamStrictMode)
             .AddSingleton<JsonApiEndpoints<'ctx>>(

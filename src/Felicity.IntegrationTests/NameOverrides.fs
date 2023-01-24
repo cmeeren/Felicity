@@ -22,9 +22,7 @@ module X =
         define.Attribute.SimpleBool("nonNullableCustomName").Get(fun _ -> true)
 
     let nullable =
-        define
-            .Attribute
-            .Nullable
+        define.Attribute.Nullable
             .SimpleBool("nullableCustomName")
             .Get(fun _ -> Some true)
 
@@ -36,8 +34,7 @@ module X =
     let toMany = define.Relationship.ToOne(resDef, "toManyCustomName").Get(fun _ _ -> X)
 
     let customOp =
-        define
-            .Operation
+        define.Operation
             .CustomLink("customOpCustomName")
             .ValidateStrictModeQueryParams()
             .GetAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
