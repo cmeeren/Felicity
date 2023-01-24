@@ -274,8 +274,7 @@ type Startup() =
             .AddJsonApi()
             .GetCtxAsyncRes(Context.getCtx)
             .Add()
-            .AddOtherServices
-            (..)
+            .AddOtherServices( (* ... *) )
 
     member _.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) : unit =
         app
