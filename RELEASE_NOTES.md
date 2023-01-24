@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.21.7 (2023-01-24)
 
 * Reduced memory usage for responses with very many resources
 * Updated FSharp.SystemTextJson from 1.0.7 to 1.1.23
