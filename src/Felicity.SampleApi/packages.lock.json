@@ -22,9 +22,9 @@
       },
       "FsToolkit.ErrorHandling": {
         "type": "Direct",
-        "requested": "[4.2.1, )",
-        "resolved": "4.2.1",
-        "contentHash": "gyIoNmkxIn968dgeMfb+vPPMjmclYIGvjRBnp3MAAK02BIX/uZA+GISfRCsgY3076uRef40QUYxd9kwN6YZTiQ==",
+        "requested": "[4.3.0, )",
+        "resolved": "4.3.0",
+        "contentHash": "71+79YDXfFuAG7L2GA0HiXYe/K5AxdKan8sBBqW8wU7UNLdXMi7oScKu+WEYj61u1vyzkYTM4VBG3zU5VWPRKw==",
         "dependencies": {
           "FSharp.Core": "7.0.0"
         }
