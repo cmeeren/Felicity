@@ -365,7 +365,7 @@ type internal Serializer<'ctx>
                     "Deserialization failed for the following request body (first {MaxSize} of {Size} characters shown):\n\n{RequestBody}",
                     maxSize,
                     json.Length,
-                    json.Substring(0, maxSize)
+                    json.Substring(0, min maxSize json.Length)
                 )
 
 

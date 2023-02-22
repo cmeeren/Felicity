@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Fixed `ArgumentOutOfRangeException` when logging request body after deserialization fails
+  and `LogInvalidJsonRequestBodies` is used with `maxSize` set
+
 ### 0.21.7 (2023-01-24)
 
 * Reduced memory usage for responses with very many resources
