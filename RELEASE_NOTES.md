@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.21.9 (2023-04-20)
 
 * `DELETE` resource operations now writes top-level meta just like other responses. If there is top-level meta, the
   response code is `200`.
