@@ -78,3 +78,12 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
 
             return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
         }
+
+    /// If there is top-level meta or links, sends a response document without data using a previously set status code
+    /// (default 200). If there is no top-level meta or links, responds with 204.
+    member _.WithNoEntity() : HttpHandler =
+        fun next httpCtx -> task {
+            match! builder.WriteNoResource httpCtx ctx req with
+            | None -> return! setStatusCode 204 next httpCtx
+            | Some doc -> return! jsonApiWithETag<'ctx> doc next httpCtx
+        }

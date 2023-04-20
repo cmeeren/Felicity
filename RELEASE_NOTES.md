@@ -1,6 +1,12 @@
 Release notes
 ==============
 
+### Unreleased
+
+* `DELETE` resource operations now writes top-level meta just like other responses. If there is top-level meta, the
+  response code is `200`.
+* In custom operations, the `Responder` now has a new method `WithNoEntity()` that only writes top-level `meta`.
+
 ### 0.21.8 (2023-02-22)
 
 * Fixed `ArgumentOutOfRangeException` when logging request body after deserialization fails

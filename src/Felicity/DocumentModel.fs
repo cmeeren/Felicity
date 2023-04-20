@@ -177,6 +177,14 @@ type internal ResourceCollectionDocument = {
 
 
 [<CLIMutable>]
+type internal NoResourceDocument = {
+    jsonapi: JsonApi Skippable
+    links: IDictionary<string, Link> Skippable
+    meta: IDictionary<string, obj> Skippable
+}
+
+
+[<CLIMutable>]
 type internal ResourceIdentifierDocument = {
     jsonapi: JsonApi Skippable
     links: IDictionary<string, Link> Skippable

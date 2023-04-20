@@ -11,3 +11,5 @@ type internal ResponseBuilder<'ctx> =
 
     abstract WriteOpt:
         HttpContext -> 'ctx -> Request -> (ResourceDefinition<'ctx> * 'entity) option -> Task<ResourceDocument>
+
+    abstract WriteNoResource: HttpContext -> 'ctx -> Request -> Task<NoResourceDocument option>

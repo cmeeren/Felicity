@@ -1347,7 +1347,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> =
 
 
     interface DeleteOperation<'originalCtx> with
-        member this.Run _resDef ctx req preconditions entity0 _resp =
+        member this.Run _resDef ctx req preconditions entity0 resp =
             fun next httpCtx -> task {
                 match! this.mapCtx ctx (unbox<'entity> entity0) with
                 | Error errors -> return! handleErrors errors next httpCtx
@@ -1368,8 +1368,17 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> =
                                         let handler = setStatusCode 202 >=> this.modifyResponse mappedCtx
                                         return! handler next httpCtx
                                     else
-                                        let handler = setStatusCode 204 >=> this.modifyResponse mappedCtx
-                                        return! handler next httpCtx
+                                        match! resp.WriteNoResource httpCtx ctx req with
+                                        | None ->
+                                            let handler = setStatusCode 204 >=> this.modifyResponse mappedCtx
+                                            return! handler next httpCtx
+                                        | Some doc ->
+                                            let handler =
+                                                setStatusCode 200
+                                                >=> this.modifyResponse mappedCtx
+                                                >=> jsonApiWithETag<'ctx> doc
+
+                                            return! handler next httpCtx
             }
 
 

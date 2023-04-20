@@ -1,6 +1,10 @@
 ﻿module ``Custom links``
 
 open System
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.TestHost
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Net.Http.Headers
 open Expecto
 open HttpFs.Client
@@ -405,6 +409,56 @@ module A11 =
             .ValidateStrictModeQueryParams()
             .SkipLink()
             .GetAsync(fun ctx parser responder _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
+type MetaCtx = {
+    StatusCode: int option
+    mutable Meta: Map<string, obj>
+}
+
+
+let getClientForMeta ctx =
+    let server =
+        new TestServer(
+            WebHostBuilder()
+                .ConfigureServices(fun services ->
+                    services
+                        .AddGiraffe()
+                        .AddRouting()
+                        .AddJsonApi()
+                        .GetCtx(fun _ -> ctx)
+                        .GetMeta(fun ctx -> ctx.Meta)
+                        .EnableUnknownFieldStrictMode()
+                        .EnableUnknownQueryParamStrictMode()
+                        .Add()
+                    |> ignore)
+                .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<MetaCtx>() |> ignore)
+        )
+
+    server.CreateClient()
+
+module A12 =
+
+    let define = Define<MetaCtx, A, string>()
+    let resId = define.Id.Simple(fun (a: A) -> a.Id)
+    let resDef = define.Resource("a", resId).CollectionName("as")
+    let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
+
+    let get = define.Operation.GetResource()
+
+    let customOp =
+        define.Operation
+            .CustomLink()
+            .ValidateStrictModeQueryParams()
+            .SkipLink()
+            .GetAsync(fun (ctx: MetaCtx) parser respond _ -> async {
+                let handler =
+                    match ctx.StatusCode with
+                    | None -> respond.WithNoEntity()
+                    | Some statusCode -> setStatusCode statusCode >=> respond.WithNoEntity()
+
+                return Ok handler
+            })
 
 
 [<Tests>]
@@ -2042,6 +2096,75 @@ let tests =
             // Verify that operation still works
             let! response = Request.get Ctx11 "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 200
+        }
+
+        testJob "WithNoEntity returns status code 204 and empty body when there is no content" {
+            let ctx = { StatusCode = None; Meta = Map.empty }
+            let client = getClientForMeta ctx
+
+            let! response =
+                Request.createWithClient client Get (Uri("http://example.com/as/1/customOp"))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 204
+            let! json = response |> Response.readBodyAsString
+            test <@ json = "" @>
+        }
+
+        testJob
+            "WithNoEntity returns status code 204 and empty body when there is no content, even if a status code was set" {
+            let ctx = {
+                StatusCode = Some 200
+                Meta = Map.empty
+            }
+
+            let client = getClientForMeta ctx
+
+            let! response =
+                Request.createWithClient client Get (Uri("http://example.com/as/1/customOp"))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 204
+            let! json = response |> Response.readBodyAsString
+            test <@ json = "" @>
+        }
+
+        testJob "WithNoEntity returns status code 200 by default when there is meta" {
+            let ctx = {
+                StatusCode = None
+                Meta = Map.empty.Add("someValue", 1)
+            }
+
+            let client = getClientForMeta ctx
+
+            let! response =
+                Request.createWithClient client Get (Uri("http://example.com/as/1/customOp"))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 200
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "meta.someValue" = 1 @>
+        }
+
+        testJob "WithNoEntity returns the specified status code when there is meta" {
+            let ctx = {
+                StatusCode = Some 201
+                Meta = Map.empty.Add("someValue", 1)
+            }
+
+            let client = getClientForMeta ctx
+
+            let! response =
+                Request.createWithClient client Get (Uri("http://example.com/as/1/customOp"))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 201
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "meta.someValue" = 1 @>
         }
 
     ]

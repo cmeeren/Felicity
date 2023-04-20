@@ -1,6 +1,10 @@
 ﻿module ``DELETE resource``
 
 open System
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.TestHost
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Net.Http.Headers
 open Expecto
 open HttpFs.Client
@@ -216,6 +220,42 @@ module A6 =
         define.Preconditions
             .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
             .Optional
+
+
+type MetaCtx = { mutable Meta: Map<string, obj> }
+
+
+let getClientForMeta () =
+    let server =
+        new TestServer(
+            WebHostBuilder()
+                .ConfigureServices(fun services ->
+                    services
+                        .AddGiraffe()
+                        .AddRouting()
+                        .AddJsonApi()
+                        .GetCtx(fun _ -> { MetaCtx.Meta = Map.empty })
+                        .GetMeta(fun ctx -> ctx.Meta)
+                        .EnableUnknownFieldStrictMode()
+                        .EnableUnknownQueryParamStrictMode()
+                        .Add()
+                    |> ignore)
+                .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<MetaCtx>() |> ignore)
+        )
+
+    server.CreateClient()
+
+
+module A7 =
+
+    let define = Define<MetaCtx, A, string>()
+    let resId = define.Id.Simple(fun _ -> failwith "not used")
+    let resDef = define.Resource("a", resId).CollectionName("as")
+    let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "1" })
+    let get = define.Operation.GetResource()
+
+    let delete =
+        define.Operation.Delete(fun (ctx: MetaCtx) _ -> ctx.Meta <- ctx.Meta.Add("a", 1))
 
 
 
@@ -555,6 +595,19 @@ let tests =
 
             test <@ json |> hasNoPath "errors[0].source" @>
             test <@ json |> hasNoPath "errors[1]" @>
+        }
+
+        testJob "Returns status code 200 when meta is present" {
+            let client = getClientForMeta ()
+
+            let! response =
+                Request.createWithClient client Delete (Uri("http://example.com/as/1"))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 200
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "meta.a" = 1 @>
         }
 
     ]

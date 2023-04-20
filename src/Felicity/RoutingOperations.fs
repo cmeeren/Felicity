@@ -74,6 +74,22 @@ module internal RoutingOperations =
     let responseBuilder resourceModuleMap getBaseUrl : ResponseBuilder<'ctx> =
 
         { new ResponseBuilder<'ctx> with
+            member _.WriteNoResource httpCtx ctx req = task {
+                let doc = {
+                    jsonapi = Skip // support later when valid use-cases arrive
+                    links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                    meta =
+                        httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
+                        |> Include
+                        |> Skippable.filter (fun x -> x.Count > 0)
+                }
+
+                if doc.jsonapi.isSkip && doc.links.isSkip && doc.meta.isSkip then
+                    return None
+                else
+                    return Some doc
+            }
+
             member _.Write httpCtx ctx req rDefEntity = task {
                 let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
                 let resourceDef, e = rDefEntity
