@@ -147,4 +147,19 @@ let tests =
             test <@ json |> hasNoPath "errors[1]" @>
         }
 
+        ftestJob "Returns 400 if a query parameter family is invalid" {
+            let! response = Request.post Ctx "/as/1?invalid[fooBar]" |> getResponse
+            response |> testStatusCode 400
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "errors[0].status" = "400" @>
+            test <@ json |> getPath "errors[0].source.parameter" = "invalid[fooBar]" @>
+
+            test
+                <@
+                    json |> getPath "errors[0].detail" = "'invalid[fooBar]' is not an allowed query parameter name according to the JSON:API specification"
+                @>
+
+            test <@ json |> hasNoPath "errors[1]" @>
+        }
+
     ]
