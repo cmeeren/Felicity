@@ -17,7 +17,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Check code format
-        run: dotnet fantomas --check --recurse .
+        run: dotnet fantomas --check .
 
       - name: Test
         run: dotnet test -c Release -maxCpuCount -- Expecto.fail-on-focused-tests=true
