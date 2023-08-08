@@ -19,3 +19,5 @@ indent_size = 4
 fsharp_keep_max_number_of_blank_lines = 3
 # Reduces indentation, makes editing easier, simplifies diffs
 fsharp_multiline_bracket_style = stroustrup
+# Makes formatting of lambdas consistent with other constructs, and is in line with the stroustrup style above
+fsharp_multi_line_lambda_closing_newline = true
