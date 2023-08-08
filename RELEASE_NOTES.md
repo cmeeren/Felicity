@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.21.10 (2023-08-08)
+
+* Updated Giraffe from 6.0.0 to 6.2.0
+
 ### 0.21.9 (2023-04-20)
 
 * `DELETE` resource operations now writes top-level meta just like other responses. If there is top-level meta, the
