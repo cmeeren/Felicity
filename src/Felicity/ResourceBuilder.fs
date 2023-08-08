@@ -40,7 +40,8 @@ type ResourceBuilder<'ctx>
         req.Includes
         |> List.exists (fun path ->
             path.Length > currentIncludePath.Length
-            && path[currentIncludePath.Length] = relName)
+            && path[currentIncludePath.Length] = relName
+        )
 
     let resourceModule: Type =
         match resourceModuleMap.TryGetValue resourceDef.TypeName with
@@ -77,7 +78,8 @@ type ResourceBuilder<'ctx>
                                        task {
                                            let! constraints = f.BoxedGetConstraints ctx boxedEntity
                                            return f.Name, constraints |> dict
-                                       })
+                                       }
+                                   )
 
                                return
                                    constraints
@@ -100,7 +102,8 @@ type ResourceBuilder<'ctx>
                 a.BoxedGetSerialized
                 |> Option.map (fun get -> get ctx entity |> Task.map (fun v -> a.Name, v))
             else
-                None)
+                None
+        )
         |> Task.WhenAll
         |> Task.map (Array.choose (fun (n, v) -> v |> Skippable.toOption |> Option.map (fun v -> n, v)))
         |> Task.map dict
@@ -206,7 +209,8 @@ type ResourceBuilder<'ctx>
                         }
                         :> Task
                     else
-                        Task.CompletedTask)
+                        Task.CompletedTask
+                )
 
             let toOneNullableRelsTask =
                 ResourceModule.toOneNullableRels<'ctx> resourceModule
@@ -297,7 +301,8 @@ type ResourceBuilder<'ctx>
                         }
                         :> Task
                     else
-                        Task.CompletedTask)
+                        Task.CompletedTask
+                )
 
             let toManyRelsTask =
                 ResourceModule.toManyRels<'ctx> resourceModule
@@ -369,7 +374,8 @@ type ResourceBuilder<'ctx>
                                                 rDef,
                                                 e
                                             )
-                                        ))
+                                        )
+                                    )
 
                             | true, None
                             | false, Some _
@@ -385,7 +391,8 @@ type ResourceBuilder<'ctx>
                         }
                         :> Task
                     else
-                        Task.CompletedTask)
+                        Task.CompletedTask
+                )
 
             do! toOneRelsTask
             do! toOneNullableRelsTask
@@ -405,12 +412,14 @@ type ResourceBuilder<'ctx>
                                 selfUrlOpt
                                 |> Option.defaultWith (fun () ->
                                     failwith
-                                        $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup.")
+                                        $"Framework bug: Attempted to use self URL of resource type '%s{resourceDef.TypeName}' which has no collection name. This error should be caught at startup."
+                                )
 
                             match! op.HrefAndMeta ctx selfUrl entity with
                             | None -> return None
                             | Some(href, meta) -> return Some(op.Name, href, meta)
-                        })
+                        }
+                    )
                 else
                     Task.result emptyLinkArrayNeverModify
 
@@ -421,7 +430,8 @@ type ResourceBuilder<'ctx>
                     | None -> links
                     | Some(_, None, None) -> links
                     | Some(name, Some href, None) -> links |> Links.addOpt name (Some href)
-                    | Some(name, hrefOpt, Some meta) -> links |> Links.addOptWithMeta name hrefOpt meta)
+                    | Some(name, hrefOpt, Some meta) -> links |> Links.addOptWithMeta name hrefOpt meta
+                )
                 |> match selfUrlOpt with
                    | Some selfUrl when shouldUseStandardLinks -> Links.addOpt "self" (Some selfUrl)
                    | _ -> id
@@ -528,10 +538,13 @@ let internal build (loggerFactory: ILoggerFactory) (mainBuilders: ResourceBuilde
 
         let addRelationships resId (relsToAdd: IDictionary<RelationshipName, IRelationship>) =
             if relsToAdd.Count > 0 then
-                lock additionalRelationships (fun () ->
-                    match additionalRelationships.TryGetValue resId with
-                    | false, _ -> additionalRelationships[resId] <- relsToAdd
-                    | true, existingRels -> lock existingRels (fun () -> mergeRelationships existingRels relsToAdd))
+                lock
+                    additionalRelationships
+                    (fun () ->
+                        match additionalRelationships.TryGetValue resId with
+                        | false, _ -> additionalRelationships[resId] <- relsToAdd
+                        | true, existingRels -> lock existingRels (fun () -> mergeRelationships existingRels relsToAdd)
+                    )
 
         let numMainBuilders = mainBuilders.Length
 
@@ -559,7 +572,8 @@ let internal build (loggerFactory: ILoggerFactory) (mainBuilders: ResourceBuilde
             if allResources.Remove(b.Identifier, res) then
                 mainResources[i] <- res.Value.Value
             else
-                hasDuplicates <- true)
+                hasDuplicates <- true
+        )
 
         let mainResources =
             if not hasDuplicates then

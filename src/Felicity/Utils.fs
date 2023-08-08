@@ -375,7 +375,8 @@ module List =
             | Ok x, Ok xs -> Ok(x :: xs)
             | Ok _, Error errs
             | Error errs, Ok _ -> Error errs
-            | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs))
+            | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs)
+        )
 
     let inline traverseTaskResultA (f: _ -> Task<_>) (list: _ list) =
         task {
@@ -388,7 +389,8 @@ module List =
                     | Ok x, Ok xs -> Ok(x :: xs)
                     | Ok _, Error errs
                     | Error errs, Ok _ -> Error errs
-                    | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs))
+                    | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs)
+                )
         }
 
 
@@ -409,7 +411,8 @@ module Array =
         |> Array.iteri (fun i x ->
             match f x with
             | Ok x -> out[i] <- x
-            | Error errs -> errors.AddRange errs)
+            | Error errs -> errors.AddRange errs
+        )
 
         if errors.Count > 0 then
             errors |> Seq.toList |> Error
@@ -424,7 +427,8 @@ module Array =
         |> Array.iteri (fun i x ->
             match f i x with
             | Ok x -> out[i] <- x
-            | Error errs -> errors.AddRange errs)
+            | Error errs -> errors.AddRange errs
+        )
 
         if errors.Count > 0 then
             errors |> Seq.toList |> Error
@@ -441,7 +445,8 @@ module Array =
             |> Seq.iteri (fun i x ->
                 match x with
                 | Ok x -> out[i] <- x
-                | Error errs -> errors.AddRange errs)
+                | Error errs -> errors.AddRange errs
+            )
 
             return
                 if errors.Count > 0 then
@@ -491,7 +496,8 @@ type SemaphoreQueue() =
             .ContinueWith(fun (t: Task<bool>) ->
                 match queue.TryDequeue() with
                 | true, popped -> popped.SetResult(t.Result)
-                | false, _ -> ())
+                | false, _ -> ()
+            )
         |> ignore
 
         tcs.Task
@@ -530,11 +536,14 @@ type SemaphoreQueueFactory<'ctx>() =
         let idle = queues |> Seq.filter (fun kvp -> kvp.Value.IsIdle) |> Seq.toList
 
         if not idle.IsEmpty then
-            lock queues (fun () ->
-                for kvp in idle do
-                    if kvp.Value.IsIdle then
-                        (kvp.Value :> IDisposable).Dispose()
-                        queues.TryRemove kvp.Key |> ignore)
+            lock
+                queues
+                (fun () ->
+                    for kvp in idle do
+                        if kvp.Value.IsIdle then
+                            (kvp.Value :> IDisposable).Dispose()
+                            queues.TryRemove kvp.Key |> ignore
+                )
 
     do
         let timer =

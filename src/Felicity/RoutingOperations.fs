@@ -151,7 +151,8 @@ module internal RoutingOperations =
                                 req,
                                 rDef,
                                 e
-                            ))
+                            )
+                        )
                         |> ResourceBuilder.build (httpCtx.GetService<ILoggerFactory>())
 
                     return {
@@ -193,7 +194,8 @@ module internal RoutingOperations =
                                 e
                             )
                             |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
-                            |> Task.map (fun (res, inc) -> Some res, Include inc))
+                            |> Task.map (fun (res, inc) -> Some res, Include inc)
+                        )
                         |> Option.defaultValue (Task.result (None, Skip))
 
                     return {
@@ -266,7 +268,8 @@ module internal RoutingOperations =
             resourceModules
             |> Array.choose (fun m ->
                 let op = ResourceModule.getResourceOperation<'ctx> m
-                op |> Option.map (fun op -> op, ResourceModule.resourceDefinition<'ctx> m))
+                op |> Option.map (fun op -> op, ResourceModule.resourceDefinition<'ctx> m)
+            )
 
         if opsAndResourceDefs.Length = 0 then
             None
@@ -275,7 +278,8 @@ module internal RoutingOperations =
                 opsAndResourceDefs
                 |> Array.map (fun (op, resDef) ->
                     let builder = responseBuilder resourceModuleMap getBaseUrl
-                    resDef.TypeName, (fun ctx req entity -> op.Run resDef ctx req entity builder))
+                    resDef.TypeName, (fun ctx req entity -> op.Run resDef ctx req entity builder)
+                )
                 |> dict
 
             Some
@@ -302,7 +306,9 @@ module internal RoutingOperations =
 
                 patchOp
                 |> Option.map (fun op ->
-                    op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
+                    op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m
+                )
+            )
 
         if opsAndResourceDefs.Length = 0 then
             None
@@ -318,10 +324,12 @@ module internal RoutingOperations =
                         |> Map.tryFind resDef.TypeName
                         |> Option.defaultWith (fun () ->
                             failwith
-                                $"Framework bug: Resource module map does not contain entry for resource type %s{resDef.TypeName}")
+                                $"Framework bug: Resource module map does not contain entry for resource type %s{resDef.TypeName}"
+                        )
                         |> boxedPatcher
 
-                    resDef.TypeName, (fun ctx req entity -> patchOp.Run resDef ctx req prec entity patch builder))
+                    resDef.TypeName, (fun ctx req entity -> patchOp.Run resDef ctx req prec entity patch builder)
+                )
                 |> dict
 
             Some
@@ -348,7 +356,9 @@ module internal RoutingOperations =
 
                 op
                 |> Option.map (fun op ->
-                    op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
+                    op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m
+                )
+            )
 
         if opsAndResourceDefs.Length = 0 then
             None
@@ -358,7 +368,8 @@ module internal RoutingOperations =
                 |> Array.map (fun (op, prec, resDef) ->
                     let builder = responseBuilder resourceModuleMap getBaseUrl
                     let prec = prec |> Option.defaultValue Preconditions.noop
-                    resDef.TypeName, (fun ctx req entity -> op.Run resDef ctx req prec entity builder))
+                    resDef.TypeName, (fun ctx req entity -> op.Run resDef ctx req prec entity builder)
+                )
                 |> dict
 
             Some
@@ -381,13 +392,16 @@ module internal RoutingOperations =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<RelationshipHandlers<'ctx>>)
             |> Array.map (fun op ->
-                op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
+                op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m
+            )
+        )
         |> Array.groupBy (fun (op, _, _) -> op.Name)
         |> Array.map (fun (relName, opsAndResDefs) ->
             let opsMap =
                 opsAndResDefs
                 |> Array.map (fun (op, preconditions, rDef) ->
-                    rDef.TypeName, (op, preconditions |> Option.defaultValue Preconditions.noop))
+                    rDef.TypeName, (op, preconditions |> Option.defaultValue Preconditions.noop)
+                )
                 |> dict
 
             let builder = responseBuilder resourceModuleMap getBaseUrl
@@ -513,7 +527,8 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some deleteSelf -> deleteSelf ctx req preconditions entity resDef builder
-            })
+            }
+        )
         |> Map.ofArray
 
 
@@ -528,7 +543,9 @@ module internal RoutingOperations =
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
             |> Array.choose (fun x -> x.GetValue(null) |> tryUnbox<CustomOperation<'ctx>>)
             |> Array.map (fun op ->
-                op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m))
+                op, ResourceModule.preconditions<'ctx> m, ResourceModule.resourceDefinition<'ctx> m
+            )
+        )
         |> Array.groupBy (fun (op, _, _) -> op.Name)
         |> Array.map (fun (opName, opsAndResDefs) ->
 
@@ -536,7 +553,8 @@ module internal RoutingOperations =
                 opsAndResDefs
                 |> Array.map (fun (op, prec, rDef) ->
                     let prec = prec |> Option.defaultValue Preconditions.noop
-                    rDef.TypeName, (op, prec))
+                    rDef.TypeName, (op, prec)
+                )
                 |> dict
 
             let getResponder ctx req =
@@ -647,7 +665,8 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some delete -> delete getValidationHandler ctx req (getResponder ctx req) prec entity
-            })
+            }
+        )
         |> Map.ofArray
 
 
@@ -663,7 +682,8 @@ module internal RoutingOperations =
                             | Error errs -> return! handleErrors errs next httpCtx
                             | Ok None -> return! handleErrors [ resourceNotFound collName rawId ] next httpCtx
                             | Ok(Some(resDef, entity)) -> return! handler resDef entity next httpCtx
-                        })
+                        }
+            )
         get = getResource resourceModuleMap getBaseUrl collName resourceModules
         patch = patchResource resourceModuleMap getBaseUrl collName resourceModules
         delete = deleteResource resourceModuleMap getBaseUrl collName resourceModules
@@ -682,7 +702,9 @@ module internal RoutingOperations =
                 |> Option.map (fun op ->
                     let rDef = ResourceModule.resourceDefinition<'ctx> m
                     let builder = responseBuilder resourceModuleMap getBaseUrl
-                    fun ctx req -> op.Run rDef ctx req builder))
+                    fun ctx req -> op.Run rDef ctx req builder
+                )
+            )
 
         let polymorphicOperations =
             resourceModules
@@ -701,7 +723,9 @@ module internal RoutingOperations =
                         |> Array.toList
 
                     let builder = responseBuilder resourceModuleMap getBaseUrl
-                    fun ctx req -> op.Run collectionResTypes ctx req builder))
+                    fun ctx req -> op.Run collectionResTypes ctx req builder
+                )
+            )
 
         Array.concat [ nonPolymorphicOperations; polymorphicOperations ]
         |> function
@@ -717,7 +741,8 @@ module internal RoutingOperations =
             resourceModules
             |> Array.choose (fun m ->
                 ResourceModule.postOperation<'ctx> m
-                |> Option.map (fun op -> op, ResourceModule.resourceDefinition<'ctx> m))
+                |> Option.map (fun op -> op, ResourceModule.resourceDefinition<'ctx> m)
+            )
 
         if opsAndResourceDefs.Length = 0 then
             None
@@ -732,10 +757,12 @@ module internal RoutingOperations =
                         |> Map.tryFind resDef.TypeName
                         |> Option.defaultWith (fun () ->
                             failwith
-                                $"Framework bug: Resource module map does not contain entry for resource type %s{resDef.TypeName}")
+                                $"Framework bug: Resource module map does not contain entry for resource type %s{resDef.TypeName}"
+                        )
                         |> boxedPatcher
 
-                    resDef.TypeName, (fun ctx req -> op.Run collName resDef ctx req patch builder))
+                    resDef.TypeName, (fun ctx req -> op.Run collName resDef ctx req patch builder)
+                )
                 |> dict
 
             let allowedTypes =

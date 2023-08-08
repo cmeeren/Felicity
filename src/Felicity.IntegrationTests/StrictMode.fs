@@ -30,7 +30,8 @@ module A =
         define.Operation.GetCollection(fun ctx parser ->
             parser
                 .For((fun _ -> []), Query.String("customQueryParam"))
-                .IgnoreStrictMode(Query.String("ignoredQueryParam")))
+                .IgnoreStrictMode(Query.String("ignoredQueryParam"))
+        )
 
     let post =
         define.Operation
@@ -41,7 +42,8 @@ module A =
 
                     return parser.For(A "1").IgnoreStrictMode(Query.String("ignoredQueryParam")) |> Ok
 
-                })
+                }
+            )
             .AfterCreate(ignore)
 
     let get = define.Operation.GetResource()
@@ -75,7 +77,8 @@ module A =
             .AddCustomSetter(fun ctx a parser ->
                 parser
                     .For((fun _ -> a), Query.String("customQueryParam"))
-                    .IgnoreStrictMode(Query.String("ignoredQueryParam")))
+                    .IgnoreStrictMode(Query.String("ignoredQueryParam"))
+            )
             .AfterUpdate(ignore)
 
     let delete = define.Operation.Delete(fun _ -> ())
@@ -114,7 +117,8 @@ let createServerAndGetClient warnOnly =
                         .SkipStandardLinksQueryParamName("skipLinks1")
                         .SkipCustomLinksQueryParamName("skipLinks2")
                         .Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
         )
 

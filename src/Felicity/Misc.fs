@@ -44,7 +44,8 @@ module internal Request =
         getResourceAndDeepestPointer includedTypeAndId req
         |> Result.map (fun (res, ptr) ->
             res
-            |> Option.bind (fun res -> res.id |> Skippable.toOption |> Option.map (fun rsId -> rsId, ptr + "/id")))
+            |> Option.bind (fun res -> res.id |> Skippable.toOption |> Option.map (fun rsId -> rsId, ptr + "/id"))
+        )
 
     let getAttrAndPointer includedTypeAndId req : Result<(_ * Pointer) option, _> =
         getResourceAndDeepestPointer includedTypeAndId req
@@ -53,7 +54,9 @@ module internal Request =
             |> Option.bind (fun res ->
                 res.attributes
                 |> Skippable.toOption
-                |> Option.map (fun attrs -> attrs, ptr + "/attributes")))
+                |> Option.map (fun attrs -> attrs, ptr + "/attributes")
+            )
+        )
 
     let getRelsAndPointer includedTypeAndId req : Result<(_ * Pointer) option, _> =
         getResourceAndDeepestPointer includedTypeAndId req
@@ -62,7 +65,9 @@ module internal Request =
             |> Option.bind (fun res ->
                 res.relationships
                 |> Skippable.toOption
-                |> Option.map (fun rels -> rels, ptr + "/relationships")))
+                |> Option.map (fun rels -> rels, ptr + "/relationships")
+            )
+        )
 
     let pointerForMissingId includedTypeAndId req =
         match getResourceAndDeepestPointer includedTypeAndId req with
@@ -143,7 +148,8 @@ type internal LinkConfig<'ctx>(skipStandardLinksQueryParamNames: string[], skipC
 
                 match Seq.tryHead nonEmptyValues with
                 | None -> []
-                | Some value -> [ queryDoesNotAcceptValue paramName value ])
+                | Some value -> [ queryDoesNotAcceptValue paramName value ]
+        )
 
 
 /// Indicates why a field is used (or not) in a response.

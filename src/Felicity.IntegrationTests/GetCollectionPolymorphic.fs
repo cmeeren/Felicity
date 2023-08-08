@@ -63,9 +63,11 @@ module AB =
     let define = Define<Ctx, AB, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
-            | B b -> b.Id)
+            | B b -> b.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
@@ -99,9 +101,11 @@ module AB3 =
     let define = Define<Ctx, AB, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
-            | B b -> b.Id)
+            | B b -> b.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("sortTest")
 

@@ -22,14 +22,16 @@ module X =
             .SetOrder(5)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 5 ]
-                e)
+                e
+            )
 
     let b =
         define.Attribute
             .SimpleString()
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
-                e)
+                e
+            )
 
     let c =
         define.Attribute.Nullable
@@ -37,14 +39,16 @@ module X =
             .SetOrder(-3)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ -3 ]
-                e)
+                e
+            )
 
     let d =
         define.Attribute.Nullable
             .SimpleString()
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
-                e)
+                e
+            )
 
     let e =
         define.Relationship
@@ -52,7 +56,8 @@ module X =
             .SetOrder(20)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 20 ]
-                e)
+                e
+            )
             .AfterModifySelf(ignore)
 
     let f =
@@ -60,7 +65,8 @@ module X =
             .ToOne(resDef)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
-                e)
+                e
+            )
             .AfterModifySelf(ignore)
 
     let g =
@@ -69,7 +75,8 @@ module X =
             .SetOrder(-80)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ -80 ]
-                e)
+                e
+            )
             .AfterModifySelf(ignore)
 
     let h =
@@ -77,7 +84,8 @@ module X =
             .ToOneNullable(resDef)
             .Set(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
-                e)
+                e
+            )
             .AfterModifySelf(ignore)
 
     let i =
@@ -86,7 +94,8 @@ module X =
             .SetOrder(6)
             .SetAll(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 6 ]
-                e)
+                e
+            )
             .AfterModifySelf(ignore)
 
     let j =
@@ -94,7 +103,8 @@ module X =
             .ToMany(resDef)
             .SetAll(fun (Ctx xs) _ e ->
                 xs := !xs @ [ 0 ]
-                e)
+                e
+            )
             .AfterModifySelf(ignore)
 
     let post = define.Operation.Post(fun () -> "").AfterCreate(fun _ -> ())

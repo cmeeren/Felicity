@@ -27,7 +27,8 @@ module A =
     let getColl =
         define.Operation.GetCollection(fun (ctx: Ctx1) ->
             ctx.Meta <- Map.empty.Add("foo", box {| test1 = 123; test2 = "some value" |})
-            [ A ])
+            [ A ]
+        )
 
     let post =
         define.Operation
@@ -41,7 +42,8 @@ module A =
                         |}
                     )
 
-                A)
+                A
+            )
             .AfterCreate(ignore)
 
     let get =
@@ -49,20 +51,23 @@ module A =
             .GetResource()
             .ModifyResponse(fun (ctx: Ctx1) _a ->
                 ctx.Meta <- Map.empty
-                fun next ctx -> next ctx)
+                fun next ctx -> next ctx
+            )
 
     let patch =
         define.Operation
             .Patch()
             .ModifyResponse(fun (ctx: Ctx1) _a ->
                 ctx.Meta <- Map.empty
-                fun next ctx -> next ctx)
+                fun next ctx -> next ctx
+            )
             .AfterUpdate(ignore)
 
     let delete =
         define.Operation.DeleteRes(fun (ctx: Ctx1) a ->
             ctx.Meta <- Map.empty.Add("foo", box "bar")
-            Error [ (Error.create 400) ])
+            Error [ (Error.create 400) ]
+        )
 
 
 let getClient () =
@@ -79,7 +84,8 @@ let getClient () =
                         .EnableUnknownFieldStrictMode()
                         .EnableUnknownQueryParamStrictMode()
                         .Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx1>() |> ignore)
         )
 

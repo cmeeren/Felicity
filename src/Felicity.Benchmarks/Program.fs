@@ -65,7 +65,8 @@ type Benchmark() =
             WebHostBuilder()
                 .ConfigureServices(fun services ->
                     services.AddGiraffe().AddRouting().AddJsonApi().GetCtx(fun _ -> context).Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Context>() |> ignore)
         )
 
@@ -75,19 +76,23 @@ type Benchmark() =
     [<GlobalSetup>]
     member this.Setup() =
         let getRelated () =
-            List.init this.NInc (fun _ -> {
-                Id = Guid.NewGuid().ToString()
-                Related = []
-            })
+            List.init
+                this.NInc
+                (fun _ -> {
+                    Id = Guid.NewGuid().ToString()
+                    Related = []
+                })
 
         let commonRelated = getRelated ()
 
         context <- {
             Resources =
-                List.init this.NRes (fun _ -> {
-                    Id = Guid.NewGuid().ToString()
-                    Related = if this.ShareInc then commonRelated else getRelated ()
-                })
+                List.init
+                    this.NRes
+                    (fun _ -> {
+                        Id = Guid.NewGuid().ToString()
+                        Related = if this.ShareInc then commonRelated else getRelated ()
+                    })
         }
 
     [<Benchmark>]

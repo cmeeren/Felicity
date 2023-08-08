@@ -114,7 +114,8 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
             |> Option.map (fun get ->
                 fun ctx res ->
                     get ctx (unbox<'entity> res)
-                    |> Task.map (Skippable.map (this.fromDomain >> box)))
+                    |> Task.map (Skippable.map (this.fromDomain >> box))
+            )
 
         member this.RequiresExplicitInclude = this.requiresExplicitInclude
 
@@ -400,7 +401,8 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
             |> Option.map (fun get ->
                 fun ctx res ->
                     get ctx (unbox<'entity> res)
-                    |> Task.map (Skippable.map (this.nullableFromDomain >> box)))
+                    |> Task.map (Skippable.map (this.nullableFromDomain >> box))
+            )
 
         member this.RequiresExplicitInclude = this.requiresExplicitInclude
 
@@ -613,7 +615,8 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
                     attr
                     |> Result.requireSome [ setAttrNullNotAllowed this.name ]
                     |> Task.result
-                    |> TaskResult.bind (fun a -> set ctx a e))
+                    |> TaskResult.bind (fun a -> set ctx a e)
+                )
     }
 
     member this.SetNonNullTaskRes(set: 'attr -> 'entity -> Task<Result<'entity, Error list>>) =
@@ -818,7 +821,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                     v
                     |> parseDateTimeOffset
                     |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                    |> Task.result)
+                    |> Task.result
+                )
             )
 
     member this.SimpleGuid
@@ -867,7 +871,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             (fun ctx getInfo v ->
                 v
                 |> toDomain ctx
-                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)),
+                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
+            ),
             name
         )
 
@@ -882,7 +887,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             (fun _ getInfo v ->
                 v
                 |> toDomain
-                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)),
+                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
+            ),
             name
         )
 
@@ -897,7 +903,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             (fun ctx getInfo v ->
                 v
                 |> toDomain ctx
-                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))),
+                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))
+            ),
             name
         )
 
@@ -912,7 +919,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             (fun _ getInfo v ->
                 v
                 |> toDomain
-                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))),
+                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))
+            ),
             name
         )
 
@@ -975,7 +983,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             (fun ctx getInfo v ->
                 v
                 |> toDomain ctx
-                |> Task.map (Result.requireSome [ invalidParsedNone (getInfo v) ])),
+                |> Task.map (Result.requireSome [ invalidParsedNone (getInfo v) ])
+            ),
             name
         )
 
@@ -1067,7 +1076,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 v
                 |> toDomain ctx
                 |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1083,7 +1093,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 v
                 |> toDomain
                 |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1099,7 +1110,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 v
                 |> toDomain ctx
                 |> Result.mapError (List.map (invalidParsedErrMsg (getInfo v)))
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1115,7 +1127,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 v
                 |> toDomain
                 |> Result.mapError (List.map (invalidParsedErrMsg (getInfo v)))
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1131,7 +1144,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 v
                 |> toDomain ctx
                 |> Result.requireSome [ invalidParsedNone (getInfo v) ]
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1147,7 +1161,8 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
                 v
                 |> toDomain
                 |> Result.requireSome [ invalidParsedNone (getInfo v) ]
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1289,7 +1304,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                     v
                     |> parseDateTimeOffset
                     |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                    |> Task.result)
+                    |> Task.result
+                )
             )
 
     member this.SimpleGuid
@@ -1338,7 +1354,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             (fun ctx getInfo v ->
                 v
                 |> toDomain ctx
-                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)),
+                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
+            ),
             name
         )
 
@@ -1353,7 +1370,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             (fun _ getInfo v ->
                 v
                 |> toDomain
-                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)),
+                |> TaskResult.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
+            ),
             name
         )
 
@@ -1368,7 +1386,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             (fun ctx getInfo v ->
                 v
                 |> toDomain ctx
-                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))),
+                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))
+            ),
             name
         )
 
@@ -1383,7 +1402,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             (fun _ getInfo v ->
                 v
                 |> toDomain
-                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))),
+                |> TaskResult.mapError (List.map (invalidParsedErrMsg (getInfo v)))
+            ),
             name
         )
 
@@ -1446,7 +1466,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             (fun ctx getInfo v ->
                 v
                 |> toDomain ctx
-                |> Task.map (Result.requireSome [ invalidParsedNone (getInfo v) ])),
+                |> Task.map (Result.requireSome [ invalidParsedNone (getInfo v) ])
+            ),
             name
         )
 
@@ -1538,7 +1559,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                 v
                 |> toDomain ctx
                 |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1554,7 +1576,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                 v
                 |> toDomain
                 |> Result.mapError (invalidParsedErrMsg (getInfo v) >> List.singleton)
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1570,7 +1593,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                 v
                 |> toDomain ctx
                 |> Result.mapError (List.map (invalidParsedErrMsg (getInfo v)))
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1586,7 +1610,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                 v
                 |> toDomain
                 |> Result.mapError (List.map (invalidParsedErrMsg (getInfo v)))
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1602,7 +1627,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                 v
                 |> toDomain ctx
                 |> Result.requireSome [ invalidParsedNone (getInfo v) ]
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 
@@ -1618,7 +1644,8 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
                 v
                 |> toDomain
                 |> Result.requireSome [ invalidParsedNone (getInfo v) ]
-                |> Task.result),
+                |> Task.result
+            ),
             name
         )
 

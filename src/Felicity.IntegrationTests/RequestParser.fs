@@ -317,7 +317,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nonEmptyString).Operator("eq")))
+                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nonEmptyString).Operator("eq"))
+                )
 
             let! response = Request.get ctx "/xs?filter[nonEmptyString][eq]=val" |> getResponse
 
@@ -334,7 +335,8 @@ let tests =
                     parser.For(
                         (fun x -> calledWith <- Some x),
                         Filter.Field(X.nonEmptyString).Operator("isEmpty").Bool
-                    ))
+                    )
+                )
 
             let! response = Request.get ctx "/xs?filter[nonEmptyString][isEmpty]=false" |> getResponse
 
@@ -348,7 +350,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nonEmptyString).List))
+                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nonEmptyString).List)
+                )
 
             let! response = Request.get ctx "/xs?filter[nonEmptyString]=val1,val2" |> getResponse
 
@@ -388,7 +391,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.a, A.b, B.c, C.attr)))
+                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.a, A.b, B.c, C.attr))
+                )
 
             let! response = Request.get ctx "/xs?filter[a.b.c.attr]=val" |> getResponse
 
@@ -402,7 +406,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nullableNonEmptyString)))
+                    parser.For((fun x -> calledWith <- Some x), Filter.Field(X.nullableNonEmptyString))
+                )
 
             let! response = Request.get ctx "/xs?filter[nullableNonEmptyString]=val" |> getResponse
 
@@ -542,7 +547,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullable))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullable)
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -613,7 +619,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -635,7 +642,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -657,7 +665,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.Optional)
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -679,7 +688,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullableOptional))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullableOptional)
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -723,7 +733,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullableOptional))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.nullableNonEmptyString.AsNonNullableOptional)
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -745,7 +756,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), X.a.Related(X.alternativeALookup)))
+                    parser.For((fun x -> calledWith <- ValueSome x), X.a.Related(X.alternativeALookup))
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -790,7 +802,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- ValueSome x), Filter.Field(X.nonEmptyString).AllowCommas))
+                    parser.For((fun x -> calledWith <- ValueSome x), Filter.Field(X.nonEmptyString).AllowCommas)
+                )
 
             let! response = Request.get ctx "/xs?filter[nonEmptyString]=val1,val2" |> getResponse
 
@@ -843,7 +856,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List))
+                    parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List)
+                )
 
             let! response = Request.get ctx "/xs?sort=1,-2" |> getResponse
 
@@ -857,7 +871,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List))
+                    parser.For((fun x -> calledWith <- Some x), Sort.Enum([ "1", 1; "2", 2 ]).List)
+                )
 
             let! response = Request.get ctx "/xs?sort=1,-1,-2,1,-2,2" |> getResponse
 
@@ -925,12 +940,14 @@ let tests =
                                     Limit = limit
                                     Number = number
                                     Size = size
-                                |}),
+                                |}
+                        ),
                         Page.Offset,
                         Page.Limit,
                         Page.Number,
                         Page.Size
-                    ))
+                    )
+                )
 
             let! response =
                 Request.get ctx "/xs?page[offset]=4&page[limit]=5&page[number]=6&page[size]=7"
@@ -1072,7 +1089,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Query.Parsed("customParam", NonEmptyString)))
+                    parser.For((fun x -> calledWith <- Some x), Query.Parsed("customParam", NonEmptyString))
+                )
 
             let! response = Request.get ctx "/xs?customParam=val" |> getResponse
 
@@ -1099,7 +1117,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Query.DateTimeOffset("customParam")))
+                    parser.For((fun x -> calledWith <- Some x), Query.DateTimeOffset("customParam"))
+                )
 
             let! response = Request.get ctx "/xs?customParam=2020-01-01T00:00:00Z" |> getResponse
 
@@ -1113,7 +1132,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Query.DateTimeOffset("customParam")))
+                    parser.For((fun x -> calledWith <- Some x), Query.DateTimeOffset("customParam"))
+                )
 
             let! response = Request.get ctx "/xs?customParam=2020-01-01T00:00:00%2B03:00" |> getResponse
 
@@ -1146,7 +1166,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Filter.Parsed("custom", NonEmptyString)))
+                    parser.For((fun x -> calledWith <- Some x), Filter.Parsed("custom", NonEmptyString))
+                )
 
             let! response = Request.get ctx "/xs?filter[custom]=val" |> getResponse
 
@@ -1160,7 +1181,8 @@ let tests =
 
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun x -> calledWith <- Some x), Header.Parsed("HeaderName", NonEmptyString)))
+                    parser.For((fun x -> calledWith <- Some x), Header.Parsed("HeaderName", NonEmptyString))
+                )
 
             let! response =
                 Request.get ctx "/xs"
@@ -1183,7 +1205,8 @@ let tests =
                         .Add((fun _ () -> ()), Sort.Enum([]))
                         .Add((fun _ () -> ()), Page.Offset)
                         .Add((fun _ () -> ()), Query.String("customParam"))
-                        .Add((fun _ () -> ()), Header.String("customHeader")))
+                        .Add((fun _ () -> ()), Header.String("customHeader"))
+                )
 
             let! response = Request.get ctx "/xs" |> getResponse
 
@@ -1210,7 +1233,8 @@ let tests =
                                 "HeaderName",
                                 fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
                             )
-                        ))
+                        )
+                )
 
             let! response =
                 Request.get ctx "/xs?filter[nonEmptyString]=&filter[nonNegativeInt]=-1&page[offset]=-1"
@@ -1265,7 +1289,8 @@ let tests =
         testJob "Names are case sensitive when not using strict mode" {
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For((fun _ _ -> ()), Filter.Field(X.nonEmptyString), X.nonNegativeFloat))
+                    parser.For((fun _ _ -> ()), Filter.Field(X.nonEmptyString), X.nonNegativeFloat)
+                )
 
             let! response =
                 Request.postWithoutStrictMode ctx "/xs?filter[NonEmptyString]=foo"
@@ -1304,7 +1329,8 @@ let tests =
                         .Prohibit(Filter.Field(X.nonEmptyString))
                         .Prohibit(X.nonNegativeInt)
                         .Prohibit(X.a)
-                        .Prohibit(Header.String("HeaderName")))
+                        .Prohibit(Header.String("HeaderName"))
+                )
 
             let! response =
                 Request.post ctx "/xs?filter[nonEmptyString]=val"
@@ -1359,7 +1385,9 @@ let tests =
                         .Add(XSearchArgs.setNullableNonEmptyString, Filter.Field(X.nullableNonEmptyString))
                         .Map(fun args ->
                             calledWith <- Some args
-                            ()))
+                            ()
+                        )
+                )
 
             let! response =
                 Request.get
@@ -1388,7 +1416,9 @@ let tests =
                         .For(id, X.nonEmptyString)
                         .Map(fun args ->
                             calledWith <- Some args
-                            ()))
+                            ()
+                        )
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -1414,7 +1444,9 @@ let tests =
                         .For(id, X.nonEmptyString.Optional)
                         .Map(fun args ->
                             calledWith <- Some args
-                            ()))
+                            ()
+                        )
+                )
 
             let! response =
                 Request.post ctx "/xs"
@@ -1534,7 +1566,8 @@ let tests =
             "Custom list filter",
             "filter[custom]",
             Ctx.Create(fun parser ->
-                parser.For(ignore, Filter.ParsedRes("custom", (fun _ -> Error "Custom message")).List))
+                parser.For(ignore, Filter.ParsedRes("custom", (fun _ -> Error "Custom message")).List)
+            )
             "Custom sort",
             "sort",
             Ctx.Create(fun parser -> parser.For(ignore, Sort.ParsedRes(fun _ -> Error "Custom message")))
@@ -1544,7 +1577,8 @@ let tests =
             "Custom query param",
             "customQueryParam",
             Ctx.Create(fun parser ->
-                parser.For(ignore, Query.ParsedRes("customQueryParam", (fun _ -> Error "Custom message"))))
+                parser.For(ignore, Query.ParsedRes("customQueryParam", (fun _ -> Error "Custom message")))
+            )
         ]
 
         for suffix, paramName, ctx in returnsErrorTestData do
@@ -1773,7 +1807,8 @@ let tests =
         testJob "Returns expected error for headers where parser returns None" {
             let ctx =
                 Ctx.Create(fun parser ->
-                    parser.For(ignore, Header.ParsedOpt("CustomHeader", (fun _ -> (None: string option)))))
+                    parser.For(ignore, Header.ParsedOpt("CustomHeader", (fun _ -> (None: string option))))
+                )
 
             let! response =
                 Request.get ctx "/ys"
@@ -1794,7 +1829,8 @@ let tests =
                     parser.For(
                         ignore,
                         Header.ParsedRes("CustomHeader", (fun _ -> (Error "Custom message": Result<string, string>)))
-                    ))
+                    )
+                )
 
             let! response =
                 Request.get ctx "/ys"
@@ -1888,7 +1924,8 @@ let tests =
             "Custom filter",
             "filter[custom]",
             Ctx.Create(fun parser ->
-                parser.For(ignore, Filter.ParsedRes("custom", (fun _ -> Error "Custom message")).List))
+                parser.For(ignore, Filter.ParsedRes("custom", (fun _ -> Error "Custom message")).List)
+            )
             "Custom sort",
             "sort",
             Ctx.Create(fun parser -> parser.For(ignore, Sort.ParsedRes(fun _ -> Error "Custom message").List))

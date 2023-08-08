@@ -67,7 +67,8 @@ module A =
                                     return helper.ReturnCreatedEntity entity |> Ok
                                 else
                                     return helper.Return202Accepted() |> Ok
-            })
+            }
+        )
 
 
 
@@ -117,7 +118,8 @@ module D =
                 match helper.ValidatePreconditions(eTag, lastModified) with
                 | Error errs -> return Error errs
                 | Ok() -> return helper.Return202Accepted() |> Ok
-            })
+            }
+        )
 
 
 module E =
@@ -135,7 +137,8 @@ module E =
                 match helper.ValidatePreconditions(eTag, lastModified, isOptional = true) with
                 | Error errs -> return Error errs
                 | Ok() -> return helper.Return202Accepted() |> Ok
-            })
+            }
+        )
 
 
 [<Tests>]

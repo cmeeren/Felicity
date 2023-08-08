@@ -132,10 +132,12 @@ module AB =
     let define = Define<Ctx, ABC, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
             | B b -> b.Id
-            | C c -> c.Id)
+            | C c -> c.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
@@ -236,7 +238,8 @@ let getClientForMeta () =
                         .EnableUnknownFieldStrictMode()
                         .EnableUnknownQueryParamStrictMode()
                         .Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<MetaCtx>() |> ignore)
         )
 

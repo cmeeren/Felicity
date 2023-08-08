@@ -55,10 +55,12 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app ->
                             app.UseRouting().UseJsonApiEndpoints<Ctx1>().UseJsonApiEndpoints<Ctx2>()
-                            |> ignore)
+                            |> ignore
+                        )
                 )
 
             let client = server.CreateClient()

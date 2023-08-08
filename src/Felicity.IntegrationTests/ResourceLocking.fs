@@ -32,7 +32,8 @@ module A =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module B =
@@ -50,7 +51,8 @@ module B =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module C =
@@ -75,7 +77,8 @@ module C =
         define.Operation
             .Post(fun (Ctx i) parser ->
                 i := !i + 1
-                parser.For(id, b))
+                parser.For(id, b)
+            )
             .AfterCreate(ignore)
 
     let customOp =
@@ -84,7 +87,8 @@ module C =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module C2 =
@@ -104,7 +108,8 @@ module C2 =
         define.Operation
             .Post(fun (Ctx i) parser ->
                 i := !i + 1
-                parser.For((fun _ -> ""), bNullable))
+                parser.For((fun _ -> ""), bNullable)
+            )
             .AfterCreate(ignore)
 
 
@@ -131,7 +136,8 @@ module D =
                 async {
                     do! Async.Sleep 10000
                     return setStatusCode 200 |> Ok
-                })
+                }
+            )
 
 
 type ResourceId =
@@ -212,7 +218,8 @@ module E =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 
@@ -238,7 +245,8 @@ module F =
         define.Operation
             .Post(fun (Ctx i) parser ->
                 i := !i + 1
-                parser.For(ResourceId.value, e))
+                parser.For(ResourceId.value, e)
+            )
             .AfterCreate(ignore)
 
     let customOp =
@@ -247,7 +255,8 @@ module F =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module G =
@@ -270,7 +279,8 @@ module G =
                 async {
                     do! Async.Sleep 10000
                     return setStatusCode 200 |> Ok
-                })
+                }
+            )
 
 
 
@@ -374,7 +384,8 @@ module H =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (MultiLockCtx(_, _, _, i)) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module I =
@@ -396,7 +407,8 @@ module I =
         define.Operation
             .Post(fun (Ctx i) ->
                 i := !i + 1
-                "")
+                ""
+            )
             .AfterCreate(ignore)
 
     let customOp =
@@ -405,7 +417,8 @@ module I =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module J =
@@ -419,7 +432,8 @@ module J =
             .CollectionName("js")
             .CustomLock(customIdLock)
             .CustomResourceCreationLock(fun () ->
-                failwith<IDisposable option> "CustomResourceCreationLock should not be called")
+                failwith<IDisposable option> "CustomResourceCreationLock should not be called"
+            )
 
 
 module K =
@@ -433,7 +447,8 @@ module K =
             .CollectionName("ks")
             .CustomLock(fun _ -> failwith<IDisposable option> "CustomLock should not be called")
             .CustomResourceCreationLock(fun () ->
-                failwith<IDisposable option> "CustomResourceCreationLock should not be called")
+                failwith<IDisposable option> "CustomResourceCreationLock should not be called"
+            )
 
 
 module L =
@@ -479,7 +494,8 @@ module M =
             .CustomLink()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module N =
@@ -503,7 +519,8 @@ module N =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module O =
@@ -531,7 +548,8 @@ module O =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module P =
@@ -557,7 +575,8 @@ module P =
             .ValidateStrictModeQueryParams()
             .PostAsync(fun (Ctx i) parser responder _ ->
                 i := !i + 1
-                setStatusCode 200 |> Ok |> async.Return)
+                setStatusCode 200 |> Ok |> async.Return
+            )
 
 
 module Q =

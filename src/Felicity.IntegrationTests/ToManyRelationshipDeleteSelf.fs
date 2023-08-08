@@ -182,7 +182,8 @@ module Parent1 = // remove and get - DELETE self OK
             .ToMany()
             .Get(fun ctx p ->
                 p.OtherChildIds
-                |> List.map (ctx.Db.TryGetChild >> Option.defaultWith (fun () -> failwith "Not found")))
+                |> List.map (ctx.Db.TryGetChild >> Option.defaultWith (fun () -> failwith "Not found"))
+            )
             .RemoveRes(fun ctx -> ctx.DeleteOtherChildrenIds1)
             .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
             .ModifySelfReturn202Accepted()
@@ -291,10 +292,12 @@ module Parent =
     let define = Define<Ctx, Parent, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | P1 p -> p.Id
             | P3 p -> p.Id
-            | P4 p -> p.Id)
+            | P4 p -> p.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("parents")
 

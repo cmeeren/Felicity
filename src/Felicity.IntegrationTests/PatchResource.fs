@@ -271,11 +271,13 @@ module AB =
     let define = Define<Ctx, ABC, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
             | B b -> b.Id
             | C c -> c.Id
-            | D d -> d.Id)
+            | D d -> d.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 
@@ -299,8 +301,10 @@ module A2 =
     let define = Define<Ctx2, A, string>()
 
     let resId =
-        define.Id.Simple (function
-            | a -> a.Id)
+        define.Id.Simple(
+            function
+            | a -> a.Id
+        )
 
     let resDef = define.Resource("a", resId).CollectionName("abs")
     let lookup = define.Operation.Lookup(fun _ -> None)
@@ -333,7 +337,8 @@ module A4 =
                 X = ""
                 Nullable = None
                 NullableNotNullWhenSet = None
-            })
+            }
+        )
 
     let get = define.Operation.GetResource()
     let patch = define.Operation.Patch().AfterUpdate(ignore)
@@ -359,7 +364,8 @@ module A5 =
                 X = ""
                 Nullable = None
                 NullableNotNullWhenSet = None
-            })
+            }
+        )
 
     let get = define.Operation.GetResource()
     let patch = define.Operation.Patch().AfterUpdate(ignore)
@@ -385,7 +391,8 @@ module A6 =
                 X = ""
                 Nullable = None
                 NullableNotNullWhenSet = None
-            })
+            }
+        )
 
     let get = define.Operation.GetResource()
     let patch = define.Operation.Patch().AfterUpdate(ignore)
@@ -418,7 +425,8 @@ module A7 =
         define.Operation.Lookup(fun (Ctx7 db) id ->
             match db.TryGet id with
             | Some(A a) -> Some a
-            | _ -> None)
+            | _ -> None
+        )
 
     let get = define.Operation.GetResource()
 
@@ -435,7 +443,8 @@ module A7 =
                         }),
                         x,
                         readonly.Optional
-                    ))
+                    )
+            )
             .AddCustomSetter(fun ctx a parser ->
                 parser
                     .For(a)
@@ -445,7 +454,8 @@ module A7 =
                                 ReadOnly = readonly + readonly
                         }),
                         readonly
-                    ))
+                    )
+            )
             .AddCustomSetter(fun ctx a parser -> parser.For(a).Add((fun _ _ a -> a), y, x))
             .AfterUpdate(fun (Ctx7 db) a -> db.SaveA a)
 

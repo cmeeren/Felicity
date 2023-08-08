@@ -109,7 +109,8 @@ type ListFilter<'ctx, 'a>
                                 ValueIndex = i
                             }
 
-                            parse ctx getValueData value)
+                            parse ctx getValueData value
+                        )
                         |> TaskResult.map (Array.toList >> Some)
         }
 
@@ -251,7 +252,8 @@ type ListSort<'ctx, 'a>
                             if str.StartsWith("-", StringComparison.Ordinal) then
                                 str.Substring(1), true
                             else
-                                str, false)
+                                str, false
+                        )
                         // If a sort column appears more than once, only the first occurrence will
                         // influence the ordering (if the server is well-behaved). Furthermore,
                         // duplicate sort columns may cause errors in certain databases (e.g. SQL
@@ -266,7 +268,8 @@ type ListSort<'ctx, 'a>
                                 ValueIndex = i
                             }
 
-                            parse ctx getValueData value |> TaskResult.map (fun s -> s, isDescending))
+                            parse ctx getValueData value |> TaskResult.map (fun s -> s, isDescending)
+                        )
                         |> TaskResult.map (Array.toList >> Some)
         }
 
@@ -1172,7 +1175,8 @@ type Sort =
     static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, string>>) : SingleSort<'ctx, 'a> =
         Sort.ParsedTaskRes'(fun ctx getData v ->
             parse ctx v
-            |> TaskResult.mapError (invalidParsedErrMsg (FromQuery(getData v)) >> List.singleton))
+            |> TaskResult.mapError (invalidParsedErrMsg (FromQuery(getData v)) >> List.singleton)
+        )
 
     static member ParsedTaskRes(parse: string -> Task<Result<'a, string>>) : SingleSort<'ctx, 'a> =
         Sort.ParsedTaskRes(fun _ s -> parse s)
@@ -1180,7 +1184,8 @@ type Sort =
     static member ParsedTaskRes(parse: 'ctx -> string -> Task<Result<'a, string list>>) : SingleSort<'ctx, 'a> =
         Sort.ParsedTaskRes'(fun ctx getData v ->
             parse ctx v
-            |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery(getData v)))))
+            |> TaskResult.mapError (List.map (invalidParsedErrMsg (FromQuery(getData v))))
+        )
 
     static member ParsedTaskRes(parse: string -> Task<Result<'a, string list>>) : SingleSort<'ctx, 'a> =
         Sort.ParsedTaskRes(fun _ s -> parse s)
@@ -1206,7 +1211,8 @@ type Sort =
     static member ParsedTaskOpt(parse: 'ctx -> string -> Task<'a option>) : SingleSort<'ctx, 'a> =
         Sort.ParsedTaskRes'(fun ctx getData v ->
             parse ctx v
-            |> Task.map (Result.requireSome [ invalidParsedNone (FromQuery(getData v)) ]))
+            |> Task.map (Result.requireSome [ invalidParsedNone (FromQuery(getData v)) ])
+        )
 
     static member ParsedTaskOpt(parse: string -> Task<'a option>) : SingleSort<'ctx, 'a> =
         Sort.ParsedTaskOpt(fun _ s -> parse s)

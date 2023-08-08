@@ -124,7 +124,8 @@ type RequestParser<'ctx, 'a> = internal {
                         match! getC.Get(ctx, req, this.includedTypeAndId) with
                         | Error errs -> return Error errs
                         | Ok c -> return! set b c a
-                    }),
+                    }
+                ),
                 getter
             )
             .MarkAsConsumed(getC)

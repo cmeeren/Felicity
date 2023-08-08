@@ -151,7 +151,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -192,7 +193,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -233,7 +235,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -265,7 +268,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -297,7 +301,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -337,7 +342,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -378,7 +384,8 @@ let tests =
                                 .EnableUnknownFieldStrictMode()
                                 .EnableUnknownQueryParamStrictMode()
                                 .Add()
-                            |> ignore)
+                            |> ignore
+                        )
                         .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                 )
 
@@ -422,7 +429,8 @@ let tests =
                                     .EnableUnknownFieldStrictMode()
                                     .EnableUnknownQueryParamStrictMode()
                                     .Add()
-                                |> ignore)
+                                |> ignore
+                            )
                             .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
                     )
 

@@ -265,45 +265,55 @@ type JsonApiConfigBuilder<'ctx> = internal {
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NonNullableAttribute<_, _, _, _, _>>)
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NonNullableAttribute<_, _, _, _, _>>
+                        )
                         |> Array.map (fun pi ->
-                            (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments()[4])
+                            (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments()[4]
+                        )
 
                     let nullableAttrTypesByName =
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NullableAttribute<_, _, _, _, _>>)
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NullableAttribute<_, _, _, _, _>>
+                        )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> Attribute<'ctx>).Name,
-                            typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments()[4]))
+                            typedefof<Option<_>>.MakeGenericType(pi.PropertyType.GetGenericArguments()[4])
+                        )
 
                     let toOneRelTypesByName =
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneRelationship<_, _, _, _, _>>)
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneRelationship<_, _, _, _, _>>
+                        )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> ToOneRelationship<'ctx>).Name,
-                            typeof<InternalDeserializationModelDoNotUse.DToOneRelationship>)
+                            typeof<InternalDeserializationModelDoNotUse.DToOneRelationship>
+                        )
 
                     let toOneNullableRelTypesByName =
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneNullableRelationship<_, _, _, _, _>>)
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneNullableRelationship<_, _, _, _, _>>
+                        )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> ToOneNullableRelationship<'ctx>).Name,
-                            typeof<InternalDeserializationModelDoNotUse.DToOneNullableRelationship>)
+                            typeof<InternalDeserializationModelDoNotUse.DToOneNullableRelationship>
+                        )
 
                     let toManyRelTypesByName =
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToManyRelationship<_, _, _, _, _>>)
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToManyRelationship<_, _, _, _, _>>
+                        )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> ToManyRelationship<'ctx>).Name,
-                            typeof<InternalDeserializationModelDoNotUse.DToManyRelationship>)
+                            typeof<InternalDeserializationModelDoNotUse.DToManyRelationship>
+                        )
 
                     let constraintsFieldByName =
                         let hasConstrainedFields =
@@ -323,7 +333,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
                         toManyRelTypesByName
                         constraintsFieldByName
                     ]
-                    |> Array.map (fun (n, t) -> (rDef.TypeName, n), t))
+                    |> Array.map (fun (n, t) -> (rDef.TypeName, n), t)
+                )
                 |> dict
 
             fun typeName (fieldName: FieldName) ->
@@ -337,7 +348,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
                 |> Array.map (fun m ->
                     let rDef = ResourceModule.resourceDefinition<'ctx> m
                     let fields = ResourceModule.fields<'ctx> m |> Array.map (fun x -> x.Name)
-                    rDef.TypeName, Array.append fields [| "constraints" |])
+                    rDef.TypeName, Array.append fields [| "constraints" |]
+                )
                 |> dict
 
             fun typeName ->
@@ -348,9 +360,11 @@ type JsonApiConfigBuilder<'ctx> = internal {
         let modulesByCollectionName =
             resourceModules
             |> Array.groupBy ResourceModule.collectionName<'ctx>
-            |> Array.choose (function
+            |> Array.choose (
+                function
                 | None, _ -> None
-                | Some collName, ms -> Some(collName, ms))
+                | Some collName, ms -> Some(collName, ms)
+            )
 
         let collections =
             (Map.empty, modulesByCollectionName)
@@ -358,7 +372,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
                 let collOperations =
                     collectionOperations<'ctx> resourceModuleMap getBaseUrl collName resourceModules
 
-                map.Add(collName, collOperations))
+                map.Add(collName, collOperations)
+            )
 
         let relativeRootWithLeadingSlash =
             match this.relativeJsonApiRoot, this.baseUrl with
@@ -383,7 +398,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
                     getFieldType,
                     getFieldSerializationOrder,
                     configureSerializerOptions
-                ))
+                )
+            )
             .AddSingleton<Serializer<ErrorSerializerCtx>>(fun sp ->
                 Serializer<ErrorSerializerCtx>(
                     sp.GetRequiredService(),
@@ -393,7 +409,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
                     getFieldType,
                     getFieldSerializationOrder,
                     configureSerializerOptions
-                ))
+                )
+            )
             .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
             .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
             .AddSingleton<LinkConfig<'ctx>>(
@@ -401,7 +418,8 @@ type JsonApiConfigBuilder<'ctx> = internal {
             )
             .AddHttpContextAccessor()
             .AddScoped<FieldTracker<'ctx>>(fun sp ->
-                FieldTracker(FieldTracker.trackFieldUsage<'ctx>, resourceModuleMap, sp, this.trackFieldUsage))
+                FieldTracker(FieldTracker.trackFieldUsage<'ctx>, resourceModuleMap, sp, this.trackFieldUsage)
+            )
 
 
 

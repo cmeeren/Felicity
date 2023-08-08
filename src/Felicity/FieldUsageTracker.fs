@@ -16,7 +16,8 @@ module internal FieldTracker =
         req.Includes
         |> List.exists (fun path ->
             path.Length > currentIncludePath.Length
-            && path[currentIncludePath.Length] = relName)
+            && path[currentIncludePath.Length] = relName
+        )
 
     let trackFieldUsage<'ctx>
         (resourceModuleMap: Map<ResourceTypeName, Type>)
@@ -88,7 +89,8 @@ module internal FieldTracker =
                 ]
                 |> Array.filter (fun (relName, _) ->
                     relNameIfRelationshipSelfAndNotRecursiveCall.IsNone
-                    || relNameIfRelationshipSelfAndNotRecursiveCall = Some relName)
+                    || relNameIfRelationshipSelfAndNotRecursiveCall = Some relName
+                )
 
             for attrName, requiresExplicitInclude in attrNamesAndRequiresExplicitInclude do
                 let usageType =
@@ -147,7 +149,8 @@ module internal FieldTracker =
                         TypeName = typeName
                         FieldName = fieldName
                         Usage = kvp.Value
-                    })
+                    }
+                )
                 |> Seq.toList
                 |> report sp ctx
         }

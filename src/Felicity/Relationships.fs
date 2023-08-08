@@ -133,7 +133,8 @@ type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
                                 identifier.``type``
                                 identifier.id
                                 ("/data/relationships/" + this.name + "/data")
-                        ])
+                        ]
+                    )
                 )
         }
 
@@ -286,7 +287,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             |> TaskResult.requireSome [ relatedResourceNotFound identifier.``type`` identifier.id dataPointer ]
             |> TaskResult.bind (fun r ->
                 entitySetter setCtx r entity
-                |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer)))
+                |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
+            )
 
 
     member private this.OptionalWithIdentifier =
@@ -299,7 +301,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                     this.idParsers
                     |> Option.defaultWith (fun () ->
                         failwith
-                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified.")
+                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
+                    )
 
                 match Request.getRelsAndPointer includedTypeAndId req with
                 | Error errs -> Error errs |> Task.result
@@ -407,7 +410,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                 this.idParsers
                                 |> Option.defaultWith (fun () ->
                                     failwithf
-                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup."
+                                )
 
                             match rel.data with
                             | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
@@ -434,7 +438,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                                 setCtx
                                                 ("/data/relationships/" + this.name + "/data")
                                                 (domain, identifier)
-                                                (unbox<'entity> entity))
+                                                (unbox<'entity> entity)
+                                        )
                                         |> TaskResult.map (fun e -> box<'entity> e, true)
                     | Some _, (true, rel) ->
                         return
@@ -457,15 +462,18 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx entity ->
                     getRelated ctx (unbox<'entity> entity)
                     |> Task.map (
                         Skippable.map (fun x ->
                             let b = resolveEntity x
-                            b.resourceDef, b.entity)
-                    ))
+                            b.resourceDef, b.entity
+                        )
+                    )
+            )
 
         member this.GetLinkageIfNotIncluded ctx entity =
             this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
@@ -541,7 +549,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx req entity resDef resp ->
                     fun next httpCtx ->
@@ -585,7 +594,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                         >=> jsonApiWithETag<'ctx> doc
 
                                     return! handler next httpCtx
-                        })
+                        }
+            )
 
         member this.GetSelf =
             this.get
@@ -594,7 +604,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx req entity resDef resp ->
                     fun next httpCtx ->
@@ -640,7 +651,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                         >=> jsonApiWithETag<'ctx> doc
 
                                     return! handler next httpCtx
-                        })
+                        }
+            )
 
         member _.PostSelf = None
 
@@ -651,19 +663,22 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                     this.idParsers
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                            "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup."
+                    )
 
                 let resolveEntity =
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 let afterModifySelf =
                     this.afterModifySelf
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
+                            "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup."
+                    )
 
                 fun ctx req parentTypeName preconditions entity0 resDef resp ->
                     fun next httpCtx ->
@@ -718,7 +733,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                                                 setCtx
                                                                 "/data"
                                                                 (domain, id)
-                                                                (unbox<'entity> entity1))
+                                                                (unbox<'entity> entity1)
+                                                        )
 
                                                     match entity2Res with
                                                     | Error errs -> return! handleErrors errs next httpCtx
@@ -801,7 +817,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                                                         >=> jsonApiWithETag<'ctx> doc
 
                                                                     return! handler next httpCtx
-                        })
+                        }
+            )
 
         member _.DeleteSelf = None
 
@@ -926,13 +943,15 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             this with
                 set =
                     Some(fun ctx setCtx ptr relIdWithIdentifier e ->
-                        set.Invoke(ctx, setCtx, ptr, relIdWithIdentifier, e))
+                        set.Invoke(ctx, setCtx, ptr, relIdWithIdentifier, e)
+                    )
         }
 
     member this.SetTaskRes(set: Func<'setCtx, 'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetTaskRes(fun _ ctx pointer relIdWithIdentifier e ->
             set.Invoke(ctx, fst relIdWithIdentifier, e)
-            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer))
+        )
 
     member this.SetTaskRes(set: Func<'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetTaskRes(fun _ id e -> set.Invoke(id, e))
@@ -1312,7 +1331,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.ModifyGetRelatedResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyGetRelatedResponse(handler: HttpHandler) =
         this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
@@ -1326,7 +1347,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.ModifyGetSelfResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyGetSelfResponse(handler: HttpHandler) =
         this.ModifyGetSelfResponse(fun _ _ _ -> handler)
@@ -1340,7 +1363,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.ModifyPatchSelfOkResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
         this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
@@ -1354,7 +1379,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.ModifyPatchSelfAcceptedResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
@@ -1422,7 +1449,8 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
                                     identifier.``type``
                                     identifier.id
                                     ("/data/relationships/" + this.name + "/data")
-                            ])
+                            ]
+                        )
                     )
                 )
         }
@@ -1514,7 +1542,8 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                                 else
                                     RequestParserHelper<'ctx>(ctx, req, (id.``type``, id.id))
                                     |> this.getParser
-                                    |> fun p -> p.ParseTask())
+                                    |> fun p -> p.ParseTask()
+                            )
                             |> TaskResult.map Some
                     | true, x ->
                         failwith
@@ -1606,10 +1635,12 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             |> Option.traverseTaskResult (fun (relId, identifier: ResourceIdentifier) ->
                 getRelated.GetById ctx relId
                 |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
-                |> TaskResult.requireSome [ relatedResourceNotFound identifier.``type`` identifier.id dataPointer ])
+                |> TaskResult.requireSome [ relatedResourceNotFound identifier.``type`` identifier.id dataPointer ]
+            )
             |> TaskResult.bind (fun r ->
                 entitySetter setCtx r entity
-                |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer)))
+                |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
+            )
 
 
     member private this.OptionalWithIdentifier =
@@ -1622,7 +1653,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     this.idParsers
                     |> Option.defaultWith (fun () ->
                         failwith
-                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified.")
+                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
+                    )
 
                 match Request.getRelsAndPointer includedTypeAndId req with
                 | Error errs -> Error errs |> Task.result
@@ -1649,7 +1681,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                     // this just means that the resource does not exist, which is a more helpful result.
                                     |> TaskResult.mapError (fun _ -> [
                                         relatedResourceNotFound id.``type`` id.id (relsPointer + this.name + "/data")
-                                    ]))
+                                    ])
+                            )
                             |> TaskResult.map Some
                     | true, x ->
                         failwith
@@ -1728,7 +1761,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                 this.idParsers
                                 |> Option.defaultWith (fun () ->
                                     failwithf
-                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup."
+                                )
 
                             match rel.data with
                             | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
@@ -1753,14 +1787,16 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                     id.``type``
                                                     id.id
                                                     ("/data/relationships/" + this.name + "/data")
-                                            ]))
+                                            ])
+                                    )
                                     |> TaskResult.bind (fun resIdWithIdentifier ->
                                         set
                                             ctx
                                             setCtx
                                             ("/data/relationships/" + this.name + "/data")
                                             resIdWithIdentifier
-                                            (unbox<'entity> entity))
+                                            (unbox<'entity> entity)
+                                    )
                                     |> TaskResult.map (fun e -> box<'entity> e, true)
                     | Some _, (true, rel) ->
                         return
@@ -1783,7 +1819,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx entity ->
                     getRelated ctx (unbox<'entity> entity)
@@ -1791,9 +1828,11 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                         Skippable.map (
                             Option.map (fun x ->
                                 let b = resolveEntity x
-                                b.resourceDef, b.entity)
+                                b.resourceDef, b.entity
+                            )
                         )
-                    ))
+                    )
+            )
 
         member this.GetLinkageIfNotIncluded ctx entity =
             this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
@@ -1869,7 +1908,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx req entity resDef resp ->
                     fun next httpCtx ->
@@ -1890,7 +1930,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                             (relatedEntity
                                              |> Option.map (fun e ->
                                                  let b = resolveEntity e
-                                                 b.resourceDef, b.entity))
+                                                 b.resourceDef, b.entity
+                                             ))
 
                                     let! fieldTrackerHandler =
                                         match this.idParsers with
@@ -1920,7 +1961,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                         >=> jsonApiWithETag<'ctx> doc
 
                                     return! handler next httpCtx
-                        })
+                        }
+            )
 
         member this.GetSelf =
             this.get
@@ -1929,7 +1971,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx req entity resDef resp ->
                     fun next httpCtx ->
@@ -1956,7 +1999,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                 {
                                                     ``type`` = b.resourceDef.TypeName
                                                     id = b.resourceDef.GetIdBoxed b.entity
-                                                })
+                                                }
+                                            )
                                         included = included
                                     }
 
@@ -1978,7 +2022,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                         >=> jsonApiWithETag<'ctx> doc
 
                                     return! handler next httpCtx
-                        })
+                        }
+            )
 
         member _.PostSelf = None
 
@@ -1989,19 +2034,22 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                     this.idParsers
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                            "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup."
+                    )
 
                 let resolveEntity =
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 let afterModifySelf =
                     this.afterModifySelf
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
+                            "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup."
+                    )
 
                 fun ctx req _parentTypeName preconditions entity0 resDef resp ->
                     fun next httpCtx ->
@@ -2043,14 +2091,16 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                             // this just means that the resource does not exist, which is a more helpful result.
                                                             |> TaskResult.mapError (fun _ -> [
                                                                 relatedResourceNotFound id.``type`` id.id "/data"
-                                                            ]))
+                                                            ])
+                                                    )
                                                     |> TaskResult.bind (fun relIdWithIdentifier ->
                                                         set
                                                             ctx
                                                             setCtx
                                                             "/data"
                                                             relIdWithIdentifier
-                                                            (unbox<'entity> entity1))
+                                                            (unbox<'entity> entity1)
+                                                    )
 
                                                 match entity2Res with
                                                 | Error errs -> return! handleErrors errs next httpCtx
@@ -2110,7 +2160,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                                             {
                                                                                 ``type`` = b.resourceDef.TypeName
                                                                                 id = b.resourceDef.GetIdBoxed b.entity
-                                                                            })
+                                                                            }
+                                                                        )
                                                                     included = included
                                                                 }
 
@@ -2135,7 +2186,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                                     >=> jsonApiWithETag<'ctx> doc
 
                                                                 return! handler next httpCtx
-                        })
+                        }
+            )
 
         member _.DeleteSelf = None
 
@@ -2267,7 +2319,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.SetTaskRes(set: Func<'setCtx, 'relatedId option, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetTaskRes(fun _ ctx pointer relIdWithIdentifier e ->
             set.Invoke(ctx, (relIdWithIdentifier |> Option.map fst), e)
-            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer))
+        )
 
     member this.SetTaskRes(set: Func<'relatedId option, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetTaskRes(fun _ id e -> set.Invoke(id, e))
@@ -2390,7 +2443,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             relId
             |> Result.requireSome [ setRelNullNotAllowed this.name ]
             |> Task.result
-            |> TaskResult.bind (fun relId -> set.Invoke(ctx, relId, e)))
+            |> TaskResult.bind (fun relId -> set.Invoke(ctx, relId, e))
+        )
 
     member this.SetNonNullTaskRes(set: Func<'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetNonNullTaskRes(fun _ id e -> set.Invoke(id, e))
@@ -2782,7 +2836,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.ModifyGetRelatedResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyGetRelatedResponse(handler: HttpHandler) =
         this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
@@ -2796,7 +2852,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.ModifyGetSelfResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyGetSelfResponse(handler: HttpHandler) =
         this.ModifyGetSelfResponse(fun _ _ _ -> handler)
@@ -2810,7 +2868,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.ModifyPatchSelfOkResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
         this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
@@ -2824,7 +2884,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.ModifyPatchSelfAcceptedResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
@@ -2894,7 +2956,8 @@ type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> 
                                     identifier.``type``
                                     identifier.id
                                     ("/data/relationships/" + this.name + "/data/" + string i)
-                            ])
+                            ]
+                        )
                     )
                 )
         }
@@ -2964,7 +3027,8 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
                                 else
                                     RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
                                     |> this.getParser
-                                    |> fun p -> p.ParseTask())
+                                    |> fun p -> p.ParseTask()
+                            )
                             |> TaskResult.map Some
                     | true, x ->
                         failwith
@@ -3082,7 +3146,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             relatedIdsWithIdentifiers
             |> Seq.map (fun (relId, identifier) ->
                 getRelated.GetById ctx relId
-                |> TaskResult.map (fun resOpt -> resOpt, identifier))
+                |> TaskResult.map (fun resOpt -> resOpt, identifier)
+            )
             |> Task.WhenAll
             |> Task.map (
                 Seq.indexed
@@ -3094,11 +3159,14 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                         resOpt
                         |> Result.requireSome [
                             relatedResourceNotFound identifier.``type`` identifier.id (dataPointer + "/" + string i)
-                        ]))
+                        ]
+                    )
+                )
             )
             |> TaskResult.bind (fun r ->
                 entitySetter setCtx r entity
-                |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer)))
+                |> TaskResult.mapError (List.map (Error.setSourcePointer dataPointer))
+            )
 
 
     member private this.OptionalWithIdentifier =
@@ -3111,7 +3179,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                     this.idParsers
                     |> Option.defaultWith (fun () ->
                         failwith
-                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified.")
+                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
+                    )
 
                 match Request.getRelsAndPointer includedTypeAndId req with
                 | Error errs -> Error errs |> Task.result
@@ -3142,7 +3211,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                             identifier.``type``
                                             identifier.id
                                             (relsPointer + this.name + "/data/" + string i)
-                                    ]))
+                                    ])
+                            )
                             |> TaskResult.map Some
                     | true, x ->
                         failwith
@@ -3234,7 +3304,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                 this.idParsers
                                 |> Option.defaultWith (fun () ->
                                     failwithf
-                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup."
+                                )
 
                             match rel.data with
                             | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
@@ -3262,14 +3333,16 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                                     id.``type``
                                                     id.id
                                                     ("/data/relationships/" + this.name + "/data/" + string i)
-                                            ]))
+                                            ])
+                                    )
                                     |> TaskResult.bind (fun relIdWithIdentifier ->
                                         set
                                             ctx
                                             setCtx
                                             ("/data/relationships/" + this.name + "/data")
                                             relIdWithIdentifier
-                                            (unbox<'entity> entity))
+                                            (unbox<'entity> entity)
+                                    )
                                     |> TaskResult.map (fun e -> box<'entity> e, true)
                     | Some _, (true, rel) ->
                         return
@@ -3292,7 +3365,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx entity ->
                     get ctx (unbox<'entity> entity)
@@ -3300,9 +3374,11 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                         Skippable.map (
                             List.map (fun x ->
                                 let b = resolveEntity x
-                                b.resourceDef, b.entity)
+                                b.resourceDef, b.entity
+                            )
                         )
-                    ))
+                    )
+            )
 
         member this.GetLinkageIfNotIncluded ctx entity =
             this.getLinkageIfNotIncluded ctx (unbox<'entity> entity)
@@ -3366,19 +3442,22 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                 this.idParsers
                 |> Option.defaultWith (fun () ->
                     failwithf
-                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup."
+                )
 
             let resolveEntity =
                 this.resolveEntity
                 |> Option.defaultWith (fun () ->
                     failwithf
-                        "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                        "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                )
 
             let afterModifySelf =
                 this.afterModifySelf
                 |> Option.defaultWith (fun () ->
                     failwithf
-                        "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
+                        "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup."
+                )
 
             fun ctx req (preconditions: Preconditions<'ctx>) entity0 resDef (resp: ResponseBuilder<'ctx>) ->
                 fun next httpCtx ->
@@ -3419,14 +3498,16 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                                                 id.``type``
                                                                 id.id
                                                                 ("/data/" + string i)
-                                                        ]))
+                                                        ])
+                                                )
                                                 |> TaskResult.bind (fun domain ->
                                                     f
                                                         ctx
                                                         setCtx
                                                         "/data"
                                                         (Array.toList domain)
-                                                        (unbox<'entity> entity1))
+                                                        (unbox<'entity> entity1)
+                                                )
 
                                             match entity2Res with
                                             | Error errs -> return! handleErrors errs next httpCtx
@@ -3480,7 +3561,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                                                         {
                                                                             ``type`` = b.resourceDef.TypeName
                                                                             id = b.resourceDef.GetIdBoxed b.entity
-                                                                        })
+                                                                        }
+                                                                    )
                                                                     |> Seq.toArray
                                                                 included = included
                                                             }
@@ -3506,7 +3588,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                                                 >=> jsonApiWithETag<'ctx> doc
 
                                                             return! handler next httpCtx
-                    })
+                    }
+        )
 
 
     interface RelationshipHandlers<'ctx> with
@@ -3530,7 +3613,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx req entity resDef resp ->
                     fun next httpCtx ->
@@ -3555,7 +3639,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                                 (relatedEntities
                                                  |> List.map (fun e ->
                                                      let b = resolveEntity e
-                                                     b.resourceDef, b.entity))
+                                                     b.resourceDef, b.entity
+                                                 ))
 
                                         let! fieldTrackerHandler =
                                             match this.idParsers with
@@ -3585,7 +3670,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                             >=> jsonApiWithETag<'ctx> doc
 
                                         return! handler next httpCtx
-                        })
+                        }
+            )
 
         member this.GetSelf =
             this.get
@@ -3594,7 +3680,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                     this.resolveEntity
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
+                            "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup."
+                    )
 
                 fun ctx req entity resDef resp ->
                     fun next httpCtx ->
@@ -3617,7 +3704,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                             {
                                                 ``type`` = b.resourceDef.TypeName
                                                 id = b.resourceDef.GetIdBoxed b.entity
-                                            })
+                                            }
+                                        )
                                         |> Seq.toArray
 
                                     let data =
@@ -3670,7 +3758,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                         >=> jsonApiWithETag<'ctx> doc
 
                                     return! handler next httpCtx
-                        })
+                        }
+            )
 
         member this.PostSelf =
             this.ModifySelfHandler this.add this.modifyPostSelfOkResponse this.modifyPostSelfAcceptedResponse
@@ -3747,7 +3836,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                         {
                                             ``type`` = resDef.name
                                             id = resDef.id.fromDomain relId
-                                        })
+                                        }
+                                    )
                                     |> Include
                         }
         }
@@ -3807,7 +3897,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.SetAllTaskRes(setAll: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetAllTaskRes(fun _ ctx pointer relIds e ->
             setAll.Invoke(ctx, (relIds |> List.map fst), e)
-            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer))
+        )
 
     member this.SetAllTaskRes(setAll: Func<'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
         this.SetAllTaskRes(fun _ ids e -> setAll.Invoke(ids, e))
@@ -3944,7 +4035,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.AddTaskRes(add: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
         this.AddTaskRes(fun _ ctx pointer relIds e ->
             add.Invoke(ctx, (relIds |> List.map fst), e)
-            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer))
+        )
 
     member this.AddTaskRes(add: Func<'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
         this.AddTaskRes(fun _ ids e -> add.Invoke(ids, e))
@@ -4080,7 +4172,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.RemoveTaskRes(remove: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
         this.RemoveTaskRes(fun _ ctx pointer relIds e ->
             remove.Invoke(ctx, (relIds |> List.map fst), e)
-            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer)))
+            |> TaskResult.mapError (List.map (Error.setSourcePointer pointer))
+        )
 
     member this.RemoveTaskRes(remove: Func<'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
         this.RemoveTaskRes(fun _ ids e -> remove.Invoke(ids, e))
@@ -4148,7 +4241,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyGetRelatedResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyGetRelatedResponse(handler: HttpHandler) =
         this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
@@ -4162,7 +4257,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyGetSelfResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyGetSelfResponse(handler: HttpHandler) =
         this.ModifyGetSelfResponse(fun _ _ _ -> handler)
@@ -4176,7 +4273,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyPostSelfOkResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPostSelfOkResponse(handler: HttpHandler) =
         this.ModifyPostSelfOkResponse(fun _ _ _ -> handler)
@@ -4190,7 +4289,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyPostSelfAcceptedResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPostSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPostSelfAcceptedResponse(fun _ _ -> handler)
@@ -4204,7 +4305,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyPatchSelfOkResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
         this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
@@ -4218,7 +4321,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyPatchSelfAcceptedResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
@@ -4232,7 +4337,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyDeleteSelfOkResponse(fun ctx e related ->
             (fun next httpCtx ->
                 f ctx e related httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyDeleteSelfOkResponse(handler: HttpHandler) =
         this.ModifyDeleteSelfOkResponse(fun _ _ _ -> handler)
@@ -4246,7 +4353,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.ModifyDeleteSelfAcceptedResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyDeleteSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyDeleteSelfAcceptedResponse(fun _ _ -> handler)

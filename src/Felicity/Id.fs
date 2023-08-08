@@ -126,7 +126,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             (fun ctx ->
                 toDomain ctx
                 >> Task.fromAsync
-                >> Task.map (Result.requireSome [ invalidParsedNone ])),
+                >> Task.map (Result.requireSome [ invalidParsedNone ])
+            ),
             getId
         )
 
@@ -141,7 +142,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             (fun _ctx ->
                 toDomain
                 >> Task.fromAsync
-                >> Task.map (Result.requireSome [ invalidParsedNone ])),
+                >> Task.map (Result.requireSome [ invalidParsedNone ])
+            ),
             getId
         )
 
@@ -188,7 +190,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             (fun ctx ->
                 toDomain ctx
                 >> Result.mapError (flip invalidParsedErrMsg >> List.singleton)
-                >> Task.result),
+                >> Task.result
+            ),
             getId
         )
 
@@ -203,7 +206,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             (fun _ctx ->
                 toDomain
                 >> Result.mapError (flip invalidParsedErrMsg >> List.singleton)
-                >> Task.result),
+                >> Task.result
+            ),
             getId
         )
 
@@ -218,7 +222,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             (fun ctx ->
                 toDomain ctx
                 >> Result.mapError (List.map (flip invalidParsedErrMsg))
-                >> Task.result),
+                >> Task.result
+            ),
             getId
         )
 

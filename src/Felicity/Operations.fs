@@ -56,7 +56,8 @@ module internal StrictModeHelpers =
                 |> Set.filter (fun s ->
                     s <> "include"
                     && not (req.Fieldsets.Keys |> Seq.exists (fun tn -> "fields[" + tn + "]" = s))
-                    && not (linkConfig.QueryParamNames |> Seq.contains s))
+                    && not (linkConfig.QueryParamNames |> Seq.contains s)
+                )
 
             let inRequestButNotConsumed = inRequest - consumed
 
@@ -69,7 +70,8 @@ module internal StrictModeHelpers =
                     inRequestButNotConsumed
                     |> Seq.iter (fun paramName ->
                         let logger = httpCtx.GetService<ILoggerFactory>().CreateLogger "Felicity.StrictMode"
-                        logger.Log(logLevel, "Request contained unknown query parameter {ParamName}", paramName))
+                        logger.Log(logLevel, "Request contained unknown query parameter {ParamName}", paramName)
+                    )
 
                     Ok()
                 | UnknownQueryParamStrictMode.Error ->
@@ -224,7 +226,8 @@ type PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
                             |> Result.map (
                                 Option.map (fun e ->
                                     let b = this.getPolyBuilder e
-                                    b.resourceDef, b.entity)
+                                    b.resourceDef, b.entity
+                                )
                             )
             }
 
@@ -279,7 +282,9 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
         this.ModifyResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
@@ -352,7 +357,9 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
         this.ModifyResponse(fun ctx es ->
             (fun next httpCtx ->
                 f ctx es httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
@@ -446,7 +453,9 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
         this.ModifyResponse(fun ctx es ->
             (fun next httpCtx ->
                 f ctx es httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
@@ -512,7 +521,8 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                     this.afterCreate
                     |> Option.defaultWith (fun () ->
                         failwithf
-                            "Framework bug: POST operation defined without AfterCreate. This should be caught at startup.")
+                            "Framework bug: POST operation defined without AfterCreate. This should be caught at startup."
+                    )
 
                 task {
                     match! this.mapCtx ctx req with
@@ -537,7 +547,8 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                                 |> TaskResult.bind (fun (fieldNames, qns, e) ->
                                     box e
                                     |> patch ctx req fieldNames
-                                    |> TaskResult.map (fun (e, fns) -> Set.union fns fieldNames, qns, e))
+                                    |> TaskResult.map (fun (e, fns) -> Set.union fns fieldNames, qns, e)
+                                )
                             with
                             | Error errors -> return! handleErrors errors next httpCtx
                             | Ok(ns, queryNames, entity0) ->
@@ -693,7 +704,9 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
         this.ModifyResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
@@ -739,7 +752,8 @@ type PostCustomHelper<'ctx, 'entity>
         parser
         |> Option.iter (fun p ->
             this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames (Set.ofSeq p.consumedFields)
-            this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams))
+            this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams)
+        )
 
         let idParsed =
             parser
@@ -756,7 +770,8 @@ type PostCustomHelper<'ctx, 'entity>
         parser
         |> Option.iter (fun p ->
             this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames (Set.ofSeq p.consumedFields)
-            this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams))
+            this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams)
+        )
 
         patcher
             ctx
@@ -768,7 +783,8 @@ type PostCustomHelper<'ctx, 'entity>
         |> Task.map (
             Result.map (fun (e, setFields) ->
                 this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames setFields
-                unbox<'entity> e)
+                unbox<'entity> e
+            )
         )
 
     member this.RunSettersAsync(entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
@@ -934,7 +950,8 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                 this.afterUpdate
                 |> Option.defaultWith (fun () ->
                     failwithf
-                        "Framework bug: PATCH operation defined without AfterUpdate. This should be caught at startup.")
+                        "Framework bug: PATCH operation defined without AfterUpdate. This should be caught at startup."
+                )
 
             fun next httpCtx ->
                 task {
@@ -986,7 +1003,8 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                                                     | Ok(Some {
                                                                   data = Some { attributes = Include attrVals }
                                                               }) -> attrVals.ContainsKey fn
-                                                    | _ -> false)
+                                                    | _ -> false
+                                                )
 
                                             match! patch ctx req fns entity2 with
                                             | Error errors -> return! handleErrors errors next httpCtx
@@ -1127,7 +1145,8 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                         |> TaskResult.bind (fun (fns, qns, e) ->
                             getRequestParser.Invoke(ctx, e, RequestParserHelper<'originalCtx>(origCtx, req))
                             |> TaskResult.bind (fun p -> p.ParseWithConsumed())
-                            |> TaskResult.map (fun (fns', qns', e) -> Set.union fns fns', Set.union qns qns', e))
+                            |> TaskResult.map (fun (fns', qns', e) -> Set.union fns fns', Set.union qns qns', e)
+                        )
         }
 
     member this.AddCustomSetterAsyncRes
@@ -1316,7 +1335,9 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
         this.ModifyResponse(fun ctx e ->
             (fun next httpCtx ->
                 f ctx e httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
@@ -1471,7 +1492,9 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
         this.ModifyResponse(fun ctx ->
             (fun next httpCtx ->
                 f ctx httpCtx
-                next httpCtx))
+                next httpCtx
+            )
+        )
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ -> handler)
 
@@ -1635,25 +1658,29 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
             this.get
             |> Option.map (fun get ->
-                fun getValidationHandler ctx req resp e -> this.handler getValidationHandler get ctx req resp prec e)
+                fun getValidationHandler ctx req resp e -> this.handler getValidationHandler get ctx req resp prec e
+            )
 
         member this.Post =
             this.post
             |> Option.map (fun post ->
                 fun getValidationHandler ctx req resp prec e ->
-                    this.handler getValidationHandler post ctx req resp prec e)
+                    this.handler getValidationHandler post ctx req resp prec e
+            )
 
         member this.Patch =
             this.patch
             |> Option.map (fun patch ->
                 fun getValidationHandler ctx req resp prec e ->
-                    this.handler getValidationHandler patch ctx req resp prec e)
+                    this.handler getValidationHandler patch ctx req resp prec e
+            )
 
         member this.Delete =
             this.delete
             |> Option.map (fun delete ->
                 fun getValidationHandler ctx req resp prec e ->
-                    this.handler getValidationHandler delete ctx req resp prec e)
+                    this.handler getValidationHandler delete ctx req resp prec e
+            )
 
 
     /// Skips the requirement and validation of the JSON:API media type in the Accept request header for this custom operation
@@ -1715,7 +1742,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                  Ok()
              else
                  Error [ customOpConditionFalse () ])
-            |> Task.result)
+            |> Task.result
+        )
 
     member this.Condition(predicate: Func<'entity, bool>) =
         this.ConditionTaskRes(fun _ e ->
@@ -1723,7 +1751,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                  Ok()
              else
                  Error [ customOpConditionFalse () ])
-            |> Task.result)
+            |> Task.result
+        )
 
     member this.AddMeta(key: string, getValue: 'ctx -> 'entity -> 'a, ?condition: 'ctx -> 'entity -> bool) =
         let condition = defaultArg condition (fun _ _ -> true)
@@ -1736,7 +1765,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                         if condition ctx e then
                             getMeta ctx e |> Map.add key (getValue ctx e |> box)
                         else
-                            getMeta ctx e)
+                            getMeta ctx e
+                    )
         }
 
     member this.AddMeta(key: string, getValue: 'entity -> 'a, ?condition: 'entity -> bool) =
@@ -1765,7 +1795,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
             this with
                 get =
                     Some(fun origCtx ctx req responder entity ->
-                        get.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity))
+                        get.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)
+                    )
         }
 
     member this.PostTask
@@ -1776,7 +1807,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
             this with
                 post =
                     Some(fun origCtx ctx req responder entity ->
-                        post.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity))
+                        post.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)
+                    )
         }
 
     member this.PatchTask
@@ -1787,7 +1819,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
             this with
                 patch =
                     Some(fun origCtx ctx req responder entity ->
-                        patch.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity))
+                        patch.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)
+                    )
         }
 
     member this.DeleteTask
@@ -1798,7 +1831,8 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
             this with
                 delete =
                     Some(fun origCtx ctx req responder entity ->
-                        delete.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity))
+                        delete.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req), responder, entity)
+                    )
         }
 
     member this.GetAsync
@@ -1937,7 +1971,8 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
             .Create(
                 mapCtx,
                 (fun _origCtx ctx _req ->
-                    getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs)),
+                    getCollection.Invoke ctx |> TaskResult.map (fun xs -> Set.empty, Set.empty, xs)
+                ),
                 getPolyBuilder
             )
 
@@ -1959,7 +1994,8 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
                 mapCtx,
                 (fun origCtx ctx req ->
                     getRequestParser.Invoke(ctx, RequestParserHelper<'originalCtx>(origCtx, req))
-                    |> TaskResult.bind (fun p -> p.ParseWithConsumed())),
+                    |> TaskResult.bind (fun p -> p.ParseWithConsumed())
+                ),
                 getPolyBuilder
             )
 

@@ -195,7 +195,8 @@ module Article =
                 .Add(ArticleSearchArgs.setLimit, Page.Limit.Max(20))
                 // Now we have a parser for ArticleSearchArgs. We need a parser for a list of
                 // domain entities, so we call the search function.
-                .BindAsync(Db.Article.search))
+                .BindAsync(Db.Article.search)
+        )
 
     // A POST operation creates an entity using the specified function. Below, the related
     // author's ID, title, and body are all required when creating a person. We pass in the
@@ -243,7 +244,8 @@ module Article =
                     let a = a |> Article.setUpdated (Some DateTimeOffset.Now)
                     do! Db.Article.save a
                     return a
-                })
+                }
+            )
 
     let delete = define.Operation.DeleteAsync(Db.Article.delete)
 
@@ -305,7 +307,8 @@ module Person =
                 .Add(PersonSearchArgs.setSort, Sort.Enum(PersonSort.fromStringMap))
                 .Add(PersonSearchArgs.setOffset, Page.Offset)
                 .Add(PersonSearchArgs.setLimit, Page.Limit.Max(20))
-                .BindAsync(Db.Person.search))
+                .BindAsync(Db.Person.search)
+        )
 
     let post =
         define.Operation
@@ -361,7 +364,8 @@ module Comment =
                 .Add(CommentSearchArgs.setSort, Sort.Enum(CommentSort.fromStringMap))
                 .Add(CommentSearchArgs.setOffset, Page.Offset)
                 .Add(CommentSearchArgs.setLimit, Page.Limit.Max(20))
-                .BindAsync(Db.Comment.search))
+                .BindAsync(Db.Comment.search)
+        )
 
     // Since the Comment.create requires an article object and not just an article ID, we
     // use the article relationship's .Related function, which accepts a lookup operation
@@ -384,6 +388,7 @@ module Comment =
                     let c = c |> Comment.setUpdated (Some DateTimeOffset.Now)
                     do! Db.Comment.save c
                     return c
-                })
+                }
+            )
 
     let delete = define.Operation.DeleteAsync(Db.Comment.delete)

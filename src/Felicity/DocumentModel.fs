@@ -248,12 +248,14 @@ module internal Json =
             jsonapi.version
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "version"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             jsonapi.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -276,7 +278,8 @@ module internal Json =
                 link.meta
                 |> Skippable.iter (fun x ->
                     writer.WritePropertyName "meta"
-                    JsonSerializer.Serialize(writer, x, options))
+                    JsonSerializer.Serialize(writer, x, options)
+                )
 
                 writer.WriteEndObject()
 
@@ -293,12 +296,14 @@ module internal Json =
             errSource.pointer
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "pointer"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             errSource.parameter
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "parameter"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -315,42 +320,50 @@ module internal Json =
             err.id
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "id"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.status
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "status"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.code
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "code"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.title
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "title"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.detail
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "detail"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.source
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "source"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             err.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -385,17 +398,20 @@ module internal Json =
             rel.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             rel.data
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "data"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             rel.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -412,17 +428,20 @@ module internal Json =
             rel.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             rel.data
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "data"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             rel.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -439,17 +458,20 @@ module internal Json =
             rel.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             rel.data
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "data"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             rel.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -485,7 +507,8 @@ module internal Json =
             res.id
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "id"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             res.attributes
             |> Skippable.filter (fun x -> x.Count > 0)
@@ -500,12 +523,14 @@ module internal Json =
                         writer.WritePropertyName fieldName
                         JsonSerializer.Serialize(writer, attr, options)
 
-                writer.WriteEndObject())
+                writer.WriteEndObject()
+            )
 
             res.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             res.relationships
             |> Skippable.filter (fun x -> x.Count > 0)
@@ -523,12 +548,14 @@ module internal Json =
                             writer.WritePropertyName fieldName
                             JsonSerializer.Serialize(writer, rel, options)
 
-                writer.WriteEndObject())
+                writer.WriteEndObject()
+            )
 
             res.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -545,17 +572,20 @@ module internal Json =
             doc.jsonapi
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "jsonapi"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WritePropertyName "data"
             JsonSerializer.Serialize(writer, doc.data, options)
@@ -563,7 +593,8 @@ module internal Json =
             doc.included
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "included"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -580,17 +611,20 @@ module internal Json =
             doc.jsonapi
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "jsonapi"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WritePropertyName "data"
             JsonSerializer.Serialize(writer, doc.data, options)
@@ -598,7 +632,8 @@ module internal Json =
             doc.included
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "included"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -615,17 +650,20 @@ module internal Json =
             doc.jsonapi
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "jsonapi"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WritePropertyName "data"
             JsonSerializer.Serialize(writer, doc.data, options)
@@ -633,7 +671,8 @@ module internal Json =
             doc.included
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "included"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -655,17 +694,20 @@ module internal Json =
             doc.jsonapi
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "jsonapi"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WritePropertyName "data"
             JsonSerializer.Serialize(writer, doc.data, options)
@@ -673,7 +715,8 @@ module internal Json =
             doc.included
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "included"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 
@@ -690,7 +733,8 @@ module internal Json =
             doc.jsonapi
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "jsonapi"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WritePropertyName "errors"
             JsonSerializer.Serialize(writer, doc.errors, options)
@@ -698,12 +742,14 @@ module internal Json =
             doc.links
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "links"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             doc.meta
             |> Skippable.iter (fun x ->
                 writer.WritePropertyName "meta"
-                JsonSerializer.Serialize(writer, x, options))
+                JsonSerializer.Serialize(writer, x, options)
+            )
 
             writer.WriteEndObject()
 

@@ -70,22 +70,28 @@ module internal LockSpecification =
             lock locker (fun () -> if disposed then d.Dispose() else disposables.Add d)
 
         member this.SetTimedOut() =
-            lock locker (fun () ->
-                if not timedOut then
-                    timedOut <- true
-                    (this :> IDisposable).Dispose())
+            lock
+                locker
+                (fun () ->
+                    if not timedOut then
+                        timedOut <- true
+                        (this :> IDisposable).Dispose()
+                )
 
         interface IDisposable with
             member _.Dispose() =
-                lock locker (fun () ->
-                    if not disposed then
-                        disposed <- true
+                lock
+                    locker
+                    (fun () ->
+                        if not disposed then
+                            disposed <- true
 
-                        for d in disposables do
-                            try
-                                d.Dispose()
-                            with _ ->
-                                ())
+                            for d in disposables do
+                                try
+                                    d.Dispose()
+                                with _ ->
+                                    ()
+                    )
 
 
     let rec private lock
@@ -153,7 +159,8 @@ module internal LockSpecification =
                     task {
                         do! Task.Delay ts
                         state.SetTimedOut()
-                    })
+                    }
+                )
 
             let lockTask =
                 task {
@@ -317,9 +324,11 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     member this.Lock(?timeout) =
         let hasFelicityLockSpec =
             this.lockSpecs
-            |> List.exists (function
+            |> List.exists (
+                function
                 | Felicity _ -> true
-                | _ -> false)
+                | _ -> false
+            )
 
         if hasFelicityLockSpec then
             failwith "Cannot call multiple built-in locks using Lock()"

@@ -126,11 +126,15 @@ module Parent =
                                         GrandChildDomain.create,
                                         GrandChild.name,
                                         GrandChild.children.Included(fun parser ->
-                                            parser.For(GreatGrandChildDomain.create))
-                                    ))
+                                            parser.For(GreatGrandChildDomain.create)
+                                        )
+                                    )
+                                )
                             )
-                            .Add(ChildDomain.setName2, Child.name2))
-                ))
+                            .Add(ChildDomain.setName2, Child.name2)
+                    )
+                )
+            )
             .AfterCreate(fun (Ctx db) p -> db.SaveParent p)
 
 

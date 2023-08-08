@@ -76,7 +76,8 @@ module A3 =
 
     let getColl =
         define.Operation.GetCollection(fun ctx parser ->
-            parser.For(id, Sort.Enum([ A.a.Name, "a" ])).Map(fun _ -> [ a1 ]))
+            parser.For(id, Sort.Enum([ A.a.Name, "a" ])).Map(fun _ -> [ a1 ])
+        )
 
 
 [<Tests>]

@@ -85,7 +85,8 @@ module Person =
                        |> Option.defaultValue true
                     && searchArgs.Genders
                        |> Option.map (List.map Some >> List.contains p.Gender)
-                       |> Option.defaultValue true)
+                       |> Option.defaultValue true
+                )
                 |> sort
                 |> Seq.safeSkip searchArgs.Offset
                 |> Seq.truncate searchArgs.Limit
@@ -144,7 +145,8 @@ module Article =
                        |> Option.defaultValue true
                     && searchArgs.CreatedBefore
                        |> Option.map ((>=) a.CreatedAt)
-                       |> Option.defaultValue true)
+                       |> Option.defaultValue true
+                )
                 |> sort
                 |> Seq.safeSkip searchArgs.Offset
                 |> Seq.truncate searchArgs.Limit
@@ -197,8 +199,10 @@ module Comment =
                     searchArgs.Author |> Option.map ((=) c.AuthorId) |> Option.defaultValue true
                     && searchArgs.AuthorFirstName
                        |> Option.map (fun fn ->
-                           persons.TryFind c.AuthorId |> Option.map (fun p -> p.FirstName) = Some fn)
-                       |> Option.defaultValue true)
+                           persons.TryFind c.AuthorId |> Option.map (fun p -> p.FirstName) = Some fn
+                       )
+                       |> Option.defaultValue true
+                )
                 |> sort
                 |> Seq.safeSkip searchArgs.Offset
                 |> Seq.truncate searchArgs.Limit

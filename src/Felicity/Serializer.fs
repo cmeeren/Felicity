@@ -91,7 +91,8 @@ module private ToDocumentModel =
                 if isNull d then
                     Error [ invalidNullArrayItem "data" ptr ]
                 else
-                    resourceIdentifier ptr d)
+                    resourceIdentifier ptr d
+            )
             |> Result.map (fun data -> {
                 links = Skip
                 data = data |> Array.toList |> Include
@@ -163,7 +164,8 @@ module private ToDocumentModel =
                                 try
                                     Ok(Some(attrName, JsonSerializer.Deserialize(jsonEl.GetRawText(), tp, options)))
                                 with :? JsonException as ex ->
-                                    Error [ fieldInvalidJson attrName ex (ptr + "/attributes/" + attrName) ])
+                                    Error [ fieldInvalidJson attrName ex (ptr + "/attributes/" + attrName) ]
+                    )
                     |> Result.map (Array.choose id >> dict >> Include)
 
             let rels =
@@ -216,7 +218,8 @@ module private ToDocumentModel =
 
                                 rel |> Result.map (fun r -> Some(relName, r))
                             with :? JsonException as ex ->
-                                Error [ fieldInvalidJson relName ex (ptr + "/relationships/" + relName) ])
+                                Error [ fieldInvalidJson relName ex (ptr + "/relationships/" + relName) ]
+                    )
                     |> Result.map (Array.choose id >> dict >> Include)
 
             match attrs, rels with
@@ -263,7 +266,8 @@ module private ToDocumentModel =
                 d.included
                 |> Array.indexed
                 |> Array.traverseResultA (fun (i, r) ->
-                    resource loggerFactory fieldStrictMode getFieldType options ("/included/" + string i) r)
+                    resource loggerFactory fieldStrictMode getFieldType options ("/included/" + string i) r
+                )
                 |> Result.map Include
 
         match data, included with
@@ -315,7 +319,8 @@ module private ToDocumentModel =
                     if isNull d then
                         Error [ invalidNullArrayItem "data" ptr ]
                     else
-                        resourceIdentifier ptr d)
+                        resourceIdentifier ptr d
+                )
 
         data
         |> Result.map (fun d -> {

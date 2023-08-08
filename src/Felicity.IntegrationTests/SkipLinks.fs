@@ -54,7 +54,8 @@ let getClient () =
                         .EnableUnknownFieldStrictMode()
                         .EnableUnknownQueryParamStrictMode()
                         .Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
         )
 

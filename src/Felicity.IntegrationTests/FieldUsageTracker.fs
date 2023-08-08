@@ -104,18 +104,23 @@ module D =
 
                 let! d =
                     parser.ParseAsync()
-                    |> Async.map (function
+                    |> Async.map (
+                        function
                         | Ok x -> x
-                        | Error _ -> failwith "Should not happen")
+                        | Error _ -> failwith "Should not happen"
+                    )
 
                 let! _d =
                     helper.RunSettersAsync(d, parser)
-                    |> Async.map (function
+                    |> Async.map (
+                        function
                         | Ok x -> x
-                        | Error _ -> failwith "Should not happen")
+                        | Error _ -> failwith "Should not happen"
+                    )
 
                 return helper.Return202Accepted() |> Ok
-            })
+            }
+        )
 
     let get = define.Operation.GetResource()
 
@@ -144,18 +149,23 @@ module B =
 
                 let! b =
                     parser.ParseAsync()
-                    |> Async.map (function
+                    |> Async.map (
+                        function
                         | Ok x -> x
-                        | Error _ -> failwith "Should not happen")
+                        | Error _ -> failwith "Should not happen"
+                    )
 
                 let! b =
                     helper.RunSettersAsync(b, parser)
-                    |> Async.map (function
+                    |> Async.map (
+                        function
                         | Ok x -> x
-                        | Error _ -> failwith "Should not happen")
+                        | Error _ -> failwith "Should not happen"
+                    )
 
                 return helper.ReturnCreatedEntity(b) |> Ok
-            })
+            }
+        )
 
 
 module A =
@@ -280,7 +290,8 @@ module A =
                     .RegisterResourceType(B.resDef)
                     .WithPolymorphicEntities([])
                 |> Ok
-                |> async.Return)
+                |> async.Return
+            )
 
 
 
@@ -289,9 +300,11 @@ module CD =
     let define = Define<Ctx, CD, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | CDC(C id) -> id
-            | CDD(D id) -> id)
+            | CDD(D id) -> id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("cds")
 
@@ -303,7 +316,8 @@ module CD =
                 elif id.StartsWith("D", StringComparison.OrdinalIgnoreCase) then
                     Some(CDD(D id))
                 else
-                    None),
+                    None
+            ),
             function
             | CDC c -> C.resDef.PolymorphicFor(c)
             | CDD d -> D.resDef.PolymorphicFor(d)
@@ -424,9 +438,11 @@ module GH =
     let define = Define<Ctx, GH, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | G g -> g
-            | H h -> h)
+            | H h -> h
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("ghs")
 
@@ -438,7 +454,8 @@ module GH =
                 elif id.StartsWith("H", StringComparison.OrdinalIgnoreCase) then
                     Some(H id)
                 else
-                    None),
+                    None
+            ),
             function
             | G g -> G.resDef.PolymorphicFor(g)
             | H h -> H.resDef.PolymorphicFor(h)
@@ -453,9 +470,11 @@ module GHAlt =
     let define = Define<Ctx, GH, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | G g -> g
-            | H h -> h)
+            | H h -> h
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("ghsAlt")
 
@@ -517,7 +536,8 @@ let createServerAndGetClient (trackFieldUsage: _ -> _ -> _ -> HttpHandler) =
                         .EnableUnknownFieldStrictMode()
                         .EnableUnknownQueryParamStrictMode()
                         .Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<Ctx>() |> ignore)
         )
 

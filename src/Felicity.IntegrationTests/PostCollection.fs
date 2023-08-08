@@ -139,7 +139,8 @@ module A =
                     a,
                     nullableChild.Related(Child.lookup),
                     nullableChildNotNullWhenCreated.Related(Child.lookup).AsNonNullable
-                ))
+                )
+            )
             .AfterCreate(fun (ctx: Ctx) a -> ctx.Db.SaveA a)
             .ModifyResponse(fun (ctx: Ctx) -> ctx.ModifyAResponse)
 

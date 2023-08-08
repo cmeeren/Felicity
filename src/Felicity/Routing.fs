@@ -33,11 +33,14 @@ let verifyPathCase expectedPath : HttpHandler =
 
 
 let internal route1 (path: string) (paramName: string) (handler: string -> HttpHandler) : Endpoint =
-    route path (fun next ctx ->
-        task {
-            let p = ctx.GetRouteValue(paramName) :?> string
-            return! handler p next ctx
-        })
+    route
+        path
+        (fun next ctx ->
+            task {
+                let p = ctx.GetRouteValue(paramName) :?> string
+                return! handler p next ctx
+            }
+        )
 
 
 let internal route2
@@ -46,12 +49,15 @@ let internal route2
     (paramName2: string)
     (handler: string -> string -> HttpHandler)
     : Endpoint =
-    route path (fun next ctx ->
-        task {
-            let p1 = ctx.GetRouteValue(paramName1) :?> string
-            let p2 = ctx.GetRouteValue(paramName2) :?> string
-            return! handler p1 p2 next ctx
-        })
+    route
+        path
+        (fun next ctx ->
+            task {
+                let p1 = ctx.GetRouteValue(paramName1) :?> string
+                let p2 = ctx.GetRouteValue(paramName2) :?> string
+                return! handler p1 p2 next ctx
+            }
+        )
 
 
 let internal route3
@@ -61,13 +67,16 @@ let internal route3
     (paramName3: string)
     (handler: string -> string -> string -> HttpHandler)
     : Endpoint =
-    route path (fun next ctx ->
-        task {
-            let p1 = ctx.GetRouteValue(paramName1) :?> string
-            let p2 = ctx.GetRouteValue(paramName2) :?> string
-            let p3 = ctx.GetRouteValue(paramName3) :?> string
-            return! handler p1 p2 p3 next ctx
-        })
+    route
+        path
+        (fun next ctx ->
+            task {
+                let p1 = ctx.GetRouteValue(paramName1) :?> string
+                let p2 = ctx.GetRouteValue(paramName2) :?> string
+                let p3 = ctx.GetRouteValue(paramName3) :?> string
+                return! handler p1 p2 p3 next ctx
+            }
+        )
 
 
 let internal jsonApiEndpoints
@@ -104,7 +113,8 @@ let internal jsonApiEndpoints
                         Fieldsets =
                             query
                             |> Map.filter (fun k _ ->
-                                k.StartsWith("fields[", StringComparison.Ordinal) && k.EndsWith(']'))
+                                k.StartsWith("fields[", StringComparison.Ordinal) && k.EndsWith(']')
+                            )
                             |> Map.toArray
                             |> Array.map (fun (k, v) -> k.Substring(7, k.Length - 8), v.Split ',' |> Set.ofArray)
                             |> Map.ofArray
@@ -116,7 +126,8 @@ let internal jsonApiEndpoints
                                 |> Array.filter ((<>) "")
                                 |> Array.map (fun path -> path.Split('.', StringSplitOptions.RemoveEmptyEntries))
                                 |> Array.map Array.toList
-                                |> Array.toList)
+                                |> Array.toList
+                            )
                             |> Option.defaultValue []
                     }
 
@@ -217,7 +228,8 @@ let internal jsonApiEndpoints
                                  verifyPathCase expectedCollPath
                                  >=> validateRequest
                                  >=> getCtx (fun ctx req ->
-                                     lockResourceForModification ctx req collName None >=> postColl ctx req))
+                                     lockResourceForModification ctx req collName None >=> postColl ctx req
+                                 ))
                     ]
 
                     route
@@ -252,64 +264,82 @@ let internal jsonApiEndpoints
                     | Some getById ->
 
                         GET_HEAD [
-                            route1 "/{id}" "id" (fun resId ->
-                                let expectedPath = expectedCollPath + "/" + resId
+                            route1
+                                "/{id}"
+                                "id"
+                                (fun resId ->
+                                    let expectedPath = expectedCollPath + "/" + resId
 
-                                match ops.resourceOperations.get with
-                                | None -> handleErrors [ resGetNotSupportedForAnyResource collName ]
-                                | Some get ->
-                                    verifyPathCase expectedPath
-                                    >=> validateRequest
-                                    >=> getCtx (fun ctx req -> getById ctx resId (get ctx req)))
+                                    match ops.resourceOperations.get with
+                                    | None -> handleErrors [ resGetNotSupportedForAnyResource collName ]
+                                    | Some get ->
+                                        verifyPathCase expectedPath
+                                        >=> validateRequest
+                                        >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
+                                )
                         ]
 
                         PATCH [
-                            route1 "/{id}" "id" (fun resId ->
-                                let expectedPath = expectedCollPath + "/" + resId
+                            route1
+                                "/{id}"
+                                "id"
+                                (fun resId ->
+                                    let expectedPath = expectedCollPath + "/" + resId
 
-                                match ops.resourceOperations.patch with
-                                | None -> handleErrors [ resPatchNotSupportedForAnyResource collName ]
-                                | Some patch ->
-                                    verifyPathCase expectedPath
-                                    >=> validateRequest
-                                    >=> getCtx (fun ctx req ->
-                                        lockResourceForModification ctx req collName (Some resId)
-                                        >=> getById ctx resId (patch ctx req)))
+                                    match ops.resourceOperations.patch with
+                                    | None -> handleErrors [ resPatchNotSupportedForAnyResource collName ]
+                                    | Some patch ->
+                                        verifyPathCase expectedPath
+                                        >=> validateRequest
+                                        >=> getCtx (fun ctx req ->
+                                            lockResourceForModification ctx req collName (Some resId)
+                                            >=> getById ctx resId (patch ctx req)
+                                        )
+                                )
                         ]
 
                         DELETE [
-                            route1 "/{id}" "id" (fun resId ->
-                                let expectedPath = expectedCollPath + "/" + resId
+                            route1
+                                "/{id}"
+                                "id"
+                                (fun resId ->
+                                    let expectedPath = expectedCollPath + "/" + resId
 
-                                match ops.resourceOperations.delete with
-                                | None -> handleErrors [ resDeleteNotSupportedForAnyResource collName ]
-                                | Some delete ->
-                                    verifyPathCase expectedPath
-                                    >=> validateRequest
-                                    >=> getCtx (fun ctx req ->
-                                        lockResourceForModification ctx req collName (Some resId)
-                                        >=> getById ctx resId (delete ctx req)))
+                                    match ops.resourceOperations.delete with
+                                    | None -> handleErrors [ resDeleteNotSupportedForAnyResource collName ]
+                                    | Some delete ->
+                                        verifyPathCase expectedPath
+                                        >=> validateRequest
+                                        >=> getCtx (fun ctx req ->
+                                            lockResourceForModification ctx req collName (Some resId)
+                                            >=> getById ctx resId (delete ctx req)
+                                        )
+                                )
                         ]
 
-                        route1 "/{id}" "id" (fun resId ->
-                            let expectedPath = expectedCollPath + "/" + resId
+                        route1
+                            "/{id}"
+                            "id"
+                            (fun resId ->
+                                let expectedPath = expectedCollPath + "/" + resId
 
-                            let allowHeader =
-                                [
-                                    if ops.resourceOperations.get.IsSome then
-                                        "GET"
-                                        "HEAD"
-                                    if ops.resourceOperations.patch.IsSome then
-                                        "PATCH"
-                                    if ops.resourceOperations.delete.IsSome then
-                                        "DELETE"
-                                ]
-                                |> String.concat ", "
+                                let allowHeader =
+                                    [
+                                        if ops.resourceOperations.get.IsSome then
+                                            "GET"
+                                            "HEAD"
+                                        if ops.resourceOperations.patch.IsSome then
+                                            "PATCH"
+                                        if ops.resourceOperations.delete.IsSome then
+                                            "DELETE"
+                                    ]
+                                    |> String.concat ", "
 
-                            verifyPathCase expectedPath
-                            >=> validateRequest
-                            >=> fun next (httpCtx: HttpContext) ->
-                                handleErrors [ methodNotAllowed httpCtx.Request.Method allowHeader ] next httpCtx)
+                                verifyPathCase expectedPath
+                                >=> validateRequest
+                                >=> fun next (httpCtx: HttpContext) ->
+                                    handleErrors [ methodNotAllowed httpCtx.Request.Method allowHeader ] next httpCtx
+                            )
 
 
                         // Resource relationship 'related' operations
@@ -318,32 +348,40 @@ let internal jsonApiEndpoints
                         for relName, rel in ops.resourceOperations.relationships |> Map.toList do
 
                             GET_HEAD [
-                                route1 ("/{id}/" + relName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/" + relName
+                                route1
+                                    ("/{id}/" + relName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/" + relName
 
-                                    match rel.getRelated with
-                                    | None -> handleErrors [ getRelNotDefinedForAnyResource relName collName ]
-                                    | Some get ->
-                                        verifyPathCase expectedPath
-                                        >=> validateRequest
-                                        >=> getCtx (fun ctx req -> getById ctx resId (get ctx req)))
+                                        match rel.getRelated with
+                                        | None -> handleErrors [ getRelNotDefinedForAnyResource relName collName ]
+                                        | Some get ->
+                                            verifyPathCase expectedPath
+                                            >=> validateRequest
+                                            >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
+                                    )
                             ]
 
-                            route1 ("/{id}/" + relName) "id" (fun resId ->
-                                let expectedPath = expectedCollPath + "/" + resId + "/" + relName
+                            route1
+                                ("/{id}/" + relName)
+                                "id"
+                                (fun resId ->
+                                    let expectedPath = expectedCollPath + "/" + resId + "/" + relName
 
-                                verifyPathCase expectedPath
-                                >=> validateRequest
-                                >=> fun next ctx ->
-                                    let allowHeader =
-                                        [
-                                            if rel.getRelated.IsSome then
-                                                "GET"
-                                                "HEAD"
-                                        ]
-                                        |> String.concat ", "
+                                    verifyPathCase expectedPath
+                                    >=> validateRequest
+                                    >=> fun next ctx ->
+                                        let allowHeader =
+                                            [
+                                                if rel.getRelated.IsSome then
+                                                    "GET"
+                                                    "HEAD"
+                                            ]
+                                            |> String.concat ", "
 
-                                    handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx)
+                                        handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx
+                                )
 
 
                         // Resource relationship 'self' operations
@@ -352,101 +390,124 @@ let internal jsonApiEndpoints
                         for relName, rel in ops.resourceOperations.relationships |> Map.toList do
 
                             GET_HEAD [
-                                route1 ("/{id}/relationships/" + relName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
+                                route1
+                                    ("/{id}/relationships/" + relName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
 
-                                    match rel.getSelf with
-                                    | None -> handleErrors [ getRelNotDefinedForAnyResource relName collName ]
-                                    | Some get ->
-                                        verifyPathCase expectedPath
-                                        >=> validateRequest
-                                        >=> getCtx (fun ctx req -> getById ctx resId (get ctx req)))
+                                        match rel.getSelf with
+                                        | None -> handleErrors [ getRelNotDefinedForAnyResource relName collName ]
+                                        | Some get ->
+                                            verifyPathCase expectedPath
+                                            >=> validateRequest
+                                            >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
+                                    )
                             ]
 
                             PATCH [
-                                route1 ("/{id}/relationships/" + relName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
+                                route1
+                                    ("/{id}/relationships/" + relName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
 
-                                    match rel.patchSelf with
-                                    | None ->
-                                        handleErrors [
-                                            patchRelSelfNotAllowedForAnyResource
-                                                relName
-                                                collName
-                                                rel.postSelf.IsSome
-                                                rel.deleteSelf.IsSome
-                                        ]
-                                    | Some patch ->
-                                        verifyPathCase expectedPath
-                                        >=> validateRequest
-                                        >=> getCtx (fun ctx req ->
-                                            lockResourceForModification ctx req collName (Some resId)
-                                            >=> getById ctx resId (patch ctx req)))
+                                        match rel.patchSelf with
+                                        | None ->
+                                            handleErrors [
+                                                patchRelSelfNotAllowedForAnyResource
+                                                    relName
+                                                    collName
+                                                    rel.postSelf.IsSome
+                                                    rel.deleteSelf.IsSome
+                                            ]
+                                        | Some patch ->
+                                            verifyPathCase expectedPath
+                                            >=> validateRequest
+                                            >=> getCtx (fun ctx req ->
+                                                lockResourceForModification ctx req collName (Some resId)
+                                                >=> getById ctx resId (patch ctx req)
+                                            )
+                                    )
                             ]
 
                             POST [
-                                route1 ("/{id}/relationships/" + relName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
+                                route1
+                                    ("/{id}/relationships/" + relName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
 
-                                    match rel.postSelf with
-                                    | None ->
-                                        handleErrors [
-                                            postToManyRelSelfNotAllowedForAnyResource
-                                                relName
-                                                collName
-                                                rel.patchSelf.IsSome
-                                                rel.deleteSelf.IsSome
-                                        ]
-                                    | Some post ->
-                                        verifyPathCase expectedPath
-                                        >=> validateRequest
-                                        >=> getCtx (fun ctx req ->
-                                            lockResourceForModification ctx req collName (Some resId)
-                                            >=> getById ctx resId (post ctx req)))
+                                        match rel.postSelf with
+                                        | None ->
+                                            handleErrors [
+                                                postToManyRelSelfNotAllowedForAnyResource
+                                                    relName
+                                                    collName
+                                                    rel.patchSelf.IsSome
+                                                    rel.deleteSelf.IsSome
+                                            ]
+                                        | Some post ->
+                                            verifyPathCase expectedPath
+                                            >=> validateRequest
+                                            >=> getCtx (fun ctx req ->
+                                                lockResourceForModification ctx req collName (Some resId)
+                                                >=> getById ctx resId (post ctx req)
+                                            )
+                                    )
                             ]
 
                             DELETE [
-                                route1 ("/{id}/relationships/" + relName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
+                                route1
+                                    ("/{id}/relationships/" + relName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
 
-                                    match rel.deleteSelf with
-                                    | None ->
-                                        handleErrors [
-                                            deleteToManyRelSelfNotAllowedForAnyResource
-                                                relName
-                                                collName
-                                                rel.patchSelf.IsSome
-                                                rel.postSelf.IsSome
-                                        ]
-                                    | Some delete ->
-                                        verifyPathCase expectedPath
-                                        >=> validateRequest
-                                        >=> getCtx (fun ctx req ->
-                                            lockResourceForModification ctx req collName (Some resId)
-                                            >=> getById ctx resId (delete ctx req)))
+                                        match rel.deleteSelf with
+                                        | None ->
+                                            handleErrors [
+                                                deleteToManyRelSelfNotAllowedForAnyResource
+                                                    relName
+                                                    collName
+                                                    rel.patchSelf.IsSome
+                                                    rel.postSelf.IsSome
+                                            ]
+                                        | Some delete ->
+                                            verifyPathCase expectedPath
+                                            >=> validateRequest
+                                            >=> getCtx (fun ctx req ->
+                                                lockResourceForModification ctx req collName (Some resId)
+                                                >=> getById ctx resId (delete ctx req)
+                                            )
+                                    )
                             ]
 
-                            route1 ("/{id}/relationships/" + relName) "id" (fun resId ->
-                                let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
+                            route1
+                                ("/{id}/relationships/" + relName)
+                                "id"
+                                (fun resId ->
+                                    let expectedPath = expectedCollPath + "/" + resId + "/relationships/" + relName
 
-                                verifyPathCase expectedPath
-                                >=> validateRequest
-                                >=> fun next ctx ->
-                                    let allowHeader =
-                                        [
-                                            if rel.getSelf.IsSome then
-                                                "GET"
-                                                "HEAD"
-                                            if rel.patchSelf.IsSome then
-                                                "PATCH"
-                                            if rel.postSelf.IsSome then
-                                                "POST"
-                                            if rel.deleteSelf.IsSome then
-                                                "DELETE"
-                                        ]
-                                        |> String.concat ", "
+                                    verifyPathCase expectedPath
+                                    >=> validateRequest
+                                    >=> fun next ctx ->
+                                        let allowHeader =
+                                            [
+                                                if rel.getSelf.IsSome then
+                                                    "GET"
+                                                    "HEAD"
+                                                if rel.patchSelf.IsSome then
+                                                    "PATCH"
+                                                if rel.postSelf.IsSome then
+                                                    "POST"
+                                                if rel.deleteSelf.IsSome then
+                                                    "DELETE"
+                                            ]
+                                            |> String.concat ", "
 
-                                    handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx)
+                                        handleErrors [ methodNotAllowed ctx.Request.Method allowHeader ] next ctx
+                                )
 
 
 
@@ -470,124 +531,153 @@ let internal jsonApiEndpoints
                         for linkName, link in ops.resourceOperations.links |> Map.toList do
 
                             GET_HEAD [
-                                route1 ("/{id}/" + linkName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
+                                route1
+                                    ("/{id}/" + linkName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
 
-                                    match link.get with
-                                    | None ->
-                                        fun next ctx ->
-                                            handleErrors
-                                                [
-                                                    customOpVerbNotDefinedForAnyResource
-                                                        linkName
-                                                        ctx.Request.Method
-                                                        collName
-                                                        (getLinkAllowHeader link)
-                                                ]
-                                                next
-                                                ctx
-                                    | Some get ->
-                                        verifyPathCase expectedPath
-                                        >=> getCtx (fun ctx req ->
-                                            getById ctx resId (get validateRequestWithOverrides ctx req)))
+                                        match link.get with
+                                        | None ->
+                                            fun next ctx ->
+                                                handleErrors
+                                                    [
+                                                        customOpVerbNotDefinedForAnyResource
+                                                            linkName
+                                                            ctx.Request.Method
+                                                            collName
+                                                            (getLinkAllowHeader link)
+                                                    ]
+                                                    next
+                                                    ctx
+                                        | Some get ->
+                                            verifyPathCase expectedPath
+                                            >=> getCtx (fun ctx req ->
+                                                getById ctx resId (get validateRequestWithOverrides ctx req)
+                                            )
+                                    )
                             ]
 
                             POST [
-                                route1 ("/{id}/" + linkName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
+                                route1
+                                    ("/{id}/" + linkName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
 
-                                    match link.post with
-                                    | None ->
-                                        fun next ctx ->
-                                            handleErrors
-                                                [
-                                                    customOpVerbNotDefinedForAnyResource
-                                                        linkName
-                                                        ctx.Request.Method
-                                                        collName
-                                                        (getLinkAllowHeader link)
-                                                ]
-                                                next
-                                                ctx
-                                    | Some post ->
-                                        verifyPathCase expectedPath
-                                        >=> getCtx (fun ctx req ->
-                                            lockResourceForModification ctx req collName (Some resId)
-                                            >=> getById ctx resId (post validateRequestWithOverrides ctx req)))
+                                        match link.post with
+                                        | None ->
+                                            fun next ctx ->
+                                                handleErrors
+                                                    [
+                                                        customOpVerbNotDefinedForAnyResource
+                                                            linkName
+                                                            ctx.Request.Method
+                                                            collName
+                                                            (getLinkAllowHeader link)
+                                                    ]
+                                                    next
+                                                    ctx
+                                        | Some post ->
+                                            verifyPathCase expectedPath
+                                            >=> getCtx (fun ctx req ->
+                                                lockResourceForModification ctx req collName (Some resId)
+                                                >=> getById ctx resId (post validateRequestWithOverrides ctx req)
+                                            )
+                                    )
                             ]
 
                             PATCH [
-                                route1 ("/{id}/" + linkName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
+                                route1
+                                    ("/{id}/" + linkName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
 
-                                    match link.patch with
-                                    | None ->
-                                        fun next ctx ->
-                                            handleErrors
-                                                [
-                                                    customOpVerbNotDefinedForAnyResource
-                                                        linkName
-                                                        ctx.Request.Method
-                                                        collName
-                                                        (getLinkAllowHeader link)
-                                                ]
-                                                next
-                                                ctx
-                                    | Some patch ->
-                                        verifyPathCase expectedPath
-                                        >=> getCtx (fun ctx req ->
-                                            lockResourceForModification ctx req collName (Some resId)
-                                            >=> getById ctx resId (patch validateRequestWithOverrides ctx req)))
+                                        match link.patch with
+                                        | None ->
+                                            fun next ctx ->
+                                                handleErrors
+                                                    [
+                                                        customOpVerbNotDefinedForAnyResource
+                                                            linkName
+                                                            ctx.Request.Method
+                                                            collName
+                                                            (getLinkAllowHeader link)
+                                                    ]
+                                                    next
+                                                    ctx
+                                        | Some patch ->
+                                            verifyPathCase expectedPath
+                                            >=> getCtx (fun ctx req ->
+                                                lockResourceForModification ctx req collName (Some resId)
+                                                >=> getById ctx resId (patch validateRequestWithOverrides ctx req)
+                                            )
+                                    )
                             ]
 
                             DELETE [
-                                route1 ("/{id}/" + linkName) "id" (fun resId ->
-                                    let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
+                                route1
+                                    ("/{id}/" + linkName)
+                                    "id"
+                                    (fun resId ->
+                                        let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
 
-                                    match link.delete with
-                                    | None ->
-                                        fun next ctx ->
-                                            handleErrors
-                                                [
-                                                    customOpVerbNotDefinedForAnyResource
-                                                        linkName
-                                                        ctx.Request.Method
-                                                        collName
-                                                        (getLinkAllowHeader link)
-                                                ]
-                                                next
-                                                ctx
-                                    | Some delete ->
-                                        verifyPathCase expectedPath
-                                        >=> getCtx (fun ctx req ->
-                                            lockResourceForModification ctx req collName (Some resId)
-                                            >=> getById ctx resId (delete validateRequestWithOverrides ctx req)))
+                                        match link.delete with
+                                        | None ->
+                                            fun next ctx ->
+                                                handleErrors
+                                                    [
+                                                        customOpVerbNotDefinedForAnyResource
+                                                            linkName
+                                                            ctx.Request.Method
+                                                            collName
+                                                            (getLinkAllowHeader link)
+                                                    ]
+                                                    next
+                                                    ctx
+                                        | Some delete ->
+                                            verifyPathCase expectedPath
+                                            >=> getCtx (fun ctx req ->
+                                                lockResourceForModification ctx req collName (Some resId)
+                                                >=> getById ctx resId (delete validateRequestWithOverrides ctx req)
+                                            )
+                                    )
                             ]
 
-                            route1 ("/{id}/" + linkName) "id" (fun resId ->
-                                let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
+                            route1
+                                ("/{id}/" + linkName)
+                                "id"
+                                (fun resId ->
+                                    let expectedPath = expectedCollPath + "/" + resId + "/" + linkName
 
-                                verifyPathCase expectedPath
-                                >=> validateRequest
-                                >=> fun next ctx ->
-                                    handleErrors
-                                        [
-                                            customOpVerbNotDefinedForAnyResource
-                                                linkName
-                                                ctx.Request.Method
-                                                collName
-                                                (getLinkAllowHeader link)
-                                        ]
-                                        next
-                                        ctx)
+                                    verifyPathCase expectedPath
+                                    >=> validateRequest
+                                    >=> fun next ctx ->
+                                        handleErrors
+                                            [
+                                                customOpVerbNotDefinedForAnyResource
+                                                    linkName
+                                                    ctx.Request.Method
+                                                    collName
+                                                    (getLinkAllowHeader link)
+                                            ]
+                                            next
+                                            ctx
+                                )
 
 
                         // Fallbacks
 
-                        route2 "/{id}/relationships/{relName}" "id" "relName" (fun _ relName ->
-                            verifyPartialPathCase expectedCollPath
-                            >=> validateRequest
-                            >=> handleErrors [ relationshipDoesNotExistForAnyResource relName collName ])
+                        route2
+                            "/{id}/relationships/{relName}"
+                            "id"
+                            "relName"
+                            (fun _ relName ->
+                                verifyPartialPathCase expectedCollPath
+                                >=> validateRequest
+                                >=> handleErrors [ relationshipDoesNotExistForAnyResource relName collName ]
+                            )
 
                         route3
                             "/{id}/relationships/{relName}/{path}/{*restPath}"
@@ -599,17 +689,29 @@ let internal jsonApiEndpoints
 
                                 verifyPartialPathCase expectedCollPath
                                 >=> validateRequest
-                                >=> handleErrors [ invalidPath path collName ])
+                                >=> handleErrors [ invalidPath path collName ]
+                            )
 
-                        route1 "/{id}/relationships" "id" (fun _ ->
-                            verifyPartialPathCase expectedCollPath
-                            >=> validateRequest
-                            >=> handleErrors [ invalidPath "relationships" collName ])
+                        route1
+                            "/{id}/relationships"
+                            "id"
+                            (fun _ ->
+                                verifyPartialPathCase expectedCollPath
+                                >=> validateRequest
+                                >=> handleErrors [ invalidPath "relationships" collName ]
+                            )
 
-                        route2 "/{id}/{linkOrRelName}" "id" "linkOrRelName" (fun _ linkOrRelName ->
-                            verifyPartialPathCase expectedCollPath
-                            >=> validateRequest
-                            >=> handleErrors [ linkOrRelationshipDoesNotExistForAnyResource linkOrRelName collName ])
+                        route2
+                            "/{id}/{linkOrRelName}"
+                            "id"
+                            "linkOrRelName"
+                            (fun _ linkOrRelName ->
+                                verifyPartialPathCase expectedCollPath
+                                >=> validateRequest
+                                >=> handleErrors [
+                                    linkOrRelationshipDoesNotExistForAnyResource linkOrRelName collName
+                                ]
+                            )
 
                         route3
                             "/{id}/{linkOrRelName}/{path}/{*restPath}"
@@ -621,7 +723,8 @@ let internal jsonApiEndpoints
 
                                 verifyPartialPathCase expectedCollPath
                                 >=> validateRequest
-                                >=> handleErrors [ invalidPath path collName ])
+                                >=> handleErrors [ invalidPath path collName ]
+                            )
 
                 ]
             ]

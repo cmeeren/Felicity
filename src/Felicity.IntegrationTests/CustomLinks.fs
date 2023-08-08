@@ -164,11 +164,13 @@ module Entity =
     let define = Define<Ctx, Entity, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
             | B b -> b.Id
             | C c -> c.Id
-            | D d -> d.Id)
+            | D d -> d.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("entities")
 
@@ -428,7 +430,8 @@ let getClientForMeta ctx =
                         .EnableUnknownFieldStrictMode()
                         .EnableUnknownQueryParamStrictMode()
                         .Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app -> app.UseRouting().UseJsonApiEndpoints<MetaCtx>() |> ignore)
         )
 
@@ -456,7 +459,8 @@ module A12 =
                         | Some statusCode -> setStatusCode statusCode >=> respond.WithNoEntity()
 
                     return Ok handler
-                })
+                }
+            )
 
 
 [<Tests>]

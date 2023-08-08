@@ -28,7 +28,8 @@ module ApplicationBuilderExtensions =
                                 let mimeType =
                                     pathSuffixContentTypes
                                     |> Seq.tryPick (fun (suffix, mimeType) ->
-                                        if subpath.EndsWith suffix then Some mimeType else None)
+                                        if subpath.EndsWith suffix then Some mimeType else None
+                                    )
 
                                 match mimeType with
                                 | Some mt ->
@@ -69,7 +70,8 @@ module Startup =
                 // returnUnknownError will return a simple, generic 500 error saying that an
                 // unknown error occurred. You can also use returnErrorDocument which accepts a
                 // list of custom errors to return
-                returnUnknownError)
+                returnUnknownError
+            )
             .UseDefaultFiles()
             .UseStaticFiles(
                 [

@@ -137,10 +137,12 @@ module AB2 =
     let define = Define<Ctx2, ABC, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
             | B b -> b.Id
-            | C c -> c.Id)
+            | C c -> c.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
     let lookup = define.Operation.Lookup(fun _ -> None)
@@ -154,10 +156,12 @@ module AB3 =
     let define = Define<Ctx3, ABC, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | A a -> a.Id
             | B b -> b.Id
-            | C c -> c.Id)
+            | C c -> c.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("abs")
 

@@ -183,11 +183,13 @@ module Parent =
     let define = Define<Ctx, Parent, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | P1 p -> p.Id
             | P2 p -> p.Id
             | P3 p -> p.Id
-            | P4 p -> p.Id)
+            | P4 p -> p.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("parents")
 

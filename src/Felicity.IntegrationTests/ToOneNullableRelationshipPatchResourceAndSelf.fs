@@ -179,7 +179,8 @@ module Parent1 = // set and get - PATCH resource/self OK
             .ToOneNullable()
             .Get(fun ctx p ->
                 p.OtherChildId
-                |> Option.map (ctx.Db.TryGetChild >> Option.defaultWith (fun () -> failwith "Not found")))
+                |> Option.map (ctx.Db.TryGetChild >> Option.defaultWith (fun () -> failwith "Not found"))
+            )
             .SetRes(fun ctx -> ctx.SetOtherChildId1)
             .AfterModifySelf(fun ctx -> ctx.AfterUpdate1)
             .PatchSelfReturn202Accepted()
@@ -268,11 +269,13 @@ module Parent =
     let define = Define<Ctx, Parent, string>()
 
     let resId =
-        define.Id.Simple (function
+        define.Id.Simple(
+            function
             | P1 p -> p.Id
             | P2 p -> p.Id
             | P3 p -> p.Id
-            | P4 p -> p.Id)
+            | P4 p -> p.Id
+        )
 
     let resDef = define.PolymorphicResource(resId).CollectionName("parents")
 

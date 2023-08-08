@@ -60,7 +60,8 @@ module HttpHandlers =
                 |> List.choose (fun s ->
                     match Int32.TryParse s with
                     | true, i -> Some i
-                    | _ -> None)
+                    | _ -> None
+                )
                 |> function
                     | [] -> None
                     | xs -> xs |> List.countBy id |> List.maxBy snd |> fst |> Some
@@ -80,7 +81,8 @@ module HttpHandlers =
                     err.id |> Skippable.defaultValue "<no id>",
                     err.source
                     |> Skippable.bind (fun s ->
-                        s.parameter |> Skippable.map (fun s -> "?" + s) |> Skippable.orElse s.pointer)
+                        s.parameter |> Skippable.map (fun s -> "?" + s) |> Skippable.orElse s.pointer
+                    )
                     |> Skippable.defaultValue "<no source>",
                     err.status |> Skippable.defaultValue "<no status>",
                     err.code |> Skippable.defaultValue "<no code>",

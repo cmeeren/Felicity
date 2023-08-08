@@ -19,10 +19,12 @@ let all<'ctx> =
             |> Array.collect (fun a ->
                 try
                     a.GetTypes()
-                with _ -> [||])
+                with _ -> [||]
+            )
             |> Array.filter (fun t ->
                 t.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
-                |> Array.exists (fun pi -> typeof<ResourceDefinition<'ctx>>.IsAssignableFrom pi.PropertyType))
+                |> Array.exists (fun pi -> typeof<ResourceDefinition<'ctx>>.IsAssignableFrom pi.PropertyType)
+            )
 
         lock allDict (fun () -> allDict[key] <- value)
         value
@@ -208,7 +210,9 @@ let resourceLookup<'ctx> collName (msInColl: Type[]) =
                 { new ResSpecificResourceLookup<'ctx> with
                     member _.GetByIdBoxed ctx rawId =
                         op.GetByIdBoxed rDef ctx rawId |> TaskResult.map (Option.map (fun e -> rDef, e))
-                }))
+                }
+            )
+        )
 
     let polymorphicOperations =
         msInColl
@@ -221,7 +225,9 @@ let resourceLookup<'ctx> collName (msInColl: Type[]) =
 
                 { new ResSpecificResourceLookup<'ctx> with
                     member _.GetByIdBoxed ctx rawId = op.GetByIdBoxed rDef ctx rawId
-                }))
+                }
+            )
+        )
 
     Array.concat [ nonPolymorphicOperations; polymorphicOperations ]
     |> function
@@ -299,7 +305,8 @@ let private ensureValidAndUniqueFieldNames<'ctx> (m: Type) =
             failwith
                 $"Resource module '%s{m.Name}' contains a field named '%s{name}', which is not a valid JSON:API member name"
         elif count > 1 then
-            failwith $"Resource module '%s{m.Name}' contains %i{count} fields named '%s{name}'; names must be unique")
+            failwith $"Resource module '%s{m.Name}' contains %i{count} fields named '%s{name}'; names must be unique"
+    )
 
 
 let private ensureCollectionNameIfNeeded<'ctx> (m: Type) =
@@ -335,7 +342,8 @@ let private ensureCollectionNameIfNeeded<'ctx> (m: Type) =
                 ->
                 failwith
                     $"Resource module '%s{m.Name}' has no collection name, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a collection name"
-            | _ -> ())
+            | _ -> ()
+        )
 
 
 let private ensureHasGetResourceOpIfNeeded<'ctx> (m: Type) =
@@ -363,7 +371,8 @@ let private ensureHasGetResourceOpIfNeeded<'ctx> (m: Type) =
                 ->
                 failwith
                     $"Resource module '%s{m.Name}' has no GET resource operation, but contains a public relationship with a POST/PATCH/DELETE operation, which requires a GET resource operation"
-            | _ -> ())
+            | _ -> ()
+        )
 
 
 let private ensureHasPersistFunction<'ctx> (m: Type) =
@@ -377,7 +386,8 @@ let private ensureHasPersistFunction<'ctx> (m: Type) =
         | :? RelationshipHandlers<'ctx> as op when op.IsSettableWithoutPersist ->
             failwith
                 $"Resource module '%s{m.Name}' has a settable relationship '%s{op.Name}' with no AfterModifySelf, which is required"
-        | _ -> ())
+        | _ -> ()
+    )
 
 
 let private ensureHasLookupIfNeeded<'ctx> ms =
@@ -413,7 +423,10 @@ let private ensureHasLookupIfNeeded<'ctx> ms =
                 | :? RelationshipHandlers<'ctx> as op when op.PostSelf.IsSome || op.DeleteSelf.IsSome ->
                     failwith
                         $"Resource module '%s{m.Name}' has no lookup operation, but contains public relationships with a POST/DELETE operation, which requires a lookup operation"
-                | _ -> ())))
+                | _ -> ()
+            )
+        )
+    )
 
 
 let private ensureHasModifyingOperationsIfPreconditionsDefined<'ctx> (m: Type) =
@@ -425,7 +438,8 @@ let private ensureHasModifyingOperationsIfPreconditionsDefined<'ctx> (m: Type) =
             | :? DeleteOperation<'ctx> -> true
             | :? CustomOperation<'ctx> as op -> op.HasModifyingOperations
             | :? RelationshipHandlers<'ctx> as op -> op.IsSettable
-            | _ -> false)
+            | _ -> false
+        )
         |> function
             | true -> ()
             | false ->
@@ -453,7 +467,8 @@ let private ensureNoRelLinkNameCollisions<'ctx> m =
             // This might actually be possible, though not recommended since it would be
             // confusing. Block it fow now, add test for it later if it should be supported.
             failwith
-                $"Resource module '%s{m.Name}' contains a link named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs")
+                $"Resource module '%s{m.Name}' contains a link named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs"
+    )
 
     rels
     |> Array.countBy id
@@ -465,7 +480,8 @@ let private ensureNoRelLinkNameCollisions<'ctx> m =
             // This might actually be possible, though not recommended since it would be
             // confusing. Block it fow now, add test for it later if it should be supported.
             failwith
-                $"Resource module '%s{m.Name}' contains a relationship named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs")
+                $"Resource module '%s{m.Name}' contains a relationship named 'relationships'; this is not allowed since it conflicts with standard JSON:API URLs"
+    )
 
     for opName in ops do
         for relName in rels do
@@ -512,7 +528,8 @@ let private ensurePolymorphicModuleHasOnlyPolymorphicOperations<'ctx> m =
             | :? CustomOperation<'ctx> ->
                 failwith
                     $"Polymorphic resource module '%s{m.Name}' may only contain polymorphic GET collection and lookup operations, but contained a custom link"
-            | _ -> ())
+            | _ -> ()
+        )
 
 
 let private ensureTypeNameIsValid<'ctx> m =
@@ -532,7 +549,8 @@ let private ensureNoDuplicateTypeNames<'ctx> ms =
     |> Array.countBy id
     |> Array.iter (fun (name, count) ->
         if count > 1 && name <> Constants.polymorphicTypeName then
-            failwith $"Resource type name '%s{name}' exists in %i{count} resource modules; type names must be unique")
+            failwith $"Resource type name '%s{name}' exists in %i{count} resource modules; type names must be unique"
+    )
 
 
 let private ensureAtMostOneLockSpecPerCollection<'ctx> ms =

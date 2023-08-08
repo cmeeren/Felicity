@@ -55,13 +55,15 @@ let private startTestServer' useStrictMode (ctx: 'ctx) =
                             x
                     |> fun x -> x.Add()
                     |> fun x -> x.AddJsonApi().GetCtx(fun _ -> SecondCtx).Add()
-                    |> ignore)
+                    |> ignore
+                )
                 .Configure(fun app ->
                     app
                         .UseGiraffeErrorHandler(fun _ _ -> returnUnknownError)
                         .UseRouting()
                         .UseJsonApiEndpoints<'ctx>()
-                    |> ignore)
+                    |> ignore
+                )
         )
 
     server.CreateClient(), testLoggerFactory.Sink
