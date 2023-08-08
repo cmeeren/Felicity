@@ -35,11 +35,10 @@ module A =
                 ctx.Meta <-
                     Map.empty.Add(
                         "bar",
-                        box
-                            {|
-                                test3 = 456
-                                test4 = "another value"
-                            |}
+                        box {|
+                            test3 = 456
+                            test4 = "another value"
+                        |}
                     )
 
                 A)
@@ -138,10 +137,9 @@ let tests =
 
             let! response =
                 Request.createWithClient client Patch (Uri("http://example.com/as/1"))
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "1" |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 

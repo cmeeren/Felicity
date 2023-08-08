@@ -28,10 +28,10 @@ module private RelationshipHelpers =
         =
         // Hack: The included resources are the same as those for the parent resource document
         // when using only the include paths that start with this relationship.
-        let reqForIncluded =
-            { req with
+        let reqForIncluded = {
+            req with
                 Includes = req.Includes |> List.filter (List.tryHead >> (=) (Some relName))
-            }
+        }
 
         resp.Write httpCtx ctx reqForIncluded (parentResDef, parentEntity)
         |> Task.map (fun doc -> doc.included)
@@ -94,13 +94,11 @@ type internal ToOneRelationship<'ctx> =
     abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
 
 
-type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            name: string
-            idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option>
-            getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
-        }
+type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    name: string
+    idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option>
+    getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
+} with
 
     static member internal Create
         (
@@ -157,13 +155,11 @@ type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
             |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
 
 
-type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> =
-    internal
-        {
-            name: string
-            getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
-            allowedTypes: ResourceTypeName list
-        }
+type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
+    name: string
+    getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
+    allowedTypes: ResourceTypeName list
+} with
 
     static member internal Create
         (
@@ -229,36 +225,29 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> =
             |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
 
 
-type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            name: string
-            setOrder: int
-            mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-            resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
-            resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-            idParsers:
-                Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
-            get: ('ctx -> 'entity -> Task<'relatedEntity Skippable>) option
-            set:
-                ('ctx
-                    -> 'setCtx
-                    -> Pointer
-                    -> 'relatedId * ResourceIdentifier
-                    -> 'entity
-                    -> Task<Result<'entity, Error list>>) option
-            getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier Skippable>
-            skipRelationship: 'ctx -> 'entity -> bool
-            hasConstraints: bool
-            getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
-            beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
-            afterModifySelf: ('setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
-            modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
-            modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
-            modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler
-            modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
-            patchSelfReturn202Accepted: bool
-        }
+type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    name: string
+    setOrder: int
+    mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
+    resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+    resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
+    idParsers:
+        Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
+    get: ('ctx -> 'entity -> Task<'relatedEntity Skippable>) option
+    set:
+        ('ctx -> 'setCtx -> Pointer -> 'relatedId * ResourceIdentifier -> 'entity -> Task<Result<'entity, Error list>>) option
+    getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier Skippable>
+    skipRelationship: 'ctx -> 'entity -> bool
+    hasConstraints: bool
+    getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+    beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
+    afterModifySelf: ('setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
+    modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
+    modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler
+    modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler
+    modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+    patchSelfReturn202Accepted: bool
+} with
 
     static member internal Create
         (
@@ -395,63 +384,64 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         member this.Names = Set.singleton this.name
         member this.SetOrder = this.setOrder
 
-        member this.Set ctx req entity numSetters = task {
-            match req.Document.Value with
-            | Error errs -> return Error errs
-            | Ok(Some {
-                          data = Some { relationships = Include rels }
-                      }) ->
-                match this.set, rels.TryGetValue this.name with
-                | _, (false, _) -> return Ok(entity, false) // not provided in request
-                | None, (true, _) ->
-                    if numSetters[this.name] > 1 then
-                        // Provided in request and no setter, but there exists another setter, so ignore
-                        return Ok(entity, false)
-                    else
-                        return Error [ setRelReadOnly this.name ("/data/relationships/" + this.name) ]
-                | Some set, (true, (:? ToOne as rel)) ->
-                    match! this.mapSetCtx ctx (unbox<'entity> entity) with
-                    | Error errs -> return Error errs
-                    | Ok setCtx ->
-                        let idParsers =
-                            this.idParsers
-                            |> Option.defaultWith (fun () ->
-                                failwithf
-                                    "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+        member this.Set ctx req entity numSetters =
+            task {
+                match req.Document.Value with
+                | Error errs -> return Error errs
+                | Ok(Some {
+                              data = Some { relationships = Include rels }
+                          }) ->
+                    match this.set, rels.TryGetValue this.name with
+                    | _, (false, _) -> return Ok(entity, false) // not provided in request
+                    | None, (true, _) ->
+                        if numSetters[this.name] > 1 then
+                            // Provided in request and no setter, but there exists another setter, so ignore
+                            return Ok(entity, false)
+                        else
+                            return Error [ setRelReadOnly this.name ("/data/relationships/" + this.name) ]
+                    | Some set, (true, (:? ToOne as rel)) ->
+                        match! this.mapSetCtx ctx (unbox<'entity> entity) with
+                        | Error errs -> return Error errs
+                        | Ok setCtx ->
+                            let idParsers =
+                                this.idParsers
+                                |> Option.defaultWith (fun () ->
+                                    failwithf
+                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
 
-                        match rel.data with
-                        | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
-                        | Include identifier ->
-                            match idParsers.TryGetValue identifier.``type`` with
-                            | false, _ ->
-                                let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                let pointer = "/data/relationships/" + this.name + "/data/type"
-                                return Error [ relInvalidType this.name identifier.``type`` allowedTypes pointer ]
-                            | true, parseId ->
-                                return!
-                                    parseId ctx identifier.id
-                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                    // this just means that the resource does not exist, which is a more helpful result.
-                                    |> TaskResult.mapError (fun _ -> [
-                                        relatedResourceNotFound
-                                            identifier.``type``
-                                            identifier.id
-                                            ("/data/relationships/" + this.name + "/data")
-                                    ])
-                                    |> TaskResult.bind (fun domain ->
-                                        set
-                                            ctx
-                                            setCtx
-                                            ("/data/relationships/" + this.name + "/data")
-                                            (domain, identifier)
-                                            (unbox<'entity> entity))
-                                    |> TaskResult.map (fun e -> box<'entity> e, true)
-                | Some _, (true, rel) ->
-                    return
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
-            | _ -> return Ok(entity, false) // no relationships provided
-        }
+                            match rel.data with
+                            | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
+                            | Include identifier ->
+                                match idParsers.TryGetValue identifier.``type`` with
+                                | false, _ ->
+                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                    let pointer = "/data/relationships/" + this.name + "/data/type"
+                                    return Error [ relInvalidType this.name identifier.``type`` allowedTypes pointer ]
+                                | true, parseId ->
+                                    return!
+                                        parseId ctx identifier.id
+                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                        // this just means that the resource does not exist, which is a more helpful result.
+                                        |> TaskResult.mapError (fun _ -> [
+                                            relatedResourceNotFound
+                                                identifier.``type``
+                                                identifier.id
+                                                ("/data/relationships/" + this.name + "/data")
+                                        ])
+                                        |> TaskResult.bind (fun domain ->
+                                            set
+                                                ctx
+                                                setCtx
+                                                ("/data/relationships/" + this.name + "/data")
+                                                (domain, identifier)
+                                                (unbox<'entity> entity))
+                                        |> TaskResult.map (fun e -> box<'entity> e, true)
+                    | Some _, (true, rel) ->
+                        return
+                            failwith
+                                $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{rel.GetType().FullName}"
+                | _ -> return Ok(entity, false) // no relationships provided
+            }
 
 
     interface ToOneRelationship<'ctx> with
@@ -554,38 +544,48 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                             "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
 
                 fun ctx req entity resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            let entity = unbox<'entity> entity
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok() ->
+                                let entity = unbox<'entity> entity
 
-                            match! getRelated ctx entity with
-                            | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
-                            | Include relatedEntity ->
-                                let b = resolveEntity relatedEntity
-                                let! doc = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
+                                match! getRelated ctx entity with
+                                | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
+                                | Include relatedEntity ->
+                                    let b = resolveEntity relatedEntity
+                                    let! doc = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
 
-                                let! fieldTrackerHandler =
-                                    match this.idParsers with
-                                    | None ->
-                                        logFieldTrackerPolymorphicRelTraversalWarning httpCtx resDef.TypeName this.name
-                                        Task.result (fun next ctx -> next ctx)
-                                    | Some parsers ->
-                                        let primaryResourceTypes = parsers.Keys |> Seq.toList
+                                    let! fieldTrackerHandler =
+                                        match this.idParsers with
+                                        | None ->
+                                            logFieldTrackerPolymorphicRelTraversalWarning
+                                                httpCtx
+                                                resDef.TypeName
+                                                this.name
 
-                                        httpCtx.RequestServices
-                                            .GetRequiredService<FieldTracker<'ctx>>()
-                                            .TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
+                                            Task.result (fun next ctx -> next ctx)
+                                        | Some parsers ->
+                                            let primaryResourceTypes = parsers.Keys |> Seq.toList
 
-                                let handler =
-                                    setStatusCode 200
-                                    >=> this.modifyGetRelatedResponse ctx entity relatedEntity
-                                    >=> fieldTrackerHandler
-                                    >=> jsonApiWithETag<'ctx> doc
+                                            httpCtx.RequestServices
+                                                .GetRequiredService<FieldTracker<'ctx>>()
+                                                .TrackFields(
+                                                    primaryResourceTypes,
+                                                    ctx,
+                                                    req,
+                                                    (resDef.TypeName, this.name)
+                                                )
 
-                                return! handler next httpCtx
-                    })
+                                    let handler =
+                                        setStatusCode 200
+                                        >=> this.modifyGetRelatedResponse ctx entity relatedEntity
+                                        >=> fieldTrackerHandler
+                                        >=> jsonApiWithETag<'ctx> doc
+
+                                    return! handler next httpCtx
+                        })
 
         member this.GetSelf =
             this.get
@@ -597,50 +597,50 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                             "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
 
                 fun ctx req entity resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            let entity = unbox<'entity> entity
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok() ->
+                                let entity = unbox<'entity> entity
 
-                            match! getRelated ctx entity with
-                            | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
-                            | Include relatedEntity ->
-                                let b = resolveEntity relatedEntity
-                                let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+                                match! getRelated ctx entity with
+                                | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
+                                | Include relatedEntity ->
+                                    let b = resolveEntity relatedEntity
+                                    let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
 
-                                let doc: ResourceIdentifierDocument = {
-                                    jsonapi = Skip
-                                    links = Skip
-                                    meta = Skip
-                                    data =
-                                        Some
-                                            {
+                                    let doc: ResourceIdentifierDocument = {
+                                        jsonapi = Skip
+                                        links = Skip
+                                        meta = Skip
+                                        data =
+                                            Some {
                                                 ``type`` = b.resourceDef.TypeName
                                                 id = b.resourceDef.GetIdBoxed b.entity
                                             }
-                                    included = included
-                                }
+                                        included = included
+                                    }
 
-                                let! fieldTrackerHandler =
-                                    httpCtx.RequestServices
-                                        .GetRequiredService<FieldTracker<'ctx>>()
-                                        .TrackFields(
-                                            [ resDef.TypeName ],
-                                            ctx,
-                                            req,
-                                            (resDef.TypeName, this.name),
-                                            this.name
-                                        )
+                                    let! fieldTrackerHandler =
+                                        httpCtx.RequestServices
+                                            .GetRequiredService<FieldTracker<'ctx>>()
+                                            .TrackFields(
+                                                [ resDef.TypeName ],
+                                                ctx,
+                                                req,
+                                                (resDef.TypeName, this.name),
+                                                this.name
+                                            )
 
-                                let handler =
-                                    setStatusCode 200
-                                    >=> this.modifyGetSelfResponse ctx entity relatedEntity
-                                    >=> fieldTrackerHandler
-                                    >=> jsonApiWithETag<'ctx> doc
+                                    let handler =
+                                        setStatusCode 200
+                                        >=> this.modifyGetSelfResponse ctx entity relatedEntity
+                                        >=> fieldTrackerHandler
+                                        >=> jsonApiWithETag<'ctx> doc
 
-                                return! handler next httpCtx
-                    })
+                                    return! handler next httpCtx
+                        })
 
         member _.PostSelf = None
 
@@ -666,129 +666,142 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                             "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
 
                 fun ctx req parentTypeName preconditions entity0 resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            match! this.mapSetCtx ctx (unbox<'entity> entity0) with
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
                             | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok setCtx ->
-                                match req.IdentifierDocument.Value with
+                            | Ok() ->
+                                match! this.mapSetCtx ctx (unbox<'entity> entity0) with
                                 | Error errs -> return! handleErrors errs next httpCtx
-                                | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
-                                | Ok(Some { data = None }) ->
-                                    return!
-                                        handleErrors [ relInvalidNull parentTypeName this.name "/data" ] next httpCtx
-                                | Ok(Some { data = Some id }) ->
-                                    match preconditions.Validate httpCtx ctx entity0 with
-                                    | Error errors -> return! handleErrors errors next httpCtx
-                                    | Ok() ->
-                                        match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                                | Ok setCtx ->
+                                    match req.IdentifierDocument.Value with
+                                    | Error errs -> return! handleErrors errs next httpCtx
+                                    | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
+                                    | Ok(Some { data = None }) ->
+                                        return!
+                                            handleErrors
+                                                [ relInvalidNull parentTypeName this.name "/data" ]
+                                                next
+                                                httpCtx
+                                    | Ok(Some { data = Some id }) ->
+                                        match preconditions.Validate httpCtx ctx entity0 with
                                         | Error errors -> return! handleErrors errors next httpCtx
-                                        | Ok entity1 ->
-                                            match idParsers.TryGetValue id.``type`` with
-                                            | false, _ ->
-                                                let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                        | Ok() ->
+                                            match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                                            | Error errors -> return! handleErrors errors next httpCtx
+                                            | Ok entity1 ->
+                                                match idParsers.TryGetValue id.``type`` with
+                                                | false, _ ->
+                                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
 
-                                                return!
-                                                    handleErrors
-                                                        [ relInvalidTypeSelf id.``type`` allowedTypes "/data/type" ]
-                                                        next
-                                                        httpCtx
-                                            | true, parseId ->
-                                                let! entity2Res =
-                                                    parseId ctx id.id
-                                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                                    // this just means that the resource does not exist, which is a more helpful result.
-                                                    |> TaskResult.mapError (fun _ -> [
-                                                        relatedResourceNotFound id.``type`` id.id "/data"
-                                                    ])
-                                                    |> TaskResult.bind (fun domain ->
-                                                        set ctx setCtx "/data" (domain, id) (unbox<'entity> entity1))
+                                                    return!
+                                                        handleErrors
+                                                            [
+                                                                relInvalidTypeSelf
+                                                                    id.``type``
+                                                                    allowedTypes
+                                                                    "/data/type"
+                                                            ]
+                                                            next
+                                                            httpCtx
+                                                | true, parseId ->
+                                                    let! entity2Res =
+                                                        parseId ctx id.id
+                                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                                        // this just means that the resource does not exist, which is a more helpful result.
+                                                        |> TaskResult.mapError (fun _ -> [
+                                                            relatedResourceNotFound id.``type`` id.id "/data"
+                                                        ])
+                                                        |> TaskResult.bind (fun domain ->
+                                                            set
+                                                                ctx
+                                                                setCtx
+                                                                "/data"
+                                                                (domain, id)
+                                                                (unbox<'entity> entity1))
 
-                                                match entity2Res with
-                                                | Error errs -> return! handleErrors errs next httpCtx
-                                                | Ok entity2 ->
-                                                    match!
-                                                        afterModifySelf
-                                                            setCtx
-                                                            (unbox<'entity> entity0)
-                                                            (unbox<'entity> entity2)
-                                                    with
-                                                    | Error errors -> return! handleErrors errors next httpCtx
-                                                    | Ok entity3 ->
-                                                        if this.patchSelfReturn202Accepted then
-                                                            let handler =
-                                                                setStatusCode 202
-                                                                >=> this.modifyPatchSelfAcceptedResponse
-                                                                    setCtx
-                                                                    (unbox<'entity> entity2)
+                                                    match entity2Res with
+                                                    | Error errs -> return! handleErrors errs next httpCtx
+                                                    | Ok entity2 ->
+                                                        match!
+                                                            afterModifySelf
+                                                                setCtx
+                                                                (unbox<'entity> entity0)
+                                                                (unbox<'entity> entity2)
+                                                        with
+                                                        | Error errors -> return! handleErrors errors next httpCtx
+                                                        | Ok entity3 ->
+                                                            if this.patchSelfReturn202Accepted then
+                                                                let handler =
+                                                                    setStatusCode 202
+                                                                    >=> this.modifyPatchSelfAcceptedResponse
+                                                                        setCtx
+                                                                        (unbox<'entity> entity2)
 
-                                                            return! handler next httpCtx
-                                                        else
-                                                            match! getRelated ctx (unbox<'entity> entity3) with
-                                                            | Skip ->
-                                                                let logger =
-                                                                    httpCtx.GetLogger("Felicity.Relationships")
+                                                                return! handler next httpCtx
+                                                            else
+                                                                match! getRelated ctx (unbox<'entity> entity3) with
+                                                                | Skip ->
+                                                                    let logger =
+                                                                        httpCtx.GetLogger("Felicity.Relationships")
 
-                                                                logger.LogError(
-                                                                    "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
-                                                                    this.name
-                                                                )
-
-                                                                return!
-                                                                    handleErrors
-                                                                        [ relModifySelfWhileSkip () ]
-                                                                        next
-                                                                        httpCtx
-                                                            | Include relatedEntity ->
-                                                                let b = resolveEntity relatedEntity
-
-                                                                let! included =
-                                                                    getIncludedForSelfUrl
-                                                                        httpCtx
-                                                                        ctx
-                                                                        req
-                                                                        resp
+                                                                    logger.LogError(
+                                                                        "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
                                                                         this.name
-                                                                        resDef
-                                                                        entity3
+                                                                    )
 
-                                                                let doc: ResourceIdentifierDocument = {
-                                                                    jsonapi = Skip
-                                                                    links = Skip
-                                                                    meta = Skip
-                                                                    data =
-                                                                        Some
-                                                                            {
+                                                                    return!
+                                                                        handleErrors
+                                                                            [ relModifySelfWhileSkip () ]
+                                                                            next
+                                                                            httpCtx
+                                                                | Include relatedEntity ->
+                                                                    let b = resolveEntity relatedEntity
+
+                                                                    let! included =
+                                                                        getIncludedForSelfUrl
+                                                                            httpCtx
+                                                                            ctx
+                                                                            req
+                                                                            resp
+                                                                            this.name
+                                                                            resDef
+                                                                            entity3
+
+                                                                    let doc: ResourceIdentifierDocument = {
+                                                                        jsonapi = Skip
+                                                                        links = Skip
+                                                                        meta = Skip
+                                                                        data =
+                                                                            Some {
                                                                                 ``type`` = b.resourceDef.TypeName
                                                                                 id = b.resourceDef.GetIdBoxed b.entity
                                                                             }
-                                                                    included = included
-                                                                }
+                                                                        included = included
+                                                                    }
 
-                                                                let! fieldTrackerHandler =
-                                                                    httpCtx.RequestServices
-                                                                        .GetRequiredService<FieldTracker<'ctx>>()
-                                                                        .TrackFields(
-                                                                            [ resDef.TypeName ],
-                                                                            ctx,
-                                                                            req,
-                                                                            (resDef.TypeName, this.name),
-                                                                            this.name
-                                                                        )
+                                                                    let! fieldTrackerHandler =
+                                                                        httpCtx.RequestServices
+                                                                            .GetRequiredService<FieldTracker<'ctx>>()
+                                                                            .TrackFields(
+                                                                                [ resDef.TypeName ],
+                                                                                ctx,
+                                                                                req,
+                                                                                (resDef.TypeName, this.name),
+                                                                                this.name
+                                                                            )
 
-                                                                let handler =
-                                                                    setStatusCode 200
-                                                                    >=> this.modifyPatchSelfOkResponse
-                                                                        setCtx
-                                                                        (unbox<'entity> entity3)
-                                                                        relatedEntity
-                                                                    >=> fieldTrackerHandler
-                                                                    >=> jsonApiWithETag<'ctx> doc
+                                                                    let handler =
+                                                                        setStatusCode 200
+                                                                        >=> this.modifyPatchSelfOkResponse
+                                                                            setCtx
+                                                                            (unbox<'entity> entity3)
+                                                                            relatedEntity
+                                                                        >=> fieldTrackerHandler
+                                                                        >=> jsonApiWithETag<'ctx> doc
 
-                                                                return! handler next httpCtx
-                    })
+                                                                    return! handler next httpCtx
+                        })
 
         member _.DeleteSelf = None
 
@@ -805,8 +818,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.resolveEntity.IsNone then
             failwithf "Can only add getter if the polymorphic resource definition contains an entity resolver."
 
-        { this with
-            get = Some(fun ctx e -> get.Invoke(ctx, e))
+        {
+            this with
+                get = Some(fun ctx e -> get.Invoke(ctx, e))
         }
 
     member this.GetTaskSkip(get: Func<'entity, Task<'relatedEntity Skippable>>) =
@@ -844,21 +858,22 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.resolveId.IsNone then
             failwithf "Can only add linkage getter if the polymorphic resource definition contains an ID resolver."
 
-        { this with
-            getLinkageIfNotIncluded =
-                fun ctx e -> task {
-                    match! get.Invoke(ctx, e) with
-                    | Skip -> return Skip
-                    | Include relatedId ->
-                        let resDef = this.resolveId.Value relatedId
+        {
+            this with
+                getLinkageIfNotIncluded =
+                    fun ctx e ->
+                        task {
+                            match! get.Invoke(ctx, e) with
+                            | Skip -> return Skip
+                            | Include relatedId ->
+                                let resDef = this.resolveId.Value relatedId
 
-                        return
-                            Include
-                                {
-                                    ``type`` = resDef.name
-                                    id = resDef.id.fromDomain relatedId
-                                }
-                }
+                                return
+                                    Include {
+                                        ``type`` = resDef.name
+                                        id = resDef.id.fromDomain relatedId
+                                    }
+                        }
         }
 
     member this.GetLinkageIfNotIncludedAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedId Skippable>>) =
@@ -888,18 +903,18 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) =
-        { this with
+    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+        this with
             skipRelationship = predicate
-        }
+    }
 
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'entity -> bool) =
-        { this with
+    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+        this with
             skipRelationship = fun _ e -> predicate e
-        }
+    }
 
     member private this.SetTaskRes
         (set: Func<'ctx, 'setCtx, Pointer, 'relatedId * ResourceIdentifier, 'entity, Task<Result<'entity, Error list>>>)
@@ -907,8 +922,11 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.idParsers.IsNone then
             failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
 
-        { this with
-            set = Some(fun ctx setCtx ptr relIdWithIdentifier e -> set.Invoke(ctx, setCtx, ptr, relIdWithIdentifier, e))
+        {
+            this with
+                set =
+                    Some(fun ctx setCtx ptr relIdWithIdentifier e ->
+                        set.Invoke(ctx, setCtx, ptr, relIdWithIdentifier, e))
         }
 
     member this.SetTaskRes(set: Func<'setCtx, 'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
@@ -1032,16 +1050,17 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         ) =
         this.SetTaskRes(getRelated, TaskResult.liftFunc2 set)
 
-    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) =
-        { this with
+    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
+        this with
             hasConstraints = true
             getConstraints =
-                fun ctx e -> task {
-                    let! currentCs = this.getConstraints ctx e
-                    let! newCs = getConstraints ctx e
-                    return currentCs @ newCs
-                }
-        }
+                fun ctx e ->
+                    task {
+                        let! currentCs = this.getConstraints ctx e
+                        let! newCs = getConstraints ctx e
+                        return currentCs @ newCs
+                    }
+    }
 
     member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
         this.AddConstraintsTask(Task.liftAsync2 getConstraints)
@@ -1055,10 +1074,10 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.AddConstraint(name: string, getValue: 'entity -> 'a) =
         this.AddConstraint(name, (fun _ e -> getValue e))
 
-    member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<'entity, Error list>>>) =
-        { this with
+    member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<'entity, Error list>>>) = {
+        this with
             beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e))
-        }
+    }
 
     member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<unit, Error list>>>) =
         this.BeforeModifySelfTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
@@ -1129,18 +1148,20 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.BeforeModifySelf(f: Func<'entity, unit>) =
         this.BeforeModifySelfTaskRes(TaskResult.liftFunc f)
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with afterModifySelf = Some f }
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
+            afterModifySelf = Some f
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<unit, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<unit, Error list>>) = {
+        this with
             afterModifySelf = Some(fun ctx eOld eNew -> f ctx eOld eNew |> TaskResult.map (fun () -> eNew))
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
             afterModifySelf = Some(fun ctx _ e -> f ctx e)
-        }
+    }
 
     member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<unit, Error list>>) =
         this.AfterModifySelfTaskRes(fun ctx e -> f ctx e |> TaskResult.map (fun () -> e))
@@ -1277,15 +1298,15 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.AfterModifySelf(f: 'entity -> unit) =
         this.AfterModifySelfTaskRes(TaskResult.lift f)
 
-    member this.PatchSelfReturn202Accepted() =
-        { this with
+    member this.PatchSelfReturn202Accepted() = {
+        this with
             patchSelfReturn202Accepted = true
-        }
+    }
 
-    member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) =
-        { this with
+    member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) = {
+        this with
             modifyGetRelatedResponse = getHandler
-        }
+    }
 
     member this.ModifyGetRelatedResponse(f: 'ctx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
         this.ModifyGetRelatedResponse(fun ctx e related ->
@@ -1296,10 +1317,10 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyGetRelatedResponse(handler: HttpHandler) =
         this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
 
-    member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) =
-        { this with
+    member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity -> HttpHandler) = {
+        this with
             modifyGetSelfResponse = getHandler
-        }
+    }
 
     member this.ModifyGetSelfResponse(f: 'ctx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
         this.ModifyGetSelfResponse(fun ctx e related ->
@@ -1310,10 +1331,10 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyGetSelfResponse(handler: HttpHandler) =
         this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler) =
-        { this with
+    member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler) = {
+        this with
             modifyPatchSelfOkResponse = getHandler
-        }
+    }
 
     member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity -> HttpContext -> unit) =
         this.ModifyPatchSelfOkResponse(fun ctx e related ->
@@ -1324,10 +1345,10 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
         this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-        { this with
+    member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) = {
+        this with
             modifyPatchSelfAcceptedResponse = getHandler
-        }
+    }
 
     member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
         this.ModifyPatchSelfAcceptedResponse(fun ctx e ->
@@ -1364,13 +1385,11 @@ type internal ToOneNullableRelationship<'ctx> =
 
 
 
-type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            name: string
-            idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option option>
-            getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
-        }
+type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    name: string
+    idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) option option>
+    getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
+} with
 
     static member internal Create
         (
@@ -1431,31 +1450,30 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
                 member _.FieldName = Some this.name
                 member _.QueryParamName = None
 
-                member _.Get(ctx, req, includedTypeAndId) = task {
-                    match! this.idGetter.Get(ctx, req, includedTypeAndId) with
-                    | Error errs -> return Error errs
-                    | Ok None -> return Ok None
-                    | Ok(Some None) ->
-                        return
-                            Error [
-                                setRelNullNotAllowed this.name
-                                |> Error.setSourcePointer ("/data/relationships/" + this.name + "/data")
-                            ]
-                    | Ok(Some(Some resId)) -> return Ok(Some resId)
-                }
+                member _.Get(ctx, req, includedTypeAndId) =
+                    task {
+                        match! this.idGetter.Get(ctx, req, includedTypeAndId) with
+                        | Error errs -> return Error errs
+                        | Ok None -> return Ok None
+                        | Ok(Some None) ->
+                            return
+                                Error [
+                                    setRelNullNotAllowed this.name
+                                    |> Error.setSourcePointer ("/data/relationships/" + this.name + "/data")
+                                ]
+                        | Ok(Some(Some resId)) -> return Ok(Some resId)
+                    }
             }
 
         ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId>
             .Create(this.name, nonNullIdGetter, this.getRelated)
 
 
-type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
-    internal
-        {
-            name: string
-            getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
-            allowedTypes: ResourceTypeName list
-        }
+type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
+    name: string
+    getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
+    allowedTypes: ResourceTypeName list
+} with
 
     static member internal Create
         (
@@ -1523,36 +1541,34 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
 
 
 
-type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            name: string
-            setOrder: int
-            mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-            resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
-            resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-            idParsers:
-                Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
-            get: ('ctx -> 'entity -> Task<'relatedEntity option Skippable>) option
-            set:
-                ('ctx
-                    -> 'setCtx
-                    -> Pointer
-                    -> ('relatedId * ResourceIdentifier) option
-                    -> 'entity
-                    -> Task<Result<'entity, Error list>>) option
-            getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier option Skippable>
-            skipRelationship: 'ctx -> 'entity -> bool
-            hasConstraints: bool
-            getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
-            beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
-            afterModifySelf: ('setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
-            modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
-            modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
-            modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler
-            modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
-            patchSelfReturn202Accepted: bool
-        }
+type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    name: string
+    setOrder: int
+    mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
+    resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+    resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
+    idParsers:
+        Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
+    get: ('ctx -> 'entity -> Task<'relatedEntity option Skippable>) option
+    set:
+        ('ctx
+            -> 'setCtx
+            -> Pointer
+            -> ('relatedId * ResourceIdentifier) option
+            -> 'entity
+            -> Task<Result<'entity, Error list>>) option
+    getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier option Skippable>
+    skipRelationship: 'ctx -> 'entity -> bool
+    hasConstraints: bool
+    getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+    beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
+    afterModifySelf: ('setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
+    modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
+    modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler
+    modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler
+    modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+    patchSelfReturn202Accepted: bool
+} with
 
     static member internal Create
         (
@@ -1689,68 +1705,69 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         member this.Names = Set.singleton this.name
         member this.SetOrder = this.setOrder
 
-        member this.Set ctx req entity numSetters = task {
-            match req.Document.Value with
-            | Error errs -> return Error errs
-            | Ok(Some {
-                          data = Some { relationships = Include rels }
-                      }) ->
-                match this.set, rels.TryGetValue this.name with
-                | _, (false, _) -> return Ok(entity, false) // not provided in request
-                | None, (true, _) ->
-                    if numSetters[this.name] > 1 then
-                        // Provided in request and no setter, but there exists another setter, so ignore
-                        return Ok(entity, false)
-                    else
-                        return Error [ setRelReadOnly this.name ("/data/relationships/" + this.name) ]
-                | Some set, (true, (:? ToOneNullable as rel)) ->
-                    match! this.mapSetCtx ctx (unbox<'entity> entity) with
-                    | Error errs -> return Error errs
-                    | Ok setCtx ->
-                        let idParsers =
-                            this.idParsers
-                            |> Option.defaultWith (fun () ->
-                                failwithf
-                                    "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+        member this.Set ctx req entity numSetters =
+            task {
+                match req.Document.Value with
+                | Error errs -> return Error errs
+                | Ok(Some {
+                              data = Some { relationships = Include rels }
+                          }) ->
+                    match this.set, rels.TryGetValue this.name with
+                    | _, (false, _) -> return Ok(entity, false) // not provided in request
+                    | None, (true, _) ->
+                        if numSetters[this.name] > 1 then
+                            // Provided in request and no setter, but there exists another setter, so ignore
+                            return Ok(entity, false)
+                        else
+                            return Error [ setRelReadOnly this.name ("/data/relationships/" + this.name) ]
+                    | Some set, (true, (:? ToOneNullable as rel)) ->
+                        match! this.mapSetCtx ctx (unbox<'entity> entity) with
+                        | Error errs -> return Error errs
+                        | Ok setCtx ->
+                            let idParsers =
+                                this.idParsers
+                                |> Option.defaultWith (fun () ->
+                                    failwithf
+                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
 
-                        match rel.data with
-                        | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
-                        | Include identifier ->
-                            return!
-                                identifier
-                                |> Option.traverseTaskResult (fun id ->
-                                    match idParsers.TryGetValue id.``type`` with
-                                    | false, _ ->
-                                        let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                        let pointer = "/data/relationships/" + this.name + "/data/type"
+                            match rel.data with
+                            | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
+                            | Include identifier ->
+                                return!
+                                    identifier
+                                    |> Option.traverseTaskResult (fun id ->
+                                        match idParsers.TryGetValue id.``type`` with
+                                        | false, _ ->
+                                            let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                            let pointer = "/data/relationships/" + this.name + "/data/type"
 
-                                        Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
-                                        |> Task.result
-                                    | true, parseId ->
-                                        parseId ctx id.id
-                                        |> TaskResult.map (fun x -> x, id)
-                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                        // this just means that the resource does not exist, which is a more helpful result.
-                                        |> TaskResult.mapError (fun _ -> [
-                                            relatedResourceNotFound
-                                                id.``type``
-                                                id.id
-                                                ("/data/relationships/" + this.name + "/data")
-                                        ]))
-                                |> TaskResult.bind (fun resIdWithIdentifier ->
-                                    set
-                                        ctx
-                                        setCtx
-                                        ("/data/relationships/" + this.name + "/data")
-                                        resIdWithIdentifier
-                                        (unbox<'entity> entity))
-                                |> TaskResult.map (fun e -> box<'entity> e, true)
-                | Some _, (true, rel) ->
-                    return
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
-            | _ -> return Ok(entity, false) // no relationships provided
-        }
+                                            Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
+                                            |> Task.result
+                                        | true, parseId ->
+                                            parseId ctx id.id
+                                            |> TaskResult.map (fun x -> x, id)
+                                            // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                            // this just means that the resource does not exist, which is a more helpful result.
+                                            |> TaskResult.mapError (fun _ -> [
+                                                relatedResourceNotFound
+                                                    id.``type``
+                                                    id.id
+                                                    ("/data/relationships/" + this.name + "/data")
+                                            ]))
+                                    |> TaskResult.bind (fun resIdWithIdentifier ->
+                                        set
+                                            ctx
+                                            setCtx
+                                            ("/data/relationships/" + this.name + "/data")
+                                            resIdWithIdentifier
+                                            (unbox<'entity> entity))
+                                    |> TaskResult.map (fun e -> box<'entity> e, true)
+                    | Some _, (true, rel) ->
+                        return
+                            failwith
+                                $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{rel.GetType().FullName}"
+                | _ -> return Ok(entity, false) // no relationships provided
+            }
 
 
     interface ToOneNullableRelationship<'ctx> with
@@ -1855,45 +1872,55 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                             "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
 
                 fun ctx req entity resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            let entity = unbox<'entity> entity
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok() ->
+                                let entity = unbox<'entity> entity
 
-                            match! getRelated ctx entity with
-                            | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
-                            | Include relatedEntity ->
-                                let! doc =
-                                    resp.WriteOpt
-                                        httpCtx
-                                        ctx
-                                        req
-                                        (relatedEntity
-                                         |> Option.map (fun e ->
-                                             let b = resolveEntity e
-                                             b.resourceDef, b.entity))
+                                match! getRelated ctx entity with
+                                | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
+                                | Include relatedEntity ->
+                                    let! doc =
+                                        resp.WriteOpt
+                                            httpCtx
+                                            ctx
+                                            req
+                                            (relatedEntity
+                                             |> Option.map (fun e ->
+                                                 let b = resolveEntity e
+                                                 b.resourceDef, b.entity))
 
-                                let! fieldTrackerHandler =
-                                    match this.idParsers with
-                                    | None ->
-                                        logFieldTrackerPolymorphicRelTraversalWarning httpCtx resDef.TypeName this.name
-                                        Task.result (fun next ctx -> next ctx)
-                                    | Some parsers ->
-                                        let primaryResourceTypes = parsers.Keys |> Seq.toList
+                                    let! fieldTrackerHandler =
+                                        match this.idParsers with
+                                        | None ->
+                                            logFieldTrackerPolymorphicRelTraversalWarning
+                                                httpCtx
+                                                resDef.TypeName
+                                                this.name
 
-                                        httpCtx.RequestServices
-                                            .GetRequiredService<FieldTracker<'ctx>>()
-                                            .TrackFields(primaryResourceTypes, ctx, req, (resDef.TypeName, this.name))
+                                            Task.result (fun next ctx -> next ctx)
+                                        | Some parsers ->
+                                            let primaryResourceTypes = parsers.Keys |> Seq.toList
 
-                                let handler =
-                                    setStatusCode 200
-                                    >=> this.modifyGetRelatedResponse ctx entity relatedEntity
-                                    >=> fieldTrackerHandler
-                                    >=> jsonApiWithETag<'ctx> doc
+                                            httpCtx.RequestServices
+                                                .GetRequiredService<FieldTracker<'ctx>>()
+                                                .TrackFields(
+                                                    primaryResourceTypes,
+                                                    ctx,
+                                                    req,
+                                                    (resDef.TypeName, this.name)
+                                                )
 
-                                return! handler next httpCtx
-                    })
+                                    let handler =
+                                        setStatusCode 200
+                                        >=> this.modifyGetRelatedResponse ctx entity relatedEntity
+                                        >=> fieldTrackerHandler
+                                        >=> jsonApiWithETag<'ctx> doc
+
+                                    return! handler next httpCtx
+                        })
 
         member this.GetSelf =
             this.get
@@ -1905,52 +1932,53 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                             "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
 
                 fun ctx req entity resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            let entity = unbox<'entity> entity
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok() ->
+                                let entity = unbox<'entity> entity
 
-                            match! getRelated ctx entity with
-                            | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
-                            | Include relatedEntity ->
-                                let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+                                match! getRelated ctx entity with
+                                | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
+                                | Include relatedEntity ->
+                                    let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
 
-                                let doc: ResourceIdentifierDocument = {
-                                    jsonapi = Skip
-                                    links = Skip
-                                    meta = Skip
-                                    data =
-                                        relatedEntity
-                                        |> Option.map (fun e ->
-                                            let b = resolveEntity e
+                                    let doc: ResourceIdentifierDocument = {
+                                        jsonapi = Skip
+                                        links = Skip
+                                        meta = Skip
+                                        data =
+                                            relatedEntity
+                                            |> Option.map (fun e ->
+                                                let b = resolveEntity e
 
-                                            {
-                                                ``type`` = b.resourceDef.TypeName
-                                                id = b.resourceDef.GetIdBoxed b.entity
-                                            })
-                                    included = included
-                                }
+                                                {
+                                                    ``type`` = b.resourceDef.TypeName
+                                                    id = b.resourceDef.GetIdBoxed b.entity
+                                                })
+                                        included = included
+                                    }
 
-                                let! fieldTrackerHandler =
-                                    httpCtx.RequestServices
-                                        .GetRequiredService<FieldTracker<'ctx>>()
-                                        .TrackFields(
-                                            [ resDef.TypeName ],
-                                            ctx,
-                                            req,
-                                            (resDef.TypeName, this.name),
-                                            this.name
-                                        )
+                                    let! fieldTrackerHandler =
+                                        httpCtx.RequestServices
+                                            .GetRequiredService<FieldTracker<'ctx>>()
+                                            .TrackFields(
+                                                [ resDef.TypeName ],
+                                                ctx,
+                                                req,
+                                                (resDef.TypeName, this.name),
+                                                this.name
+                                            )
 
-                                let handler =
-                                    setStatusCode 200
-                                    >=> this.modifyGetSelfResponse ctx entity relatedEntity
-                                    >=> fieldTrackerHandler
-                                    >=> jsonApiWithETag<'ctx> doc
+                                    let handler =
+                                        setStatusCode 200
+                                        >=> this.modifyGetSelfResponse ctx entity relatedEntity
+                                        >=> fieldTrackerHandler
+                                        >=> jsonApiWithETag<'ctx> doc
 
-                                return! handler next httpCtx
-                    })
+                                    return! handler next httpCtx
+                        })
 
         member _.PostSelf = None
 
@@ -1976,130 +2004,138 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                             "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
 
                 fun ctx req _parentTypeName preconditions entity0 resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            match! this.mapSetCtx ctx (unbox<'entity> entity0) with
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
                             | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok setCtx ->
-                                match req.IdentifierDocument.Value with
+                            | Ok() ->
+                                match! this.mapSetCtx ctx (unbox<'entity> entity0) with
                                 | Error errs -> return! handleErrors errs next httpCtx
-                                | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
-                                | Ok(Some { data = identifier }) ->
-                                    match preconditions.Validate httpCtx ctx entity0 with
-                                    | Error errors -> return! handleErrors errors next httpCtx
-                                    | Ok() ->
-                                        match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                                | Ok setCtx ->
+                                    match req.IdentifierDocument.Value with
+                                    | Error errs -> return! handleErrors errs next httpCtx
+                                    | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
+                                    | Ok(Some { data = identifier }) ->
+                                        match preconditions.Validate httpCtx ctx entity0 with
                                         | Error errors -> return! handleErrors errors next httpCtx
-                                        | Ok entity1 ->
-                                            let! entity2Res =
-                                                identifier
-                                                |> Option.traverseTaskResult (fun id ->
-                                                    match idParsers.TryGetValue id.``type`` with
-                                                    | false, _ ->
-                                                        let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                        | Ok() ->
+                                            match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                                            | Error errors -> return! handleErrors errors next httpCtx
+                                            | Ok entity1 ->
+                                                let! entity2Res =
+                                                    identifier
+                                                    |> Option.traverseTaskResult (fun id ->
+                                                        match idParsers.TryGetValue id.``type`` with
+                                                        | false, _ ->
+                                                            let allowedTypes = idParsers |> Map.toList |> List.map fst
 
-                                                        Error [
-                                                            relInvalidTypeSelf id.``type`` allowedTypes "/data/type"
-                                                        ]
-                                                        |> Task.result
-                                                    | true, parseId ->
-                                                        parseId ctx id.id
-                                                        |> TaskResult.map (fun x -> x, id)
-                                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                                        // this just means that the resource does not exist, which is a more helpful result.
-                                                        |> TaskResult.mapError (fun _ -> [
-                                                            relatedResourceNotFound id.``type`` id.id "/data"
-                                                        ]))
-                                                |> TaskResult.bind (fun relIdWithIdentifier ->
-                                                    set
-                                                        ctx
-                                                        setCtx
-                                                        "/data"
-                                                        relIdWithIdentifier
-                                                        (unbox<'entity> entity1))
+                                                            Error [
+                                                                relInvalidTypeSelf
+                                                                    id.``type``
+                                                                    allowedTypes
+                                                                    "/data/type"
+                                                            ]
+                                                            |> Task.result
+                                                        | true, parseId ->
+                                                            parseId ctx id.id
+                                                            |> TaskResult.map (fun x -> x, id)
+                                                            // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                                            // this just means that the resource does not exist, which is a more helpful result.
+                                                            |> TaskResult.mapError (fun _ -> [
+                                                                relatedResourceNotFound id.``type`` id.id "/data"
+                                                            ]))
+                                                    |> TaskResult.bind (fun relIdWithIdentifier ->
+                                                        set
+                                                            ctx
+                                                            setCtx
+                                                            "/data"
+                                                            relIdWithIdentifier
+                                                            (unbox<'entity> entity1))
 
-                                            match entity2Res with
-                                            | Error errs -> return! handleErrors errs next httpCtx
-                                            | Ok entity2 ->
-                                                match!
-                                                    afterModifySelf
-                                                        setCtx
-                                                        (unbox<'entity> entity0)
-                                                        (unbox<'entity> entity2)
-                                                with
-                                                | Error errors -> return! handleErrors errors next httpCtx
-                                                | Ok entity3 ->
-                                                    if this.patchSelfReturn202Accepted then
-                                                        let handler =
-                                                            setStatusCode 202
-                                                            >=> this.modifyPatchSelfAcceptedResponse
-                                                                setCtx
-                                                                (unbox<'entity> entity3)
-
-                                                        return! handler next httpCtx
-                                                    else
-                                                        match! getRelated ctx (unbox<'entity> entity3) with
-                                                        | Skip ->
-                                                            let logger = httpCtx.GetLogger("Felicity.Relationships")
-
-                                                            logger.LogError(
-                                                                "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
-                                                                this.name
-                                                            )
-
-                                                            return!
-                                                                handleErrors [ relModifySelfWhileSkip () ] next httpCtx
-                                                        | Include relatedEntity ->
-                                                            let! included =
-                                                                getIncludedForSelfUrl
-                                                                    httpCtx
-                                                                    ctx
-                                                                    req
-                                                                    resp
-                                                                    this.name
-                                                                    resDef
-                                                                    entity3
-
-                                                            let doc: ResourceIdentifierDocument = {
-                                                                jsonapi = Skip
-                                                                links = Skip
-                                                                meta = Skip
-                                                                data =
-                                                                    relatedEntity
-                                                                    |> Option.map (fun e ->
-                                                                        let b = resolveEntity e
-
-                                                                        {
-                                                                            ``type`` = b.resourceDef.TypeName
-                                                                            id = b.resourceDef.GetIdBoxed b.entity
-                                                                        })
-                                                                included = included
-                                                            }
-
-                                                            let! fieldTrackerHandler =
-                                                                httpCtx.RequestServices
-                                                                    .GetRequiredService<FieldTracker<'ctx>>()
-                                                                    .TrackFields(
-                                                                        [ resDef.TypeName ],
-                                                                        ctx,
-                                                                        req,
-                                                                        (resDef.TypeName, this.name),
-                                                                        this.name
-                                                                    )
-
+                                                match entity2Res with
+                                                | Error errs -> return! handleErrors errs next httpCtx
+                                                | Ok entity2 ->
+                                                    match!
+                                                        afterModifySelf
+                                                            setCtx
+                                                            (unbox<'entity> entity0)
+                                                            (unbox<'entity> entity2)
+                                                    with
+                                                    | Error errors -> return! handleErrors errors next httpCtx
+                                                    | Ok entity3 ->
+                                                        if this.patchSelfReturn202Accepted then
                                                             let handler =
-                                                                setStatusCode 200
-                                                                >=> this.modifyPatchSelfOkResponse
+                                                                setStatusCode 202
+                                                                >=> this.modifyPatchSelfAcceptedResponse
                                                                     setCtx
                                                                     (unbox<'entity> entity3)
-                                                                    relatedEntity
-                                                                >=> fieldTrackerHandler
-                                                                >=> jsonApiWithETag<'ctx> doc
 
                                                             return! handler next httpCtx
-                    })
+                                                        else
+                                                            match! getRelated ctx (unbox<'entity> entity3) with
+                                                            | Skip ->
+                                                                let logger =
+                                                                    httpCtx.GetLogger("Felicity.Relationships")
+
+                                                                logger.LogError(
+                                                                    "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
+                                                                    this.name
+                                                                )
+
+                                                                return!
+                                                                    handleErrors
+                                                                        [ relModifySelfWhileSkip () ]
+                                                                        next
+                                                                        httpCtx
+                                                            | Include relatedEntity ->
+                                                                let! included =
+                                                                    getIncludedForSelfUrl
+                                                                        httpCtx
+                                                                        ctx
+                                                                        req
+                                                                        resp
+                                                                        this.name
+                                                                        resDef
+                                                                        entity3
+
+                                                                let doc: ResourceIdentifierDocument = {
+                                                                    jsonapi = Skip
+                                                                    links = Skip
+                                                                    meta = Skip
+                                                                    data =
+                                                                        relatedEntity
+                                                                        |> Option.map (fun e ->
+                                                                            let b = resolveEntity e
+
+                                                                            {
+                                                                                ``type`` = b.resourceDef.TypeName
+                                                                                id = b.resourceDef.GetIdBoxed b.entity
+                                                                            })
+                                                                    included = included
+                                                                }
+
+                                                                let! fieldTrackerHandler =
+                                                                    httpCtx.RequestServices
+                                                                        .GetRequiredService<FieldTracker<'ctx>>()
+                                                                        .TrackFields(
+                                                                            [ resDef.TypeName ],
+                                                                            ctx,
+                                                                            req,
+                                                                            (resDef.TypeName, this.name),
+                                                                            this.name
+                                                                        )
+
+                                                                let handler =
+                                                                    setStatusCode 200
+                                                                    >=> this.modifyPatchSelfOkResponse
+                                                                        setCtx
+                                                                        (unbox<'entity> entity3)
+                                                                        relatedEntity
+                                                                    >=> fieldTrackerHandler
+                                                                    >=> jsonApiWithETag<'ctx> doc
+
+                                                                return! handler next httpCtx
+                        })
 
         member _.DeleteSelf = None
 
@@ -2116,8 +2152,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         if this.resolveEntity.IsNone then
             failwithf "Can only add getter if the polymorphic resource definition contains an entity resolver."
 
-        { this with
-            get = Some(fun ctx e -> get.Invoke(ctx, e))
+        {
+            this with
+                get = Some(fun ctx e -> get.Invoke(ctx, e))
         }
 
     member this.GetTaskSkip(get: Func<'entity, Task<'relatedEntity option Skippable>>) =
@@ -2155,23 +2192,24 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         if this.resolveId.IsNone then
             failwithf "Can only add linkage getter if the polymorphic resource definition contains an ID resolver."
 
-        { this with
-            getLinkageIfNotIncluded =
-                fun ctx e -> task {
-                    match! get.Invoke(ctx, e) with
-                    | Skip -> return Skip
-                    | Include None -> return Include None
-                    | Include(Some relatedId) ->
-                        let resDef = this.resolveId.Value relatedId
+        {
+            this with
+                getLinkageIfNotIncluded =
+                    fun ctx e ->
+                        task {
+                            match! get.Invoke(ctx, e) with
+                            | Skip -> return Skip
+                            | Include None -> return Include None
+                            | Include(Some relatedId) ->
+                                let resDef = this.resolveId.Value relatedId
 
-                        return
-                            Include
-                            <| Some
-                                {
-                                    ``type`` = resDef.name
-                                    id = resDef.id.fromDomain relatedId
-                                }
-                }
+                                return
+                                    Include
+                                    <| Some {
+                                        ``type`` = resDef.name
+                                        id = resDef.id.fromDomain relatedId
+                                    }
+                        }
         }
 
     member this.GetLinkageIfNotIncludedAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedId option Skippable>>) =
@@ -2201,18 +2239,18 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) =
-        { this with
+    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+        this with
             skipRelationship = predicate
-        }
+    }
 
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'entity -> bool) =
-        { this with
+    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+        this with
             skipRelationship = fun _ e -> predicate e
-        }
+    }
 
     member private this.SetTaskRes
         (set:
@@ -2221,8 +2259,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         if this.idParsers.IsNone then
             failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
 
-        { this with
-            set = Some(fun ctx setCtx ptr relId e -> set.Invoke(ctx, setCtx, ptr, relId, e))
+        {
+            this with
+                set = Some(fun ctx setCtx ptr relId e -> set.Invoke(ctx, setCtx, ptr, relId, e))
         }
 
     member this.SetTaskRes(set: Func<'setCtx, 'relatedId option, 'entity, Task<Result<'entity, Error list>>>) =
@@ -2477,16 +2516,17 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         ) =
         this.SetNonNullTaskRes(getRelated, TaskResult.liftFunc2 set)
 
-    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) =
-        { this with
+    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
+        this with
             hasConstraints = true
             getConstraints =
-                fun ctx e -> task {
-                    let! currentCs = this.getConstraints ctx e
-                    let! newCs = getConstraints ctx e
-                    return currentCs @ newCs
-                }
-        }
+                fun ctx e ->
+                    task {
+                        let! currentCs = this.getConstraints ctx e
+                        let! newCs = getConstraints ctx e
+                        return currentCs @ newCs
+                    }
+    }
 
     member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
         this.AddConstraintsTask(Task.liftAsync2 getConstraints)
@@ -2500,10 +2540,10 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.AddConstraint(name: string, getValue: 'entity -> 'a) =
         this.AddConstraint(name, (fun _ e -> getValue e))
 
-    member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<'entity, Error list>>>) =
-        { this with
+    member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<'entity, Error list>>>) = {
+        this with
             beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e))
-        }
+    }
 
     member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<unit, Error list>>>) =
         this.BeforeModifySelfTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
@@ -2574,28 +2614,30 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.BeforeModifySelf(f: Func<'entity, unit>) =
         this.BeforeModifySelfTaskRes(TaskResult.liftFunc f)
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with afterModifySelf = Some f }
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
+            afterModifySelf = Some f
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<unit, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<unit, Error list>>) = {
+        this with
             afterModifySelf = Some(fun ctx eOld eNew -> f ctx eOld eNew |> TaskResult.map (fun () -> eNew))
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
             afterModifySelf = Some(fun _ eOld eNew -> f eOld eNew)
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<unit, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<unit, Error list>>) = {
+        this with
             afterModifySelf = Some(fun _ eOld eNew -> f eOld eNew |> TaskResult.map (fun () -> eNew))
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
             afterModifySelf = Some(fun ctx _ e -> f ctx e)
-        }
+    }
 
     member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<unit, Error list>>) =
         this.AfterModifySelfTaskRes(fun ctx e -> f ctx e |> TaskResult.map (fun () -> e))
@@ -2726,15 +2768,15 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.AfterModifySelf(f: 'entity -> unit) =
         this.AfterModifySelfTaskRes(TaskResult.lift f)
 
-    member this.PatchSelfReturn202Accepted() =
-        { this with
+    member this.PatchSelfReturn202Accepted() = {
+        this with
             patchSelfReturn202Accepted = true
-        }
+    }
 
-    member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) =
-        { this with
+    member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) = {
+        this with
             modifyGetRelatedResponse = getHandler
-        }
+    }
 
     member this.ModifyGetRelatedResponse(f: 'ctx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
         this.ModifyGetRelatedResponse(fun ctx e related ->
@@ -2745,10 +2787,10 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.ModifyGetRelatedResponse(handler: HttpHandler) =
         this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
 
-    member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) =
-        { this with
+    member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity option -> HttpHandler) = {
+        this with
             modifyGetSelfResponse = getHandler
-        }
+    }
 
     member this.ModifyGetSelfResponse(f: 'ctx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
         this.ModifyGetSelfResponse(fun ctx e related ->
@@ -2759,10 +2801,10 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.ModifyGetSelfResponse(handler: HttpHandler) =
         this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler) =
-        { this with
+    member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler) = {
+        this with
             modifyPatchSelfOkResponse = getHandler
-        }
+    }
 
     member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity option -> HttpContext -> unit) =
         this.ModifyPatchSelfOkResponse(fun ctx e related ->
@@ -2773,10 +2815,10 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
         this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-        { this with
+    member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) = {
+        this with
             modifyPatchSelfAcceptedResponse = getHandler
-        }
+    }
 
     member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
         this.ModifyPatchSelfAcceptedResponse(fun ctx e ->
@@ -2812,13 +2854,11 @@ type internal ToManyRelationship<'ctx> =
     abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
 
 
-type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            name: string
-            idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) list option>
-            getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
-        }
+type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    name: string
+    idGetter: RequestGetter<'ctx, ('relatedId * ResourceIdentifier) list option>
+    getRelated: ResourceLookup<'ctx, 'relatedEntity, 'relatedId>
+} with
 
     static member internal Create
         (
@@ -2878,13 +2918,11 @@ type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> 
 
 
 
-type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> =
-    internal
-        {
-            name: string
-            getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
-            allowedTypes: ResourceTypeName list
-        }
+type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
+    name: string
+    getParser: RequestParserHelper<'ctx> -> RequestParser<'ctx, 'relatedEntity>
+    allowedTypes: ResourceTypeName list
+} with
 
     static member internal Create
         (
@@ -2953,54 +2991,52 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> =
 
 
 
-type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            name: string
-            setOrder: int
-            mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-            resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
-            resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-            idParsers:
-                Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
-            get: ('ctx -> 'entity -> Task<'relatedEntity list Skippable>) option
-            setAll:
-                ('ctx
-                    -> 'setCtx
-                    -> Pointer
-                    -> ('relatedId * ResourceIdentifier) list
-                    -> 'entity
-                    -> Task<Result<'entity, Error list>>) option
-            add:
-                ('ctx
-                    -> 'setCtx
-                    -> Pointer
-                    -> ('relatedId * ResourceIdentifier) list
-                    -> 'entity
-                    -> Task<Result<'entity, Error list>>) option
-            remove:
-                ('ctx
-                    -> 'setCtx
-                    -> Pointer
-                    -> ('relatedId * ResourceIdentifier) list
-                    -> 'entity
-                    -> Task<Result<'entity, Error list>>) option
-            getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier list Skippable>
-            skipRelationship: 'ctx -> 'entity -> bool
-            hasConstraints: bool
-            getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
-            beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
-            afterModifySelf: ('setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
-            modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
-            modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
-            modifyPostSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
-            modifyPostSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
-            modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
-            modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
-            modifyDeleteSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
-            modifyDeleteSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
-            modifySelfReturn202Accepted: bool
-        }
+type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    name: string
+    setOrder: int
+    mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
+    resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+    resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
+    idParsers:
+        Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
+    get: ('ctx -> 'entity -> Task<'relatedEntity list Skippable>) option
+    setAll:
+        ('ctx
+            -> 'setCtx
+            -> Pointer
+            -> ('relatedId * ResourceIdentifier) list
+            -> 'entity
+            -> Task<Result<'entity, Error list>>) option
+    add:
+        ('ctx
+            -> 'setCtx
+            -> Pointer
+            -> ('relatedId * ResourceIdentifier) list
+            -> 'entity
+            -> Task<Result<'entity, Error list>>) option
+    remove:
+        ('ctx
+            -> 'setCtx
+            -> Pointer
+            -> ('relatedId * ResourceIdentifier) list
+            -> 'entity
+            -> Task<Result<'entity, Error list>>) option
+    getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier list Skippable>
+    skipRelationship: 'ctx -> 'entity -> bool
+    hasConstraints: bool
+    getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+    beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
+    afterModifySelf: ('setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
+    modifyGetRelatedResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
+    modifyGetSelfResponse: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler
+    modifyPostSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
+    modifyPostSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+    modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
+    modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+    modifyDeleteSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
+    modifyDeleteSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
+    modifySelfReturn202Accepted: bool
+} with
 
     static member internal Create
         (
@@ -3162,84 +3198,85 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         member this.Names = Set.singleton this.name
         member this.SetOrder = this.setOrder
 
-        member this.Set ctx req entity numSetters = task {
-            match req.Document.Value with
-            | Error errs -> return Error errs
-            | Ok(Some {
-                          data = Some {
-                                          ``type`` = t
-                                          relationships = Include rels
-                                      }
-                      }) ->
-                match this.setAll, rels.TryGetValue this.name with
-                | _, (false, _) -> return Ok(entity, false) // not provided in request
-                | None, (true, _) ->
-                    if numSetters[this.name] > 1 then
-                        // Provided in request and no setter, but there exists another setter, so ignore
-                        return Ok(entity, false)
-                    else if this.add.IsNone && this.remove.IsNone then
-                        return Error [ setRelReadOnly this.name ("/data/relationships/" + this.name) ]
-                    else
+        member this.Set ctx req entity numSetters =
+            task {
+                match req.Document.Value with
+                | Error errs -> return Error errs
+                | Ok(Some {
+                              data = Some {
+                                              ``type`` = t
+                                              relationships = Include rels
+                                          }
+                          }) ->
+                    match this.setAll, rels.TryGetValue this.name with
+                    | _, (false, _) -> return Ok(entity, false) // not provided in request
+                    | None, (true, _) ->
+                        if numSetters[this.name] > 1 then
+                            // Provided in request and no setter, but there exists another setter, so ignore
+                            return Ok(entity, false)
+                        else if this.add.IsNone && this.remove.IsNone then
+                            return Error [ setRelReadOnly this.name ("/data/relationships/" + this.name) ]
+                        else
+                            return
+                                Error [
+                                    setToManyRelReplacementNotSupported
+                                        this.name
+                                        t
+                                        ("/data/relationships/" + this.name)
+                                        this.add.IsSome
+                                        this.remove.IsSome
+                                ]
+                    | Some set, (true, (:? ToMany as rel)) ->
+                        match! this.mapSetCtx ctx (unbox<'entity> entity) with
+                        | Error errs -> return Error errs
+                        | Ok setCtx ->
+                            let idParsers =
+                                this.idParsers
+                                |> Option.defaultWith (fun () ->
+                                    failwithf
+                                        "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
+
+                            match rel.data with
+                            | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
+                            | Include identifiers ->
+                                return!
+                                    identifiers
+                                    |> List.indexed
+                                    |> List.traverseTaskResultA (fun (i, id) ->
+                                        match idParsers.TryGetValue id.``type`` with
+                                        | false, _ ->
+                                            let allowedTypes = idParsers |> Map.toList |> List.map fst
+
+                                            let pointer =
+                                                "/data/relationships/" + this.name + "/data/" + string i + "/type"
+
+                                            Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
+                                            |> Task.result
+                                        | true, parseId ->
+                                            parseId ctx id.id
+                                            |> TaskResult.map (fun x -> x, id)
+                                            // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                            // this just means that the resource does not exist, which is a more helpful result.
+                                            |> TaskResult.mapError (fun _ -> [
+                                                relatedResourceNotFound
+                                                    id.``type``
+                                                    id.id
+                                                    ("/data/relationships/" + this.name + "/data/" + string i)
+                                            ]))
+                                    |> TaskResult.bind (fun relIdWithIdentifier ->
+                                        set
+                                            ctx
+                                            setCtx
+                                            ("/data/relationships/" + this.name + "/data")
+                                            relIdWithIdentifier
+                                            (unbox<'entity> entity))
+                                    |> TaskResult.map (fun e -> box<'entity> e, true)
+                    | Some _, (true, rel) ->
                         return
-                            Error [
-                                setToManyRelReplacementNotSupported
-                                    this.name
-                                    t
-                                    ("/data/relationships/" + this.name)
-                                    this.add.IsSome
-                                    this.remove.IsSome
-                            ]
-                | Some set, (true, (:? ToMany as rel)) ->
-                    match! this.mapSetCtx ctx (unbox<'entity> entity) with
-                    | Error errs -> return Error errs
-                    | Ok setCtx ->
-                        let idParsers =
-                            this.idParsers
-                            |> Option.defaultWith (fun () ->
-                                failwithf
-                                    "Framework bug: Relationship setter defined without ID parsers. This should be caught at startup.")
-
-                        match rel.data with
-                        | Skip -> return Error [ relMissingData this.name ("/data/relationships/" + this.name) ]
-                        | Include identifiers ->
-                            return!
-                                identifiers
-                                |> List.indexed
-                                |> List.traverseTaskResultA (fun (i, id) ->
-                                    match idParsers.TryGetValue id.``type`` with
-                                    | false, _ ->
-                                        let allowedTypes = idParsers |> Map.toList |> List.map fst
-
-                                        let pointer =
-                                            "/data/relationships/" + this.name + "/data/" + string i + "/type"
-
-                                        Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
-                                        |> Task.result
-                                    | true, parseId ->
-                                        parseId ctx id.id
-                                        |> TaskResult.map (fun x -> x, id)
-                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                        // this just means that the resource does not exist, which is a more helpful result.
-                                        |> TaskResult.mapError (fun _ -> [
-                                            relatedResourceNotFound
-                                                id.``type``
-                                                id.id
-                                                ("/data/relationships/" + this.name + "/data/" + string i)
-                                        ]))
-                                |> TaskResult.bind (fun relIdWithIdentifier ->
-                                    set
-                                        ctx
-                                        setCtx
-                                        ("/data/relationships/" + this.name + "/data")
-                                        relIdWithIdentifier
-                                        (unbox<'entity> entity))
-                                |> TaskResult.map (fun e -> box<'entity> e, true)
-                | Some _, (true, rel) ->
-                    return
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
-            | _ -> return Ok(entity, false) // no relationships provided
-        }
+                            failwith
+                                $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{rel.GetType().FullName}"
+                | _ -> return Ok(entity, false) // no relationships provided
+            }
 
 
     interface ToManyRelationship<'ctx> with
@@ -3344,125 +3381,132 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                         "Framework bug: Relationship setter defined without AfterModifySelf. This should be caught at startup.")
 
             fun ctx req (preconditions: Preconditions<'ctx>) entity0 resDef (resp: ResponseBuilder<'ctx>) ->
-                fun next httpCtx -> task {
-                    match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                    | Error errs -> return! handleErrors errs next httpCtx
-                    | Ok() ->
-                        match! this.mapSetCtx ctx (unbox<'entity> entity0) with
+                fun next httpCtx ->
+                    task {
+                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
                         | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok setCtx ->
-                            match req.IdentifierCollectionDocument.Value with
+                        | Ok() ->
+                            match! this.mapSetCtx ctx (unbox<'entity> entity0) with
                             | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
-                            | Ok(Some { data = ids }) ->
-                                match preconditions.Validate httpCtx ctx entity0 with
-                                | Error errors -> return! handleErrors errors next httpCtx
-                                | Ok() ->
-                                    match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                            | Ok setCtx ->
+                                match req.IdentifierCollectionDocument.Value with
+                                | Error errs -> return! handleErrors errs next httpCtx
+                                | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
+                                | Ok(Some { data = ids }) ->
+                                    match preconditions.Validate httpCtx ctx entity0 with
                                     | Error errors -> return! handleErrors errors next httpCtx
-                                    | Ok entity1 ->
-                                        let! entity2Res =
-                                            ids
-                                            |> Array.traverseTaskResultAIndexed (fun i id ->
-                                                match idParsers.TryGetValue id.``type`` with
-                                                | false, _ ->
-                                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                                    let pointer = "/data/" + string i + "/type"
+                                    | Ok() ->
+                                        match! this.beforeModifySelf setCtx (unbox<'entity> entity0) with
+                                        | Error errors -> return! handleErrors errors next httpCtx
+                                        | Ok entity1 ->
+                                            let! entity2Res =
+                                                ids
+                                                |> Array.traverseTaskResultAIndexed (fun i id ->
+                                                    match idParsers.TryGetValue id.``type`` with
+                                                    | false, _ ->
+                                                        let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                                        let pointer = "/data/" + string i + "/type"
 
-                                                    Error [ relInvalidTypeSelf id.``type`` allowedTypes pointer ]
-                                                    |> Task.result
-                                                | true, parseId ->
-                                                    parseId ctx id.id
-                                                    |> TaskResult.map (fun x -> x, id)
-                                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                                    // this just means that the resource does not exist, which is a more helpful result.
-                                                    |> TaskResult.mapError (fun _ -> [
-                                                        relatedResourceNotFound
-                                                            id.``type``
-                                                            id.id
-                                                            ("/data/" + string i)
-                                                    ]))
-                                            |> TaskResult.bind (fun domain ->
-                                                f ctx setCtx "/data" (Array.toList domain) (unbox<'entity> entity1))
+                                                        Error [ relInvalidTypeSelf id.``type`` allowedTypes pointer ]
+                                                        |> Task.result
+                                                    | true, parseId ->
+                                                        parseId ctx id.id
+                                                        |> TaskResult.map (fun x -> x, id)
+                                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                                        // this just means that the resource does not exist, which is a more helpful result.
+                                                        |> TaskResult.mapError (fun _ -> [
+                                                            relatedResourceNotFound
+                                                                id.``type``
+                                                                id.id
+                                                                ("/data/" + string i)
+                                                        ]))
+                                                |> TaskResult.bind (fun domain ->
+                                                    f
+                                                        ctx
+                                                        setCtx
+                                                        "/data"
+                                                        (Array.toList domain)
+                                                        (unbox<'entity> entity1))
 
-                                        match entity2Res with
-                                        | Error errs -> return! handleErrors errs next httpCtx
-                                        | Ok entity2 ->
-                                            match!
-                                                afterModifySelf
-                                                    setCtx
-                                                    (unbox<'entity> entity0)
-                                                    (unbox<'entity> entity2)
-                                            with
-                                            | Error errors -> return! handleErrors errors next httpCtx
-                                            | Ok entity3 ->
-                                                if this.modifySelfReturn202Accepted then
-                                                    let handler =
-                                                        setStatusCode 202
-                                                        >=> modifyAcceptedResponse setCtx (unbox<'entity> entity3)
-
-                                                    return! handler next httpCtx
-                                                else
-                                                    match! getRelated ctx (unbox<'entity> entity3) with
-                                                    | Skip ->
-                                                        let logger = httpCtx.GetLogger("Felicity.Relationships")
-
-                                                        logger.LogError(
-                                                            "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
-                                                            this.name
-                                                        )
-
-                                                        return! handleErrors [ relModifySelfWhileSkip () ] next httpCtx
-                                                    | Include relatedEntities ->
-                                                        let! included =
-                                                            getIncludedForSelfUrl
-                                                                httpCtx
-                                                                ctx
-                                                                req
-                                                                resp
-                                                                this.name
-                                                                resDef
-                                                                entity3
-
-                                                        let doc: ResourceIdentifierCollectionDocument = {
-                                                            jsonapi = Skip
-                                                            links = Skip
-                                                            meta = Skip
-                                                            data =
-                                                                relatedEntities
-                                                                |> Seq.map (fun e ->
-                                                                    let b = resolveEntity e
-
-                                                                    {
-                                                                        ``type`` = b.resourceDef.TypeName
-                                                                        id = b.resourceDef.GetIdBoxed b.entity
-                                                                    })
-                                                                |> Seq.toArray
-                                                            included = included
-                                                        }
-
-                                                        let! fieldTrackerHandler =
-                                                            httpCtx.RequestServices
-                                                                .GetRequiredService<FieldTracker<'ctx>>()
-                                                                .TrackFields(
-                                                                    [ resDef.TypeName ],
-                                                                    ctx,
-                                                                    req,
-                                                                    (resDef.TypeName, this.name),
-                                                                    this.name
-                                                                )
-
+                                            match entity2Res with
+                                            | Error errs -> return! handleErrors errs next httpCtx
+                                            | Ok entity2 ->
+                                                match!
+                                                    afterModifySelf
+                                                        setCtx
+                                                        (unbox<'entity> entity0)
+                                                        (unbox<'entity> entity2)
+                                                with
+                                                | Error errors -> return! handleErrors errors next httpCtx
+                                                | Ok entity3 ->
+                                                    if this.modifySelfReturn202Accepted then
                                                         let handler =
-                                                            setStatusCode 200
-                                                            >=> modifyOkResponse
-                                                                setCtx
-                                                                (unbox<'entity> entity3)
-                                                                relatedEntities
-                                                            >=> fieldTrackerHandler
-                                                            >=> jsonApiWithETag<'ctx> doc
+                                                            setStatusCode 202
+                                                            >=> modifyAcceptedResponse setCtx (unbox<'entity> entity3)
 
                                                         return! handler next httpCtx
-                })
+                                                    else
+                                                        match! getRelated ctx (unbox<'entity> entity3) with
+                                                        | Skip ->
+                                                            let logger = httpCtx.GetLogger("Felicity.Relationships")
+
+                                                            logger.LogError(
+                                                                "Relationship {RelationshipName} was updated using a self URL, but no success response could be returned because the relationship getter returned Skip. This violates the JSON:API specification. Make sure that the relationship getter never returns Skip after an update.",
+                                                                this.name
+                                                            )
+
+                                                            return!
+                                                                handleErrors [ relModifySelfWhileSkip () ] next httpCtx
+                                                        | Include relatedEntities ->
+                                                            let! included =
+                                                                getIncludedForSelfUrl
+                                                                    httpCtx
+                                                                    ctx
+                                                                    req
+                                                                    resp
+                                                                    this.name
+                                                                    resDef
+                                                                    entity3
+
+                                                            let doc: ResourceIdentifierCollectionDocument = {
+                                                                jsonapi = Skip
+                                                                links = Skip
+                                                                meta = Skip
+                                                                data =
+                                                                    relatedEntities
+                                                                    |> Seq.map (fun e ->
+                                                                        let b = resolveEntity e
+
+                                                                        {
+                                                                            ``type`` = b.resourceDef.TypeName
+                                                                            id = b.resourceDef.GetIdBoxed b.entity
+                                                                        })
+                                                                    |> Seq.toArray
+                                                                included = included
+                                                            }
+
+                                                            let! fieldTrackerHandler =
+                                                                httpCtx.RequestServices
+                                                                    .GetRequiredService<FieldTracker<'ctx>>()
+                                                                    .TrackFields(
+                                                                        [ resDef.TypeName ],
+                                                                        ctx,
+                                                                        req,
+                                                                        (resDef.TypeName, this.name),
+                                                                        this.name
+                                                                    )
+
+                                                            let handler =
+                                                                setStatusCode 200
+                                                                >=> modifyOkResponse
+                                                                    setCtx
+                                                                    (unbox<'entity> entity3)
+                                                                    relatedEntities
+                                                                >=> fieldTrackerHandler
+                                                                >=> jsonApiWithETag<'ctx> doc
+
+                                                            return! handler next httpCtx
+                    })
 
 
     interface RelationshipHandlers<'ctx> with
@@ -3489,58 +3533,59 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                             "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
 
                 fun ctx req entity resDef resp ->
-                    fun next httpCtx -> task {
-                        // TODO: Support 'sort' query parameter
-                        if httpCtx.TryGetQueryStringValue "sort" |> Option.isSome then
-                            return! handleErrors [ sortNotSupported () ] next httpCtx
-                        else
-                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                            | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok() ->
-                                let entity = unbox<'entity> entity
+                    fun next httpCtx ->
+                        task {
+                            // TODO: Support 'sort' query parameter
+                            if httpCtx.TryGetQueryStringValue "sort" |> Option.isSome then
+                                return! handleErrors [ sortNotSupported () ] next httpCtx
+                            else
+                                match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
+                                | Error errs -> return! handleErrors errs next httpCtx
+                                | Ok() ->
+                                    let entity = unbox<'entity> entity
 
-                                match! getRelated ctx entity with
-                                | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
-                                | Include relatedEntities ->
-                                    let! doc =
-                                        resp.WriteList
-                                            httpCtx
-                                            ctx
-                                            req
-                                            (relatedEntities
-                                             |> List.map (fun e ->
-                                                 let b = resolveEntity e
-                                                 b.resourceDef, b.entity))
-
-                                    let! fieldTrackerHandler =
-                                        match this.idParsers with
-                                        | None ->
-                                            logFieldTrackerPolymorphicRelTraversalWarning
+                                    match! getRelated ctx entity with
+                                    | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
+                                    | Include relatedEntities ->
+                                        let! doc =
+                                            resp.WriteList
                                                 httpCtx
-                                                resDef.TypeName
-                                                this.name
+                                                ctx
+                                                req
+                                                (relatedEntities
+                                                 |> List.map (fun e ->
+                                                     let b = resolveEntity e
+                                                     b.resourceDef, b.entity))
 
-                                            Task.result (fun next ctx -> next ctx)
-                                        | Some parsers ->
-                                            let primaryResourceTypes = parsers.Keys |> Seq.toList
+                                        let! fieldTrackerHandler =
+                                            match this.idParsers with
+                                            | None ->
+                                                logFieldTrackerPolymorphicRelTraversalWarning
+                                                    httpCtx
+                                                    resDef.TypeName
+                                                    this.name
 
-                                            httpCtx.RequestServices
-                                                .GetRequiredService<FieldTracker<'ctx>>()
-                                                .TrackFields(
-                                                    primaryResourceTypes,
-                                                    ctx,
-                                                    req,
-                                                    (resDef.TypeName, this.name)
-                                                )
+                                                Task.result (fun next ctx -> next ctx)
+                                            | Some parsers ->
+                                                let primaryResourceTypes = parsers.Keys |> Seq.toList
 
-                                    let handler =
-                                        setStatusCode 200
-                                        >=> this.modifyGetRelatedResponse ctx entity relatedEntities
-                                        >=> fieldTrackerHandler
-                                        >=> jsonApiWithETag<'ctx> doc
+                                                httpCtx.RequestServices
+                                                    .GetRequiredService<FieldTracker<'ctx>>()
+                                                    .TrackFields(
+                                                        primaryResourceTypes,
+                                                        ctx,
+                                                        req,
+                                                        (resDef.TypeName, this.name)
+                                                    )
 
-                                    return! handler next httpCtx
-                    })
+                                        let handler =
+                                            setStatusCode 200
+                                            >=> this.modifyGetRelatedResponse ctx entity relatedEntities
+                                            >=> fieldTrackerHandler
+                                            >=> jsonApiWithETag<'ctx> doc
+
+                                        return! handler next httpCtx
+                        })
 
         member this.GetSelf =
             this.get
@@ -3552,79 +3597,80 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
                             "Framework bug: Relationship getter defined without entity resolver. This should be caught at startup.")
 
                 fun ctx req entity resDef resp ->
-                    fun next httpCtx -> task {
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok() ->
-                            let entity = unbox<'entity> entity
+                    fun next httpCtx ->
+                        task {
+                            match StrictModeHelpers.checkForUnknownQueryParameters<'ctx> httpCtx req Set.empty with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok() ->
+                                let entity = unbox<'entity> entity
 
-                            match! getRelated ctx entity with
-                            | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
-                            | Include relatedEntities ->
-                                let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
+                                match! getRelated ctx entity with
+                                | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
+                                | Include relatedEntities ->
+                                    let! included = getIncludedForSelfUrl httpCtx ctx req resp this.name resDef entity
 
-                                let data =
-                                    relatedEntities
-                                    |> Seq.map (fun e ->
-                                        let b = resolveEntity e
+                                    let data =
+                                        relatedEntities
+                                        |> Seq.map (fun e ->
+                                            let b = resolveEntity e
 
-                                        {
-                                            ``type`` = b.resourceDef.TypeName
-                                            id = b.resourceDef.GetIdBoxed b.entity
-                                        })
-                                    |> Seq.toArray
+                                            {
+                                                ``type`` = b.resourceDef.TypeName
+                                                id = b.resourceDef.GetIdBoxed b.entity
+                                            })
+                                        |> Seq.toArray
 
-                                let data =
-                                    let distinct = Array.distinct data
+                                    let data =
+                                        let distinct = Array.distinct data
 
-                                    if data.Length = distinct.Length then
-                                        data
-                                    else
-                                        let loggerFactory = httpCtx.GetService<ILoggerFactory>()
-                                        let logger = loggerFactory.CreateLogger("Felicity.ResourceBuilder")
-
-                                        let duplicates =
+                                        if data.Length = distinct.Length then
                                             data
-                                            |> Array.countBy id
-                                            |> Array.filter (snd >> fun x -> x > 1)
-                                            |> Array.map fst
+                                        else
+                                            let loggerFactory = httpCtx.GetService<ILoggerFactory>()
+                                            let logger = loggerFactory.CreateLogger("Felicity.ResourceBuilder")
 
-                                        for d in duplicates do
-                                            logger.LogWarning(
-                                                "Resource identifier with type '{ResourceType}' and ID '{ResourceId}' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used.",
-                                                d.``type``,
-                                                d.id
+                                            let duplicates =
+                                                data
+                                                |> Array.countBy id
+                                                |> Array.filter (snd >> fun x -> x > 1)
+                                                |> Array.map fst
+
+                                            for d in duplicates do
+                                                logger.LogWarning(
+                                                    "Resource identifier with type '{ResourceType}' and ID '{ResourceId}' appeared multiple times in the primary data. This is not allowed. Only the first occurrence was used.",
+                                                    d.``type``,
+                                                    d.id
+                                                )
+
+                                            distinct
+
+                                    let doc: ResourceIdentifierCollectionDocument = {
+                                        jsonapi = Skip
+                                        links = Skip
+                                        meta = Skip
+                                        data = data
+                                        included = included
+                                    }
+
+                                    let! fieldTrackerHandler =
+                                        httpCtx.RequestServices
+                                            .GetRequiredService<FieldTracker<'ctx>>()
+                                            .TrackFields(
+                                                [ resDef.TypeName ],
+                                                ctx,
+                                                req,
+                                                (resDef.TypeName, this.name),
+                                                this.name
                                             )
 
-                                        distinct
+                                    let handler =
+                                        setStatusCode 200
+                                        >=> this.modifyGetSelfResponse ctx entity relatedEntities
+                                        >=> fieldTrackerHandler
+                                        >=> jsonApiWithETag<'ctx> doc
 
-                                let doc: ResourceIdentifierCollectionDocument = {
-                                    jsonapi = Skip
-                                    links = Skip
-                                    meta = Skip
-                                    data = data
-                                    included = included
-                                }
-
-                                let! fieldTrackerHandler =
-                                    httpCtx.RequestServices
-                                        .GetRequiredService<FieldTracker<'ctx>>()
-                                        .TrackFields(
-                                            [ resDef.TypeName ],
-                                            ctx,
-                                            req,
-                                            (resDef.TypeName, this.name),
-                                            this.name
-                                        )
-
-                                let handler =
-                                    setStatusCode 200
-                                    >=> this.modifyGetSelfResponse ctx entity relatedEntities
-                                    >=> fieldTrackerHandler
-                                    >=> jsonApiWithETag<'ctx> doc
-
-                                return! handler next httpCtx
-                    })
+                                    return! handler next httpCtx
+                        })
 
         member this.PostSelf =
             this.ModifySelfHandler this.add this.modifyPostSelfOkResponse this.modifyPostSelfAcceptedResponse
@@ -3649,8 +3695,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.resolveEntity.IsNone then
             failwithf "Can only add getter if the polymorphic resource definition contains an entity resolver."
 
-        { this with
-            get = Some(fun ctx e -> get.Invoke(ctx, e))
+        {
+            this with
+                get = Some(fun ctx e -> get.Invoke(ctx, e))
         }
 
     member this.GetTaskSkip(get: Func<'entity, Task<'relatedEntity list Skippable>>) =
@@ -3684,23 +3731,25 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.resolveId.IsNone then
             failwithf "Can only add linkage getter if the polymorphic resource definition contains an ID resolver."
 
-        { this with
-            getLinkageIfNotIncluded =
-                fun ctx e -> task {
-                    match! get.Invoke(ctx, e) with
-                    | Skip -> return Skip
-                    | Include relatedIds ->
-                        return
-                            relatedIds
-                            |> List.map (fun relId ->
-                                let resDef = this.resolveId.Value relId
+        {
+            this with
+                getLinkageIfNotIncluded =
+                    fun ctx e ->
+                        task {
+                            match! get.Invoke(ctx, e) with
+                            | Skip -> return Skip
+                            | Include relatedIds ->
+                                return
+                                    relatedIds
+                                    |> List.map (fun relId ->
+                                        let resDef = this.resolveId.Value relId
 
-                                {
-                                    ``type`` = resDef.name
-                                    id = resDef.id.fromDomain relId
-                                })
-                            |> Include
-                }
+                                        {
+                                            ``type`` = resDef.name
+                                            id = resDef.id.fromDomain relId
+                                        })
+                                    |> Include
+                        }
         }
 
     member this.GetLinkageIfNotIncludedAsyncSkip(get: Func<'ctx, 'entity, Async<'relatedId list Skippable>>) =
@@ -3730,18 +3779,18 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) =
-        { this with
+    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+        this with
             skipRelationship = predicate
-        }
+    }
 
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'entity -> bool) =
-        { this with
+    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+        this with
             skipRelationship = fun _ e -> predicate e
-        }
+    }
 
     member private this.SetAllTaskRes
         (setAll:
@@ -3750,8 +3799,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.idParsers.IsNone then
             failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
 
-        { this with
-            setAll = Some(fun ctx setCtx ptr relIds e -> setAll.Invoke(ctx, setCtx, ptr, relIds, e))
+        {
+            this with
+                setAll = Some(fun ctx setCtx ptr relIds e -> setAll.Invoke(ctx, setCtx, ptr, relIds, e))
         }
 
     member this.SetAllTaskRes(setAll: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
@@ -3886,8 +3936,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.get.IsNone then
             failwith "Can only add POST to relationship if it contains a getter."
 
-        { this with
-            add = Some(fun ctx setCtx ptr relIds e -> add.Invoke(ctx, setCtx, ptr, relIds, e))
+        {
+            this with
+                add = Some(fun ctx setCtx ptr relIds e -> add.Invoke(ctx, setCtx, ptr, relIds, e))
         }
 
     member this.AddTaskRes(add: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
@@ -4021,8 +4072,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         if this.get.IsNone then
             failwith "Can only add DELETE to relationship if it contains a getter."
 
-        { this with
-            remove = Some(fun ctx setCtx ptr relIds e -> remove.Invoke(ctx, setCtx, ptr, relIds, e))
+        {
+            this with
+                remove = Some(fun ctx setCtx ptr relIds e -> remove.Invoke(ctx, setCtx, ptr, relIds, e))
         }
 
     member this.RemoveTaskRes(remove: Func<'setCtx, 'relatedId list, 'entity, Task<Result<'entity, Error list>>>) =
@@ -4063,16 +4115,17 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.Remove(remove: Func<'relatedId list, 'entity, 'entity>) =
         this.RemoveTaskRes(TaskResult.liftFunc2 remove)
 
-    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) =
-        { this with
+    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
+        this with
             hasConstraints = true
             getConstraints =
-                fun ctx e -> task {
-                    let! currentCs = this.getConstraints ctx e
-                    let! newCs = getConstraints ctx e
-                    return currentCs @ newCs
-                }
-        }
+                fun ctx e ->
+                    task {
+                        let! currentCs = this.getConstraints ctx e
+                        let! newCs = getConstraints ctx e
+                        return currentCs @ newCs
+                    }
+    }
 
     member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
         this.AddConstraintsTask(Task.liftAsync2 getConstraints)
@@ -4086,10 +4139,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.AddConstraint(name: string, getValue: 'entity -> 'a) =
         this.AddConstraint(name, (fun _ e -> getValue e))
 
-    member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-        { this with
+    member this.ModifyGetRelatedResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) = {
+        this with
             modifyGetRelatedResponse = getHandler
-        }
+    }
 
     member this.ModifyGetRelatedResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
         this.ModifyGetRelatedResponse(fun ctx e related ->
@@ -4100,10 +4153,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyGetRelatedResponse(handler: HttpHandler) =
         this.ModifyGetRelatedResponse(fun _ _ _ -> handler)
 
-    member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-        { this with
+    member this.ModifyGetSelfResponse(getHandler: 'ctx -> 'entity -> 'relatedEntity list -> HttpHandler) = {
+        this with
             modifyGetSelfResponse = getHandler
-        }
+    }
 
     member this.ModifyGetSelfResponse(f: 'ctx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
         this.ModifyGetSelfResponse(fun ctx e related ->
@@ -4114,10 +4167,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyGetSelfResponse(handler: HttpHandler) =
         this.ModifyGetSelfResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPostSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-        { this with
+    member this.ModifyPostSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) = {
+        this with
             modifyPostSelfOkResponse = getHandler
-        }
+    }
 
     member this.ModifyPostSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
         this.ModifyPostSelfOkResponse(fun ctx e related ->
@@ -4128,10 +4181,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyPostSelfOkResponse(handler: HttpHandler) =
         this.ModifyPostSelfOkResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPostSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-        { this with
+    member this.ModifyPostSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) = {
+        this with
             modifyPostSelfAcceptedResponse = getHandler
-        }
+    }
 
     member this.ModifyPostSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
         this.ModifyPostSelfAcceptedResponse(fun ctx e ->
@@ -4142,10 +4195,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyPostSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPostSelfAcceptedResponse(fun _ _ -> handler)
 
-    member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-        { this with
+    member this.ModifyPatchSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) = {
+        this with
             modifyPatchSelfOkResponse = getHandler
-        }
+    }
 
     member this.ModifyPatchSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
         this.ModifyPatchSelfOkResponse(fun ctx e related ->
@@ -4156,10 +4209,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyPatchSelfOkResponse(handler: HttpHandler) =
         this.ModifyPatchSelfOkResponse(fun _ _ _ -> handler)
 
-    member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-        { this with
+    member this.ModifyPatchSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) = {
+        this with
             modifyPatchSelfAcceptedResponse = getHandler
-        }
+    }
 
     member this.ModifyPatchSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
         this.ModifyPatchSelfAcceptedResponse(fun ctx e ->
@@ -4170,10 +4223,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
 
-    member this.ModifyDeleteSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) =
-        { this with
+    member this.ModifyDeleteSelfOkResponse(getHandler: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler) = {
+        this with
             modifyDeleteSelfOkResponse = getHandler
-        }
+    }
 
     member this.ModifyDeleteSelfOkResponse(f: 'setCtx -> 'entity -> 'relatedEntity list -> HttpContext -> unit) =
         this.ModifyDeleteSelfOkResponse(fun ctx e related ->
@@ -4184,10 +4237,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyDeleteSelfOkResponse(handler: HttpHandler) =
         this.ModifyDeleteSelfOkResponse(fun _ _ _ -> handler)
 
-    member this.ModifyDeleteSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) =
-        { this with
+    member this.ModifyDeleteSelfAcceptedResponse(getHandler: 'setCtx -> 'entity -> HttpHandler) = {
+        this with
             modifyDeleteSelfAcceptedResponse = getHandler
-        }
+    }
 
     member this.ModifyDeleteSelfAcceptedResponse(f: 'setCtx -> 'entity -> HttpContext -> unit) =
         this.ModifyDeleteSelfAcceptedResponse(fun ctx e ->
@@ -4198,10 +4251,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.ModifyDeleteSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyDeleteSelfAcceptedResponse(fun _ _ -> handler)
 
-    member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<'entity, Error list>>>) =
-        { this with
+    member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<'entity, Error list>>>) = {
+        this with
             beforeModifySelf = (fun ctx e -> f.Invoke(ctx, e))
-        }
+    }
 
     member this.BeforeModifySelfTaskRes(f: Func<'setCtx, 'entity, Task<Result<unit, Error list>>>) =
         this.BeforeModifySelfTaskRes(fun ctx e -> f.Invoke(ctx, e) |> TaskResult.map (fun () -> e))
@@ -4272,28 +4325,30 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.BeforeModifySelf(f: Func<'entity, unit>) =
         this.BeforeModifySelfTaskRes(TaskResult.liftFunc f)
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with afterModifySelf = Some f }
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
+            afterModifySelf = Some f
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<unit, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> 'entity -> Task<Result<unit, Error list>>) = {
+        this with
             afterModifySelf = Some(fun ctx eOld eNew -> f ctx eOld eNew |> TaskResult.map (fun () -> eNew))
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
             afterModifySelf = Some(fun _ eOld eNew -> f eOld eNew)
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<unit, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'entity -> 'entity -> Task<Result<unit, Error list>>) = {
+        this with
             afterModifySelf = Some(fun _ eOld eNew -> f eOld eNew |> TaskResult.map (fun () -> eNew))
-        }
+    }
 
-    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with
+    member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
             afterModifySelf = Some(fun ctx _ e -> f ctx e)
-        }
+    }
 
     member this.AfterModifySelfTaskRes(f: 'setCtx -> 'entity -> Task<Result<unit, Error list>>) =
         this.AfterModifySelfTaskRes(fun ctx e -> f ctx e |> TaskResult.map (fun () -> e))
@@ -4424,10 +4479,10 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
     member this.AfterModifySelf(f: 'entity -> unit) =
         this.AfterModifySelfTaskRes(TaskResult.lift f)
 
-    member this.ModifySelfReturn202Accepted() =
-        { this with
+    member this.ModifySelfReturn202Accepted() = {
+        this with
             modifySelfReturn202Accepted = true
-        }
+    }
 
 
 
@@ -4441,15 +4496,13 @@ module ToManyRelationshipExtensions =
 
 
 
-type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
-    internal
-        {
-            mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-            resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
-            resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
-            idParsers:
-                Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
-        }
+type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
+    mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
+    resolveEntity: ('relatedEntity -> PolymorphicBuilder<'ctx>) option
+    resolveId: ('relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) option
+    idParsers:
+        Map<ResourceTypeName, 'ctx -> ResourceId -> Task<Result<'relatedId, (ParsedValueInfo -> Error) list>>> option
+} with
 
     static member internal Create
         (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>)
@@ -4483,31 +4536,33 @@ type PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'rela
     member this.MapSetContext(mapSetCtx: 'ctx -> 'entity -> 'mappedSetCtx) =
         this.MapSetContextTaskRes(TaskResult.lift2 mapSetCtx)
 
-    member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'relatedId>) =
-        { this with
+    member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'relatedId>) = {
+        this with
             idParsers =
                 this.idParsers
                 |> Option.defaultValue Map.empty
                 |> Map.add resDef.name resDef.id.toDomain
                 |> Some
-        }
+    }
 
-    member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'id>, mapId: 'id -> 'relatedId) =
-        { this with
+    member this.AddIdParser(resDef: ResourceDefinition<'ctx, 'e, 'id>, mapId: 'id -> 'relatedId) = {
+        this with
             idParsers =
                 this.idParsers
                 |> Option.defaultValue Map.empty
                 |> Map.add resDef.name (fun ctx resId -> resDef.id.toDomain ctx resId |> TaskResult.map mapId)
                 |> Some
-        }
+    }
 
-    member this.ResolveEntity(getPolyBuilder: 'relatedEntity -> PolymorphicBuilder<'ctx>) =
-        { this with
+    member this.ResolveEntity(getPolyBuilder: 'relatedEntity -> PolymorphicBuilder<'ctx>) = {
+        this with
             resolveEntity = Some getPolyBuilder
-        }
+    }
 
-    member this.ResolveId(getResDef: 'relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) =
-        { this with resolveId = Some getResDef }
+    member this.ResolveId(getResDef: 'relatedId -> ResourceDefinition<'ctx, 'relatedEntity, 'relatedId>) = {
+        this with
+            resolveId = Some getResDef
+    }
 
     member this.ToOne([<CallerMemberName; Optional; DefaultParameterValue("")>] name: string) =
         ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>

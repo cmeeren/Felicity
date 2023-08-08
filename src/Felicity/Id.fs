@@ -4,13 +4,11 @@ open System.Threading.Tasks
 open Errors
 
 
-type Id<'ctx, 'entity, 'id> =
-    internal
-        {
-            fromDomain: 'id -> string
-            toDomain: 'ctx -> ResourceId -> Task<Result<'id, (ParsedValueInfo -> Error) list>>
-            getId: 'entity -> 'id
-        }
+type Id<'ctx, 'entity, 'id> = internal {
+    fromDomain: 'id -> string
+    toDomain: 'ctx -> ResourceId -> Task<Result<'id, (ParsedValueInfo -> Error) list>>
+    getId: 'entity -> 'id
+} with
 
     static member internal Create
         (

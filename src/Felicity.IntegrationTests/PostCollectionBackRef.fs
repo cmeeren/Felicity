@@ -29,8 +29,9 @@ module ParentDomain =
     let createChild parent childId =
         let child = ChildDomain.create childId
 
-        { parent with
-            Children = parent.Children @ [ child ]
+        {
+            parent with
+                Children = parent.Children @ [ child ]
         },
         child
 
@@ -53,11 +54,10 @@ type Db() =
 
 
 
-type Ctx =
-    {
-        AfterModifyParent: Parent -> Parent -> unit
-        Db: Db
-    }
+type Ctx = {
+    AfterModifyParent: Parent -> Parent -> unit
+    Db: Db
+} with
 
     static member WithDb(db: Db) = {
         AfterModifyParent = fun _ pNew -> db.SaveParent pNew
@@ -105,11 +105,10 @@ module rec ResourceModules =
                 .Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
 
-type Ctx2 =
-    {
-        AfterModifyParent: Parent -> Parent -> unit
-        Db: Db
-    }
+type Ctx2 = {
+    AfterModifyParent: Parent -> Parent -> unit
+    Db: Db
+} with
 
     static member WithDb(db: Db) = {
         AfterModifyParent = fun _ pNew -> db.SaveParent pNew
@@ -248,28 +247,27 @@ let tests =
             let db = Db()
             let mutable parents = None
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     AfterModifyParent =
                         fun pOld pNew ->
                             parents <- Some(pOld, pNew)
                             db.SaveParent pNew
-                }
+            }
 
             let! response =
                 Request.post ctx "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -303,18 +301,17 @@ let tests =
 
             let! response =
                 Request.post ctx "/children/"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -326,18 +323,17 @@ let tests =
 
             let! response =
                 Request.post ctx "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
             // Will fail with exception if setter is run, so just check for success status code
             response |> testSuccessStatusCode
@@ -349,10 +345,9 @@ let tests =
 
             let! response =
                 Request.post ctx "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "child"; id = "c2" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "child"; id = "c2" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -366,18 +361,17 @@ let tests =
         testJob "Correctly handles precondition validation using ETag" {
             let! response =
                 Request.post Ctx3 "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 428
@@ -395,18 +389,17 @@ let tests =
             let! response =
                 Request.post Ctx3 "/children"
                 |> Request.setHeader (IfMatch "\"invalid-etag\"")
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 412
@@ -425,18 +418,17 @@ let tests =
             let! response =
                 Request.post Ctx3 "/children"
                 |> Request.setHeader (IfMatch "\"valid-etag\"")
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             test <@ response.headers[ETag] <> "\"valid-etag\"" @>
@@ -446,18 +438,17 @@ let tests =
         testJob "Correctly handles precondition validation using If-Unmodified-Since" {
             let! response =
                 Request.post Ctx3 "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 428
@@ -475,18 +466,17 @@ let tests =
             let! response =
                 Request.post Ctx3 "/children"
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 412
@@ -505,18 +495,17 @@ let tests =
             let! response =
                 Request.post Ctx3 "/children"
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             test <@ response.headers.ContainsKey LastModified = false @>
@@ -526,18 +515,17 @@ let tests =
         testJob "Correctly handles optional precondition validation using ETag" {
             let! response =
                 Request.post Ctx4 "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             test <@ response.headers[ETag] <> "\"valid-etag\"" @>
@@ -546,18 +534,17 @@ let tests =
             let! response =
                 Request.post Ctx4 "/children"
                 |> Request.setHeader (IfMatch "\"invalid-etag\"")
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 412
@@ -576,18 +563,17 @@ let tests =
             let! response =
                 Request.post Ctx4 "/children"
                 |> Request.setHeader (IfMatch "\"valid-etag\"")
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             test <@ response.headers[ETag] <> "\"valid-etag\"" @>
@@ -597,18 +583,17 @@ let tests =
         testJob "Correctly handles optional precondition validation using If-Unmodified-Since" {
             let! response =
                 Request.post Ctx4 "/children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             test <@ response.headers.ContainsKey LastModified = false @>
@@ -617,18 +602,17 @@ let tests =
             let! response =
                 Request.post Ctx4 "/children"
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 412
@@ -647,18 +631,17 @@ let tests =
             let! response =
                 Request.post Ctx4 "/children"
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "child"
-                            id = "c2"
-                            relationships = {|
-                                parent = {|
-                                    data = {| ``type`` = "parent"; id = "p1" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "child"
+                        id = "c2"
+                        relationships = {|
+                            parent = {|
+                                data = {| ``type`` = "parent"; id = "p1" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             test <@ response.headers.ContainsKey LastModified = false @>

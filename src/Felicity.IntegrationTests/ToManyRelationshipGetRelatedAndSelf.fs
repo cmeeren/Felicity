@@ -45,34 +45,31 @@ type Db() =
         Map.empty
         |> Map.add
             "p1"
-            (P1
-                {
-                    Id = "p1"
-                    Children = [ C1 { Id = "c1"; Child = { Id = "c3" } }; C2 { Id = "c2" } ]
-                    Child2 = { Id = "c22" }
-                })
+            (P1 {
+                Id = "p1"
+                Children = [ C1 { Id = "c1"; Child = { Id = "c3" } }; C2 { Id = "c2" } ]
+                Child2 = { Id = "c22" }
+            })
         |> Map.add
             "p2"
-            (P2
-                {
-                    Id = "p2"
-                    Children = [ C2 { Id = "c2" }; C1 { Id = "c1"; Child = { Id = "c3" } } ]
-                })
+            (P2 {
+                Id = "p2"
+                Children = [ C2 { Id = "c2" }; C1 { Id = "c1"; Child = { Id = "c3" } } ]
+            })
         |> Map.add "p3" (P3 { Id = "p3" })
         |> Map.add "p4" (P4 { Id = "p4" })
 
     member _.TryGet id = parents.TryFind id
 
 
-type Ctx =
-    {
-        Db: Db
-        ModifyGetRelatedResponse1: Parent1 -> Child list -> HttpHandler
-        ModifyGetSelfResponse1: Parent1 -> Child list -> HttpHandler
-        ModifyGetRelatedResponse2: Parent2 -> Child list -> HttpHandler
-        ModifyGetSelfResponse2: Parent2 -> Child list -> HttpHandler
-        GetParent1Children: Parent1 -> Child list Skippable
-    }
+type Ctx = {
+    Db: Db
+    ModifyGetRelatedResponse1: Parent1 -> Child list -> HttpHandler
+    ModifyGetSelfResponse1: Parent1 -> Child list -> HttpHandler
+    ModifyGetRelatedResponse2: Parent2 -> Child list -> HttpHandler
+    ModifyGetSelfResponse2: Parent2 -> Child list -> HttpHandler
+    GetParent1Children: Parent1 -> Child list Skippable
+} with
 
     static member WithDb db = {
         Db = db
@@ -234,10 +231,10 @@ let tests1 =
         testJob "Parent1: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetRelatedResponse1 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/children" |> getResponse
             response |> testStatusCode 200
@@ -275,10 +272,10 @@ let tests1 =
         testJob "Parent2: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetRelatedResponse2 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p2/children" |> getResponse
             response |> testStatusCode 200
@@ -297,8 +294,8 @@ let tests1 =
             "Returns distinct resources if primary data has duplicates, and logs warning once per duplicated resource" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Children =
                         fun _ ->
                             Include [
@@ -309,7 +306,7 @@ let tests1 =
                                 C2 { Id = "c1" }
                                 C2 { Id = "c2" }
                             ]
-                }
+            }
 
             let testClient, logSink = startTestServerWithLogSink ctx
 
@@ -345,10 +342,10 @@ let tests1 =
         testJob "Returns 403 if Skip" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Children = fun _ -> Skip
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/children" |> getResponse
             response |> testStatusCode 403
@@ -485,10 +482,10 @@ let tests2 =
         testJob "Parent1: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetSelfResponse1 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/relationships/children" |> getResponse
             response |> testStatusCode 200
@@ -565,10 +562,10 @@ let tests2 =
         testJob "Parent2: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetSelfResponse2 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p2/relationships/children" |> getResponse
             response |> testStatusCode 200
@@ -592,8 +589,8 @@ let tests2 =
             "Returns distinct resources if primary data has duplicates, and logs warning once per duplicated resource" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Children =
                         fun _ ->
                             Include [
@@ -604,7 +601,7 @@ let tests2 =
                                 C2 { Id = "c1" }
                                 C2 { Id = "c2" }
                             ]
-                }
+            }
 
             let testClient, logSink = startTestServerWithLogSink ctx
 
@@ -640,10 +637,10 @@ let tests2 =
         testJob "Returns 403 if Skip" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Children = fun _ -> Skip
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/relationships/children" |> getResponse
             response |> testStatusCode 403

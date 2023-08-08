@@ -47,18 +47,17 @@ type MappedCtx = {
 }
 
 
-and Ctx =
-    {
-        Db: Db
-        DisableMeta: bool
-        Condition: Result<unit, Error list>
-        GetOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
-        PostOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
-        PatchOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
-        DeleteOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
-        MapCtx: Ctx -> Result<MappedCtx, Error list>
-        MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
-    }
+and Ctx = {
+    Db: Db
+    DisableMeta: bool
+    Condition: Result<unit, Error list>
+    GetOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
+    PostOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
+    PatchOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
+    DeleteOperation: Responder<Ctx> -> Result<HttpHandler, Error list>
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
+    MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
+} with
 
     static member WithDb db = {
         Db = db
@@ -70,28 +69,26 @@ and Ctx =
         DeleteOperation = fun _ -> failwith "Operation must specified"
         MapCtx =
             fun ctx ->
-                Ok
-                    {
-                        Db = ctx.Db
-                        DisableMeta = ctx.DisableMeta
-                        Condition = ctx.Condition
-                        GetOperation = ctx.GetOperation
-                        PostOperation = ctx.PostOperation
-                        PatchOperation = ctx.PatchOperation
-                        DeleteOperation = ctx.DeleteOperation
-                    }
+                Ok {
+                    Db = ctx.Db
+                    DisableMeta = ctx.DisableMeta
+                    Condition = ctx.Condition
+                    GetOperation = ctx.GetOperation
+                    PostOperation = ctx.PostOperation
+                    PatchOperation = ctx.PatchOperation
+                    DeleteOperation = ctx.DeleteOperation
+                }
         MapCtxWithEntity =
             fun ctx _ ->
-                Ok
-                    {
-                        Db = ctx.Db
-                        DisableMeta = ctx.DisableMeta
-                        Condition = ctx.Condition
-                        GetOperation = ctx.GetOperation
-                        PostOperation = ctx.PostOperation
-                        PatchOperation = ctx.PatchOperation
-                        DeleteOperation = ctx.DeleteOperation
-                    }
+                Ok {
+                    Db = ctx.Db
+                    DisableMeta = ctx.DisableMeta
+                    Condition = ctx.Condition
+                    GetOperation = ctx.GetOperation
+                    PostOperation = ctx.PostOperation
+                    PatchOperation = ctx.PatchOperation
+                    DeleteOperation = ctx.DeleteOperation
+                }
     }
 
 
@@ -451,14 +448,15 @@ module A12 =
             .CustomLink()
             .ValidateStrictModeQueryParams()
             .SkipLink()
-            .GetAsync(fun (ctx: MetaCtx) parser respond _ -> async {
-                let handler =
-                    match ctx.StatusCode with
-                    | None -> respond.WithNoEntity()
-                    | Some statusCode -> setStatusCode statusCode >=> respond.WithNoEntity()
+            .GetAsync(fun (ctx: MetaCtx) parser respond _ ->
+                async {
+                    let handler =
+                        match ctx.StatusCode with
+                        | None -> respond.WithNoEntity()
+                        | Some statusCode -> setStatusCode statusCode >=> respond.WithNoEntity()
 
-                return Ok handler
-            })
+                    return Ok handler
+                })
 
 
 [<Tests>]
@@ -479,11 +477,11 @@ let tests =
         testJob "No link if condition is false and no meta" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     Condition = Error []
                     DisableMeta = true
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1" |> getResponse
             response |> testSuccessStatusCode
@@ -494,10 +492,10 @@ let tests =
         testJob "No link if mapCtx fails" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error []
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1" |> getResponse
             response |> testSuccessStatusCode
@@ -508,10 +506,10 @@ let tests =
         testJob "No link if mapCtx with entity fails" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity = fun _ _ -> Error []
-                }
+            }
 
             let! response = Request.get ctx "/entities/b1" |> getResponse
             response |> testSuccessStatusCode
@@ -522,10 +520,10 @@ let tests =
         testJob "Has link with null href if condition is false and has meta and mapCtx succeeds" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     Condition = Error []
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1" |> getResponse
             response |> testSuccessStatusCode
@@ -537,10 +535,10 @@ let tests =
         testJob "GET returns correct response" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetOperation = fun respond -> Ok(setStatusCode 201 >=> respond.WithEntity(A.resDef, { Id = "foo" }))
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp?include=someRel" |> getResponse
             response |> testStatusCode 201
@@ -559,10 +557,10 @@ let tests =
         }
 
         testJob "GET insensitive to trailing slashes" {
-            let ctx =
-                { Ctx.WithDb(Db()) with
+            let ctx = {
+                Ctx.WithDb(Db()) with
                     GetOperation = fun _ -> Ok(setStatusCode 201)
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp/" |> getResponse
             response |> testStatusCode 201
@@ -571,11 +569,11 @@ let tests =
         testJob "POST returns correct response 1" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PostOperation =
                         fun respond -> Ok(setStatusCode 201 >=> respond.WithOptEntity(A.resDef, Some { Id = "foo" }))
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp?include=someRel" |> getResponse
             response |> testStatusCode 201
@@ -596,10 +594,10 @@ let tests =
         testJob "POST returns correct response 2" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PostOperation = fun respond -> Ok(setStatusCode 201 >=> respond.WithOptEntity(A.resDef, None))
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp?include=someRel" |> getResponse
             response |> testStatusCode 201
@@ -608,10 +606,10 @@ let tests =
         }
 
         testJob "POST insensitive to trailing slashes" {
-            let ctx =
-                { Ctx.WithDb(Db()) with
+            let ctx = {
+                Ctx.WithDb(Db()) with
                     PostOperation = fun _ -> Ok(setStatusCode 201)
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp/" |> getResponse
             response |> testStatusCode 201
@@ -620,15 +618,15 @@ let tests =
         testJob "PATCH returns correct response" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PatchOperation =
                         fun respond ->
                             Ok(
                                 setStatusCode 201
                                 >=> respond.WithEntities(B.resDef, [ { Id = "foo" }; { Id = "bar" } ])
                             )
-                }
+            }
 
             let! response = Request.patch ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 201
@@ -642,10 +640,10 @@ let tests =
         }
 
         testJob "PATCH insensitive to trailing slashes" {
-            let ctx =
-                { Ctx.WithDb(Db()) with
+            let ctx = {
+                Ctx.WithDb(Db()) with
                     PatchOperation = fun _ -> Ok(setStatusCode 201)
-                }
+            }
 
             let! response = Request.patch ctx "/entities/a1/customOp/" |> getResponse
             response |> testStatusCode 201
@@ -654,8 +652,8 @@ let tests =
         testJob "DELETE returns correct response" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteOperation =
                         fun respond ->
                             Ok(
@@ -667,7 +665,7 @@ let tests =
                                     ]
                                 )
                             )
-                }
+            }
 
             let! response = Request.delete ctx "/entities/a1/customOp?include=someRel" |> getResponse
             response |> testStatusCode 201
@@ -689,10 +687,10 @@ let tests =
         }
 
         testJob "DELETE insensitive to trailing slashes" {
-            let ctx =
-                { Ctx.WithDb(Db()) with
+            let ctx = {
+                Ctx.WithDb(Db()) with
                     DeleteOperation = fun _ -> Ok(setStatusCode 201)
-                }
+            }
 
             let! response = Request.delete ctx "/entities/a1/customOp/" |> getResponse
             response |> testStatusCode 201
@@ -701,11 +699,11 @@ let tests =
         testJob "Simple link when no meta" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DisableMeta = true
                     GetOperation = fun respond -> Ok(setStatusCode 201 >=> respond.WithEntity(A.resDef, { Id = "foo" }))
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 201
@@ -1104,10 +1102,10 @@ let tests =
         testJob "GET returns errors returned by mapCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1121,10 +1119,10 @@ let tests =
         testJob "POST returns errors returned by mapCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1138,10 +1136,10 @@ let tests =
         testJob "PATCH returns errors returned by mapCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.patch ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1155,10 +1153,10 @@ let tests =
         testJob "DELETE returns errors returned by mapCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.delete ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1172,10 +1170,10 @@ let tests =
         testJob "GET returns errors returned by mapCtx with entity" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/entities/b1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1191,13 +1189,13 @@ let tests =
             let db = Db()
             let expected = db.TryGet "b1" |> Option.get
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity =
                         fun _ctx e ->
                             calledWith <- ValueSome(B e)
                             Error [ Error.create 422 ]
-                }
+            }
 
             let! _response = Request.get ctx "/entities/b1/customOp" |> getResponse
             Expect.equal calledWith (ValueSome expected) ""
@@ -1206,10 +1204,10 @@ let tests =
         testJob "GET returns errors returned by condition" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     Condition = Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1223,10 +1221,10 @@ let tests =
         testJob "POST returns errors returned by condition" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     Condition = Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1240,10 +1238,10 @@ let tests =
         testJob "PATCH returns errors returned by condition" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     Condition = Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.patch ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1257,10 +1255,10 @@ let tests =
         testJob "DELETE returns errors returned by condition" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     Condition = Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.delete ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1274,10 +1272,10 @@ let tests =
         testJob "GET returns errors returned by operation" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetOperation = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1291,10 +1289,10 @@ let tests =
         testJob "POST returns errors returned by operation" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PostOperation = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1308,10 +1306,10 @@ let tests =
         testJob "PATCH returns errors returned by operation" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PatchOperation = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.patch ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1325,10 +1323,10 @@ let tests =
         testJob "DELETE returns errors returned by operation" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteOperation = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.delete ctx "/entities/a1/customOp" |> getResponse
             response |> testStatusCode 422
@@ -1733,10 +1731,10 @@ let tests =
         testJob "GET returns 406 if Accept is not */* or application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.get ctx "/entities/a1/customOp"
@@ -1768,10 +1766,10 @@ let tests =
         testJob "POST returns 406 if Accept is not */* or application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PostOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.post ctx "/entities/a1/customOp"
@@ -1803,10 +1801,10 @@ let tests =
         testJob "PATCH returns 406 if Accept is not */* or application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PatchOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.patch ctx "/entities/a1/customOp"
@@ -1838,10 +1836,10 @@ let tests =
         testJob "DELETE returns 406 if Accept is not */* or application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.delete ctx "/entities/a1/customOp"
@@ -1873,10 +1871,10 @@ let tests =
         testJob "POST returns 415 if Content-Type is not application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PostOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.post ctx "/entities/a1/customOp"
@@ -1909,10 +1907,10 @@ let tests =
         testJob "PATCH returns 415 if Content-Type is not application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PatchOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.patch ctx "/entities/a1/customOp"
@@ -1945,10 +1943,10 @@ let tests =
         testJob "DELETE returns 415 if Content-Type is not application/vnd.api+json" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response =
                 Request.delete ctx "/entities/a1/customOp"
@@ -1981,10 +1979,10 @@ let tests =
         testJob "GET returns 400 if a query parameter name is invalid" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response = Request.get ctx "/entities/a1/customOp?invalid" |> getResponse
             response |> testStatusCode 400
@@ -2008,10 +2006,10 @@ let tests =
         testJob "POST returns 400 if a query parameter name is invalid" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PostOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response = Request.post ctx "/entities/a1/customOp?invalid" |> getResponse
             response |> testStatusCode 400
@@ -2035,10 +2033,10 @@ let tests =
         testJob "PATCH returns 400 if a query parameter name is invalid" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     PatchOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response = Request.patch ctx "/entities/a1/customOp?invalid" |> getResponse
             response |> testStatusCode 400
@@ -2062,10 +2060,10 @@ let tests =
         testJob "DELETE returns 400 if a query parameter name is invalid" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteOperation = fun _ -> Ok(setStatusCode 200)
-                }
+            }
 
             let! response = Request.delete ctx "/entities/a1/customOp?invalid" |> getResponse
             response |> testStatusCode 400

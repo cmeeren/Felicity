@@ -29,16 +29,15 @@ module ADomain =
         if a = false then
             Error [ Error.create 422 |> Error.setCode "custom" ]
         else
-            Ok
-                {
-                    Id = "1"
-                    A = a
-                    X = ""
-                    Nullable = None
-                    NullableNotNullWhenSet = None
-                    NullableChild = child1
-                    NullableChildNotNullWhenCreated = Some child2
-                }
+            Ok {
+                Id = "1"
+                A = a
+                X = ""
+                Nullable = None
+                NullableNotNullWhenSet = None
+                NullableChild = child1
+                NullableChildNotNullWhenCreated = Some child2
+            }
 
     let setA _x _a : A =
         failwith "Should not set properties that are consumed using the request parser"
@@ -47,10 +46,10 @@ module ADomain =
 
     let setNullable x a = { a with Nullable = x }
 
-    let setNullableNotNullWhenSet x a =
-        { a with
+    let setNullableNotNullWhenSet x a = {
+        a with
             NullableNotNullWhenSet = Some x
-        }
+    }
 
 module BDomain =
 
@@ -80,12 +79,11 @@ type Db() =
 
 
 
-type Ctx =
-    {
-        ModifyAResponse: A -> HttpHandler
-        ModifyBResponse: B -> HttpHandler
-        Db: Db
-    }
+type Ctx = {
+    ModifyAResponse: A -> HttpHandler
+    ModifyBResponse: B -> HttpHandler
+    Db: Db
+} with
 
     static member WithDb db = {
         ModifyAResponse = fun _ -> fun next ctx -> next ctx
@@ -205,31 +203,30 @@ let tests =
         testJob "Create A: Returns 201, runs setters and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = "foo"
-                                nullableNotNullWhenSet = "bar"
-                            |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = "foo"
+                            nullableNotNullWhenSet = "bar"
+                        |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -258,19 +255,18 @@ let tests =
 
             let! response =
                 Request.post ctx "/abs/"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -279,21 +275,20 @@ let tests =
         testJob "Create B: Returns 202, runs setters and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyBResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "b"
-                            id = "123"
-                            attributes = {| b = 2; y = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "b"
+                        id = "123"
+                        attributes = {| b = 2; y = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 202
@@ -312,26 +307,25 @@ let tests =
             let db = Db()
             db.SaveChild { Child.Id = "c" }
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = null |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = null |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -346,29 +340,28 @@ let tests =
             let db = Db()
             db.SaveChild { Child.Id = "c" }
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = "foo"
-                                nullableNotNullWhenSet = "bar"
-                            |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {| data = null |}
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = "foo"
+                            nullableNotNullWhenSet = "bar"
+                        |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {| data = null |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -391,26 +384,25 @@ let tests =
         testJob "Returns errors returned by create" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = false; x = "abc" |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = false; x = "abc" |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -426,19 +418,18 @@ let tests =
 
             let! response =
                 Request.post (Ctx.WithDb db) "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true; readonly = "foo" |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true; readonly = "foo" |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -454,22 +445,21 @@ let tests =
 
             let! response =
                 Request.post (Ctx.WithDb db) "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {|
-                                a = true
-                                nullableNotNullWhenSet = null
-                            |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {|
+                            a = true
+                            nullableNotNullWhenSet = null
+                        |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -483,21 +473,20 @@ let tests =
         testJob "Returns 400 when using stringified numbers" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyBResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "b"
-                            id = "123"
-                            attributes = {| b = "2" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "b"
+                        id = "123"
+                        attributes = {| b = "2" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -511,27 +500,26 @@ let tests =
         testJob "Returns 403 when client-generated ID is not supported" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "foo"
-                            attributes = {| a = true |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "foo"
+                        attributes = {| a = true |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -550,10 +538,10 @@ let tests =
         testJob "Returns 400 when missing body" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.post ctx "/abs" |> getResponse
             response |> testStatusCode 400
@@ -600,10 +588,10 @@ let tests =
         testJob "Returns 400 when missing data" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
@@ -621,10 +609,10 @@ let tests =
         testJob "Returns 400 when data is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
@@ -647,17 +635,16 @@ let tests =
         testJob "Returns 400 when missing type" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {| attributes = {| a = true |} |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| attributes = {| a = true |} |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -673,13 +660,12 @@ let tests =
 
             let! response =
                 Request.post (Ctx.WithDb db) "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = null
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = null
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -693,17 +679,16 @@ let tests =
         testJob "Returns 400 when ID is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = null |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = null |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -717,17 +702,16 @@ let tests =
         testJob "Returns 400 when attributes is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; attributes = null |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; attributes = null |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -741,20 +725,19 @@ let tests =
         testJob "Returns 400 when relationships is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.post ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            relationships = null
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        relationships = null
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -768,32 +751,31 @@ let tests =
         testJob "Ignores unknown members and relationships when not using strict mode" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.postWithoutStrictMode ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = "foo"
-                                nonExistentAttribute = "foo"
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = "foo"
+                            nonExistentAttribute = "foo"
+                        |}
+                        relationships = {|
+                            nullableChild = {| data = null |}
+                            nullableChildNotNullWhenCreated = {|
+                                data = {| ``type`` = "child"; id = "c" |}
                             |}
-                            relationships = {|
-                                nullableChild = {| data = null |}
-                                nullableChildNotNullWhenCreated = {|
-                                    data = {| ``type`` = "child"; id = "c" |}
-                                |}
-                                nonExistentRelationship = {| data = null |}
-                            |}
+                            nonExistentRelationship = {| data = null |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -837,13 +819,12 @@ let tests =
         testJob "Returns 403 if not supported at all" {
             let! response =
                 Request.post Ctx3 "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true; x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true; x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403

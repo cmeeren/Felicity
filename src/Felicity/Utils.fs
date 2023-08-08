@@ -92,15 +92,17 @@ module ExceptionExtensions =
 
 module Async =
 
-    let inline map f asnc = async {
-        let! x = asnc
-        return f x
-    }
+    let inline map f asnc =
+        async {
+            let! x = asnc
+            return f x
+        }
 
-    let inline bind f asnc = async {
-        let! x = asnc
-        return! f x
-    }
+    let inline bind f asnc =
+        async {
+            let! x = asnc
+            return! f x
+        }
 
 
 module Task =
@@ -160,10 +162,11 @@ module Task =
 
         Task.WhenAll(tasks)
 
-    let inline map f t = task {
-        let! x = t
-        return f x
-    }
+    let inline map f t =
+        task {
+            let! x = t
+            return f x
+        }
 
     let inline ignore<'a> (t: Task<'a>) = t :> Task
 
@@ -237,11 +240,12 @@ module AsyncResult =
     let inline requireSome errIfNone =
         Task.map (Result.bind (Result.requireSome errIfNone))
 
-    let inline bind f asncRes = async {
-        match! asncRes with
-        | Error err -> return Error err
-        | Ok x -> return! f x
-    }
+    let inline bind f asncRes =
+        async {
+            match! asncRes with
+            | Error err -> return Error err
+            | Ok x -> return! f x
+        }
 
     let inline bindResult f = Task.map (Result.bind f)
 
@@ -311,11 +315,12 @@ module TaskResult =
     let inline requireSome errIfNone =
         Task.map (Result.bind (Result.requireSome errIfNone))
 
-    let inline bind (f: _ -> Task<Result<_, _>>) (taskRes: Task<Result<_, _>>) = task {
-        match! taskRes with
-        | Error err -> return Error err
-        | Ok x -> return! f x
-    }
+    let inline bind (f: _ -> Task<Result<_, _>>) (taskRes: Task<Result<_, _>>) =
+        task {
+            match! taskRes with
+            | Error err -> return Error err
+            | Ok x -> return! f x
+        }
 
     let inline bindResult f = Task.map (Result.bind f)
 
@@ -372,18 +377,19 @@ module List =
             | Error errs, Ok _ -> Error errs
             | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs))
 
-    let inline traverseTaskResultA (f: _ -> Task<_>) (list: _ list) = task {
-        let! results = list |> Task.mapWhenAllWithCount list.Length f
+    let inline traverseTaskResultA (f: _ -> Task<_>) (list: _ list) =
+        task {
+            let! results = list |> Task.mapWhenAllWithCount list.Length f
 
-        return
-            (results, Ok [])
-            ||> Array.foldBack (fun t state ->
-                match t, state with
-                | Ok x, Ok xs -> Ok(x :: xs)
-                | Ok _, Error errs
-                | Error errs, Ok _ -> Error errs
-                | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs))
-    }
+            return
+                (results, Ok [])
+                ||> Array.foldBack (fun t state ->
+                    match t, state with
+                    | Ok x, Ok xs -> Ok(x :: xs)
+                    | Ok _, Error errs
+                    | Error errs, Ok _ -> Error errs
+                    | Error newErrs, Error existingErrs -> Error(newErrs @ existingErrs))
+        }
 
 
 
@@ -425,23 +431,24 @@ module Array =
         else
             Ok out
 
-    let traverseTaskResultAIndexed (f: _ -> _ -> Task<_>) (xs: _[]) = task {
-        let! results = Task.mapiWhenAll f xs
-        let errors = ResizeArray()
-        let out = Array.zeroCreate xs.Length
+    let traverseTaskResultAIndexed (f: _ -> _ -> Task<_>) (xs: _[]) =
+        task {
+            let! results = Task.mapiWhenAll f xs
+            let errors = ResizeArray()
+            let out = Array.zeroCreate xs.Length
 
-        results
-        |> Seq.iteri (fun i x ->
-            match x with
-            | Ok x -> out[i] <- x
-            | Error errs -> errors.AddRange errs)
+            results
+            |> Seq.iteri (fun i x ->
+                match x with
+                | Ok x -> out[i] <- x
+                | Error errs -> errors.AddRange errs)
 
-        return
-            if errors.Count > 0 then
-                errors |> Seq.toList |> Error
-            else
-                Ok out
-    }
+            return
+                if errors.Count > 0 then
+                    errors |> Seq.toList |> Error
+                else
+                    Ok out
+        }
 
 
 module Set =
@@ -496,18 +503,19 @@ type SemaphoreQueue() =
     /// Queues a lock on the SemaphoreQueue. The lock is released when the returned object
     /// is disposed. ALWAYS remember to dispose, otherwise the order can not be edited. Use
     /// the "use" keyword to ensure disposal. Returns Error if the lock times out.
-    member _.Lock(timeout) = task {
-        let! locked = waitAsync timeout
+    member _.Lock(timeout) =
+        task {
+            let! locked = waitAsync timeout
 
-        if not locked then
-            return None
-        else
-            return
-                Some
-                    { new IDisposable with
-                        member _.Dispose() = release () |> ignore
-                    }
-    }
+            if not locked then
+                return None
+            else
+                return
+                    Some
+                        { new IDisposable with
+                            member _.Dispose() = release () |> ignore
+                        }
+        }
 
     interface IDisposable with
         member _.Dispose() = semaphore.Dispose()

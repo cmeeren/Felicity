@@ -22,23 +22,21 @@ type MappedCtx = {
     GetColl: unit -> Result<A list, Error list>
 }
 
-type Ctx =
-    {
-        ModifyResponse: A list -> HttpHandler
-        GetColl: unit -> Result<A list, Error list>
-        MapCtx: Ctx -> Result<MappedCtx, Error list>
-    }
+type Ctx = {
+    ModifyResponse: A list -> HttpHandler
+    GetColl: unit -> Result<A list, Error list>
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
+} with
 
     static member Default = {
         ModifyResponse = fun _ -> fun next ctx -> next ctx
         GetColl = fun () -> Ok [ a1; a2 ]
         MapCtx =
             fun ctx ->
-                Ok
-                    {
-                        ModifyResponse = ctx.ModifyResponse
-                        GetColl = ctx.GetColl
-                    }
+                Ok {
+                    ModifyResponse = ctx.ModifyResponse
+                    GetColl = ctx.GetColl
+                }
     }
 
 
@@ -122,10 +120,10 @@ let tests =
 
         testJob
             "Returns distinct resources if primary data has duplicates, and logs warning once per duplicated resource" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     GetColl = fun () -> Ok [ a1; a1; a3; a2; a1; a2 ]
-                }
+            }
 
             let testClient, logSink = startTestServerWithLogSink ctx
 
@@ -159,10 +157,10 @@ let tests =
         }
 
         testJob "Modifies response if successful" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     ModifyResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/as" |> getResponse
             response |> testSuccessStatusCode
@@ -170,10 +168,10 @@ let tests =
         }
 
         testJob "Returns errors returned by GetColl" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     GetColl = fun () -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/as" |> getResponse
             response |> testStatusCode 422
@@ -185,10 +183,10 @@ let tests =
         }
 
         testJob "Returns errors returned by mapCtx" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/as" |> getResponse
             response |> testStatusCode 422

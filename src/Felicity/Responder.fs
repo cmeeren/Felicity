@@ -19,71 +19,77 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
         this
 
     member _.WithEntity(resourceDef: ResourceDefinition<'ctx, 'entity, 'id>, entity: 'entity) : HttpHandler =
-        fun next httpCtx -> task {
-            let! doc = builder.Write httpCtx ctx req (upcast resourceDef, entity)
+        fun next httpCtx ->
+            task {
+                let! doc = builder.Write httpCtx ctx req (upcast resourceDef, entity)
 
-            let primaryResourceTypes =
-                primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
+                let primaryResourceTypes =
+                    primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
 
-            let! fieldTrackerHandler =
-                httpCtx.RequestServices
-                    .GetRequiredService<FieldTracker<'ctx>>()
-                    .TrackFields(primaryResourceTypes, ctx, req)
+                let! fieldTrackerHandler =
+                    httpCtx.RequestServices
+                        .GetRequiredService<FieldTracker<'ctx>>()
+                        .TrackFields(primaryResourceTypes, ctx, req)
 
-            return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
-        }
+                return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
+            }
 
     member _.WithEntities(resourceDef: ResourceDefinition<'ctx, 'entity, 'id>, entities: 'entity list) : HttpHandler =
-        fun next httpCtx -> task {
-            let! doc = builder.WriteList httpCtx ctx req (entities |> List.map (fun e -> upcast resourceDef, e))
+        fun next httpCtx ->
+            task {
+                let! doc = builder.WriteList httpCtx ctx req (entities |> List.map (fun e -> upcast resourceDef, e))
 
-            let primaryResourceTypes =
-                primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
+                let primaryResourceTypes =
+                    primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
 
-            let! fieldTrackerHandler =
-                httpCtx.RequestServices
-                    .GetRequiredService<FieldTracker<'ctx>>()
-                    .TrackFields(primaryResourceTypes, ctx, req)
+                let! fieldTrackerHandler =
+                    httpCtx.RequestServices
+                        .GetRequiredService<FieldTracker<'ctx>>()
+                        .TrackFields(primaryResourceTypes, ctx, req)
 
-            return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
-        }
+                return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
+            }
 
     member _.WithPolymorphicEntities(polyBuilders: PolymorphicBuilder<'ctx> list) : HttpHandler =
-        fun next httpCtx -> task {
-            let! doc = builder.WriteList httpCtx ctx req (polyBuilders |> List.map (fun b -> b.resourceDef, b.entity))
+        fun next httpCtx ->
+            task {
+                let! doc =
+                    builder.WriteList httpCtx ctx req (polyBuilders |> List.map (fun b -> b.resourceDef, b.entity))
 
-            let primaryResourceTypes =
-                primaryResourceTypesForFieldTracking
-                |> Option.defaultValue (polyBuilders |> List.map (fun b -> b.resourceDef.TypeName) |> List.distinct)
+                let primaryResourceTypes =
+                    primaryResourceTypesForFieldTracking
+                    |> Option.defaultValue (polyBuilders |> List.map (fun b -> b.resourceDef.TypeName) |> List.distinct)
 
-            let! fieldTrackerHandler =
-                httpCtx.RequestServices
-                    .GetRequiredService<FieldTracker<'ctx>>()
-                    .TrackFields(primaryResourceTypes, ctx, req)
+                let! fieldTrackerHandler =
+                    httpCtx.RequestServices
+                        .GetRequiredService<FieldTracker<'ctx>>()
+                        .TrackFields(primaryResourceTypes, ctx, req)
 
-            return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
-        }
+                return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
+            }
 
     member _.WithOptEntity(resourceDef: ResourceDefinition<'ctx, 'entity, 'id>, entity: 'entity option) : HttpHandler =
-        fun next httpCtx -> task {
-            let! doc = builder.WriteOpt httpCtx ctx req (entity |> Option.map (fun e -> upcast resourceDef, e))
+        fun next httpCtx ->
+            task {
+                let! doc = builder.WriteOpt httpCtx ctx req (entity |> Option.map (fun e -> upcast resourceDef, e))
 
-            let primaryResourceTypes =
-                primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
+                let primaryResourceTypes =
+                    primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
 
-            let! fieldTrackerHandler =
-                httpCtx.RequestServices
-                    .GetRequiredService<FieldTracker<'ctx>>()
-                    .TrackFields(primaryResourceTypes, ctx, req)
+                let! fieldTrackerHandler =
+                    httpCtx.RequestServices
+                        .GetRequiredService<FieldTracker<'ctx>>()
+                        .TrackFields(primaryResourceTypes, ctx, req)
 
-            return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
-        }
+                return! (fieldTrackerHandler >=> jsonApiWithETag<'ctx> doc) next httpCtx
+            }
 
     /// If there is top-level meta or links, sends a response document without data using a previously set status code
     /// (default 200). If there is no top-level meta or links, responds with 204.
     member _.WithNoEntity() : HttpHandler =
-        fun next httpCtx -> task {
-            match! builder.WriteNoResource httpCtx ctx req with
-            | None -> return! setStatusCode 204 next httpCtx
-            | Some doc -> return! jsonApiWithETag<'ctx> doc next httpCtx
-        }
+        fun next httpCtx ->
+            task {
+                match! builder.WriteNoResource httpCtx ctx req with
+                | None -> return! setStatusCode 204 next httpCtx
+                | Some doc -> return! jsonApiWithETag<'ctx> doc next httpCtx
+            }

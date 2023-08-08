@@ -34,13 +34,14 @@ module A =
 
     let post =
         define.Operation
-            .PostAsyncRes(fun ctx parser -> async {
-                // Also test free-standing parsing using RequestParser
-                let! _ = parser.For((fun _ -> ()), Query.String("customQueryParam")).ParseAsync()
+            .PostAsyncRes(fun ctx parser ->
+                async {
+                    // Also test free-standing parsing using RequestParser
+                    let! _ = parser.For((fun _ -> ()), Query.String("customQueryParam")).ParseAsync()
 
-                return parser.For(A "1").IgnoreStrictMode(Query.String("ignoredQueryParam")) |> Ok
+                    return parser.For(A "1").IgnoreStrictMode(Query.String("ignoredQueryParam")) |> Ok
 
-            })
+                })
             .AfterCreate(ignore)
 
     let get = define.Operation.GetResource()
@@ -172,14 +173,13 @@ let tests =
 
             let! response =
                 Request.createWithClient client Post (Uri("http://example.com/as"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| attr = null |}
-                            relationships = {| rel = {| |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| attr = null |}
+                        relationships = {| rel = {| |} |}
                     |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -231,14 +231,13 @@ let tests =
                     (Uri(
                         "http://example.com/as?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"
                     ))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| attr = null |}
-                            relationships = {| rel = {| |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| attr = null |}
+                        relationships = {| rel = {| |} |}
                     |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -289,15 +288,14 @@ let tests =
 
             let! response =
                 Request.createWithClient client Patch (Uri("http://example.com/as/1"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "1"
-                            attributes = {| attr = null |}
-                            relationships = {| rel = {| |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "1"
+                        attributes = {| attr = null |}
+                        relationships = {| rel = {| |} |}
                     |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -323,10 +321,9 @@ let tests =
                     (Uri(
                         "http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"
                     ))
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "1" |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -352,15 +349,14 @@ let tests =
                     (Uri(
                         "http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"
                     ))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "1"
-                            attributes = {| attr = null |}
-                            relationships = {| rel = {| |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "1"
+                        attributes = {| attr = null |}
+                        relationships = {| rel = {| |} |}
                     |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -496,10 +492,9 @@ let tests =
                     (Uri(
                         "http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"
                     ))
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "1" |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -525,10 +520,9 @@ let tests =
                     (Uri(
                         "http://example.com/as/1/relationships/toOne?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"
                     ))
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "1" |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 

@@ -16,37 +16,38 @@ module HttpHandlers =
 
 
     let internal jsonApiWithETag<'ctx> (x: obj) : HttpHandler =
-        fun (_next: HttpFunc) (ctx: HttpContext) -> task {
-            let serializer = ctx.GetService<Serializer<'ctx>>()
-            let bytes = serializer.SerializeToUtf8Bytes x
+        fun (_next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let serializer = ctx.GetService<Serializer<'ctx>>()
+                let bytes = serializer.SerializeToUtf8Bytes x
 
-            let eTag =
-                bytes
-                |> SHA1.HashData
-                |> Convert.ToBase64String
-                |> fun s -> s.TrimEnd('=')
-                |> EntityTagHeaderValue.FromString false
+                let eTag =
+                    bytes
+                    |> SHA1.HashData
+                    |> Convert.ToBase64String
+                    |> fun s -> s.TrimEnd('=')
+                    |> EntityTagHeaderValue.FromString false
 
-            let returnNotModified =
-                // Check status codes first so we don't set ETag for non-success responses
-                ctx.Response.StatusCode >= 200
-                && ctx.Response.StatusCode < 300
-                // Then validate preconditions, which sets ETag
-                && ctx.ValidatePreconditions(Some eTag, None) = ResourceNotModified
-                // Method is checked last since ETag should be set regardless of method
-                && (ctx.Request.Method = "GET" || ctx.Request.Method = "HEAD")
+                let returnNotModified =
+                    // Check status codes first so we don't set ETag for non-success responses
+                    ctx.Response.StatusCode >= 200
+                    && ctx.Response.StatusCode < 300
+                    // Then validate preconditions, which sets ETag
+                    && ctx.ValidatePreconditions(Some eTag, None) = ResourceNotModified
+                    // Method is checked last since ETag should be set regardless of method
+                    && (ctx.Request.Method = "GET" || ctx.Request.Method = "HEAD")
 
-            if returnNotModified then
-                return ctx.NotModifiedResponse()
-            else
-                ctx.Response.Headers[HeaderNames.ContentType] <- Constants.jsonApiMediaType |> StringValues
-                ctx.Response.Headers[HeaderNames.ContentLength] <- bytes.Length |> string |> StringValues
+                if returnNotModified then
+                    return ctx.NotModifiedResponse()
+                else
+                    ctx.Response.Headers[HeaderNames.ContentType] <- Constants.jsonApiMediaType |> StringValues
+                    ctx.Response.Headers[HeaderNames.ContentLength] <- bytes.Length |> string |> StringValues
 
-                if ctx.Request.Method <> HttpMethods.Head then
-                    do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
+                    if ctx.Request.Method <> HttpMethods.Head then
+                        do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
 
-                return Some ctx
-        }
+                    return Some ctx
+            }
 
 
     let internal handleErrors (errs: Error list) : HttpHandler =

@@ -74,69 +74,32 @@ module internal RoutingOperations =
     let responseBuilder resourceModuleMap getBaseUrl : ResponseBuilder<'ctx> =
 
         { new ResponseBuilder<'ctx> with
-            member _.WriteNoResource httpCtx ctx req = task {
-                let doc = {
-                    jsonapi = Skip // support later when valid use-cases arrive
-                    links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
-                    meta =
-                        httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
-                        |> Include
-                        |> Skippable.filter (fun x -> x.Count > 0)
+            member _.WriteNoResource httpCtx ctx req =
+                task {
+                    let doc = {
+                        jsonapi = Skip // support later when valid use-cases arrive
+                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        meta =
+                            httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
+                            |> Include
+                            |> Skippable.filter (fun x -> x.Count > 0)
+                    }
+
+                    if doc.jsonapi.isSkip && doc.links.isSkip && doc.meta.isSkip then
+                        return None
+                    else
+                        return Some doc
                 }
 
-                if doc.jsonapi.isSkip && doc.links.isSkip && doc.meta.isSkip then
-                    return None
-                else
-                    return Some doc
-            }
+            member _.Write httpCtx ctx req rDefEntity =
+                task {
+                    let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+                    let resourceDef, e = rDefEntity
+                    let baseUrl = getBaseUrl httpCtx
+                    let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
+                    let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
 
-            member _.Write httpCtx ctx req rDefEntity = task {
-                let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
-                let resourceDef, e = rDefEntity
-                let baseUrl = getBaseUrl httpCtx
-                let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
-                let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
-
-                let! main, included =
-                    ResourceBuilder.ResourceBuilder(
-                        resourceModuleMap,
-                        baseUrl,
-                        [],
-                        shouldUseStandardLinks,
-                        shouldUseCustomLinks,
-                        httpCtx,
-                        ctx,
-                        req,
-                        resourceDef,
-                        e
-                    )
-                    |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
-
-                return {
-                    ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
-                    links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
-                    meta =
-                        httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
-                        |> Include
-                        |> Skippable.filter (fun x -> x.Count > 0)
-                    data = Some main
-                    included =
-                        if req.Query.ContainsKey "include" then
-                            Include included
-                        else
-                            Skip
-                }
-            }
-
-            member _.WriteList httpCtx ctx req rDefsEntities = task {
-                let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
-                let baseUrl = getBaseUrl httpCtx
-                let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
-                let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
-
-                let! main, included =
-                    rDefsEntities
-                    |> List.map (fun (rDef, e) ->
+                    let! main, included =
                         ResourceBuilder.ResourceBuilder(
                             resourceModuleMap,
                             baseUrl,
@@ -146,63 +109,104 @@ module internal RoutingOperations =
                             httpCtx,
                             ctx,
                             req,
-                            rDef,
-                            e
-                        ))
-                    |> ResourceBuilder.build (httpCtx.GetService<ILoggerFactory>())
-
-                return {
-                    ResourceCollectionDocument.jsonapi = Skip // support later when valid use-cases arrive
-                    links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
-                    meta =
-                        httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
-                        |> Include
-                        |> Skippable.filter (fun x -> x.Count > 0)
-                    data = main
-                    included =
-                        if req.Query.ContainsKey "include" then
-                            Include included
-                        else
-                            Skip
-                }
-            }
-
-            member _.WriteOpt httpCtx ctx req rDefEntity = task {
-                let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
-                let baseUrl = getBaseUrl httpCtx
-                let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
-                let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
-
-                let! main, included =
-                    rDefEntity
-                    |> Option.map (fun (rDef, e) ->
-                        ResourceBuilder.ResourceBuilder(
-                            resourceModuleMap,
-                            baseUrl,
-                            [],
-                            shouldUseStandardLinks,
-                            shouldUseCustomLinks,
-                            httpCtx,
-                            ctx,
-                            req,
-                            rDef,
+                            resourceDef,
                             e
                         )
                         |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
-                        |> Task.map (fun (res, inc) -> Some res, Include inc))
-                    |> Option.defaultValue (Task.result (None, Skip))
 
-                return {
-                    ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
-                    links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
-                    meta =
-                        httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
-                        |> Include
-                        |> Skippable.filter (fun x -> x.Count > 0)
-                    data = main
-                    included = if req.Query.ContainsKey "include" then included else Skip
+                    return {
+                        ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
+                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        meta =
+                            httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
+                            |> Include
+                            |> Skippable.filter (fun x -> x.Count > 0)
+                        data = Some main
+                        included =
+                            if req.Query.ContainsKey "include" then
+                                Include included
+                            else
+                                Skip
+                    }
                 }
-            }
+
+            member _.WriteList httpCtx ctx req rDefsEntities =
+                task {
+                    let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+                    let baseUrl = getBaseUrl httpCtx
+                    let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
+                    let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
+
+                    let! main, included =
+                        rDefsEntities
+                        |> List.map (fun (rDef, e) ->
+                            ResourceBuilder.ResourceBuilder(
+                                resourceModuleMap,
+                                baseUrl,
+                                [],
+                                shouldUseStandardLinks,
+                                shouldUseCustomLinks,
+                                httpCtx,
+                                ctx,
+                                req,
+                                rDef,
+                                e
+                            ))
+                        |> ResourceBuilder.build (httpCtx.GetService<ILoggerFactory>())
+
+                    return {
+                        ResourceCollectionDocument.jsonapi = Skip // support later when valid use-cases arrive
+                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        meta =
+                            httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
+                            |> Include
+                            |> Skippable.filter (fun x -> x.Count > 0)
+                        data = main
+                        included =
+                            if req.Query.ContainsKey "include" then
+                                Include included
+                            else
+                                Skip
+                    }
+                }
+
+            member _.WriteOpt httpCtx ctx req rDefEntity =
+                task {
+                    let linkCfg = httpCtx.RequestServices.GetRequiredService<LinkConfig<'ctx>>()
+                    let baseUrl = getBaseUrl httpCtx
+                    let shouldUseStandardLinks = linkCfg.ShouldUseStandardLinks(httpCtx)
+                    let shouldUseCustomLinks = linkCfg.ShouldUseCustomLinks(httpCtx)
+
+                    let! main, included =
+                        rDefEntity
+                        |> Option.map (fun (rDef, e) ->
+                            ResourceBuilder.ResourceBuilder(
+                                resourceModuleMap,
+                                baseUrl,
+                                [],
+                                shouldUseStandardLinks,
+                                shouldUseCustomLinks,
+                                httpCtx,
+                                ctx,
+                                req,
+                                rDef,
+                                e
+                            )
+                            |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
+                            |> Task.map (fun (res, inc) -> Some res, Include inc))
+                        |> Option.defaultValue (Task.result (None, Skip))
+
+                    return {
+                        ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
+                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        meta =
+                            httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
+                            |> Include
+                            |> Skippable.filter (fun x -> x.Count > 0)
+                        data = main
+                        included = if req.Query.ContainsKey "include" then included else Skip
+                    }
+                }
         }
 
     let boxedPatcher (resourceModule: Type) : BoxedPatcher<'ctx> =
@@ -240,20 +244,21 @@ module internal RoutingOperations =
             |> Array.countBy id
             |> Map.ofArray
 
-        fun ctx req consumedFields entity -> task {
-            let mutable result = Ok(entity, Set.empty)
+        fun ctx req consumedFields entity ->
+            task {
+                let mutable result = Ok(entity, Set.empty)
 
-            for field in fields do
-                if not <| Set.intersects field.Names consumedFields then
-                    match result with
-                    | Error _ -> ()
-                    | Ok(e, fns) ->
-                        match! field.Set ctx req e numSetters with
-                        | Ok(e, wasSet) -> result <- Ok(e, (if wasSet then Set.union field.Names fns else fns))
-                        | Error errs -> result <- Error errs
+                for field in fields do
+                    if not <| Set.intersects field.Names consumedFields then
+                        match result with
+                        | Error _ -> ()
+                        | Ok(e, fns) ->
+                            match! field.Set ctx req e numSetters with
+                            | Ok(e, wasSet) -> result <- Ok(e, (if wasSet then Set.union field.Names fns else fns))
+                            | Error errs -> result <- Error errs
 
-            return result
-        }
+                return result
+            }
 
 
     let getResource<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type[]) =
@@ -652,12 +657,13 @@ module internal RoutingOperations =
             ResourceModule.resourceLookup<'ctx> collName resourceModules
             |> Option.map (fun op ->
                 fun ctx rawId handler ->
-                    fun next httpCtx -> task {
-                        match! op.GetByIdBoxed ctx rawId with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok None -> return! handleErrors [ resourceNotFound collName rawId ] next httpCtx
-                        | Ok(Some(resDef, entity)) -> return! handler resDef entity next httpCtx
-                    })
+                    fun next httpCtx ->
+                        task {
+                            match! op.GetByIdBoxed ctx rawId with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok None -> return! handleErrors [ resourceNotFound collName rawId ] next httpCtx
+                            | Ok(Some(resDef, entity)) -> return! handler resDef entity next httpCtx
+                        })
         get = getResource resourceModuleMap getBaseUrl collName resourceModules
         patch = patchResource resourceModuleMap getBaseUrl collName resourceModules
         delete = deleteResource resourceModuleMap getBaseUrl collName resourceModules

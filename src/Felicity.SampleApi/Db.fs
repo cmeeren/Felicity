@@ -62,147 +62,162 @@ let private comments =
 
 module Person =
 
-    let search (searchArgs: PersonSearchArgs) = async {
-        let sortF f xs =
-            if searchArgs.SortDescending then
-                Seq.sortByDescending f xs
-            else
-                Seq.sortBy f xs
+    let search (searchArgs: PersonSearchArgs) =
+        async {
+            let sortF f xs =
+                if searchArgs.SortDescending then
+                    Seq.sortByDescending f xs
+                else
+                    Seq.sortBy f xs
 
-        let sort (xs: Person seq) =
-            match searchArgs.SortBy with
-            | PersonSort.FirstName -> xs |> sortF (fun p -> p.FirstName)
-            | PersonSort.LastName -> xs |> sortF (fun a -> a.LastName)
+            let sort (xs: Person seq) =
+                match searchArgs.SortBy with
+                | PersonSort.FirstName -> xs |> sortF (fun p -> p.FirstName)
+                | PersonSort.LastName -> xs |> sortF (fun a -> a.LastName)
 
-        return
-            persons.Values
-            |> Seq.filter (fun p ->
-                searchArgs.FirstName |> Option.map ((=) p.FirstName) |> Option.defaultValue true
-                && searchArgs.LastName |> Option.map ((=) p.LastName) |> Option.defaultValue true
-                && searchArgs.Twitter
-                   |> Option.map (Some >> (=) p.Twitter)
-                   |> Option.defaultValue true
-                && searchArgs.Genders
-                   |> Option.map (List.map Some >> List.contains p.Gender)
-                   |> Option.defaultValue true)
-            |> sort
-            |> Seq.safeSkip searchArgs.Offset
-            |> Seq.truncate searchArgs.Limit
-            |> Seq.toList
-    }
+            return
+                persons.Values
+                |> Seq.filter (fun p ->
+                    searchArgs.FirstName |> Option.map ((=) p.FirstName) |> Option.defaultValue true
+                    && searchArgs.LastName |> Option.map ((=) p.LastName) |> Option.defaultValue true
+                    && searchArgs.Twitter
+                       |> Option.map (Some >> (=) p.Twitter)
+                       |> Option.defaultValue true
+                    && searchArgs.Genders
+                       |> Option.map (List.map Some >> List.contains p.Gender)
+                       |> Option.defaultValue true)
+                |> sort
+                |> Seq.safeSkip searchArgs.Offset
+                |> Seq.truncate searchArgs.Limit
+                |> Seq.toList
+        }
 
-    let byId personId = async { return persons.TryFind personId }
+    let byId personId =
+        async { return persons.TryFind personId }
 
-    let authorForArticle (a: Article) = async {
-        return
-            match persons.TryFind a.AuthorId with
-            | None -> failwith "Author missing; this should never happen"
-            | Some p -> p
-    }
+    let authorForArticle (a: Article) =
+        async {
+            return
+                match persons.TryFind a.AuthorId with
+                | None -> failwith "Author missing; this should never happen"
+                | Some p -> p
+        }
 
-    let authorForComment (c: Comment) = async {
-        return
-            match persons.TryFind c.AuthorId with
-            | None -> failwith "Author missing; this should never happen"
-            | Some p -> p
-    }
+    let authorForComment (c: Comment) =
+        async {
+            return
+                match persons.TryFind c.AuthorId with
+                | None -> failwith "Author missing; this should never happen"
+                | Some p -> p
+        }
 
     let save (p: Person) = async { persons[p.Id] <- p }
 
-    let delete (p: Person) = async { persons.TryRemove p.Id |> ignore }
+    let delete (p: Person) =
+        async { persons.TryRemove p.Id |> ignore }
 
 
 module Article =
 
-    let search (searchArgs: ArticleSearchArgs) = async {
-        let sortF f xs =
-            if searchArgs.SortDescending then
-                Seq.sortByDescending f xs
-            else
-                Seq.sortBy f xs
+    let search (searchArgs: ArticleSearchArgs) =
+        async {
+            let sortF f xs =
+                if searchArgs.SortDescending then
+                    Seq.sortByDescending f xs
+                else
+                    Seq.sortBy f xs
 
-        let sort (xs: Article seq) =
-            match searchArgs.SortBy with
-            | ArticleSort.Title -> xs |> sortF (fun a -> a.Title)
-            | ArticleSort.CreatedAt -> xs |> sortF (fun a -> a.CreatedAt)
+            let sort (xs: Article seq) =
+                match searchArgs.SortBy with
+                | ArticleSort.Title -> xs |> sortF (fun a -> a.Title)
+                | ArticleSort.CreatedAt -> xs |> sortF (fun a -> a.CreatedAt)
 
-        return
-            articles.Values
-            |> Seq.filter (fun a ->
-                searchArgs.Title |> Option.map ((=) a.Title) |> Option.defaultValue true
-                && searchArgs.Types
-                   |> Option.map (List.contains a.Type)
-                   |> Option.defaultValue true
-                && searchArgs.CreatedAfter
-                   |> Option.map ((<=) a.CreatedAt)
-                   |> Option.defaultValue true
-                && searchArgs.CreatedBefore
-                   |> Option.map ((>=) a.CreatedAt)
-                   |> Option.defaultValue true)
-            |> sort
-            |> Seq.safeSkip searchArgs.Offset
-            |> Seq.truncate searchArgs.Limit
-            |> Seq.toList
-    }
+            return
+                articles.Values
+                |> Seq.filter (fun a ->
+                    searchArgs.Title |> Option.map ((=) a.Title) |> Option.defaultValue true
+                    && searchArgs.Types
+                       |> Option.map (List.contains a.Type)
+                       |> Option.defaultValue true
+                    && searchArgs.CreatedAfter
+                       |> Option.map ((<=) a.CreatedAt)
+                       |> Option.defaultValue true
+                    && searchArgs.CreatedBefore
+                       |> Option.map ((>=) a.CreatedAt)
+                       |> Option.defaultValue true)
+                |> sort
+                |> Seq.safeSkip searchArgs.Offset
+                |> Seq.truncate searchArgs.Limit
+                |> Seq.toList
+        }
 
-    let byId articleId = async { return articles.TryFind articleId }
+    let byId articleId =
+        async { return articles.TryFind articleId }
 
-    let forComment (c: Comment) = async {
-        return
-            match articles.TryFind c.ArticleId with
-            | None -> failwith "Comment missing; this should never happen"
-            | Some a -> a
-    }
+    let forComment (c: Comment) =
+        async {
+            return
+                match articles.TryFind c.ArticleId with
+                | None -> failwith "Comment missing; this should never happen"
+                | Some a -> a
+        }
 
-    let allByAuthor (p: Person) = async {
-        return
-            articles.Values
-            |> Seq.filter (fun a -> a.AuthorId = p.Id)
-            |> Seq.sortByDescending (fun a -> a.CreatedAt)
-            |> Seq.toList
-    }
+    let allByAuthor (p: Person) =
+        async {
+            return
+                articles.Values
+                |> Seq.filter (fun a -> a.AuthorId = p.Id)
+                |> Seq.sortByDescending (fun a -> a.CreatedAt)
+                |> Seq.toList
+        }
 
     let save (a: Article) = async { articles[a.Id] <- a }
 
-    let delete (a: Article) = async { articles.TryRemove a.Id |> ignore }
+    let delete (a: Article) =
+        async { articles.TryRemove a.Id |> ignore }
 
 
 module Comment =
 
-    let search (searchArgs: CommentSearchArgs) = async {
-        let sortF f xs =
-            if searchArgs.SortDescending then
-                Seq.sortByDescending f xs
-            else
-                Seq.sortBy f xs
+    let search (searchArgs: CommentSearchArgs) =
+        async {
+            let sortF f xs =
+                if searchArgs.SortDescending then
+                    Seq.sortByDescending f xs
+                else
+                    Seq.sortBy f xs
 
-        let sort (xs: Comment seq) =
-            match searchArgs.SortBy with
-            | CommentSort.CreatedAt -> xs |> sortF (fun c -> c.CreatedAt)
+            let sort (xs: Comment seq) =
+                match searchArgs.SortBy with
+                | CommentSort.CreatedAt -> xs |> sortF (fun c -> c.CreatedAt)
 
-        return
-            comments.Values
-            |> Seq.filter (fun c ->
-                searchArgs.Author |> Option.map ((=) c.AuthorId) |> Option.defaultValue true
-                && searchArgs.AuthorFirstName
-                   |> Option.map (fun fn -> persons.TryFind c.AuthorId |> Option.map (fun p -> p.FirstName) = Some fn)
-                   |> Option.defaultValue true)
-            |> sort
-            |> Seq.safeSkip searchArgs.Offset
-            |> Seq.truncate searchArgs.Limit
-            |> Seq.toList
-    }
+            return
+                comments.Values
+                |> Seq.filter (fun c ->
+                    searchArgs.Author |> Option.map ((=) c.AuthorId) |> Option.defaultValue true
+                    && searchArgs.AuthorFirstName
+                       |> Option.map (fun fn ->
+                           persons.TryFind c.AuthorId |> Option.map (fun p -> p.FirstName) = Some fn)
+                       |> Option.defaultValue true)
+                |> sort
+                |> Seq.safeSkip searchArgs.Offset
+                |> Seq.truncate searchArgs.Limit
+                |> Seq.toList
+        }
 
-    let byId commentId = async { return comments.TryFind commentId }
+    let byId commentId =
+        async { return comments.TryFind commentId }
 
-    let allForArticle (a: Article) = async {
-        return
-            comments.Values
-            |> Seq.filter (fun c -> c.ArticleId = a.Id)
-            |> Seq.sortByDescending (fun c -> c.CreatedAt)
-            |> Seq.toList
-    }
+    let allForArticle (a: Article) =
+        async {
+            return
+                comments.Values
+                |> Seq.filter (fun c -> c.ArticleId = a.Id)
+                |> Seq.sortByDescending (fun c -> c.CreatedAt)
+                |> Seq.toList
+        }
 
     let save (c: Comment) = async { comments[c.Id] <- c }
 
-    let delete (c: Comment) = async { comments.TryRemove c.Id |> ignore }
+    let delete (c: Comment) =
+        async { comments.TryRemove c.Id |> ignore }

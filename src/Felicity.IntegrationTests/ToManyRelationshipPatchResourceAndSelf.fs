@@ -45,19 +45,17 @@ type Db() =
         Map.empty
         |> Map.add
             "p1"
-            (P1
-                {
-                    Id = "p1"
-                    Children = [ C1 { Id = "c1"; Child = { Id = "c3" } }; C2 { Id = "c2" } ]
-                    OtherChildIds = [ "c2"; "c1" ]
-                })
+            (P1 {
+                Id = "p1"
+                Children = [ C1 { Id = "c1"; Child = { Id = "c3" } }; C2 { Id = "c2" } ]
+                OtherChildIds = [ "c2"; "c1" ]
+            })
         |> Map.add
             "p2"
-            (P2
-                {
-                    Id = "p2"
-                    Children = [ C2 { Id = "c2" }; C1 { Id = "c1"; Child = { Id = "c3" } } ]
-                })
+            (P2 {
+                Id = "p2"
+                Children = [ C2 { Id = "c2" }; C1 { Id = "c1"; Child = { Id = "c3" } } ]
+            })
         |> Map.add "p3" (P3 { Id = "p3" })
         |> Map.add "p4" (P4 { Id = "p4" })
 
@@ -75,19 +73,18 @@ type Db() =
     member _.Save2(p2: Parent2) = parents <- parents.Add(p2.Id, P2 p2)
 
 
-type Ctx =
-    {
-        Db: Db
-        ModifyPatchSelfOkResponse: Parent1 -> Child list -> HttpHandler
-        ModifyPatchSelfAcceptedResponse: Parent1 -> HttpHandler
-        GetParent1Children: Parent1 -> Child list Skippable
-        SetChildren1: Child list -> Parent1 -> Result<Parent1, Error list>
-        SetOtherChildrenIds1: string list -> Parent1 -> Result<Parent1, Error list>
-        ParseChild2Id: string -> Result<string, Error list>
-        LookupChild: string -> Result<Child option, Error list>
-        BeforeModifySelf1: Parent1 -> Result<unit, Error list>
-        AfterUpdate1: Parent1 -> Parent1 -> unit
-    }
+type Ctx = {
+    Db: Db
+    ModifyPatchSelfOkResponse: Parent1 -> Child list -> HttpHandler
+    ModifyPatchSelfAcceptedResponse: Parent1 -> HttpHandler
+    GetParent1Children: Parent1 -> Child list Skippable
+    SetChildren1: Child list -> Parent1 -> Result<Parent1, Error list>
+    SetOtherChildrenIds1: string list -> Parent1 -> Result<Parent1, Error list>
+    ParseChild2Id: string -> Result<string, Error list>
+    LookupChild: string -> Result<Child option, Error list>
+    BeforeModifySelf1: Parent1 -> Result<unit, Error list>
+    AfterUpdate1: Parent1 -> Parent1 -> unit
+} with
 
     static member WithDb db = {
         Db = db
@@ -460,27 +457,20 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1?include=children,otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                        {| ``type`` = "child1"; id = "c1" |}
-                                    ]
-                                |}
-                                otherChildren = {|
-                                    data = [
-                                        {| ``type`` = "child1"; id = "c1" |}
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
+                            |}
+                            otherChildren = {|
+                                data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -511,21 +501,17 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p2?include=children"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent2"
-                            id = "p2"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child1"; id = "c1" |}
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent2"
+                        id = "p2"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -546,28 +532,24 @@ let tests1 =
         testJob "Related setter returns errors returned by related lookup's getById for each lookup" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     LookupChild = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child1"; id = "c1" |}
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -584,28 +566,24 @@ let tests1 =
         testJob "Related setter returns errors returned by setter" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     SetChildren1 = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child1"; id = "c1" |}
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -619,28 +597,24 @@ let tests1 =
         testJob "Related setter returns 404 for each related resource that is not found" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     LookupChild = fun _ -> Ok None
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                        {| ``type`` = "child1"; id = "c1" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -667,28 +641,24 @@ let tests1 =
         testJob "Related setter returns 404 for each related ID that fails to parse" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ParseChild2Id = fun _ -> Error [ Error.create 422 ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                        {| ``type`` = "child2"; id = "c22" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -715,21 +685,20 @@ let tests1 =
         testJob "ID setter returns errors returned by setter" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     SetOtherChildrenIds1 = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {| otherChildren = {| data = [] |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {| otherChildren = {| data = [] |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -743,28 +712,24 @@ let tests1 =
         testJob "ID setter returns 404 for each related ID that fails to parse" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ParseChild2Id = fun _ -> Error [ Error.create 422 ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                otherChildren = {|
-                                    data = [
-                                        {| ``type`` = "child2"; id = "c2" |}
-                                        {| ``type`` = "child2"; id = "c22" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            otherChildren = {|
+                                data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -793,14 +758,13 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p3"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent3"
-                            id = "p3"
-                            relationships = {| children = {| data = [] |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent3"
+                        id = "p3"
+                        relationships = {| children = {| data = [] |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -816,14 +780,13 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p3"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent3"
-                            id = "p3"
-                            relationships = {| supportsPost = {| data = [] |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent3"
+                        id = "p3"
+                        relationships = {| supportsPost = {| data = [] |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -844,14 +807,13 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p3"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent3"
-                            id = "p3"
-                            relationships = {| supportsDelete = {| data = [] |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent3"
+                        id = "p3"
+                        relationships = {| supportsDelete = {| data = [] |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -872,16 +834,15 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p3"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent3"
-                            id = "p3"
-                            relationships = {|
-                                supportsPostAndDelete = {| data = [] |}
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent3"
+                        id = "p3"
+                        relationships = {|
+                            supportsPostAndDelete = {| data = [] |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -902,14 +863,13 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {| children = obj () |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {| children = obj () |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -930,21 +890,20 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "invalid1"; id = "foo1" |}
-                                        {| ``type`` = "invalid2"; id = "foo2" |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [
+                                    {| ``type`` = "invalid1"; id = "foo1" |}
+                                    {| ``type`` = "invalid2"; id = "foo2" |}
+                                ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 409
@@ -973,14 +932,13 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {| children = {| data = null |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {| children = {| data = null |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -996,18 +954,17 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1026,18 +983,17 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [ {| id = "foo" |}; {| id = "bar" |} ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| id = "foo" |}; {| id = "bar" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1056,18 +1012,17 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [ {| ``type`` = null; id = "foo" |}; {| ``type`` = null; id = "bar" |} ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = null; id = "foo" |}; {| ``type`` = null; id = "bar" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1086,18 +1041,17 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [ {| ``type`` = "child2" |}; {| ``type`` = "child2" |} ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child2" |}; {| ``type`` = "child2" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1116,21 +1070,17 @@ let tests1 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent1"
-                            id = "p1"
-                            relationships = {|
-                                children = {|
-                                    data = [
-                                        {| ``type`` = "child2"; id = null |}
-                                        {| ``type`` = "child2"; id = null |}
-                                    ]
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent1"
+                        id = "p1"
+                        relationships = {|
+                            children = {|
+                                data = [ {| ``type`` = "child2"; id = null |}; {| ``type`` = "child2"; id = null |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1154,17 +1104,16 @@ let tests2 =
         testJob "Parent1.children: Returns 200, modifies response, saves, and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyPatchSelfOkResponse = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -1197,10 +1146,9 @@ let tests2 =
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children/"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -1212,10 +1160,9 @@ let tests2 =
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children?include=children.subChild,otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -1245,17 +1192,16 @@ let tests2 =
         testJob "Parent1.otherChildren: Returns 202, modifies response, saves, and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyPatchSelfAcceptedResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 202
@@ -1294,17 +1240,16 @@ let tests2 =
                 test <@ before = pOrig @>
                 test <@ after = pExpected @>
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     AfterUpdate1 = afterUpdate
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -1443,11 +1388,11 @@ let tests2 =
         testJob "Returns errors and does not call AfterModifySelf when BeforeModifySelf returns errors" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     BeforeModifySelf1 = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
                     AfterUpdate1 = fun _ _ -> failwith "should not be called"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
@@ -1486,17 +1431,16 @@ let tests2 =
         testJob "Related setter returns errors returned by related lookup's getById for each lookup" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     LookupChild = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -1513,17 +1457,16 @@ let tests2 =
         testJob "Related setter returns errors returned by setter" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     SetChildren1 = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -1537,17 +1480,16 @@ let tests2 =
         testJob "Related setter returns 404 for each related resource that is not found" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     LookupChild = fun _ -> Ok None
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -1574,17 +1516,16 @@ let tests2 =
         testJob "Related setter returns 404 for each related ID that fails to parse" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ParseChild2Id = fun _ -> Error [ Error.create 422 ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -1611,10 +1552,10 @@ let tests2 =
         testJob "ID setter returns errors returned by setter" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     SetOtherChildrenIds1 = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/otherChildren"
@@ -1632,17 +1573,16 @@ let tests2 =
         testJob "ID setter returns 404 for each related ID that fails to parse" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ParseChild2Id = fun _ -> Error [ Error.create 422 ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -1888,10 +1828,9 @@ let tests2 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1910,10 +1849,9 @@ let tests2 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| id = "p1" |}; {| id = "p2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| id = "p1" |}; {| id = "p2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1932,10 +1870,9 @@ let tests2 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = null; id = "c2" |}; {| ``type`` = null; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = null; id = "c2" |}; {| ``type`` = null; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1954,10 +1891,9 @@ let tests2 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2" |}; {| ``type`` = "child2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2" |}; {| ``type`` = "child2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1976,10 +1912,9 @@ let tests2 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = null |}; {| ``type`` = "child2"; id = null |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = null |}; {| ``type`` = "child2"; id = null |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1998,13 +1933,12 @@ let tests2 =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [
-                            {| ``type`` = "invalid1"; id = "foo1" |}
-                            {| ``type`` = "invalid2"; id = "foo2" |}
-                        ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [
+                        {| ``type`` = "invalid1"; id = "foo1" |}
+                        {| ``type`` = "invalid2"; id = "foo2" |}
+                    ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 409
@@ -2031,17 +1965,16 @@ let tests2 =
         testJob "Saves and returns 500 if Skip after update" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Children = fun _ -> Skip
-                }
+            }
 
             let! response =
                 Request.patch ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child1"; id = "c1" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 500

@@ -31,14 +31,13 @@ let tests =
         testJob "Error.appendPointer works for attribute set errors" {
             let! response =
                 Request.patch Ctx "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400

@@ -47,12 +47,11 @@ type Db() =
         Map.empty
         |> Map.add
             "p1"
-            (P1
-                {
-                    Id = "p1"
-                    Children = [ C1 { Id = "c1"; Child = { Id = "c3" } }; C2 { Id = "c2" }; C2 { Id = "c22" } ]
-                    OtherChildIds = [ "c22"; "c2"; "c1" ]
-                })
+            (P1 {
+                Id = "p1"
+                Children = [ C1 { Id = "c1"; Child = { Id = "c3" } }; C2 { Id = "c2" }; C2 { Id = "c22" } ]
+                OtherChildIds = [ "c22"; "c2"; "c1" ]
+            })
         |> Map.add "p3" (P3 { Id = "p3" })
         |> Map.add "p4" (P4 { Id = "p4" })
 
@@ -69,19 +68,18 @@ type Db() =
     member _.Save1(p1: Parent1) = parents <- parents.Add(p1.Id, P1 p1)
 
 
-type Ctx =
-    {
-        Db: Db
-        ModifyDeleteSelfOkResponse: Parent1 -> Child list -> HttpHandler
-        ModifyDeleteSelfAcceptedResponse: Parent1 -> HttpHandler
-        GetParent1Children: Parent1 -> Child list Skippable
-        DeleteChildren1: string list -> Parent1 -> Result<Parent1, Error list>
-        DeleteOtherChildrenIds1: string list -> Parent1 -> Result<Parent1, Error list>
-        ParseChild2Id: string -> Result<string, Error list>
-        LookupChild: string -> Result<Child option, Error list>
-        BeforeModifySelf1: Parent1 -> Result<unit, Error list>
-        AfterUpdate1: Parent1 -> Parent1 -> unit
-    }
+type Ctx = {
+    Db: Db
+    ModifyDeleteSelfOkResponse: Parent1 -> Child list -> HttpHandler
+    ModifyDeleteSelfAcceptedResponse: Parent1 -> HttpHandler
+    GetParent1Children: Parent1 -> Child list Skippable
+    DeleteChildren1: string list -> Parent1 -> Result<Parent1, Error list>
+    DeleteOtherChildrenIds1: string list -> Parent1 -> Result<Parent1, Error list>
+    ParseChild2Id: string -> Result<string, Error list>
+    LookupChild: string -> Result<Child option, Error list>
+    BeforeModifySelf1: Parent1 -> Result<unit, Error list>
+    AfterUpdate1: Parent1 -> Parent1 -> unit
+} with
 
     static member WithDb db = {
         Db = db
@@ -90,16 +88,16 @@ type Ctx =
         GetParent1Children = fun p -> Include p.Children
         DeleteChildren1 =
             fun cIds p ->
-                Ok
-                    { p with
+                Ok {
+                    p with
                         Children = p.Children |> List.filter (fun c' -> cIds |> List.contains c'.Id |> not)
-                    }
+                }
         DeleteOtherChildrenIds1 =
             fun ids p ->
-                Ok
-                    { p with
+                Ok {
+                    p with
                         OtherChildIds = p.OtherChildIds |> List.except ids
-                    }
+                }
         ParseChild2Id = Ok
         LookupChild = db.TryGetChild >> Ok
         BeforeModifySelf1 = fun _ -> Ok()
@@ -408,17 +406,16 @@ let tests =
         testJob "Parent1.children: Returns 200, modifies response, saves, and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyDeleteSelfOkResponse = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -447,10 +444,9 @@ let tests =
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children/"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -462,10 +458,9 @@ let tests =
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children?include=children.subChild,otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -489,17 +484,16 @@ let tests =
         testJob "Parent1.otherChildren: Returns 202, modifies response, saves, and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyDeleteSelfAcceptedResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c22" |}; {| ``type`` = "child2"; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c22" |}; {| ``type`` = "child2"; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 202
@@ -538,17 +532,16 @@ let tests =
                 test <@ before = pOrig @>
                 test <@ after = pExpected @>
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     AfterUpdate1 = afterUpdate
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child1"; id = "c1" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -650,11 +643,11 @@ let tests =
         testJob "Returns errors and does not call AfterModifySelf when BeforeModifySelf returns errors" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     BeforeModifySelf1 = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
                     AfterUpdate1 = fun _ _ -> failwith "should not be called"
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children"
@@ -672,17 +665,16 @@ let tests =
         testJob "Setter 1: returns errors returned by setter" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteChildren1 = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c22" |}; {| ``type`` = "child2"; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c22" |}; {| ``type`` = "child2"; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -696,17 +688,16 @@ let tests =
         testJob "Setter 1: returns 404 for each related ID that fails to parse" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ParseChild2Id = fun _ -> Error [ Error.create 422 ]
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -733,10 +724,10 @@ let tests =
         testJob "Setter 2: returns errors returned by setter" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteOtherChildrenIds1 = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/otherChildren"
@@ -754,17 +745,16 @@ let tests =
         testJob "Setter 2: returns 404 for each related ID that fails to parse" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ParseChild2Id = fun _ -> Error [ Error.create 422 ]
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/otherChildren"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -1015,10 +1005,9 @@ let tests =
 
             let! response =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ null; box {| ``type`` = "child2"; id = "foo" |}; null ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1037,10 +1026,9 @@ let tests =
 
             let! response =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| id = "p1" |}; {| id = "p2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| id = "p1" |}; {| id = "p2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1059,10 +1047,9 @@ let tests =
 
             let! response =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = null; id = "c2" |}; {| ``type`` = null; id = "c2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = null; id = "c2" |}; {| ``type`` = null; id = "c2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1081,10 +1068,9 @@ let tests =
 
             let! response =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2" |}; {| ``type`` = "child2" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2" |}; {| ``type`` = "child2" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1103,10 +1089,9 @@ let tests =
 
             let! response =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = null |}; {| ``type`` = "child2"; id = null |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = null |}; {| ``type`` = "child2"; id = null |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1125,13 +1110,12 @@ let tests =
 
             let! response =
                 Request.delete (Ctx.WithDb db) "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [
-                            {| ``type`` = "invalid1"; id = "foo1" |}
-                            {| ``type`` = "invalid2"; id = "foo2" |}
-                        ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [
+                        {| ``type`` = "invalid1"; id = "foo1" |}
+                        {| ``type`` = "invalid2"; id = "foo2" |}
+                    ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 409
@@ -1158,17 +1142,16 @@ let tests =
         testJob "Saves and returns 500 if Skip after update" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Children = fun _ -> Skip
-                }
+            }
 
             let! response =
                 Request.delete ctx "/parents/p1/relationships/children"
-                |> Request.bodySerialized
-                    {|
-                        data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
-                    |}
+                |> Request.bodySerialized {|
+                    data = [ {| ``type`` = "child2"; id = "c2" |}; {| ``type`` = "child2"; id = "c22" |} ]
+                |}
                 |> getResponse
 
             response |> testStatusCode 500

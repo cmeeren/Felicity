@@ -127,10 +127,11 @@ module D =
         define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
-            .PostAsync(fun ctx parser responder _ -> async {
-                do! Async.Sleep 10000
-                return setStatusCode 200 |> Ok
-            })
+            .PostAsync(fun ctx parser responder _ ->
+                async {
+                    do! Async.Sleep 10000
+                    return setStatusCode 200 |> Ok
+                })
 
 
 type ResourceId =
@@ -142,52 +143,55 @@ type ResourceId =
 let customGlobalLock =
     let semaphore = new SemaphoreSlim(1)
 
-    fun () -> async {
-        let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5) |> Async.AwaitTask
+    fun () ->
+        async {
+            let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5) |> Async.AwaitTask
 
-        if success then
-            return
-                Some
-                    { new IDisposable with
-                        member _.Dispose() = semaphore.Release() |> ignore
-                    }
-        else
-            return None
-    }
+            if success then
+                return
+                    Some
+                        { new IDisposable with
+                            member _.Dispose() = semaphore.Release() |> ignore
+                        }
+            else
+                return None
+        }
 
 
 let customIdLock =
     let semaphores = ConcurrentDictionary<string, SemaphoreSlim>()
 
-    fun (ResourceId id) -> async {
-        let sem =
-            lock semaphores (fun () -> semaphores.GetOrAdd(id, (fun _ -> new SemaphoreSlim(1))))
+    fun (ResourceId id) ->
+        async {
+            let sem =
+                lock semaphores (fun () -> semaphores.GetOrAdd(id, (fun _ -> new SemaphoreSlim(1))))
 
-        do! sem.WaitAsync() |> Async.AwaitTask
+            do! sem.WaitAsync() |> Async.AwaitTask
 
-        return
-            Some
-                { new IDisposable with
-                    member _.Dispose() = sem.Release() |> ignore
-                }
-    }
+            return
+                Some
+                    { new IDisposable with
+                        member _.Dispose() = sem.Release() |> ignore
+                    }
+        }
 
 
 let customIdLockTimeout =
     let semaphore = new SemaphoreSlim(1)
 
-    fun (_id: string) -> async {
-        let! success = semaphore.WaitAsync(TimeSpan.FromMilliseconds 10) |> Async.AwaitTask
+    fun (_id: string) ->
+        async {
+            let! success = semaphore.WaitAsync(TimeSpan.FromMilliseconds 10) |> Async.AwaitTask
 
-        if success then
-            return
-                Some
-                    { new IDisposable with
-                        member _.Dispose() = semaphore.Release() |> ignore
-                    }
-        else
-            return None
-    }
+            if success then
+                return
+                    Some
+                        { new IDisposable with
+                            member _.Dispose() = semaphore.Release() |> ignore
+                        }
+            else
+                return None
+        }
 
 
 module E =
@@ -262,10 +266,11 @@ module G =
         define.Operation
             .CustomLink()
             .ValidateStrictModeQueryParams()
-            .PostAsync(fun ctx parser responder _ -> async {
-                do! Async.Sleep 10000
-                return setStatusCode 200 |> Ok
-            })
+            .PostAsync(fun ctx parser responder _ ->
+                async {
+                    do! Async.Sleep 10000
+                    return setStatusCode 200 |> Ok
+                })
 
 
 
@@ -307,31 +312,32 @@ type MultiLockCtx = MultiLockCtx of MultiLockState * MultiLockState * MultiLockS
 
 
 let multiLock (state: MultiLockState) (semaphores: ConcurrentDictionary<string, SemaphoreSlim>) =
-    fun (ResourceId id) -> async {
-        let sem =
-            lock semaphores (fun () -> semaphores.GetOrAdd(id, (fun _ -> new SemaphoreSlim(1))))
+    fun (ResourceId id) ->
+        async {
+            let sem =
+                lock semaphores (fun () -> semaphores.GetOrAdd(id, (fun _ -> new SemaphoreSlim(1))))
 
-        match state.Result with
-        | Success waitMs ->
-            do! Async.Sleep waitMs
-            do! sem.WaitAsync() |> Async.AwaitTask
-            state.LockTaken <- true
-            state.IsLocked <- true
+            match state.Result with
+            | Success waitMs ->
+                do! Async.Sleep waitMs
+                do! sem.WaitAsync() |> Async.AwaitTask
+                state.LockTaken <- true
+                state.IsLocked <- true
 
-            return
-                Some
-                    { new IDisposable with
-                        member _.Dispose() =
-                            sem.Release() |> ignore
-                            state.IsLocked <- false
-                    }
-        | Timeout waitMs ->
-            do! Async.Sleep waitMs
-            return None
-        | Exn waitMs ->
-            do! Async.Sleep waitMs
-            return failwith "test lock error"
-    }
+                return
+                    Some
+                        { new IDisposable with
+                            member _.Dispose() =
+                                sem.Release() |> ignore
+                                state.IsLocked <- false
+                        }
+            | Timeout waitMs ->
+                do! Async.Sleep waitMs
+                return None
+            | Exn waitMs ->
+                do! Async.Sleep waitMs
+                return failwith "test lock error"
+        }
 
 
 
@@ -661,17 +667,16 @@ let tests =
                     Request.createWithClient testClient Post (Uri("http://example.com/bs/someId/customOp"))
 
                     Request.createWithClient testClient Post (Uri("http://example.com/cs"))
-                    |> Request.bodySerialized
-                        {|
-                            data = {|
-                                ``type`` = "c"
-                                relationships = {|
-                                    b = {|
-                                        data = {| ``type`` = "b"; id = "someId" |}
-                                    |}
+                    |> Request.bodySerialized {|
+                        data = {|
+                            ``type`` = "c"
+                            relationships = {|
+                                b = {|
+                                    data = {| ``type`` = "b"; id = "someId" |}
                                 |}
                             |}
                         |}
+                    |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
                 |> Array.replicate 500
@@ -692,17 +697,16 @@ let tests =
             do!
                 [|
                     Request.createWithClient testClient Post (Uri("http://example.com/c2s"))
-                    |> Request.bodySerialized
-                        {|
-                            data = {|
-                                ``type`` = "c2"
-                                relationships = {|
-                                    bNullable = {|
-                                        data = {| ``type`` = "b"; id = "someId" |}
-                                    |}
+                    |> Request.bodySerialized {|
+                        data = {|
+                            ``type`` = "c2"
+                            relationships = {|
+                                bNullable = {|
+                                    data = {| ``type`` = "b"; id = "someId" |}
                                 |}
                             |}
                         |}
+                    |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
                 |> Array.replicate 1000
@@ -723,13 +727,12 @@ let tests =
             do!
                 [|
                     Request.createWithClient testClient Post (Uri("http://example.com/c2s"))
-                    |> Request.bodySerialized
-                        {|
-                            data = {|
-                                ``type`` = "c2"
-                                relationships = {| bNullable = {| data = null |} |}
-                            |}
+                    |> Request.bodySerialized {|
+                        data = {|
+                            ``type`` = "c2"
+                            relationships = {| bNullable = {| data = null |} |}
                         |}
+                    |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
                 |> Array.replicate 1000
@@ -832,17 +835,16 @@ let tests =
                     Request.createWithClient testClient Post (Uri("http://example.com/es/someId/customOp"))
 
                     Request.createWithClient testClient Post (Uri("http://example.com/fs"))
-                    |> Request.bodySerialized
-                        {|
-                            data = {|
-                                ``type`` = "f"
-                                relationships = {|
-                                    e = {|
-                                        data = {| ``type`` = "e"; id = "someId" |}
-                                    |}
+                    |> Request.bodySerialized {|
+                        data = {|
+                            ``type`` = "f"
+                            relationships = {|
+                                e = {|
+                                    data = {| ``type`` = "e"; id = "someId" |}
                                 |}
                             |}
                         |}
+                    |}
                 |]
                 |> Array.map (Request.jsonApiHeaders >> getResponse)
                 |> Array.replicate 500
@@ -1214,17 +1216,16 @@ let tests =
             let! resp =
                 Request.createWithClient testClient Post (Uri("http://example.com/ls"))
                 |> Request.jsonApiHeaders
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "l"
-                            relationships = {|
-                                j = {|
-                                    data = {| ``type`` = "j"; id = "someId" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "l"
+                        relationships = {|
+                            j = {|
+                                data = {| ``type`` = "j"; id = "someId" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             resp |> testSuccessStatusCode
@@ -1280,13 +1281,12 @@ let tests =
 
             let! resp =
                 Request.createWithClient testClient Post (Uri("http://example.com/qs"))
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "q"
-                            relationships = {| k = {| data = null |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "q"
+                        relationships = {| k = {| data = null |} |}
                     |}
+                |}
                 |> Request.jsonApiHeaders
                 |> getResponse
 

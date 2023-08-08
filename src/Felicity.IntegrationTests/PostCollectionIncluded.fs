@@ -143,75 +143,74 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
+                                |}
+                            |}
+                        |}
+                    |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {|
+                                name = "childName"
+                                name2 = "childName2"
+                            |}
                             relationships = {|
                                 child = {|
                                     data = {|
-                                        ``type`` = "child"
+                                        ``type`` = "grandChild"
                                         id = "ignoredId"
                                     |}
                                 |}
                             |}
                         |}
+                        |> box
 
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {|
-                                    name = "childName"
-                                    name2 = "childName2"
-                                |}
-                                relationships = {|
-                                    child = {|
-                                        data = {|
-                                            ``type`` = "grandChild"
+                        {|
+                            ``type`` = "grandChild"
+                            id = "ignoredId"
+                            attributes = {| name = "grandChildName" |}
+                            relationships = {|
+                                children = {|
+                                    data = [|
+                                        {|
+                                            ``type`` = "greatGrandChild"
                                             id = "ignoredId"
                                         |}
-                                    |}
+                                        {|
+                                            ``type`` = "greatGrandChild"
+                                            id = "ignoredId2"
+                                        |}
+                                    |]
                                 |}
                             |}
-                            |> box
+                        |}
+                        |> box
 
-                            {|
-                                ``type`` = "grandChild"
-                                id = "ignoredId"
-                                attributes = {| name = "grandChildName" |}
-                                relationships = {|
-                                    children = {|
-                                        data = [|
-                                            {|
-                                                ``type`` = "greatGrandChild"
-                                                id = "ignoredId"
-                                            |}
-                                            {|
-                                                ``type`` = "greatGrandChild"
-                                                id = "ignoredId2"
-                                            |}
-                                        |]
-                                    |}
-                                |}
-                            |}
-                            |> box
+                        {|
+                            ``type`` = "greatGrandChild"
+                            id = "ignoredId1"
+                        |}
+                        |> box
 
-                            {|
-                                ``type`` = "greatGrandChild"
-                                id = "ignoredId1"
-                            |}
-                            |> box
+                        {|
+                            ``type`` = "greatGrandChild"
+                            id = "ignoredId2"
+                        |}
+                        |> box
 
-                            {|
-                                ``type`` = "greatGrandChild"
-                                id = "ignoredId2"
-                            |}
-                            |> box
-
-                        |]
-                    |}
+                    |]
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -225,12 +224,11 @@ let tests =
                     Name = "childName"
                     Name2 = Some "childName2"
                     Child =
-                        Some
-                            {
-                                Id = "gc1"
-                                Name = "grandChildName"
-                                Children = [ { Id = "ggc1" }; { Id = "ggc1" } ]
-                            }
+                        Some {
+                            Id = "gc1"
+                            Name = "grandChildName"
+                            Children = [ { Id = "ggc1" }; { Id = "ggc1" } ]
+                        }
                 }
             }
 
@@ -243,32 +241,31 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {| child = {| data = null |} |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {| child = {| data = null |} |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -294,32 +291,31 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents/"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {| child = {| data = null |} |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {| child = {| data = null |} |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -344,32 +340,31 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = obj ()
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = obj ()
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -385,32 +380,31 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {| child = null |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {| child = null |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -426,31 +420,30 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -466,47 +459,46 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
+                                |}
+                            |}
+                        |}
+                    |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
                             relationships = {|
                                 child = {|
                                     data = {|
-                                        ``type`` = "child"
+                                        ``type`` = "grandChild"
                                         id = "ignoredId"
                                     |}
                                 |}
                             |}
                         |}
+                        |> box
 
-                        included = [|
+                        {|
+                            ``type`` = "grandChild"
+                            id = "ignoredId"
+                            attributes = {| name = "grandChildName" |}
+                            relationships = obj ()
+                        |}
+                        |> box
 
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {|
-                                        data = {|
-                                            ``type`` = "grandChild"
-                                            id = "ignoredId"
-                                        |}
-                                    |}
-                                |}
-                            |}
-                            |> box
-
-                            {|
-                                ``type`` = "grandChild"
-                                id = "ignoredId"
-                                attributes = {| name = "grandChildName" |}
-                                relationships = obj ()
-                            |}
-                            |> box
-
-                        |]
-                    |}
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -522,46 +514,45 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
+                                |}
+                            |}
+                        |}
+                    |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
                             relationships = {|
                                 child = {|
                                     data = {|
-                                        ``type`` = "child"
+                                        ``type`` = "grandChild"
                                         id = "ignoredId"
                                     |}
                                 |}
                             |}
                         |}
+                        |> box
 
-                        included = [|
+                        {|
+                            ``type`` = "grandChild"
+                            id = "ignoredId"
+                            attributes = {| name = "grandChildName" |}
+                        |}
+                        |> box
 
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {|
-                                        data = {|
-                                            ``type`` = "grandChild"
-                                            id = "ignoredId"
-                                        |}
-                                    |}
-                                |}
-                            |}
-                            |> box
-
-                            {|
-                                ``type`` = "grandChild"
-                                id = "ignoredId"
-                                attributes = {| name = "grandChildName" |}
-                            |}
-                            |> box
-
-                        |]
-                    |}
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -577,32 +568,31 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = obj ()
-                                relationships = {| child = {| data = null |} |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = obj ()
+                            relationships = {| child = {| data = null |} |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -618,31 +608,30 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                relationships = {| child = {| data = null |} |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            relationships = {| child = {| data = null |} |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -658,22 +647,21 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [||]
                     |}
+
+                    included = [||]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -694,20 +682,19 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -744,32 +731,31 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {| child = obj |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {| child = obj |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -788,36 +774,35 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
+                    |}
 
-                        included = [|
+                    included = [|
 
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {|
-                                        data = {| ``type`` = "invalid"; id = "foo" |}
-                                    |}
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "invalid"; id = "foo" |}
                                 |}
                             |}
-                            |> box
+                        |}
+                        |> box
 
-                        |]
-                    |}
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 409
@@ -838,34 +823,33 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {| data = {| id = "foo" |} |}
-                                |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {|
+                                child = {| data = {| id = "foo" |} |}
+                            |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -882,36 +866,35 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
+                    |}
 
-                        included = [|
+                    included = [|
 
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {|
-                                        data = {| ``type`` = null; id = "foo" |}
-                                    |}
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = null; id = "foo" |}
                                 |}
                             |}
-                            |> box
+                        |}
+                        |> box
 
-                        |]
-                    |}
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -927,34 +910,33 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
-
-                        included = [|
-
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {| data = {| ``type`` = "child" |} |}
-                                |}
-                            |}
-                            |> box
-
-                        |]
                     |}
+
+                    included = [|
+
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {|
+                                child = {| data = {| ``type`` = "child" |} |}
+                            |}
+                        |}
+                        |> box
+
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -971,36 +953,35 @@ let tests =
 
             let! response =
                 Request.post (Ctx db) "/parents"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "parent"
-                            relationships = {|
-                                child = {|
-                                    data = {|
-                                        ``type`` = "child"
-                                        id = "ignoredId"
-                                    |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "parent"
+                        relationships = {|
+                            child = {|
+                                data = {|
+                                    ``type`` = "child"
+                                    id = "ignoredId"
                                 |}
                             |}
                         |}
+                    |}
 
-                        included = [|
+                    included = [|
 
-                            {|
-                                ``type`` = "child"
-                                id = "ignoredId"
-                                attributes = {| name = "childName" |}
-                                relationships = {|
-                                    child = {|
-                                        data = {| ``type`` = "child"; id = null |}
-                                    |}
+                        {|
+                            ``type`` = "child"
+                            id = "ignoredId"
+                            attributes = {| name = "childName" |}
+                            relationships = {|
+                                child = {|
+                                    data = {| ``type`` = "child"; id = null |}
                                 |}
                             |}
-                            |> box
+                        |}
+                        |> box
 
-                        |]
-                    |}
+                    |]
+                |}
                 |> getResponse
 
             response |> testStatusCode 400

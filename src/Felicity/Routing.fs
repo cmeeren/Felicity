@@ -14,28 +14,30 @@ type internal JsonApiEndpoints<'ctx> = JsonApiEndpoints of Endpoint list
 
 
 let verifyPathCase expectedPath : HttpHandler =
-    fun next ctx -> task {
-        let actualPath = ctx.Request.Path.Value
-        let actualPath = if actualPath = "/" then "/" else actualPath.TrimEnd('/')
+    fun next ctx ->
+        task {
+            let actualPath = ctx.Request.Path.Value
+            let actualPath = if actualPath = "/" then "/" else actualPath.TrimEnd('/')
 
-        let expectedPath =
-            if expectedPath = "/" then
-                "/"
+            let expectedPath =
+                if expectedPath = "/" then
+                    "/"
+                else
+                    expectedPath.TrimEnd('/')
+
+            if actualPath = expectedPath then
+                return! next ctx
             else
-                expectedPath.TrimEnd('/')
-
-        if actualPath = expectedPath then
-            return! next ctx
-        else
-            return! handleErrors [ incorrectPathCase actualPath expectedPath ] next ctx
-    }
+                return! handleErrors [ incorrectPathCase actualPath expectedPath ] next ctx
+        }
 
 
 let internal route1 (path: string) (paramName: string) (handler: string -> HttpHandler) : Endpoint =
-    route path (fun next ctx -> task {
-        let p = ctx.GetRouteValue(paramName) :?> string
-        return! handler p next ctx
-    })
+    route path (fun next ctx ->
+        task {
+            let p = ctx.GetRouteValue(paramName) :?> string
+            return! handler p next ctx
+        })
 
 
 let internal route2
@@ -44,11 +46,12 @@ let internal route2
     (paramName2: string)
     (handler: string -> string -> HttpHandler)
     : Endpoint =
-    route path (fun next ctx -> task {
-        let p1 = ctx.GetRouteValue(paramName1) :?> string
-        let p2 = ctx.GetRouteValue(paramName2) :?> string
-        return! handler p1 p2 next ctx
-    })
+    route path (fun next ctx ->
+        task {
+            let p1 = ctx.GetRouteValue(paramName1) :?> string
+            let p2 = ctx.GetRouteValue(paramName2) :?> string
+            return! handler p1 p2 next ctx
+        })
 
 
 let internal route3
@@ -58,12 +61,13 @@ let internal route3
     (paramName3: string)
     (handler: string -> string -> string -> HttpHandler)
     : Endpoint =
-    route path (fun next ctx -> task {
-        let p1 = ctx.GetRouteValue(paramName1) :?> string
-        let p2 = ctx.GetRouteValue(paramName2) :?> string
-        let p3 = ctx.GetRouteValue(paramName3) :?> string
-        return! handler p1 p2 p3 next ctx
-    })
+    route path (fun next ctx ->
+        task {
+            let p1 = ctx.GetRouteValue(paramName1) :?> string
+            let p2 = ctx.GetRouteValue(paramName2) :?> string
+            let p3 = ctx.GetRouteValue(paramName3) :?> string
+            return! handler p1 p2 p3 next ctx
+        })
 
 
 let internal jsonApiEndpoints
@@ -73,49 +77,51 @@ let internal jsonApiEndpoints
     : Endpoint list =
 
     let getCtx (handler: 'ctx -> Request -> HttpHandler) : HttpHandler =
-        fun next (httpCtx: HttpContext) -> task {
-            let serializer = httpCtx.GetService<Serializer<'ctx>>()
+        fun next (httpCtx: HttpContext) ->
+            task {
+                let serializer = httpCtx.GetService<Serializer<'ctx>>()
 
-            match! getCtx httpCtx with
-            | Error errs -> return! handleErrors errs next httpCtx
-            | Ok ctx ->
-                let query =
-                    httpCtx.Request.Query
-                    |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString())
-                    |> Map.ofSeq
-
-                let! json = httpCtx.ReadBodyFromRequestAsync()
-
-                let req = {
-                    Document = lazy (serializer.DeserializeResourceDocument json)
-                    IdentifierDocument = lazy (serializer.DeserializeResourceIdentifierDocument json)
-                    IdentifierCollectionDocument =
-                        lazy (serializer.DeserializeResourceIdentifierCollectionDocument json)
-                    Headers =
-                        httpCtx.Request.Headers
+                match! getCtx httpCtx with
+                | Error errs -> return! handleErrors errs next httpCtx
+                | Ok ctx ->
+                    let query =
+                        httpCtx.Request.Query
                         |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString())
                         |> Map.ofSeq
-                    Query = query
-                    Fieldsets =
-                        query
-                        |> Map.filter (fun k _ -> k.StartsWith("fields[", StringComparison.Ordinal) && k.EndsWith(']'))
-                        |> Map.toArray
-                        |> Array.map (fun (k, v) -> k.Substring(7, k.Length - 8), v.Split ',' |> Set.ofArray)
-                        |> Map.ofArray
-                    Includes =
-                        query
-                        |> Map.tryFind "include"
-                        |> Option.map (fun paths ->
-                            paths.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                            |> Array.filter ((<>) "")
-                            |> Array.map (fun path -> path.Split('.', StringSplitOptions.RemoveEmptyEntries))
-                            |> Array.map Array.toList
-                            |> Array.toList)
-                        |> Option.defaultValue []
-                }
 
-                return! handler ctx req next httpCtx
-        }
+                    let! json = httpCtx.ReadBodyFromRequestAsync()
+
+                    let req = {
+                        Document = lazy (serializer.DeserializeResourceDocument json)
+                        IdentifierDocument = lazy (serializer.DeserializeResourceIdentifierDocument json)
+                        IdentifierCollectionDocument =
+                            lazy (serializer.DeserializeResourceIdentifierCollectionDocument json)
+                        Headers =
+                            httpCtx.Request.Headers
+                            |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString())
+                            |> Map.ofSeq
+                        Query = query
+                        Fieldsets =
+                            query
+                            |> Map.filter (fun k _ ->
+                                k.StartsWith("fields[", StringComparison.Ordinal) && k.EndsWith(']'))
+                            |> Map.toArray
+                            |> Array.map (fun (k, v) -> k.Substring(7, k.Length - 8), v.Split ',' |> Set.ofArray)
+                            |> Map.ofArray
+                        Includes =
+                            query
+                            |> Map.tryFind "include"
+                            |> Option.map (fun paths ->
+                                paths.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                |> Array.filter ((<>) "")
+                                |> Array.map (fun path -> path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+                                |> Array.map Array.toList
+                                |> Array.toList)
+                            |> Option.defaultValue []
+                    }
+
+                    return! handler ctx req next httpCtx
+            }
 
 
     let validateRequestWithOverrides (cfg: RequestValidationConfig) : HttpHandler =
@@ -160,27 +166,29 @@ let internal jsonApiEndpoints
 
 
     let lockResourceForModification (ctx: 'ctx) req collName resId : HttpHandler =
-        fun next httpCtx -> task {
-            match ResourceModule.lockSpec<'ctx> collName with
-            | None -> return! next httpCtx
-            | Some(lockSpecs, totalTimeout) ->
-                match! LockSpecification.lockAll httpCtx ctx req totalTimeout resId lockSpecs with
-                | Error errs -> return! handleErrors errs next httpCtx
-                | Ok locker ->
-                    use _ = locker
-                    return! next httpCtx
-        }
+        fun next httpCtx ->
+            task {
+                match ResourceModule.lockSpec<'ctx> collName with
+                | None -> return! next httpCtx
+                | Some(lockSpecs, totalTimeout) ->
+                    match! LockSpecification.lockAll httpCtx ctx req totalTimeout resId lockSpecs with
+                    | Error errs -> return! handleErrors errs next httpCtx
+                    | Ok locker ->
+                        use _ = locker
+                        return! next httpCtx
+            }
 
 
     let verifyPartialPathCase (expectedPathPrefix: string) : HttpHandler =
-        fun next ctx -> task {
-            let actualPath = ctx.Request.Path.Value.TrimEnd('/')
+        fun next ctx ->
+            task {
+                let actualPath = ctx.Request.Path.Value.TrimEnd('/')
 
-            if actualPath.StartsWith(expectedPathPrefix, StringComparison.Ordinal) then
-                return! next ctx
-            else
-                return! handleErrors [ incorrectPartialPathCase expectedPathPrefix ] next ctx
-        }
+                if actualPath.StartsWith(expectedPathPrefix, StringComparison.Ordinal) then
+                    return! next ctx
+                else
+                    return! handleErrors [ incorrectPartialPathCase expectedPathPrefix ] next ctx
+            }
 
 
     [

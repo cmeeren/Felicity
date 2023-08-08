@@ -112,34 +112,31 @@ type internal IRelationship =
 
 
 [<CLIMutable>]
-type internal ToOne =
-    {
-        links: IDictionary<string, Link> Skippable
-        mutable data: ResourceIdentifier Skippable
-        meta: IDictionary<string, obj> Skippable
-    }
+type internal ToOne = {
+    links: IDictionary<string, Link> Skippable
+    mutable data: ResourceIdentifier Skippable
+    meta: IDictionary<string, obj> Skippable
+} with
 
     interface IRelationship
 
 
 [<CLIMutable>]
-type internal ToOneNullable =
-    {
-        links: IDictionary<string, Link> Skippable
-        mutable data: ResourceIdentifier option Skippable
-        meta: IDictionary<string, obj> Skippable
-    }
+type internal ToOneNullable = {
+    links: IDictionary<string, Link> Skippable
+    mutable data: ResourceIdentifier option Skippable
+    meta: IDictionary<string, obj> Skippable
+} with
 
     interface IRelationship
 
 
 [<CLIMutable>]
-type internal ToMany =
-    {
-        links: IDictionary<string, Link> Skippable
-        mutable data: ResourceIdentifier list Skippable
-        meta: IDictionary<string, obj> Skippable
-    }
+type internal ToMany = {
+    links: IDictionary<string, Link> Skippable
+    mutable data: ResourceIdentifier list Skippable
+    meta: IDictionary<string, obj> Skippable
+} with
 
     interface IRelationship
 
@@ -723,12 +720,10 @@ module internal Links =
     /// is not included if there are no meta entries.
     let addOptWithMeta name (uri: string option) metaEntries links =
         links
-        |> Map.add
-            name
-            {
-                href = uri
-                meta = toMeta metaEntries
-            }
+        |> Map.add name {
+            href = uri
+            meta = toMeta metaEntries
+        }
 
 
     /// Adds the specified link and meta to the link collection. The meta property
@@ -775,11 +770,11 @@ module Error =
 
     /// Creates an Error object with the given status and with the id property set to a
     /// random GUID.
-    let create (status: int) =
-        { empty with
+    let create (status: int) = {
+        empty with
             id = Guid.NewGuid().ToString("N") |> string |> Include
             status = Include(string status)
-        }
+    }
 
 
     /// Sets the error's id property.
@@ -787,10 +782,10 @@ module Error =
 
 
     /// Sets the error's status property.
-    let setStatus (statusCode: int) (err: Error) =
-        { err with
+    let setStatus (statusCode: int) (err: Error) = {
+        err with
             status = Include(string statusCode)
-        }
+    }
 
 
     /// Sets the error's code property.
@@ -812,39 +807,37 @@ module Error =
     /// Sets the error's source.parameter property (and removes any source.pointer value).
     /// Note that Felicity almost always sets/overrides the pointer/parameter, even on
     /// user-defined errors. You should very rarely need to use this.
-    let setSourceParam queryParamName (err: Error) =
-        { err with
+    let setSourceParam queryParamName (err: Error) = {
+        err with
             source =
-                Include
-                    {
-                        parameter = Include queryParamName
-                        pointer = Skip
-                    }
-        }
+                Include {
+                    parameter = Include queryParamName
+                    pointer = Skip
+                }
+    }
 
 
     /// Sets the error's source.pointer property (and removes any source.parameter value).
     /// Note that Felicity almost always sets/overrides the pointer/parameter, even on
     /// user-defined errors. You should very rarely need to use this.
-    let setSourcePointer jsonPointer (err: Error) =
-        { err with
+    let setSourcePointer jsonPointer (err: Error) = {
+        err with
             source =
-                Include
-                    {
-                        parameter = Skip
-                        pointer = Include(jsonPointer + defaultValueArg err.appendPointer "")
-                    }
-        }
+                Include {
+                    parameter = Skip
+                    pointer = Include(jsonPointer + defaultValueArg err.appendPointer "")
+                }
+    }
 
 
     /// Adds the specified key-value pair to the error's Meta object.
-    let addMeta key value (err: Error) =
-        { err with
+    let addMeta key value (err: Error) = {
+        err with
             meta =
                 err.meta
                 |> Skippable.map (Map.add key (box value))
                 |> Skippable.orElse (Map.empty.Add(key, box value) |> Include)
-        }
+    }
 
 
     /// Adds the specified key-value pair to the error's Meta object if condition
@@ -854,10 +847,10 @@ module Error =
 
 
     /// Adds the specified header to responses containing this error.
-    let addHeader key value (err: Error) =
-        { err with
+    let addHeader key value (err: Error) = {
+        err with
             headers = err.headers @ [ key, value ]
-        }
+    }
 
 
     /// Appends the specified value to the error's (current or future) pointer. The value should start with '/' for the
@@ -867,16 +860,16 @@ module Error =
     /// source pointer (the pointer to the attribute) is set automatically by Felicity. For example, Felicity will set the
     /// pointer to the value '/data/attributes/myComplexAttr', and you can then call this function with the value
     /// '/waffles/1/isTasty'. The error's pointer will then be '/data/attributes/myComplexAttr/waffles/1/isTasty'.
-    let appendPointer (value: string) (err: Error) =
-        { err with
+    let appendPointer (value: string) (err: Error) = {
+        err with
             appendPointer = ValueSome value
             source =
                 err.source
-                |> Skippable.map (fun s ->
-                    { s with
+                |> Skippable.map (fun s -> {
+                    s with
                         pointer = s.pointer |> Skippable.map (fun p -> p + value)
-                    })
-        }
+                })
+    }
 
 
     /// Transforms the error using the specified function on the inner value if opt is Some.

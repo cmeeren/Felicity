@@ -33,20 +33,18 @@ type FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> =
 
 
 
-type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
-    internal
-        {
-            name: string
-            setOrder: int
-            mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-            fromDomain: 'attr -> 'serialized
-            toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>
-            get: ('ctx -> 'entity -> Task<'attr Skippable>) option
-            set: ('setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) option
-            hasConstraints: bool
-            getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
-            requiresExplicitInclude: bool
-        }
+type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
+    name: string
+    setOrder: int
+    mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
+    fromDomain: 'attr -> 'serialized
+    toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>
+    get: ('ctx -> 'entity -> Task<'attr Skippable>) option
+    set: ('setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) option
+    hasConstraints: bool
+    getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+    requiresExplicitInclude: bool
+} with
 
     static member internal Create
         (
@@ -72,38 +70,40 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
         member this.Names = Set.singleton this.name
         member this.SetOrder = this.setOrder
 
-        member this.Set ctx req entity numSetters = task {
-            match req.Document.Value with
-            | Error errs -> return Error errs
-            | Ok(Some {
-                          data = Some { attributes = Include attrVals }
-                      }) ->
-                match this.set, attrVals.TryGetValue this.name with
-                | _, (false, _) -> return Ok(entity, false) // not provided in request
-                | None, (true, _) ->
-                    if numSetters[this.name] > 1 then
-                        // Provided in request and no setter, but there exists another setter, so ignore
-                        return Ok(entity, false)
-                    else
-                        return Error [ setAttrReadOnly this.name ("/data/attributes/" + this.name) ]
-                | Some set, (true, attrValue) ->
-                    match! this.mapSetCtx ctx (unbox<'entity> entity) with
-                    | Error errs -> return Error errs
-                    | Ok setCtx ->
-                        let getValueInfo value =
-                            FromBodyAttribute
-                                {
+        member this.Set ctx req entity numSetters =
+            task {
+                match req.Document.Value with
+                | Error errs -> return Error errs
+                | Ok(Some {
+                              data = Some { attributes = Include attrVals }
+                          }) ->
+                    match this.set, attrVals.TryGetValue this.name with
+                    | _, (false, _) -> return Ok(entity, false) // not provided in request
+                    | None, (true, _) ->
+                        if numSetters[this.name] > 1 then
+                            // Provided in request and no setter, but there exists another setter, so ignore
+                            return Ok(entity, false)
+                        else
+                            return Error [ setAttrReadOnly this.name ("/data/attributes/" + this.name) ]
+                    | Some set, (true, attrValue) ->
+                        match! this.mapSetCtx ctx (unbox<'entity> entity) with
+                        | Error errs -> return Error errs
+                        | Ok setCtx ->
+                            let getValueInfo value =
+                                FromBodyAttribute {
                                     Name = this.name
                                     StringValue = string<'serialized> (unbox<'serialized> value)
                                 }
 
-                        return!
-                            this.toDomain ctx getValueInfo (unbox<'serialized> attrValue)
-                            |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
-                            |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
-                            |> TaskResult.map (fun e -> box e, true)
-            | _ -> return Ok(entity, false) // no attributes provided
-        }
+                            return!
+                                this.toDomain ctx getValueInfo (unbox<'serialized> attrValue)
+                                |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
+                                |> TaskResult.mapError (
+                                    List.map (Error.setSourcePointer ("/data/attributes/" + this.name))
+                                )
+                                |> TaskResult.map (fun e -> box e, true)
+                | _ -> return Ok(entity, false) // no attributes provided
+            }
 
     interface Attribute<'ctx> with
 
@@ -146,11 +146,10 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
                     match attrVals.TryGetValue this.name with
                     | true, (:? 'serialized as attr) ->
                         let getValueInfo value =
-                            FromBodyAttribute
-                                {
-                                    Name = this.name
-                                    StringValue = string<'serialized> value
-                                }
+                            FromBodyAttribute {
+                                Name = this.name
+                                StringValue = string<'serialized> value
+                            }
 
                         this.toDomain ctx getValueInfo attr
                         |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
@@ -205,10 +204,10 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     /// unspecified.
     member this.SetOrder(i: int) = { this with setOrder = i }
 
-    member this.GetTaskSkip(get: Func<'ctx, 'entity, Task<'attr Skippable>>) =
-        { this with
+    member this.GetTaskSkip(get: Func<'ctx, 'entity, Task<'attr Skippable>>) = {
+        this with
             get = Some(fun ctx e -> get.Invoke(ctx, e))
-        }
+    }
 
     member this.GetTaskSkip(get: Func<'entity, Task<'attr Skippable>>) =
         this.GetTaskSkip(fun _ e -> get.Invoke(e))
@@ -239,8 +238,10 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     member this.Get(get: Func<'entity, 'attr>) =
         this.GetTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-    member this.SetTaskRes(set: 'setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with set = Some set }
+    member this.SetTaskRes(set: 'setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
+            set = Some set
+    }
 
     member this.SetTaskRes(set: 'attr -> 'entity -> Task<Result<'entity, Error list>>) =
         this.SetTaskRes(fun _ x e -> set x e)
@@ -270,16 +271,17 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
 
     member this.Set(set: 'attr -> 'entity -> 'entity) = this.SetTaskRes(TaskResult.lift2 set)
 
-    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) =
-        { this with
+    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
+        this with
             hasConstraints = true
             getConstraints =
-                fun ctx e -> task {
-                    let! currentCs = this.getConstraints ctx e
-                    let! newCs = getConstraints ctx e
-                    return currentCs @ newCs
-                }
-        }
+                fun ctx e ->
+                    task {
+                        let! currentCs = this.getConstraints ctx e
+                        let! newCs = getConstraints ctx e
+                        return currentCs @ newCs
+                    }
+    }
 
     member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
         this.AddConstraintsTask(Task.liftAsync2 getConstraints)
@@ -295,10 +297,10 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
 
     /// If the 'requireExplicitInclude' parameter is true (the default when calling this method), the attribute will only
     /// be present in the response if explicitly specified using sparse fieldsets.
-    member this.RequireExplicitInclude(?requireExplicitInclude) =
-        { this with
+    member this.RequireExplicitInclude(?requireExplicitInclude) = {
+        this with
             requiresExplicitInclude = defaultArg requireExplicitInclude true
-        }
+    }
 
 
 
@@ -312,20 +314,18 @@ module NonNullableAttributeExtensions =
 
 
 
-type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
-    internal
-        {
-            name: string
-            setOrder: int
-            mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
-            fromDomain: 'attr -> 'serialized
-            toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>
-            get: ('ctx -> 'entity -> Task<'attr option Skippable>) option
-            set: ('setCtx -> 'attr option -> 'entity -> Task<Result<'entity, Error list>>) option
-            hasConstraints: bool
-            getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
-            requiresExplicitInclude: bool
-        }
+type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
+    name: string
+    setOrder: int
+    mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>
+    fromDomain: 'attr -> 'serialized
+    toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>
+    get: ('ctx -> 'entity -> Task<'attr option Skippable>) option
+    set: ('setCtx -> 'attr option -> 'entity -> Task<Result<'entity, Error list>>) option
+    hasConstraints: bool
+    getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
+    requiresExplicitInclude: bool
+} with
 
     static member internal Create
         (
@@ -356,38 +356,40 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
         member this.Names = Set.singleton this.name
         member this.SetOrder = this.setOrder
 
-        member this.Set ctx req entity numSetters = task {
-            match req.Document.Value with
-            | Error errs -> return Error errs
-            | Ok(Some {
-                          data = Some { attributes = Include attrVals }
-                      }) ->
-                match this.set, attrVals.TryGetValue this.name with
-                | _, (false, _) -> return Ok(entity, false) // not provided in request
-                | None, (true, _) ->
-                    if numSetters[this.name] > 1 then
-                        // Provided in request and no setter, but there exists another setter, so ignore
-                        return Ok(entity, false)
-                    else
-                        return Error [ setAttrReadOnly this.name ("/data/attributes/" + this.name) ]
-                | Some set, (true, attrValue) ->
-                    match! this.mapSetCtx ctx (unbox<'entity> entity) with
-                    | Error errs -> return Error errs
-                    | Ok setCtx ->
-                        let getValueInfo value =
-                            FromBodyAttribute
-                                {
+        member this.Set ctx req entity numSetters =
+            task {
+                match req.Document.Value with
+                | Error errs -> return Error errs
+                | Ok(Some {
+                              data = Some { attributes = Include attrVals }
+                          }) ->
+                    match this.set, attrVals.TryGetValue this.name with
+                    | _, (false, _) -> return Ok(entity, false) // not provided in request
+                    | None, (true, _) ->
+                        if numSetters[this.name] > 1 then
+                            // Provided in request and no setter, but there exists another setter, so ignore
+                            return Ok(entity, false)
+                        else
+                            return Error [ setAttrReadOnly this.name ("/data/attributes/" + this.name) ]
+                    | Some set, (true, attrValue) ->
+                        match! this.mapSetCtx ctx (unbox<'entity> entity) with
+                        | Error errs -> return Error errs
+                        | Ok setCtx ->
+                            let getValueInfo value =
+                                FromBodyAttribute {
                                     Name = this.name
                                     StringValue = string<'serialized> value
                                 }
 
-                        return!
-                            this.nullableToDomain ctx getValueInfo (unbox<'serialized option> attrValue)
-                            |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
-                            |> TaskResult.mapError (List.map (Error.setSourcePointer ("/data/attributes/" + this.name)))
-                            |> TaskResult.map (fun e -> box e, true)
-            | _ -> return Ok(entity, false) // no attributes provided
-        }
+                            return!
+                                this.nullableToDomain ctx getValueInfo (unbox<'serialized option> attrValue)
+                                |> TaskResult.bind (fun domain -> set setCtx domain (unbox<'entity> entity))
+                                |> TaskResult.mapError (
+                                    List.map (Error.setSourcePointer ("/data/attributes/" + this.name))
+                                )
+                                |> TaskResult.map (fun e -> box e, true)
+                | _ -> return Ok(entity, false) // no attributes provided
+            }
 
     interface Attribute<'ctx> with
 
@@ -430,11 +432,10 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
                     match attrVals.TryGetValue this.name with
                     | true, (:? ('serialized option) as attr) ->
                         let getValueInfo value =
-                            FromBodyAttribute
-                                {
-                                    Name = this.name
-                                    StringValue = string<'serialized> value
-                                }
+                            FromBodyAttribute {
+                                Name = this.name
+                                StringValue = string<'serialized> value
+                            }
 
                         attr
                         |> Option.traverseTaskResult (this.toDomain ctx getValueInfo)
@@ -467,11 +468,10 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
                             |> Task.result
                         | Some attr ->
                             let getValueInfo value =
-                                FromBodyAttribute
-                                    {
-                                        Name = this.name
-                                        StringValue = string<'serialized> value
-                                    }
+                                FromBodyAttribute {
+                                    Name = this.name
+                                    StringValue = string<'serialized> value
+                                }
 
                             attr
                             |> this.toDomain ctx getValueInfo
@@ -539,10 +539,10 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     /// unspecified.
     member this.SetOrder(i: int) = { this with setOrder = i }
 
-    member this.GetTaskSkip(get: Func<'ctx, 'entity, Task<'attr option Skippable>>) =
-        { this with
+    member this.GetTaskSkip(get: Func<'ctx, 'entity, Task<'attr option Skippable>>) = {
+        this with
             get = Some(fun ctx e -> get.Invoke(ctx, e))
-        }
+    }
 
     member this.GetTaskSkip(get: Func<'entity, Task<'attr option Skippable>>) =
         this.GetTaskSkip(fun _ e -> get.Invoke(e))
@@ -573,8 +573,10 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     member this.Get(get: Func<'entity, 'attr option>) =
         this.GetTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-    member this.SetTaskRes(set: 'setCtx -> 'attr option -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with set = Some set }
+    member this.SetTaskRes(set: 'setCtx -> 'attr option -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
+            set = Some set
+    }
 
     member this.SetTaskRes(set: 'attr option -> 'entity -> Task<Result<'entity, Error list>>) =
         this.SetTaskRes(fun _ x e -> set x e)
@@ -604,15 +606,15 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
 
     member this.Set(set: 'attr option -> 'entity -> 'entity) = this.SetTaskRes(TaskResult.lift2 set)
 
-    member this.SetNonNullTaskRes(set: 'setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) =
-        { this with
+    member this.SetNonNullTaskRes(set: 'setCtx -> 'attr -> 'entity -> Task<Result<'entity, Error list>>) = {
+        this with
             set =
                 Some(fun ctx attr e ->
                     attr
                     |> Result.requireSome [ setAttrNullNotAllowed this.name ]
                     |> Task.result
                     |> TaskResult.bind (fun a -> set ctx a e))
-        }
+    }
 
     member this.SetNonNullTaskRes(set: 'attr -> 'entity -> Task<Result<'entity, Error list>>) =
         this.SetNonNullTaskRes(fun _ x e -> set x e)
@@ -647,16 +649,17 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
     member this.SetNonNull(set: 'attr -> 'entity -> 'entity) =
         this.SetNonNullTaskRes(TaskResult.lift2 set)
 
-    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) =
-        { this with
+    member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
+        this with
             hasConstraints = true
             getConstraints =
-                fun ctx e -> task {
-                    let! currentCs = this.getConstraints ctx e
-                    let! newCs = getConstraints ctx e
-                    return currentCs @ newCs
-                }
-        }
+                fun ctx e ->
+                    task {
+                        let! currentCs = this.getConstraints ctx e
+                        let! newCs = getConstraints ctx e
+                        return currentCs @ newCs
+                    }
+    }
 
     member this.AddConstraintsAsync(getConstraints: 'ctx -> 'entity -> Async<(string * obj) list>) =
         this.AddConstraintsTask(Task.liftAsync2 getConstraints)
@@ -672,10 +675,10 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
 
     /// If the 'requireExplicitInclude' parameter is true (the default when calling this method), the attribute will only
     /// be present in the response if explicitly specified using sparse fieldsets.
-    member this.RequireExplicitInclude(?requireExplicitInclude) =
-        { this with
+    member this.RequireExplicitInclude(?requireExplicitInclude) = {
+        this with
             requiresExplicitInclude = defaultArg requireExplicitInclude true
-        }
+    }
 
 
 

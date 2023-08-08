@@ -11,14 +11,13 @@ type MappedCtx = {
     SetNull34: (int * string) option -> string -> string
 }
 
-type Ctx =
-    {
-        SetNonNull: string * int -> string -> string
-        SetNull12: string option * int option -> string -> string
-        SetNull34: (int * string) option -> string -> string
-        MapCtx: Ctx -> Result<MappedCtx, Error list>
-        MapCtxWithEntity: Ctx -> string -> Result<MappedCtx, Error list>
-    }
+type Ctx = {
+    SetNonNull: string * int -> string -> string
+    SetNull12: string option * int option -> string -> string
+    SetNull34: (int * string) option -> string -> string
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
+    MapCtxWithEntity: Ctx -> string -> Result<MappedCtx, Error list>
+} with
 
     static member Default = {
         SetNonNull = fun _ -> failwith "Must be set if used"
@@ -26,20 +25,18 @@ type Ctx =
         SetNull34 = fun _ -> failwith "Must be set if used"
         MapCtx =
             fun ctx ->
-                Ok
-                    {
-                        SetNonNull = ctx.SetNonNull
-                        SetNull12 = ctx.SetNull12
-                        SetNull34 = ctx.SetNull34
-                    }
+                Ok {
+                    SetNonNull = ctx.SetNonNull
+                    SetNull12 = ctx.SetNull12
+                    SetNull34 = ctx.SetNull34
+                }
         MapCtxWithEntity =
             fun ctx _ ->
-                Ok
-                    {
-                        SetNonNull = ctx.SetNonNull
-                        SetNull12 = ctx.SetNull12
-                        SetNull34 = ctx.SetNull34
-                    }
+                Ok {
+                    SetNonNull = ctx.SetNonNull
+                    SetNull12 = ctx.SetNull12
+                    SetNull34 = ctx.SetNull34
+                }
     }
 
 module A =
@@ -91,24 +88,23 @@ let tests =
         testJob "Runs Set2 with non-nullable fields" {
             let mutable calledWith = ValueNone
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     SetNonNull =
                         fun x e ->
                             calledWith <- ValueSome x
                             e
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -119,24 +115,23 @@ let tests =
         testJob "Runs Set2 with nullable fields" {
             let mutable calledWith = ValueNone
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     SetNull12 =
                         fun x e ->
                             calledWith <- ValueSome x
                             e
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null1 = "abc"; null2 = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null1 = "abc"; null2 = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -147,29 +142,28 @@ let tests =
         testJob "Runs Set2SameNull when both non-null" {
             let mutable calledWith = ValueNone
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     SetNull34 =
                         fun x e ->
                             calledWith <- ValueSome x
                             e
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null3 = 123 |}
-                            relationships = {|
-                                nullRel = {|
-                                    data = {| ``type`` = "a"; id = "abc" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null3 = 123 |}
+                        relationships = {|
+                            nullRel = {|
+                                data = {| ``type`` = "a"; id = "abc" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -180,25 +174,24 @@ let tests =
         testJob "Runs Set2SameNull when both null" {
             let mutable calledWith = ValueNone
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     SetNull34 =
                         fun x e ->
                             calledWith <- ValueSome x
                             e
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null3 = null |}
-                            relationships = {| nullRel = {| data = null |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null3 = null |}
+                        relationships = {| nullRel = {| data = null |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -211,14 +204,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| nonNull1 = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| nonNull1 = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -239,14 +231,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| nonNull2 = 123 |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| nonNull2 = 123 |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -267,14 +258,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null3 = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null3 = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -295,14 +285,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            relationships = {| nullRel = {| data = null |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        relationships = {| nullRel = {| data = null |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -323,19 +312,18 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null3 = null |}
-                            relationships = {|
-                                nullRel = {|
-                                    data = {| ``type`` = "a"; id = "abc" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null3 = null |}
+                        relationships = {|
+                            nullRel = {|
+                                data = {| ``type`` = "a"; id = "abc" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -356,15 +344,14 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null3 = 123 |}
-                            relationships = {| nullRel = {| data = null |} |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null3 = 123 |}
+                        relationships = {| nullRel = {| data = null |} |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -383,23 +370,22 @@ let tests =
         testJob "POST runs Set2 with non-nullable fields" {
             let mutable calledWith = ValueNone
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     SetNonNull =
                         fun x e ->
                             calledWith <- ValueSome x
                             e
-                }
+            }
 
             let! response =
                 Request.post ctx "/as"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -410,28 +396,27 @@ let tests =
         testJob "POST runs Set2SameNull when both non-null" {
             let mutable calledWith = ValueNone
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     SetNull34 =
                         fun x e ->
                             calledWith <- ValueSome x
                             e
-                }
+            }
 
             let! response =
                 Request.post ctx "/as"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| null3 = 123 |}
-                            relationships = {|
-                                nullRel = {|
-                                    data = {| ``type`` = "a"; id = "abc" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| null3 = 123 |}
+                        relationships = {|
+                            nullRel = {|
+                                data = {| ``type`` = "a"; id = "abc" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -440,21 +425,20 @@ let tests =
         }
 
         testJob "Returns errors returned by mapCtx in Set2" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| nonNull1 = "abc"; nonNull2 = 123 |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -466,26 +450,25 @@ let tests =
         }
 
         testJob "Returns errors returned by mapCtx in Set2SameNull" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null3 = 123 |}
-                            relationships = {|
-                                nullRel = {|
-                                    data = {| ``type`` = "a"; id = "abc" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null3 = 123 |}
+                        relationships = {|
+                            nullRel = {|
+                                data = {| ``type`` = "a"; id = "abc" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -497,21 +480,20 @@ let tests =
         }
 
         testJob "Returns errors returned by mapCtx with entity" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     MapCtxWithEntity = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/as/ignoredId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "ignoredId"
-                            attributes = {| null1 = "abc"; null2 = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "ignoredId"
+                        attributes = {| null1 = "abc"; null2 = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -526,24 +508,23 @@ let tests =
             let mutable calledWith = ValueNone
             let expected = "someResourceId"
 
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     MapCtxWithEntity =
                         fun ctx e ->
                             calledWith <- ValueSome e
                             Ctx.Default.MapCtxWithEntity ctx e
-                }
+            }
 
             let! _response =
                 Request.patch ctx "/as/someResourceId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "someResourceId"
-                            attributes = {| null1 = "abc"; null2 = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "someResourceId"
+                        attributes = {| null1 = "abc"; null2 = null |}
                     |}
+                |}
                 |> getResponse
 
             Expect.equal calledWith (ValueSome expected) ""

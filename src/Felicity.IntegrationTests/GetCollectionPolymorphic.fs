@@ -23,23 +23,21 @@ type MappedCtx = {
     GetColl: unit -> Result<AB list, Error list>
 }
 
-type Ctx =
-    {
-        ModifyResponse: AB list -> HttpHandler
-        GetColl: unit -> Result<AB list, Error list>
-        MapCtx: Ctx -> Result<MappedCtx, Error list>
-    }
+type Ctx = {
+    ModifyResponse: AB list -> HttpHandler
+    GetColl: unit -> Result<AB list, Error list>
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
+} with
 
     static member Default = {
         ModifyResponse = fun _ -> fun next ctx -> next ctx
         GetColl = fun () -> Ok [ a; b ]
         MapCtx =
             fun ctx ->
-                Ok
-                    {
-                        ModifyResponse = ctx.ModifyResponse
-                        GetColl = ctx.GetColl
-                    }
+                Ok {
+                    ModifyResponse = ctx.ModifyResponse
+                    GetColl = ctx.GetColl
+                }
     }
 
 
@@ -156,10 +154,10 @@ let tests =
         }
 
         testJob "Modifies response if successful" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     ModifyResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/abs" |> getResponse
             response |> testSuccessStatusCode
@@ -167,10 +165,10 @@ let tests =
         }
 
         testJob "Returns errors returned by GetColl" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     GetColl = fun () -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/abs" |> getResponse
             response |> testStatusCode 422
@@ -182,10 +180,10 @@ let tests =
         }
 
         testJob "Returns errors returned by mapCtx" {
-            let ctx =
-                { Ctx.Default with
+            let ctx = {
+                Ctx.Default with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.get ctx "/abs" |> getResponse
             response |> testStatusCode 422

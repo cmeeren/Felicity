@@ -119,8 +119,7 @@ module PersonSearchArgs =
         Limit = 10
     }
 
-    let setFirstName firstName (args: PersonSearchArgs) =
-        { args with FirstName = Some firstName }
+    let setFirstName firstName (args: PersonSearchArgs) = { args with FirstName = Some firstName }
 
     let setLastName lastName (args: PersonSearchArgs) = { args with LastName = Some lastName }
 
@@ -128,11 +127,11 @@ module PersonSearchArgs =
 
     let setGenders genders (args: PersonSearchArgs) = { args with Genders = Some genders }
 
-    let setSort (sortBy, sortDesc) (args: PersonSearchArgs) =
-        { args with
+    let setSort (sortBy, sortDesc) (args: PersonSearchArgs) = {
+        args with
             SortBy = sortBy
             SortDescending = sortDesc
-        }
+    }
 
     let setOffset offset (args: PersonSearchArgs) = { args with Offset = offset }
 
@@ -246,21 +245,21 @@ module ArticleSearchArgs =
 
     let setTypes types (args: ArticleSearchArgs) = { args with Types = Some types }
 
-    let setCreatedAfter createdAfter (args: ArticleSearchArgs) =
-        { args with
+    let setCreatedAfter createdAfter (args: ArticleSearchArgs) = {
+        args with
             CreatedAfter = Some createdAfter
-        }
+    }
 
-    let setCreatedBefore createdBefore (args: ArticleSearchArgs) =
-        { args with
+    let setCreatedBefore createdBefore (args: ArticleSearchArgs) = {
+        args with
             CreatedBefore = Some createdBefore
-        }
+    }
 
-    let setSort (sortBy, sortDesc) (args: ArticleSearchArgs) =
-        { args with
+    let setSort (sortBy, sortDesc) (args: ArticleSearchArgs) = {
+        args with
             SortBy = sortBy
             SortDescending = sortDesc
-        }
+    }
 
     let setOffset offset (args: ArticleSearchArgs) = { args with Offset = offset }
 
@@ -342,16 +341,16 @@ module CommentSearchArgs =
 
     let setAuthorId authorId (args: CommentSearchArgs) = { args with Author = Some authorId }
 
-    let setAuthorFirstName authorFirstName (args: CommentSearchArgs) =
-        { args with
+    let setAuthorFirstName authorFirstName (args: CommentSearchArgs) = {
+        args with
             AuthorFirstName = Some authorFirstName
-        }
+    }
 
-    let setSort (sortBy, sortDesc) (args: CommentSearchArgs) =
-        { args with
+    let setSort (sortBy, sortDesc) (args: CommentSearchArgs) = {
+        args with
             SortBy = sortBy
             SortDescending = sortDesc
-        }
+    }
 
     let setOffset offset (args: CommentSearchArgs) = { args with Offset = offset }
 

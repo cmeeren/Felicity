@@ -14,23 +14,21 @@ open Routing
 
 
 
-type JsonApiConfigBuilder<'ctx> =
-    internal
-        {
-            services: IServiceCollection
-            baseUrl: string option
-            relativeJsonApiRoot: string option
-            getCtx: (HttpContext -> Task<Result<'ctx, Error list>>) option
-            getMeta: 'ctx -> IDictionary<string, obj>
-            configureSerializerOptions: (JsonSerializerOptions -> unit) option
-            skipStandardLinksQueryParamNames: string[]
-            skipCustomLinksQueryParamNames: string[]
-            trackFieldUsage: (IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>) option
-            unknownFieldStrictMode: UnknownFieldStrictMode<'ctx>
-            unknownQueryParamStrictMode: UnknownQueryParamStrictMode<'ctx>
-            invalidJsonRequestBodyLogLevel: LogLevel option
-            invalidJsonRequestBodyMaxSize: int option
-        }
+type JsonApiConfigBuilder<'ctx> = internal {
+    services: IServiceCollection
+    baseUrl: string option
+    relativeJsonApiRoot: string option
+    getCtx: (HttpContext -> Task<Result<'ctx, Error list>>) option
+    getMeta: 'ctx -> IDictionary<string, obj>
+    configureSerializerOptions: (JsonSerializerOptions -> unit) option
+    skipStandardLinksQueryParamNames: string[]
+    skipCustomLinksQueryParamNames: string[]
+    trackFieldUsage: (IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>) option
+    unknownFieldStrictMode: UnknownFieldStrictMode<'ctx>
+    unknownQueryParamStrictMode: UnknownQueryParamStrictMode<'ctx>
+    invalidJsonRequestBodyLogLevel: LogLevel option
+    invalidJsonRequestBodyMaxSize: int option
+} with
 
     static member internal DefaultFor services : JsonApiConfigBuilder<'ctx> = {
         services = services
@@ -54,10 +52,10 @@ type JsonApiConfigBuilder<'ctx> =
     /// with that path (unless RelativeJsonApiRoot is configured explicitly).
     ///
     /// Trailing slashes don't matter.
-    member this.BaseUrl(url: Uri) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.BaseUrl(url: Uri) : JsonApiConfigBuilder<'ctx> = {
+        this with
             baseUrl = Some(url.ToString().TrimEnd('/'))
-        }
+    }
 
     /// Explicitly sets the base URL to be used in JSON:API responses. If not supplied, the
     /// base URL will be inferred from the actual request URL. If the specified base URL
@@ -65,23 +63,25 @@ type JsonApiConfigBuilder<'ctx> =
     /// with that path (unless RelativeJsonApiRoot is configured explicitly).
     ///
     /// Trailing slashes don't matter.
-    member this.BaseUrl(url: string) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.BaseUrl(url: string) : JsonApiConfigBuilder<'ctx> = {
+        this with
             baseUrl = Some(url.TrimEnd('/'))
-        }
+    }
 
     /// Sets the relative root path for the JSON:API routes. For example, supplying the
     /// value '/foo/bar' means that clients must call 'GET /foo/bar/articles' to query the
     /// /articles collection.
     ///
     /// Leading/trailing slashes don't matter.
-    member this.RelativeJsonApiRoot(path: string) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.RelativeJsonApiRoot(path: string) : JsonApiConfigBuilder<'ctx> = {
+        this with
             relativeJsonApiRoot = Some(path.Trim('/'))
-        }
+    }
 
-    member this.GetCtxTaskRes(getCtx: HttpContext -> Task<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
-        { this with getCtx = Some getCtx }
+    member this.GetCtxTaskRes(getCtx: HttpContext -> Task<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> = {
+        this with
+            getCtx = Some getCtx
+    }
 
     member this.GetCtxAsyncRes(getCtx: HttpContext -> Async<Result<'ctx, Error list>>) : JsonApiConfigBuilder<'ctx> =
         this.GetCtxTaskRes(Task.liftAsync getCtx)
@@ -98,28 +98,30 @@ type JsonApiConfigBuilder<'ctx> =
     member this.GetCtx(getCtx: HttpContext -> 'ctx) : JsonApiConfigBuilder<'ctx> =
         this.GetCtxTaskRes(TaskResult.lift getCtx)
 
-    member this.GetMeta(getMeta: 'ctx -> IDictionary<string, obj>) : JsonApiConfigBuilder<'ctx> =
-        { this with getMeta = getMeta }
+    member this.GetMeta(getMeta: 'ctx -> IDictionary<string, obj>) : JsonApiConfigBuilder<'ctx> = {
+        this with
+            getMeta = getMeta
+    }
 
-    member this.GetMeta(getMeta: 'ctx -> Map<string, obj>) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.GetMeta(getMeta: 'ctx -> Map<string, obj>) : JsonApiConfigBuilder<'ctx> = {
+        this with
             getMeta = getMeta >> Map.toSeq >> dict
-        }
+    }
 
-    member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> = {
+        this with
             configureSerializerOptions = Some configure
-        }
+    }
 
-    member this.SkipStandardLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.SkipStandardLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> = {
+        this with
             skipStandardLinksQueryParamNames = paramNames
-        }
+    }
 
-    member this.SkipCustomLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> =
-        { this with
+    member this.SkipCustomLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> = {
+        this with
             skipCustomLinksQueryParamNames = paramNames
-        }
+    }
 
     /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
     /// from) the request. The returned HttpHandler may be used to modify the response (e.g. to set a header if deprecated
@@ -127,8 +129,9 @@ type JsonApiConfigBuilder<'ctx> =
     member this.TrackFieldUsageTask
         (trackFieldUsage: IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>)
         : JsonApiConfigBuilder<'ctx> =
-        { this with
-            trackFieldUsage = Some trackFieldUsage
+        {
+            this with
+                trackFieldUsage = Some trackFieldUsage
         }
 
     /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
@@ -152,9 +155,10 @@ type JsonApiConfigBuilder<'ctx> =
     member this.TrackFieldUsageTask
         (trackFieldUsage: IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<unit>)
         : JsonApiConfigBuilder<'ctx> =
-        { this with
-            trackFieldUsage =
-                Some(fun sp ctx d -> trackFieldUsage sp ctx d |> Task.map (fun () -> fun next ctx -> next ctx))
+        {
+            this with
+                trackFieldUsage =
+                    Some(fun sp ctx d -> trackFieldUsage sp ctx d |> Task.map (fun () -> fun next ctx -> next ctx))
         }
 
     /// Calls the specified function once per request. The list contains one entry for each field returned in (or excluded
@@ -177,12 +181,13 @@ type JsonApiConfigBuilder<'ctx> =
         let warnOnly = defaultArg warnOnly false
         let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
 
-        { this with
-            unknownFieldStrictMode =
-                if warnOnly then
-                    UnknownFieldStrictMode<'ctx>.Warn warnLogLevel
-                else
-                    UnknownFieldStrictMode<'ctx>.Error
+        {
+            this with
+                unknownFieldStrictMode =
+                    if warnOnly then
+                        UnknownFieldStrictMode<'ctx>.Warn warnLogLevel
+                    else
+                        UnknownFieldStrictMode<'ctx>.Error
         }
 
     /// Returns an error if an unknown query parameter is encountered in a request. Query parameters are only considered
@@ -192,12 +197,13 @@ type JsonApiConfigBuilder<'ctx> =
         let warnOnly = defaultArg warnOnly false
         let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
 
-        { this with
-            unknownQueryParamStrictMode =
-                if warnOnly then
-                    UnknownQueryParamStrictMode<'ctx>.Warn warnLogLevel
-                else
-                    UnknownQueryParamStrictMode<'ctx>.Error
+        {
+            this with
+                unknownQueryParamStrictMode =
+                    if warnOnly then
+                        UnknownQueryParamStrictMode<'ctx>.Warn warnLogLevel
+                    else
+                        UnknownQueryParamStrictMode<'ctx>.Error
         }
 
     /// Logs request bodies that contain invalid JSON. By default, these request bodies are not logged. The logLevel
@@ -212,9 +218,10 @@ type JsonApiConfigBuilder<'ctx> =
     member this.LogInvalidJsonRequestBodies<'ctx>(?logLevel, ?maxSize) =
         let logLevel = defaultArg logLevel LogLevel.Trace
 
-        { this with
-            invalidJsonRequestBodyLogLevel = Some logLevel
-            invalidJsonRequestBodyMaxSize = maxSize
+        {
+            this with
+                invalidJsonRequestBodyLogLevel = Some logLevel
+                invalidJsonRequestBodyMaxSize = maxSize
         }
 
 

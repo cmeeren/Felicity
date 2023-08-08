@@ -58,12 +58,13 @@ type Context = { Principal: Principal }
 module Context =
 
     // Simulate asynchronous authentication (e.g. DB or external auth service)
-    let getCtx (_ctx: HttpContext) = async {
-        if false then
-            return Error [ unauthorized ]
-        else
-            return Ok { Principal = Anonymous }
-    }
+    let getCtx (_ctx: HttpContext) =
+        async {
+            if false then
+                return Error [ unauthorized ]
+            else
+                return Ok { Principal = Anonymous }
+        }
 
 
 // Our first resource module! Each module contains all the definitions for a single
@@ -237,11 +238,12 @@ module Article =
     let patch =
         define.Operation
             .Patch()
-            .AfterUpdateAsync(fun a -> async {
-                let a = a |> Article.setUpdated (Some DateTimeOffset.Now)
-                do! Db.Article.save a
-                return a
-            })
+            .AfterUpdateAsync(fun a ->
+                async {
+                    let a = a |> Article.setUpdated (Some DateTimeOffset.Now)
+                    do! Db.Article.save a
+                    return a
+                })
 
     let delete = define.Operation.DeleteAsync(Db.Article.delete)
 
@@ -377,10 +379,11 @@ module Comment =
     let patch =
         define.Operation
             .Patch()
-            .AfterUpdateAsync(fun c -> async {
-                let c = c |> Comment.setUpdated (Some DateTimeOffset.Now)
-                do! Db.Comment.save c
-                return c
-            })
+            .AfterUpdateAsync(fun c ->
+                async {
+                    let c = c |> Comment.setUpdated (Some DateTimeOffset.Now)
+                    do! Db.Comment.save c
+                    return c
+                })
 
     let delete = define.Operation.DeleteAsync(Db.Comment.delete)

@@ -43,12 +43,11 @@ type Db() =
         Map.empty
         |> Map.add
             "p1"
-            (P1
-                {
-                    Id = "p1"
-                    Child = C1 { Id = "c1"; Child = { Id = "c3" } }
-                    Child2 = { Id = "c22" }
-                })
+            (P1 {
+                Id = "p1"
+                Child = C1 { Id = "c1"; Child = { Id = "c3" } }
+                Child2 = { Id = "c22" }
+            })
         |> Map.add "p2" (P2 { Id = "p2"; Child = C2 { Id = "c2" } })
         |> Map.add "p3" (P3 { Id = "p3" })
         |> Map.add "p4" (P4 { Id = "p4" })
@@ -56,15 +55,14 @@ type Db() =
     member _.TryGet id = parents.TryFind id
 
 
-type Ctx =
-    {
-        Db: Db
-        ModifyGetRelatedResponse1: Parent1 -> Child option -> HttpHandler
-        ModifyGetSelfResponse1: Parent1 -> Child option -> HttpHandler
-        ModifyGetRelatedResponse2: Parent2 -> Child option -> HttpHandler
-        ModifyGetSelfResponse2: Parent2 -> Child option -> HttpHandler
-        GetParent1Child: Parent1 -> Child option Skippable
-    }
+type Ctx = {
+    Db: Db
+    ModifyGetRelatedResponse1: Parent1 -> Child option -> HttpHandler
+    ModifyGetSelfResponse1: Parent1 -> Child option -> HttpHandler
+    ModifyGetRelatedResponse2: Parent2 -> Child option -> HttpHandler
+    ModifyGetSelfResponse2: Parent2 -> Child option -> HttpHandler
+    GetParent1Child: Parent1 -> Child option Skippable
+} with
 
     static member WithDb db = {
         Db = db
@@ -227,10 +225,10 @@ let tests1 =
         testJob "Parent1 non-null: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetRelatedResponse1 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/child" |> getResponse
             response |> testStatusCode 200
@@ -265,10 +263,10 @@ let tests1 =
         testJob "Parent1 null: Returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Child = fun _ -> Include None
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/child" |> getResponse
             response |> testStatusCode 200
@@ -279,10 +277,10 @@ let tests1 =
         testJob "Parent2: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetRelatedResponse2 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p2/child" |> getResponse
             response |> testStatusCode 200
@@ -297,10 +295,10 @@ let tests1 =
         testJob "Returns 403 if Skip" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Child = fun _ -> Skip
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/child" |> getResponse
             response |> testStatusCode 403
@@ -437,10 +435,10 @@ let tests2 =
         testJob "Parent1 non-null: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetSelfResponse1 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/relationships/child" |> getResponse
             response |> testStatusCode 200
@@ -504,10 +502,10 @@ let tests2 =
         testJob "Parent1 null: Returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Child = fun _ -> Include None
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/relationships/child" |> getResponse
             response |> testStatusCode 200
@@ -518,10 +516,10 @@ let tests2 =
         testJob "Parent2: Returns 200, modifies response and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyGetSelfResponse2 = fun _ _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.get ctx "/parents/p2/relationships/child" |> getResponse
             response |> testStatusCode 200
@@ -539,10 +537,10 @@ let tests2 =
         testJob "Returns 403 if Skip" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     GetParent1Child = fun _ -> Skip
-                }
+            }
 
             let! response = Request.get ctx "/parents/p1/relationships/child" |> getResponse
             response |> testStatusCode 403

@@ -37,10 +37,10 @@ module ADomain =
 
     let setNullable x a = { a with Nullable = x }
 
-    let setNullableNotNullWhenSet x a =
-        { a with
+    let setNullableNotNullWhenSet x a = {
+        a with
             NullableNotNullWhenSet = Some x
-        }
+    }
 
 
 module BDomain =
@@ -55,46 +55,42 @@ type Db() =
         Map.empty
         |> Map.add
             "a1"
-            (A
-                {
-                    Id = "a1"
-                    ReadOnly = "qwerty"
-                    A = false
-                    X = ""
-                    Nullable = Some "foo"
-                    NullableNotNullWhenSet = None
-                })
+            (A {
+                Id = "a1"
+                ReadOnly = "qwerty"
+                A = false
+                X = ""
+                Nullable = Some "foo"
+                NullableNotNullWhenSet = None
+            })
         |> Map.add
             "b2"
-            (B
-                {
-                    Id = "b2"
-                    ReadOnly = "qwerty"
-                    B = 1
-                    Y = ""
-                })
+            (B {
+                Id = "b2"
+                ReadOnly = "qwerty"
+                B = 1
+                Y = ""
+            })
         |> Map.add
             "c0"
-            (C
-                {
-                    Id = "c0"
-                    ReadOnly = "qwerty"
-                    A = false
-                    X = ""
-                    Nullable = None
-                    NullableNotNullWhenSet = None
-                })
+            (C {
+                Id = "c0"
+                ReadOnly = "qwerty"
+                A = false
+                X = ""
+                Nullable = None
+                NullableNotNullWhenSet = None
+            })
         |> Map.add
             "d1"
-            (D
-                {
-                    Id = "d1"
-                    ReadOnly = "qwerty"
-                    A = false
-                    X = ""
-                    Nullable = Some "foo"
-                    NullableNotNullWhenSet = None
-                })
+            (D {
+                Id = "d1"
+                ReadOnly = "qwerty"
+                A = false
+                X = ""
+                Nullable = Some "foo"
+                NullableNotNullWhenSet = None
+            })
 
     member _.SaveA(a: A) = ABs <- ABs.Add(a.Id, A a)
 
@@ -117,17 +113,16 @@ type MappedCtx = {
 }
 
 
-type Ctx =
-    {
-        ModifyAResponse: A -> HttpHandler
-        ModifyBResponse: B -> HttpHandler
-        Db: Db
-        SetA: bool -> A -> Result<A, Error list>
-        BeforeUpdateA: A -> Result<A, Error list>
-        AfterUpdateA: A -> A -> unit
-        MapCtx: Ctx -> Result<MappedCtx, Error list>
-        MapCtxWithEntity: Ctx -> A -> Result<MappedCtx, Error list>
-    }
+type Ctx = {
+    ModifyAResponse: A -> HttpHandler
+    ModifyBResponse: B -> HttpHandler
+    Db: Db
+    SetA: bool -> A -> Result<A, Error list>
+    BeforeUpdateA: A -> Result<A, Error list>
+    AfterUpdateA: A -> A -> unit
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
+    MapCtxWithEntity: Ctx -> A -> Result<MappedCtx, Error list>
+} with
 
     static member WithDb db = {
         ModifyAResponse = fun _ -> fun next ctx -> next ctx
@@ -138,26 +133,24 @@ type Ctx =
         AfterUpdateA = fun _ a -> db.SaveA a
         MapCtx =
             fun ctx ->
-                Ok
-                    {
-                        ModifyAResponse = ctx.ModifyAResponse
-                        ModifyBResponse = ctx.ModifyBResponse
-                        Db = ctx.Db
-                        SetA = ctx.SetA
-                        BeforeUpdateA = ctx.BeforeUpdateA
-                        AfterUpdateA = ctx.AfterUpdateA
-                    }
+                Ok {
+                    ModifyAResponse = ctx.ModifyAResponse
+                    ModifyBResponse = ctx.ModifyBResponse
+                    Db = ctx.Db
+                    SetA = ctx.SetA
+                    BeforeUpdateA = ctx.BeforeUpdateA
+                    AfterUpdateA = ctx.AfterUpdateA
+                }
         MapCtxWithEntity =
             fun ctx _ ->
-                Ok
-                    {
-                        ModifyAResponse = ctx.ModifyAResponse
-                        ModifyBResponse = ctx.ModifyBResponse
-                        Db = ctx.Db
-                        SetA = ctx.SetA
-                        BeforeUpdateA = ctx.BeforeUpdateA
-                        AfterUpdateA = ctx.AfterUpdateA
-                    }
+                Ok {
+                    ModifyAResponse = ctx.ModifyAResponse
+                    ModifyBResponse = ctx.ModifyBResponse
+                    Db = ctx.Db
+                    SetA = ctx.SetA
+                    BeforeUpdateA = ctx.BeforeUpdateA
+                    AfterUpdateA = ctx.AfterUpdateA
+                }
     }
 
 
@@ -333,15 +326,14 @@ module A4 =
 
     let lookup =
         define.Operation.Lookup(fun _ ->
-            Some
-                {
-                    Id = "a1"
-                    ReadOnly = ""
-                    A = false
-                    X = ""
-                    Nullable = None
-                    NullableNotNullWhenSet = None
-                })
+            Some {
+                Id = "a1"
+                ReadOnly = ""
+                A = false
+                X = ""
+                Nullable = None
+                NullableNotNullWhenSet = None
+            })
 
     let get = define.Operation.GetResource()
     let patch = define.Operation.Patch().AfterUpdate(ignore)
@@ -360,15 +352,14 @@ module A5 =
 
     let lookup =
         define.Operation.Lookup(fun _ ->
-            Some
-                {
-                    Id = "a1"
-                    ReadOnly = ""
-                    A = false
-                    X = ""
-                    Nullable = None
-                    NullableNotNullWhenSet = None
-                })
+            Some {
+                Id = "a1"
+                ReadOnly = ""
+                A = false
+                X = ""
+                Nullable = None
+                NullableNotNullWhenSet = None
+            })
 
     let get = define.Operation.GetResource()
     let patch = define.Operation.Patch().AfterUpdate(ignore)
@@ -387,15 +378,14 @@ module A6 =
 
     let lookup =
         define.Operation.Lookup(fun _ ->
-            Some
-                {
-                    Id = "a1"
-                    ReadOnly = ""
-                    A = false
-                    X = ""
-                    Nullable = None
-                    NullableNotNullWhenSet = None
-                })
+            Some {
+                Id = "a1"
+                ReadOnly = ""
+                A = false
+                X = ""
+                Nullable = None
+                NullableNotNullWhenSet = None
+            })
 
     let get = define.Operation.GetResource()
     let patch = define.Operation.Patch().AfterUpdate(ignore)
@@ -439,10 +429,10 @@ module A7 =
                 parser
                     .For(a)
                     .Add(
-                        (fun x readonly a ->
-                            { a with
+                        (fun x readonly a -> {
+                            a with
                                 X = defaultArg readonly "DEFAULT" + x
-                            }),
+                        }),
                         x,
                         readonly.Optional
                     ))
@@ -450,10 +440,10 @@ module A7 =
                 parser
                     .For(a)
                     .Add(
-                        (fun readonly a ->
-                            { a with
+                        (fun readonly a -> {
+                            a with
                                 ReadOnly = readonly + readonly
-                            }),
+                        }),
                         readonly
                     ))
             .AddCustomSetter(fun ctx a parser -> parser.For(a).Add((fun _ _ a -> a), y, x))
@@ -509,26 +499,25 @@ let tests =
         testJob "Update A: Returns 200, runs setters and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = null
-                                nullableNotNullWhenSet = "bar"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = null
+                            nullableNotNullWhenSet = "bar"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -560,26 +549,25 @@ let tests =
         testJob "Insensitive to trailing slashes" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1/"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = null
-                                nullableNotNullWhenSet = "bar"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = null
+                            nullableNotNullWhenSet = "bar"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -591,14 +579,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| aMapped = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| aMapped = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -617,14 +604,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| aEntityMapped = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| aEntityMapped = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -640,21 +626,20 @@ let tests =
         testJob "Update A mapped: Returns errors returned by mapSetCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| aMapped = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| aMapped = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -668,21 +653,20 @@ let tests =
         testJob "Update A entity mapped: Returns errors returned by mapSetCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| aEntityMapped = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| aEntityMapped = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -698,24 +682,23 @@ let tests =
             let db = Db()
             let expected = db.GetOrFail "a1"
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity =
                         fun ctx e ->
                             calledWith <- ValueSome(A e)
                             (Ctx.WithDb db).MapCtxWithEntity ctx e
-                }
+            }
 
             let! _response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| aEntityMapped = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| aEntityMapped = true |}
                     |}
+                |}
                 |> getResponse
 
             Expect.equal calledWith (ValueSome expected) ""
@@ -727,14 +710,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| nullableMapped = "foobar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| nullableMapped = "foobar" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -753,14 +735,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| nullableEntityMapped = "foobar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| nullableEntityMapped = "foobar" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -776,21 +757,20 @@ let tests =
         testJob "Update nullable mapped: Returns errors returned by mapSetCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| nullableMapped = "foobar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| nullableMapped = "foobar" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -804,21 +784,20 @@ let tests =
         testJob "Update nullable entity mapped: Returns errors returned by mapSetCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| nullableEntityMapped = "foobar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| nullableEntityMapped = "foobar" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -834,24 +813,23 @@ let tests =
             let db = Db()
             let expected = db.GetOrFail "a1"
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity =
                         fun ctx e ->
                             calledWith <- ValueSome(A e)
                             (Ctx.WithDb db).MapCtxWithEntity ctx e
-                }
+            }
 
             let! _response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| nullableEntityMapped = "foobar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| nullableEntityMapped = "foobar" |}
                     |}
+                |}
                 |> getResponse
 
             Expect.equal calledWith (ValueSome expected) ""
@@ -860,21 +838,20 @@ let tests =
         testJob "Update B: Returns 202, runs setters and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyBResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/b2"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "b"
-                            id = "b2"
-                            attributes = {| b = 2; y = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "b"
+                        id = "b2"
+                        attributes = {| b = 2; y = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 202
@@ -900,14 +877,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| readonly = "foo"; x = "bar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| readonly = "foo"; x = "bar" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -933,14 +909,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| x = "bar" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| x = "bar" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -966,14 +941,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| y = "foo" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| y = "foo" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -987,21 +961,20 @@ let tests =
         testJob "Returns 400 when using stringified numbers" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyBResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/b2"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "b"
-                            id = "b2"
-                            attributes = {| b = "2" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "b"
+                        id = "b2"
+                        attributes = {| b = "2" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1036,26 +1009,25 @@ let tests =
                 test <@ before = aOrig @>
                 test <@ after = aExpected @>
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     AfterUpdateA = afterUpdate
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = null
-                                nullableNotNullWhenSet = "bar"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = null
+                            nullableNotNullWhenSet = "bar"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -1068,10 +1040,9 @@ let tests =
         testJob "Correctly handles precondition validation using ETag" {
             let! response =
                 Request.patch Ctx4 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 428
@@ -1088,10 +1059,9 @@ let tests =
 
             let! response =
                 Request.patch Ctx4 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> Request.setHeader (IfMatch "\"invalid-etag\"")
                 |> getResponse
 
@@ -1105,10 +1075,9 @@ let tests =
 
             let! response =
                 Request.patch Ctx4 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> Request.setHeader (IfMatch "\"valid-etag\"")
                 |> getResponse
 
@@ -1119,10 +1088,9 @@ let tests =
         testJob "Correctly handles precondition validation using If-Unmodified-Since" {
             let! response =
                 Request.patch Ctx5 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 428
@@ -1139,10 +1107,9 @@ let tests =
 
             let! response =
                 Request.patch Ctx5 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
                 |> getResponse
 
@@ -1161,10 +1128,9 @@ let tests =
 
             let! response =
                 Request.patch Ctx5 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
                 |> getResponse
 
@@ -1175,20 +1141,18 @@ let tests =
         testJob "Correctly handles optional precondition validation" {
             let! response =
                 Request.patch Ctx6 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
 
             let! response =
                 Request.patch Ctx6 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Fri, 31 Dec 1999 23:59:59 GMT"))
                 |> getResponse
 
@@ -1207,10 +1171,9 @@ let tests =
 
             let! response =
                 Request.patch Ctx6 "/as/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> Request.setHeader (Custom("If-Unmodified-Since", "Sat, 01 Jan 2000 00:00:00 GMT"))
                 |> getResponse
 
@@ -1221,21 +1184,20 @@ let tests =
         testJob "Uses entity returned by BeforeUpdate" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     BeforeUpdateA = fun a -> Ok { a with Nullable = Some "lorem ipsum" }
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -1253,22 +1215,21 @@ let tests =
         testJob "Returns errors and does not call AfterUpdate if BeforeUpdate returns an error" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     BeforeUpdateA = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
                     AfterUpdateA = fun _ _ -> failwith "Should not be called"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| a = true; x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| a = true; x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -1287,21 +1248,20 @@ let tests =
                 | A a -> a
                 | _ -> failwith "Invalid type"
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     SetA = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| a = true; x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| a = true; x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -1322,21 +1282,20 @@ let tests =
         testJob "Returns 403 when read-only" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| readonly = "foo" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| readonly = "foo" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -1350,21 +1309,20 @@ let tests =
         testJob "Returns 403 if nullable attribute is set to null when not supported" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {| nullableNotNullWhenSet = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {| nullableNotNullWhenSet = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -1378,10 +1336,10 @@ let tests =
         testJob "Returns 400 when missing body" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.patch ctx "/abs/a1" |> getResponse
             response |> testStatusCode 400
@@ -1428,10 +1386,10 @@ let tests =
         testJob "Returns 400 when missing data" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
@@ -1449,10 +1407,10 @@ let tests =
         testJob "Returns 400 when data is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
@@ -1475,20 +1433,19 @@ let tests =
         testJob "Returns 400 when missing type" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            id = "a1"
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        id = "a1"
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1504,14 +1461,13 @@ let tests =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = null
-                            id = "a1"
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = null
+                        id = "a1"
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1525,10 +1481,10 @@ let tests =
         testJob "Returns 400 when missing ID" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
@@ -1546,17 +1502,16 @@ let tests =
         testJob "Returns 400 when ID is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = null |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = null |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1570,21 +1525,20 @@ let tests =
         testJob "Returns 400 when attributes is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = null
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = null
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1598,21 +1552,20 @@ let tests =
         testJob "Returns 400 when relationships is null" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            relationships = null
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        relationships = null
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1626,27 +1579,26 @@ let tests =
         testJob "Ignores unknown members and relationships when not using strict mode" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patchWithoutStrictMode ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "a1"
-                            attributes = {|
-                                a = true
-                                nonExistentAttribute = "foo"
-                            |}
-                            relationships = {|
-                                nonExistentRelationship = {| data = null |}
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "a1"
+                        attributes = {|
+                            a = true
+                            nonExistentAttribute = "foo"
+                        |}
+                        relationships = {|
+                            nonExistentRelationship = {| data = null |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 200
@@ -1662,16 +1614,15 @@ let tests =
 
             let! response =
                 Request.patch ctx "/ds/d1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "d"
-                            id = "d1"
-                            attributes = {|
-                                nonNullable = "2000-01-01T15:49:23"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "d"
+                        id = "d1"
+                        attributes = {|
+                            nonNullable = "2000-01-01T15:49:23"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1697,14 +1648,13 @@ let tests =
 
             let! response =
                 Request.patch ctx "/ds/d1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "d"
-                            id = "d1"
-                            attributes = {| nullable = "2000-01-01T15:49:23" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "d"
+                        id = "d1"
+                        attributes = {| nullable = "2000-01-01T15:49:23" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1731,17 +1681,16 @@ let tests =
 
             let! response =
                 Request.patch ctx "/ds/d1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "d"
-                            id = "d1"
-                            attributes = {|
-                                nonNullable = "2000-01-01T15:49:23Z"
-                                nullable = "2000-01-01T15:49:23+05:00"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "d"
+                        id = "d1"
+                        attributes = {|
+                            nonNullable = "2000-01-01T15:49:23Z"
+                            nullable = "2000-01-01T15:49:23+05:00"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -1777,17 +1726,16 @@ let tests =
 
             let! response =
                 Request.patch ctx "/ds/d1"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "d"
-                            id = "d1"
-                            attributes = {|
-                                nonNullableAllowMissingOffset = "2000-01-01T15:49:23"
-                                nullableAllowMissingOffset = "2000-01-01T15:49:23"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "d"
+                        id = "d1"
+                        attributes = {|
+                            nonNullableAllowMissingOffset = "2000-01-01T15:49:23"
+                            nullableAllowMissingOffset = "2000-01-01T15:49:23"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -1796,17 +1744,16 @@ let tests =
         testJob "Returns 409 when type is incorrect" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "invalid"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "invalid"; id = "a1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 409
@@ -1820,17 +1767,16 @@ let tests =
         testJob "Returns 409 when ID is incorrect" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = fun _ -> setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a2" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a2" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 409
@@ -1846,10 +1792,9 @@ let tests =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/abs/a2"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a2" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a2" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 404
@@ -1863,17 +1808,16 @@ let tests =
         testJob "Returns errors returned by mapCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -1887,17 +1831,16 @@ let tests =
         testJob "Returns errors returned by mapCtx with entity" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response =
                 Request.patch ctx "/abs/d1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "d"; id = "d1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "d"; id = "d1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 422
@@ -1913,20 +1856,19 @@ let tests =
             let db = Db()
             let expected = db.GetOrFail "d1"
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity =
                         fun ctx e ->
                             calledWith <- ValueSome(D e)
                             (Ctx.WithDb db).MapCtxWithEntity ctx e
-                }
+            }
 
             let! _response =
                 Request.patch ctx "/abs/d1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "d"; id = "d1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "d"; id = "d1" |}
+                |}
                 |> getResponse
 
             Expect.equal calledWith (ValueSome expected) ""
@@ -1937,10 +1879,9 @@ let tests =
 
             let! response =
                 Request.patch (Ctx.WithDb db) "/abs/c0"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "c"; id = "c0" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "c"; id = "c0" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -1959,10 +1900,9 @@ let tests =
         testJob "Returns 403 if not supported at all" {
             let! response =
                 Request.patch Ctx2 "/abs/a1"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = "a1" |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = "a1" |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403

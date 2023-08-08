@@ -14,17 +14,15 @@ module private RequestParserOperators =
     let inline (<*>) f x = TaskResult.apply f x
 
 
-type RequestParser<'ctx, 'a> =
-    internal
-        {
-            includedTypeAndId: (ResourceTypeName * ResourceId) option
-            consumedFields: HashSet<ConsumedFieldName>
-            consumedParams: HashSet<ConsumedQueryParamName>
-            parse: 'ctx -> Request -> Task<Result<'a, Error list>>
-            ctx: 'ctx
-            request: Request
-            prohibited: ProhibitedRequestGetter list
-        }
+type RequestParser<'ctx, 'a> = internal {
+    includedTypeAndId: (ResourceTypeName * ResourceId) option
+    consumedFields: HashSet<ConsumedFieldName>
+    consumedParams: HashSet<ConsumedQueryParamName>
+    parse: 'ctx -> Request -> Task<Result<'a, Error list>>
+    ctx: 'ctx
+    request: Request
+    prohibited: ProhibitedRequestGetter list
+} with
 
     static member internal Create
         (
@@ -87,21 +85,23 @@ type RequestParser<'ctx, 'a> =
             set: 'ctx -> Request -> 'b -> 'a -> Task<Result<'a, Error list>>,
             getter: OptionalRequestGetter<'ctx, 'b>
         ) =
-        { this with
-            parse =
-                fun ctx req -> task {
-                    let! existingRes = this.parse ctx req
-                    let! newRes = getter.Get(ctx, req, this.includedTypeAndId)
+        {
+            this with
+                parse =
+                    fun ctx req ->
+                        task {
+                            let! existingRes = this.parse ctx req
+                            let! newRes = getter.Get(ctx, req, this.includedTypeAndId)
 
-                    match existingRes, newRes with
-                    | Error errs1, Error errs2 -> return Error(errs1 @ errs2)
-                    | Error errs, Ok _ -> return Error errs
-                    | Ok _, Error errs -> return Error errs
-                    | Ok existing, Ok newOpt ->
-                        match newOpt with
-                        | None -> return Ok existing
-                        | Some new' -> return! set ctx req new' existing
-                }
+                            match existingRes, newRes with
+                            | Error errs1, Error errs2 -> return Error(errs1 @ errs2)
+                            | Error errs, Ok _ -> return Error errs
+                            | Ok _, Error errs -> return Error errs
+                            | Ok existing, Ok newOpt ->
+                                match newOpt with
+                                | None -> return Ok existing
+                                | Some new' -> return! set ctx req new' existing
+                        }
         }
             .MarkAsConsumed(getter)
 
@@ -119,11 +119,12 @@ type RequestParser<'ctx, 'a> =
         ) =
         this
             .AddTaskRes(
-                (fun ctx req b a -> task {
-                    match! getC.Get(ctx, req, this.includedTypeAndId) with
-                    | Error errs -> return Error errs
-                    | Ok c -> return! set b c a
-                }),
+                (fun ctx req b a ->
+                    task {
+                        match! getC.Get(ctx, req, this.includedTypeAndId) with
+                        | Error errs -> return Error errs
+                        | Ok c -> return! set b c a
+                    }),
                 getter
             )
             .MarkAsConsumed(getC)
@@ -175,8 +176,8 @@ type RequestParser<'ctx, 'a> =
     member this.Add(set: 'b -> 'c -> 'a -> 'a, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>) =
         this.AddTaskRes((fun b c a -> set b c a |> Ok |> Task.result), getter, getC)
 
-    member this.RequireType(typeName: string) =
-        { this with
+    member this.RequireType(typeName: string) = {
+        this with
             parse =
                 fun ctx req ->
                     match req.Document.Value with
@@ -186,11 +187,12 @@ type RequestParser<'ctx, 'a> =
                     | Ok(Some { data = Some { ``type`` = t } }) when t <> typeName ->
                         Error [ reqParserInvalidType typeName t "/data/type" ] |> Task.result
                     | Ok(Some { data = Some _ }) -> this.parse ctx req
-        }
+    }
 
     member this.Prohibit(getter: ProhibitedRequestGetter) =
-        { this with
-            prohibited = getter :: this.prohibited
+        {
+            this with
+                prohibited = getter :: this.prohibited
         }
             .MarkAsConsumed(getter)
 

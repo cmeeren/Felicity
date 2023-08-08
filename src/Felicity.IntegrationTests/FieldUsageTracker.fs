@@ -93,28 +93,29 @@ module D =
             .AfterModifySelf(ignore)
 
     let postCustom202 =
-        define.Operation.PostCustomAsync(fun _ parser helper -> async {
-            let parser = parser.For((fun _ _ -> D "1"), resId, c)
+        define.Operation.PostCustomAsync(fun _ parser helper ->
+            async {
+                let parser = parser.For((fun _ _ -> D "1"), resId, c)
 
-            helper.ValidateRequest(parser)
-            |> function
-                | Ok x -> x
-                | Error _ -> failwith "Should not happen"
-
-            let! d =
-                parser.ParseAsync()
-                |> Async.map (function
+                helper.ValidateRequest(parser)
+                |> function
                     | Ok x -> x
-                    | Error _ -> failwith "Should not happen")
+                    | Error _ -> failwith "Should not happen"
 
-            let! _d =
-                helper.RunSettersAsync(d, parser)
-                |> Async.map (function
-                    | Ok x -> x
-                    | Error _ -> failwith "Should not happen")
+                let! d =
+                    parser.ParseAsync()
+                    |> Async.map (function
+                        | Ok x -> x
+                        | Error _ -> failwith "Should not happen")
 
-            return helper.Return202Accepted() |> Ok
-        })
+                let! _d =
+                    helper.RunSettersAsync(d, parser)
+                    |> Async.map (function
+                        | Ok x -> x
+                        | Error _ -> failwith "Should not happen")
+
+                return helper.Return202Accepted() |> Ok
+            })
 
     let get = define.Operation.GetResource()
 
@@ -132,28 +133,29 @@ module B =
     let relC = define.Relationship.ToOne(C.resDef).Get(fun _ -> C "1")
 
     let postCustom =
-        define.Operation.PostCustomAsync(fun _ parser helper -> async {
-            let parser = parser.For((fun _ -> B "1"), b)
+        define.Operation.PostCustomAsync(fun _ parser helper ->
+            async {
+                let parser = parser.For((fun _ -> B "1"), b)
 
-            helper.ValidateRequest(parser)
-            |> function
-                | Ok x -> x
-                | Error _ -> failwith "Should not happen"
-
-            let! b =
-                parser.ParseAsync()
-                |> Async.map (function
+                helper.ValidateRequest(parser)
+                |> function
                     | Ok x -> x
-                    | Error _ -> failwith "Should not happen")
+                    | Error _ -> failwith "Should not happen"
 
-            let! b =
-                helper.RunSettersAsync(b, parser)
-                |> Async.map (function
-                    | Ok x -> x
-                    | Error _ -> failwith "Should not happen")
+                let! b =
+                    parser.ParseAsync()
+                    |> Async.map (function
+                        | Ok x -> x
+                        | Error _ -> failwith "Should not happen")
 
-            return helper.ReturnCreatedEntity(b) |> Ok
-        })
+                let! b =
+                    helper.RunSettersAsync(b, parser)
+                    |> Async.map (function
+                        | Ok x -> x
+                        | Error _ -> failwith "Should not happen")
+
+                return helper.ReturnCreatedEntity(b) |> Ok
+            })
 
 
 module A =
@@ -522,29 +524,30 @@ let createServerAndGetClient (trackFieldUsage: _ -> _ -> _ -> HttpHandler) =
     server.CreateClient()
 
 
-let doTest method url body expected = job {
-    let mutable actual = Unchecked.defaultof<_>
+let doTest method url body expected =
+    job {
+        let mutable actual = Unchecked.defaultof<_>
 
-    let trackFieldUsage _ _ctx (xs: FieldUseInfo list) =
-        actual <- xs |> List.map (fun x -> (x.TypeName, x.FieldName), x.Usage)
-        setHttpHeader "Foo" "Bar"
+        let trackFieldUsage _ _ctx (xs: FieldUseInfo list) =
+            actual <- xs |> List.map (fun x -> (x.TypeName, x.FieldName), x.Usage)
+            setHttpHeader "Foo" "Bar"
 
-    let client = createServerAndGetClient trackFieldUsage
+        let client = createServerAndGetClient trackFieldUsage
 
-    let! response =
-        Request.createWithClient client method (Uri(url))
-        |> Request.jsonApiHeaders
-        |> match body with
-           | None -> id
-           | Some body -> Request.bodySerialized body
-        |> getResponse
+        let! response =
+            Request.createWithClient client method (Uri(url))
+            |> Request.jsonApiHeaders
+            |> match body with
+               | None -> id
+               | Some body -> Request.bodySerialized body
+            |> getResponse
 
-    response |> testSuccessStatusCode
+        response |> testSuccessStatusCode
 
-    Expect.equal response.headers[NonStandard "Foo"] "Bar" ""
+        Expect.equal response.headers[NonStandard "Foo"] "Bar" ""
 
-    Expect.sequenceEqual (List.sort actual) (expected |> List.sort) ""
-}
+        Expect.sequenceEqual (List.sort actual) (expected |> List.sort) ""
+    }
 
 
 [<Tests>]
@@ -647,13 +650,12 @@ let tests =
                 doTest
                     Post
                     "http://example.com/as"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "a"
-                                attributes = {| attrA = "" |}
-                            |}
-                        |})
+                    (Some {|
+                        data = {|
+                            ``type`` = "a"
+                            attributes = {| attrA = "" |}
+                        |}
+                    |})
                     [
                         ("a", "attrA"), FieldUsage.Explicit
                         ("a", "relCDToOne"), FieldUsage.Implicit
@@ -673,15 +675,14 @@ let tests =
                 doTest
                     Post
                     "http://example.com/cds"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "c"
-                                relationships = {|
-                                    relToOneNullable = {| data = null |}
-                                |}
+                    (Some {|
+                        data = {|
+                            ``type`` = "c"
+                            relationships = {|
+                                relToOneNullable = {| data = null |}
                             |}
-                        |})
+                        |}
+                    |})
                     [ ("c", "relToOneNullable"), FieldUsage.Explicit ]
         }
 
@@ -690,13 +691,12 @@ let tests =
                 doTest
                     Post
                     "http://example.com/bs"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "b"
-                                attributes = {| a = ""; b = "" |}
-                            |}
-                        |})
+                    (Some {|
+                        data = {|
+                            ``type`` = "b"
+                            attributes = {| a = ""; b = "" |}
+                        |}
+                    |})
                     [
                         ("b", "a"), FieldUsage.Explicit
                         ("b", "b"), FieldUsage.Explicit
@@ -709,14 +709,13 @@ let tests =
                 doTest
                     Post
                     "http://example.com/cds"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "d"
-                                id = "1"
-                                attributes = {| c = "" |}
-                            |}
-                        |})
+                    (Some {|
+                        data = {|
+                            ``type`` = "d"
+                            id = "1"
+                            attributes = {| c = "" |}
+                        |}
+                    |})
                     [ ("d", "id"), FieldUsage.Explicit; ("d", "c"), FieldUsage.Explicit ]
         }
 
@@ -725,13 +724,12 @@ let tests =
                 doTest
                     Post
                     "http://example.com/es"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "e"
-                                relationships = {| r = {| data = null |} |}
-                            |}
-                        |})
+                    (Some {|
+                        data = {|
+                            ``type`` = "e"
+                            relationships = {| r = {| data = null |} |}
+                        |}
+                    |})
                     [ ("e", "a"), FieldUsage.Implicit; ("e", "r"), FieldUsage.Explicit ]
         }
 
@@ -740,13 +738,12 @@ let tests =
                 doTest
                     Post
                     "http://example.com/fs"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "f"
-                                relationships = {| r = {| data = null |} |}
-                            |}
-                        |})
+                    (Some {|
+                        data = {|
+                            ``type`` = "f"
+                            relationships = {| r = {| data = null |} |}
+                        |}
+                    |})
                     [ ("f", "a"), FieldUsage.Implicit; ("f", "r"), FieldUsage.Explicit ]
         }
 
@@ -775,10 +772,9 @@ let tests =
                 doTest
                     Patch
                     ("http://example.com/as/1?" + basicTestFieldsAndIncludesForPrimaryA)
-                    (Some
-                        {|
-                            data = {| ``type`` = "a"; id = "1" |}
-                        |})
+                    (Some {|
+                        data = {| ``type`` = "a"; id = "1" |}
+                    |})
                     basicTestExpectedResultForPrimaryA
         }
 
@@ -787,20 +783,19 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/as/1"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "a"
-                                id = "1"
-                                attributes = {|
-                                    attrA = ""
-                                    attrB = ""
-                                    attrC = ""
-                                    attrD = ""
-                                |}
-                                relationships = {| relBNone = {| data = null |} |}
+                    (Some {|
+                        data = {|
+                            ``type`` = "a"
+                            id = "1"
+                            attributes = {|
+                                attrA = ""
+                                attrB = ""
+                                attrC = ""
+                                attrD = ""
                             |}
-                        |})
+                            relationships = {| relBNone = {| data = null |} |}
+                        |}
+                    |})
                     [
                         ("a", "attrA"), FieldUsage.Explicit
                         ("a", "attrB"), FieldUsage.Explicit
@@ -823,14 +818,13 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/es/1"
-                    (Some
-                        {|
-                            data = {|
-                                ``type`` = "e"
-                                id = "1"
-                                attributes = {| a = "" |}
-                            |}
-                        |})
+                    (Some {|
+                        data = {|
+                            ``type`` = "e"
+                            id = "1"
+                            attributes = {| a = "" |}
+                        |}
+                    |})
                     [ ("e", "a"), FieldUsage.Explicit ]
         }
 
@@ -839,10 +833,9 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/ghs/G1"
-                    (Some
-                        {|
-                            data = {| ``type`` = "g"; id = "G1" |}
-                        |})
+                    (Some {|
+                        data = {| ``type`` = "g"; id = "G1" |}
+                    |})
                     [ ("g", "r"), FieldUsage.Implicit ]
         }
 
@@ -995,10 +988,9 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/as/1/relationships/relB?include=relB.relC&fields[b]=a"
-                    (Some
-                        {|
-                            data = {| ``type`` = "b"; id = "1" |}
-                        |})
+                    (Some {|
+                        data = {| ``type`` = "b"; id = "1" |}
+                    |})
                     [
                         ("a", "relB"), FieldUsage.Explicit
                         ("b", "a"), FieldUsage.Explicit
@@ -1016,10 +1008,9 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/as/1/relationships/relB?include=relD,relB.relC&fields[b]=a"
-                    (Some
-                        {|
-                            data = {| ``type`` = "b"; id = "1" |}
-                        |})
+                    (Some {|
+                        data = {| ``type`` = "b"; id = "1" |}
+                    |})
                     [
                         ("a", "relB"), FieldUsage.Explicit
                         ("b", "a"), FieldUsage.Explicit
@@ -1037,10 +1028,9 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/as/1/relationships/relCDToOne?include=relCDToOne"
-                    (Some
-                        {|
-                            data = {| ``type`` = "c"; id = "1" |}
-                        |})
+                    (Some {|
+                        data = {| ``type`` = "c"; id = "1" |}
+                    |})
                     [
                         ("a", "relCDToOne"), FieldUsage.Explicit
                         ("c", "c"), FieldUsage.Implicit
@@ -1060,10 +1050,9 @@ let tests =
                 doTest
                     Patch
                     "http://example.com/cds/C1/relationships/relToOne"
-                    (Some
-                        {|
-                            data = {| ``type`` = "c"; id = "1" |}
-                        |})
+                    (Some {|
+                        data = {| ``type`` = "c"; id = "1" |}
+                    |})
                     [ ("c", "relToOne"), FieldUsage.Explicit ]
         }
 

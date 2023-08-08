@@ -47,26 +47,27 @@ module A =
     let readonly = define.Attribute.SimpleString().Get(fun _ -> "test")
 
     let post =
-        define.Operation.PostCustomAsync(fun ctx parser helper -> async {
-            let parser = parser.For(id, a)
+        define.Operation.PostCustomAsync(fun ctx parser helper ->
+            async {
+                let parser = parser.For(id, a)
 
-            match helper.ValidateRequest parser with
-            | Error errs -> return Error errs
-            | Ok() ->
-                match! parser.ParseTask() |> Async.AwaitTask with
+                match helper.ValidateRequest parser with
                 | Error errs -> return Error errs
-                | Ok a ->
-                    match ADomain.create a with
+                | Ok() ->
+                    match! parser.ParseTask() |> Async.AwaitTask with
                     | Error errs -> return Error errs
-                    | Ok entity ->
-                        match! helper.RunSettersAsync(entity, parser) with
+                    | Ok a ->
+                        match ADomain.create a with
                         | Error errs -> return Error errs
                         | Ok entity ->
-                            if entity.X <> "" then
-                                return helper.ReturnCreatedEntity entity |> Ok
-                            else
-                                return helper.Return202Accepted() |> Ok
-        })
+                            match! helper.RunSettersAsync(entity, parser) with
+                            | Error errs -> return Error errs
+                            | Ok entity ->
+                                if entity.X <> "" then
+                                    return helper.ReturnCreatedEntity entity |> Ok
+                                else
+                                    return helper.Return202Accepted() |> Ok
+            })
 
 
 
@@ -108,14 +109,15 @@ module D =
     let resDef = define.Resource("d", resId).CollectionName("ds")
 
     let post =
-        define.Operation.PostCustomAsync(fun ctx parser helper -> async {
-            let eTag = EntityTagHeaderValue.FromString false "valid-etag"
-            let lastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        define.Operation.PostCustomAsync(fun ctx parser helper ->
+            async {
+                let eTag = EntityTagHeaderValue.FromString false "valid-etag"
+                let lastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
 
-            match helper.ValidatePreconditions(eTag, lastModified) with
-            | Error errs -> return Error errs
-            | Ok() -> return helper.Return202Accepted() |> Ok
-        })
+                match helper.ValidatePreconditions(eTag, lastModified) with
+                | Error errs -> return Error errs
+                | Ok() -> return helper.Return202Accepted() |> Ok
+            })
 
 
 module E =
@@ -125,14 +127,15 @@ module E =
     let resDef = define.Resource("e", resId).CollectionName("es")
 
     let post =
-        define.Operation.PostCustomAsync(fun ctx parser helper -> async {
-            let eTag = EntityTagHeaderValue.FromString false "valid-etag"
-            let lastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        define.Operation.PostCustomAsync(fun ctx parser helper ->
+            async {
+                let eTag = EntityTagHeaderValue.FromString false "valid-etag"
+                let lastModified = DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
 
-            match helper.ValidatePreconditions(eTag, lastModified, isOptional = true) with
-            | Error errs -> return Error errs
-            | Ok() -> return helper.Return202Accepted() |> Ok
-        })
+                match helper.ValidatePreconditions(eTag, lastModified, isOptional = true) with
+                | Error errs -> return Error errs
+                | Ok() -> return helper.Return202Accepted() |> Ok
+            })
 
 
 [<Tests>]
@@ -142,13 +145,12 @@ let tests =
         testJob "Create 1: Returns 201, runs setters and returns correct data if successful" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true; x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true; x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -164,13 +166,12 @@ let tests =
         testJob "Insensitive to trailing slashes" {
             let! response =
                 Request.post Ctx "/abs/"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true; x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true; x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -179,13 +180,12 @@ let tests =
         testJob "Create 2: Returns 202 and runs setters" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 202
@@ -197,13 +197,12 @@ let tests =
         testJob "Returns 403 when read-only" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true; readonly = "foo" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true; readonly = "foo" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -217,14 +216,13 @@ let tests =
         testJob "Returns 403 when client-generated ID is not supported" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "foo"
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "foo"
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -317,10 +315,9 @@ let tests =
         testJob "Returns 400 when missing type" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {| attributes = {| a = true |} |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| attributes = {| a = true |} |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -334,13 +331,12 @@ let tests =
         testJob "Returns 400 when type is null" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = null
-                            attributes = {| a = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = null
+                        attributes = {| a = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -354,10 +350,9 @@ let tests =
         testJob "Returns 400 when ID is null" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; id = null |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; id = null |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -371,10 +366,9 @@ let tests =
         testJob "Returns 400 when attributes is null" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {| ``type`` = "a"; attributes = null |}
-                    |}
+                |> Request.bodySerialized {|
+                    data = {| ``type`` = "a"; attributes = null |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -388,13 +382,12 @@ let tests =
         testJob "Returns 400 when relationships is null" {
             let! response =
                 Request.post Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            relationships = null
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        relationships = null
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -408,21 +401,20 @@ let tests =
         testJob "Ignores unknown members and relationships when not using strict mode" {
             let! response =
                 Request.postWithoutStrictMode Ctx "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {|
-                                a = true
-                                x = "abc"
-                                nullable = "foo"
-                                nonExistentAttribute = "foo"
-                            |}
-                            relationships = {|
-                                nonExistentRelationship = {| data = null |}
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {|
+                            a = true
+                            x = "abc"
+                            nullable = "foo"
+                            nonExistentAttribute = "foo"
+                        |}
+                        relationships = {|
+                            nonExistentRelationship = {| data = null |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 201
@@ -464,13 +456,12 @@ let tests =
         testJob "Returns 403 if not supported at all" {
             let! response =
                 Request.post Ctx3 "/abs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {| a = true; x = "abc" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {| a = true; x = "abc" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403

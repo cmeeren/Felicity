@@ -45,17 +45,16 @@ type MappedCtx = {
 }
 
 
-type Ctx =
-    {
-        ModifyAResponse: HttpHandler
-        ModifyBResponse: HttpHandler
-        Db: Db
-        BeforeDeleteA: A -> Result<A, Error list>
-        DeleteA: A -> Result<unit, Error list>
-        DeleteB: B -> unit
-        MapCtx: Ctx -> Result<MappedCtx, Error list>
-        MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
-    }
+type Ctx = {
+    ModifyAResponse: HttpHandler
+    ModifyBResponse: HttpHandler
+    Db: Db
+    BeforeDeleteA: A -> Result<A, Error list>
+    DeleteA: A -> Result<unit, Error list>
+    DeleteB: B -> unit
+    MapCtx: Ctx -> Result<MappedCtx, Error list>
+    MapCtxWithEntity: Ctx -> B -> Result<MappedCtx, Error list>
+} with
 
     static member WithDb db = {
         ModifyAResponse = fun next ctx -> next ctx
@@ -66,26 +65,24 @@ type Ctx =
         DeleteB = fun b -> db.Remove b.Id
         MapCtx =
             fun ctx ->
-                Ok
-                    {
-                        ModifyAResponse = ctx.ModifyAResponse
-                        ModifyBResponse = ctx.ModifyBResponse
-                        Db = ctx.Db
-                        BeforeDeleteA = ctx.BeforeDeleteA
-                        DeleteA = ctx.DeleteA
-                        DeleteB = ctx.DeleteB
-                    }
+                Ok {
+                    ModifyAResponse = ctx.ModifyAResponse
+                    ModifyBResponse = ctx.ModifyBResponse
+                    Db = ctx.Db
+                    BeforeDeleteA = ctx.BeforeDeleteA
+                    DeleteA = ctx.DeleteA
+                    DeleteB = ctx.DeleteB
+                }
         MapCtxWithEntity =
             fun ctx _ ->
-                Ok
-                    {
-                        ModifyAResponse = ctx.ModifyAResponse
-                        ModifyBResponse = ctx.ModifyBResponse
-                        Db = ctx.Db
-                        BeforeDeleteA = ctx.BeforeDeleteA
-                        DeleteA = ctx.DeleteA
-                        DeleteB = ctx.DeleteB
-                    }
+                Ok {
+                    ModifyAResponse = ctx.ModifyAResponse
+                    ModifyBResponse = ctx.ModifyBResponse
+                    Db = ctx.Db
+                    BeforeDeleteA = ctx.BeforeDeleteA
+                    DeleteA = ctx.DeleteA
+                    DeleteB = ctx.DeleteB
+                }
     }
 
 
@@ -266,10 +263,10 @@ let tests =
         testJob "Delete A: Returns 204 and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyAResponse = setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.delete ctx "/abs/a1" |> getResponse
             response |> testStatusCode 204
@@ -290,10 +287,10 @@ let tests =
         testJob "Delete B: Returns 202, and returns correct data if successful" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     ModifyBResponse = setHttpHeader "Foo" "Bar"
-                }
+            }
 
             let! response = Request.delete ctx "/abs/b2" |> getResponse
             response |> testStatusCode 202
@@ -417,14 +414,14 @@ let tests =
             let db = Db()
             let mutable calledWith = None
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     BeforeDeleteA = fun a -> Ok { a with Id = "foobar" }
                     DeleteA =
                         fun a ->
                             calledWith <- Some a
                             Ok()
-                }
+            }
 
             let! response = Request.delete ctx "/abs/a1" |> getResponse
 
@@ -436,11 +433,11 @@ let tests =
         testJob "Returns errors and does not call delete if BeforeDelete returns an error" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     BeforeDeleteA = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
                     DeleteA = fun _ -> failwith "Should not be called"
-                }
+            }
 
             let! response = Request.delete ctx "/abs/a1" |> getResponse
 
@@ -457,10 +454,10 @@ let tests =
         testJob "Returns errors returned by delete" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     DeleteA = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.delete ctx "/abs/a1" |> getResponse
 
@@ -486,10 +483,10 @@ let tests =
         testJob "Returns errors returned by mapCtx" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtx = fun _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.delete ctx "/abs/a1" |> getResponse
             response |> testStatusCode 422
@@ -503,10 +500,10 @@ let tests =
         testJob "Returns errors returned by mapCtx with entity" {
             let db = Db()
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity = fun _ _ -> Error [ Error.create 422 |> Error.setCode "custom" ]
-                }
+            }
 
             let! response = Request.delete ctx "/abs/b2" |> getResponse
             response |> testStatusCode 422
@@ -522,13 +519,13 @@ let tests =
             let db = Db()
             let expected = db.TryGet "b2" |> Option.get
 
-            let ctx =
-                { Ctx.WithDb db with
+            let ctx = {
+                Ctx.WithDb db with
                     MapCtxWithEntity =
                         fun ctx e ->
                             calledWith <- ValueSome(B e)
                             (Ctx.WithDb db).MapCtxWithEntity ctx e
-                }
+            }
 
             let! _response = Request.delete ctx "/abs/b2" |> getResponse
             Expect.equal calledWith (ValueSome expected) ""

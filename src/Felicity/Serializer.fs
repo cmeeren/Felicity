@@ -41,12 +41,11 @@ module private ToDocumentModel =
         if isNull d.data then
             Error [ relInvalidNull resType relName (ptr + "/data") ]
         elif LanguagePrimitives.PhysicalEquality d.data skippedResourceIdentifier then
-            Ok
-                {
-                    links = Skip
-                    data = Skip
-                    meta = Skip
-                }
+            Ok {
+                links = Skip
+                data = Skip
+                meta = Skip
+            }
         else
             d.data
             |> resourceIdentifier (ptr + "/data")
@@ -59,12 +58,11 @@ module private ToDocumentModel =
 
     let private toOneNullableRelationship ptr (d: DToOneNullableRelationship) : Result<ToOneNullable, Error list> =
         if LanguagePrimitives.PhysicalEquality d.data skippedResourceIdentifier then
-            Ok
-                {
-                    links = Skip
-                    data = Skip
-                    meta = Skip
-                }
+            Ok {
+                links = Skip
+                data = Skip
+                meta = Skip
+            }
         else
             d.data
             |> Option.ofObj
@@ -80,12 +78,11 @@ module private ToDocumentModel =
         if isNull d.data then
             Error [ invalidNull "data" (ptr + "/data") ]
         elif LanguagePrimitives.PhysicalEquality d.data skippedResourceIdentifierArray then
-            Ok
-                {
-                    links = Skip
-                    data = Skip
-                    meta = Skip
-                }
+            Ok {
+                links = Skip
+                data = Skip
+                meta = Skip
+            }
         else
             d.data
             |> Array.traverseResultAIndexed (fun i d ->
@@ -227,19 +224,18 @@ module private ToDocumentModel =
             | Error errs, Ok _
             | Ok _, Error errs -> Error errs
             | Ok attrs, Ok rels ->
-                Ok
-                    {
-                        ``type`` = d.``type``
-                        id =
-                            if LanguagePrimitives.PhysicalEquality d.id skippedString then
-                                Skip
-                            else
-                                Include d.id
-                        attributes = attrs
-                        links = Skip
-                        relationships = rels
-                        meta = Skip
-                    }
+                Ok {
+                    ``type`` = d.``type``
+                    id =
+                        if LanguagePrimitives.PhysicalEquality d.id skippedString then
+                            Skip
+                        else
+                            Include d.id
+                    attributes = attrs
+                    links = Skip
+                    relationships = rels
+                    meta = Skip
+                }
 
 
     let resourceDocument
@@ -275,14 +271,13 @@ module private ToDocumentModel =
         | Error errs, Ok _
         | Ok _, Error errs -> Error errs
         | Ok d, Ok i ->
-            Ok
-                {
-                    jsonapi = Skip
-                    links = Skip
-                    meta = Skip
-                    data = d
-                    included = i
-                }
+            Ok {
+                jsonapi = Skip
+                links = Skip
+                meta = Skip
+                data = d
+                included = i
+            }
 
 
     let resourceIdentifierDocument (d: DResourceIdentifierDocument) : Result<ResourceIdentifierDocument, Error list> =

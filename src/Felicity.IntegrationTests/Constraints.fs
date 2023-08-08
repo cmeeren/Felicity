@@ -181,13 +181,12 @@ let tests =
         testJob "Returns 403 when included in POST" {
             let! response =
                 Request.post Ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| constraints = obj () |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| constraints = obj () |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -200,14 +199,13 @@ let tests =
         testJob "Returns 403 when included in PATCH" {
             let! response =
                 Request.patch Ctx "/xs/someId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            id = "someId"
-                            attributes = {| constraints = obj () |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        id = "someId"
+                        attributes = {| constraints = obj () |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -227,14 +225,13 @@ let tests =
             // Actual test
             let! response =
                 Request.patch Ctx "/ys/someId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            id = "someId"
-                            attributes = {| constraints = true |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        id = "someId"
+                        attributes = {| constraints = true |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode

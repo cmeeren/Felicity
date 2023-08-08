@@ -112,38 +112,37 @@ let tests =
 
             let! response =
                 Request.post ctx "/as"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            attributes = {|
-                                a = "ignored"
-                                b = "ignored"
-                                c = "ignored"
-                                d = "ignored"
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        attributes = {|
+                            a = "ignored"
+                            b = "ignored"
+                            c = "ignored"
+                            d = "ignored"
+                        |}
+                        relationships = {|
+                            e = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
                             |}
-                            relationships = {|
-                                e = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                f = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                g = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                h = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                i = {|
-                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                |}
-                                j = {|
-                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                |}
+                            f = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
+                            |}
+                            g = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
+                            |}
+                            h = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
+                            |}
+                            i = {|
+                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
+                            |}
+                            j = {|
+                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -157,39 +156,38 @@ let tests =
 
             let! response =
                 Request.patch ctx "/as/someId"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "a"
-                            id = "someId"
-                            attributes = {|
-                                a = "ignored"
-                                b = "ignored"
-                                c = "ignored"
-                                d = "ignored"
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "a"
+                        id = "someId"
+                        attributes = {|
+                            a = "ignored"
+                            b = "ignored"
+                            c = "ignored"
+                            d = "ignored"
+                        |}
+                        relationships = {|
+                            e = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
                             |}
-                            relationships = {|
-                                e = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                f = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                g = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                h = {|
-                                    data = {| ``type`` = "a"; id = "ignored" |}
-                                |}
-                                i = {|
-                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                |}
-                                j = {|
-                                    data = [ {| ``type`` = "a"; id = "ignored" |} ]
-                                |}
+                            f = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
+                            |}
+                            g = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
+                            |}
+                            h = {|
+                                data = {| ``type`` = "a"; id = "ignored" |}
+                            |}
+                            i = {|
+                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
+                            |}
+                            j = {|
+                                data = [ {| ``type`` = "a"; id = "ignored" |} ]
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode

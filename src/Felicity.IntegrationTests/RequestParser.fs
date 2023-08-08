@@ -46,10 +46,9 @@ type TrueBool =
     static member value(TrueBool x) = x
 
 
-type Ctx =
-    {
-        GetReqParser: RequestParserHelper<Ctx> -> RequestParser<Ctx, unit>
-    }
+type Ctx = {
+    GetReqParser: RequestParserHelper<Ctx> -> RequestParser<Ctx, unit>
+} with
 
     static member Create getReqParser = { GetReqParser = getReqParser }
 
@@ -147,13 +146,12 @@ module X =
             .AfterCreate(ignore)
 
 
-type XSearchArgs =
-    {
-        nonEmptyString: NonEmptyString
-        nonNegativeIntLe: NonNegativeInt option
-        nonNegativeIntGe: NonNegativeInt option
-        nullableNonEmptyString: NonEmptyString option
-    }
+type XSearchArgs = {
+    nonEmptyString: NonEmptyString
+    nonNegativeIntLe: NonNegativeInt option
+    nonNegativeIntGe: NonNegativeInt option
+    nullableNonEmptyString: NonEmptyString option
+} with
 
     static member Create nonEmptyString = {
         nonEmptyString = nonEmptyString
@@ -165,10 +163,10 @@ type XSearchArgs =
     static member setNonNegativeIntLe i args = { args with nonNegativeIntLe = Some i }
     static member setNonNegativeIntGe i args = { args with nonNegativeIntGe = Some i }
 
-    static member setNullableNonEmptyString s args =
-        { args with
+    static member setNullableNonEmptyString s args = {
+        args with
             nullableNonEmptyString = Some s
-        }
+    }
 
 
 
@@ -479,13 +477,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = "val" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = "val" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -501,13 +498,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -520,13 +516,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = obj ()
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = obj ()
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -551,13 +546,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = "val" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = "val" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -571,13 +565,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -594,13 +587,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = obj ()
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = obj ()
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -625,13 +617,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = "val" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = "val" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -648,13 +639,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -671,13 +661,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = obj ()
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = obj ()
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -694,13 +683,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = "val" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = "val" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -714,13 +702,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nullableNonEmptyString = null |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nullableNonEmptyString = null |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 403
@@ -740,13 +727,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = obj ()
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = obj ()
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -763,17 +749,16 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            relationships = {|
-                                a = {|
-                                    data = {| ``type`` = "a"; id = "someId" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        relationships = {|
+                            a = {|
+                                data = {| ``type`` = "a"; id = "someId" |}
                             |}
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -935,13 +920,12 @@ let tests =
                     parser.For(
                         (fun offset limit number size ->
                             calledWith <-
-                                Some
-                                    {|
-                                        Offset = offset
-                                        Limit = limit
-                                        Number = number
-                                        Size = size
-                                    |}),
+                                Some {|
+                                    Offset = offset
+                                    Limit = limit
+                                    Number = number
+                                    Size = size
+                                |}),
                         Page.Offset,
                         Page.Limit,
                         Page.Number,
@@ -957,13 +941,12 @@ let tests =
 
             test
                 <@
-                    calledWith' = Some
-                        {|
-                            Offset = 4
-                            Limit = 5
-                            Number = 6
-                            Size = 7
-                        |}
+                    calledWith' = Some {|
+                        Offset = 4
+                        Limit = 5
+                        Number = 6
+                        Size = 7
+                    |}
                 @>
         }
 
@@ -1286,13 +1269,12 @@ let tests =
 
             let! response =
                 Request.postWithoutStrictMode ctx "/xs?filter[NonEmptyString]=foo"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| NonNegativeFloat = 1. |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| NonNegativeFloat = 1. |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -1326,18 +1308,17 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs?filter[nonEmptyString]=val"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nonNegativeInt = 2 |}
-                            relationships = {|
-                                a = {|
-                                    data = {| ``type`` = "a"; id = "someId" |}
-                                |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nonNegativeInt = 2 |}
+                        relationships = {|
+                            a = {|
+                                data = {| ``type`` = "a"; id = "someId" |}
                             |}
                         |}
                     |}
+                |}
                 |> Request.setHeader (Custom("HeaderName", "val"))
                 |> getResponse
 
@@ -1411,13 +1392,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/xs"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "x"
-                            attributes = {| nonEmptyString = "val" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "x"
+                        attributes = {| nonEmptyString = "val" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testSuccessStatusCode
@@ -1982,13 +1962,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            id = "invalidValue"
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        id = "invalidValue"
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2004,13 +1983,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            id = "invalidValue"
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        id = "invalidValue"
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2029,13 +2007,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {| nonNullableOpt = "invalidValue" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {| nonNullableOpt = "invalidValue" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2054,13 +2031,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {| nullableOpt = "invalidValue" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {| nullableOpt = "invalidValue" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2076,13 +2052,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {| nonNullableRes = "invalidValue" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {| nonNullableRes = "invalidValue" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2103,13 +2078,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {| nullableRes = "invalidValue" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {| nullableRes = "invalidValue" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2130,13 +2104,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {| nonNullableEnum = "invalidValue" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {| nonNullableEnum = "invalidValue" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2157,13 +2130,12 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {| nullableEnum = "invalidValue" |}
-                        |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {| nullableEnum = "invalidValue" |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2184,15 +2156,14 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {|
-                                nonNullableDateTimeOffset = "invalidValue"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {|
+                            nonNullableDateTimeOffset = "invalidValue"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
@@ -2213,15 +2184,14 @@ let tests =
 
             let! response =
                 Request.post ctx "/ys"
-                |> Request.bodySerialized
-                    {|
-                        data = {|
-                            ``type`` = "y"
-                            attributes = {|
-                                nullableDateTimeOffset = "invalidValue"
-                            |}
+                |> Request.bodySerialized {|
+                    data = {|
+                        ``type`` = "y"
+                        attributes = {|
+                            nullableDateTimeOffset = "invalidValue"
                         |}
                     |}
+                |}
                 |> getResponse
 
             response |> testStatusCode 400
