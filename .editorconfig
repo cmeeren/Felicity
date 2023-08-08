@@ -16,5 +16,6 @@ ij_xml_space_inside_empty_tag = true
 
 [*.fs]
 indent_size = 4
-fsharp_multiline_bracket_style = experimental_stroustrup
 fsharp_keep_max_number_of_blank_lines = 3
+# Reduces indentation, makes editing easier, simplifies diffs
+fsharp_multiline_bracket_style = stroustrup
