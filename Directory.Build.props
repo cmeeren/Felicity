@@ -3,7 +3,6 @@
   <Sdk Name="DotNet.ReproducibleBuilds.Isolated" Version="1.1.1" />
 
   <PropertyGroup>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
