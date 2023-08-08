@@ -9,9 +9,10 @@ end_of_line = crlf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[{nuget.config,*.*proj,*.props,*.xml}]
+[*.{config,*proj,props,xml}]
 end_tag_newline = true
 self_closing_tag_style = space
+ij_xml_space_inside_empty_tag = true
 
 [*.fs]
 indent_size = 4
