@@ -3,7 +3,8 @@ Felicity
 
 <img src="https://raw.githubusercontent.com/cmeeren/Felicity/master/felicity-logo.png" width="300" align="right" />
 
-**Boilerplate-free, idiomatic JSON:API for your beautiful, idiomatic F# domain model. Optimized for developer happiness.**
+**Boilerplate-free, idiomatic JSON:API for your beautiful, idiomatic F# domain model. Optimized for developer happiness.
+**
 
 ### Elevator pitch
 
@@ -33,7 +34,7 @@ Core features:
 
 ### Production readiness
 
-This framework contains over 900 end-to-end tests checking success-path and error-path functionality of all operations,
+This framework contains over 1000 end-to-end tests checking success-path and error-path functionality of all operations,
 and is used in several mission-critical production APIs at our company. I’m not claiming it’s perfect, or even bug-free,
 but it’s well tested, and I have a vested interest in keeping this framework working properly.
 
