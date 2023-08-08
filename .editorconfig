@@ -9,12 +9,10 @@ end_of_line = crlf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# noinspection EditorConfigKeyCorrectness
 [{nuget.config,*.*proj,*.props,*.xml}]
 end_tag_newline = true
 self_closing_tag_style = space
 
-# noinspection EditorConfigKeyCorrectness
 [*.fs]
 indent_size = 4
 fsharp_multiline_bracket_style = experimental_stroustrup
