@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.21.11 (2023-08-23)
+
+* Updated FSharp.SystemTextJson from 1.1.23 to 1.2.34
+
 ### 0.21.10 (2023-08-08)
 
 * Updated Giraffe from 6.0.0 to 6.2.0
