@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.21.12 (2023-08-30)
+
+* Updated FSharp.SystemTextJson from 1.1.34 to 1.2.42
+
 ### 0.21.11 (2023-08-23)
 
 * Updated FSharp.SystemTextJson from 1.1.23 to 1.2.34
