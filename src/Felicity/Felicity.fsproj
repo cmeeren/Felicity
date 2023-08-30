@@ -59,7 +59,7 @@
   <ItemGroup>
     <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
     <PackageReference Include="Giraffe" Version="6.2.0" />
-    <PackageReference Update="FSharp.Core" Version="7.0.0" />
+    <PackageReference Update="FSharp.Core" Version="7.0.400" />
   </ItemGroup>
 
 </Project>
