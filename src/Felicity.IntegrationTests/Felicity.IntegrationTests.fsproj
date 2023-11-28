@@ -54,7 +54,7 @@
     <PackageReference Include="Hopac" Version="0.5.1" />
     <PackageReference Include="Http.fs" Version="5.4.0" />
     <PackageReference Include="MELT" Version="0.9.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="7.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Unquote" Version="6.1.0" />
