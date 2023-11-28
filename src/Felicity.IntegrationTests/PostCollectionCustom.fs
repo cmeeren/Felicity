@@ -51,7 +51,7 @@ module A =
             async {
                 let parser = parser.For(id, a)
 
-                match helper.ValidateRequest parser with
+                match! helper.ValidateRequestAsync parser with
                 | Error errs -> return Error errs
                 | Ok() ->
                     match! parser.ParseTask() |> Async.AwaitTask with

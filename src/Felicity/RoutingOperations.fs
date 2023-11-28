@@ -225,13 +225,14 @@ module internal RoutingOperations =
                             member _.SetOrder = 0
 
                             member _.Set ctx req e _ =
-                                match req.Document.Value with
-                                | Ok(Some {
-                                              data = Some { attributes = Include attrVals }
-                                          }) when attrVals.ContainsKey "constraints" ->
-                                    Error [ setAttrReadOnly "constraints" "/data/attributes/constraints" ]
-                                    |> Task.result
-                                | _ -> Ok(e, false) |> Task.result
+                                task {
+                                    match! req.Document.Value with
+                                    | Ok(Some {
+                                                  data = Some { attributes = Include attrVals }
+                                              }) when attrVals.ContainsKey "constraints" ->
+                                        return Error [ setAttrReadOnly "constraints" "/data/attributes/constraints" ]
+                                    | _ -> return Ok(e, false)
+                                }
                         }
 
         let fields =
@@ -774,15 +775,22 @@ module internal RoutingOperations =
             Some
             <| fun ctx (req: Request) ->
                 fun next httpCtx ->
-                    match req.Document.Value with
-                    | Error errs -> handleErrors errs next httpCtx
-                    | Ok None -> handleErrors [ collPostMissingResourceObject "" ] next httpCtx
-                    | Ok(Some { data = None }) -> handleErrors [ collPostMissingResourceObject "/data" ] next httpCtx
-                    | Ok(Some { data = Some { ``type`` = t } }) ->
-                        match opLookup.TryGetValue t with
-                        | false, _ ->
-                            handleErrors [ collPostTypeNotAllowed collName t allowedTypes "/data/type" ] next httpCtx
-                        | true, run -> run ctx req next httpCtx
+                    task {
+                        match! req.Document.Value with
+                        | Error errs -> return! handleErrors errs next httpCtx
+                        | Ok None -> return! handleErrors [ collPostMissingResourceObject "" ] next httpCtx
+                        | Ok(Some { data = None }) ->
+                            return! handleErrors [ collPostMissingResourceObject "/data" ] next httpCtx
+                        | Ok(Some { data = Some { ``type`` = t } }) ->
+                            match opLookup.TryGetValue t with
+                            | false, _ ->
+                                return!
+                                    handleErrors
+                                        [ collPostTypeNotAllowed collName t allowedTypes "/data/type" ]
+                                        next
+                                        httpCtx
+                            | true, run -> return! run ctx req next httpCtx
+                    }
 
 
     let collectionOperations<'ctx>

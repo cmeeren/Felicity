@@ -150,10 +150,13 @@ type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> =
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
 
 type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
@@ -180,32 +183,33 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getRelsAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(rels, relsPointer)) ->
-                    match rels.TryGetValue this.name with
-                    | true, (:? ToOne as rel) ->
-                        match rel with
-                        | { data = Skip } ->
-                            Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
-                            |> Task.result
-                        | { data = Include identifier } when
-                            not (this.allowedTypes |> List.contains identifier.``type``)
-                            ->
-                            let pointer = relsPointer + "/" + this.name + "/data/type"
-
-                            Error [ relInvalidType this.name identifier.``type`` this.allowedTypes pointer ]
-                            |> Task.result
-                        | { data = Include identifier } ->
-                            RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
-                            |> this.getParser
-                            |> fun p -> p.ParseTask()
-                            |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                task {
+                    match! Request.getRelsAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(rels, relsPointer)) ->
+                        match rels.TryGetValue this.name with
+                        | true, (:? ToOne as rel) ->
+                            match rel with
+                            | { data = Skip } ->
+                                return Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
+                            | { data = Include identifier } when
+                                not (this.allowedTypes |> List.contains identifier.``type``)
+                                ->
+                                let pointer = relsPointer + "/" + this.name + "/data/type"
+                                return Error [ relInvalidType this.name identifier.``type`` this.allowedTypes pointer ]
+                            | { data = Include identifier } ->
+                                return!
+                                    RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
+                                    |> this.getParser
+                                    |> fun p -> p.ParseTask()
+                                    |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
     interface OptionalRequestGetter<'ctx, 'relatedEntity> with
@@ -220,10 +224,13 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
 
 type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -297,46 +304,47 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                let idParsers =
-                    this.idParsers
-                    |> Option.defaultWith (fun () ->
-                        failwith
-                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
-                    )
+                task {
+                    let idParsers =
+                        this.idParsers
+                        |> Option.defaultWith (fun () ->
+                            failwith
+                                $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
+                        )
 
-                match Request.getRelsAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(rels, relsPointer)) ->
-                    match rels.TryGetValue this.name with
-                    | true, (:? ToOne as rel) ->
-                        match rel with
-                        | { data = Skip } ->
-                            Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
-                            |> Task.result
-                        | { data = Include identifier } ->
-                            match idParsers.TryGetValue identifier.``type`` with
-                            | false, _ ->
-                                let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                let pointer = relsPointer + "/" + this.name + "/data/type"
-
-                                Error [ relInvalidType this.name identifier.``type`` allowedTypes pointer ]
-                                |> Task.result
-                            | true, parseId ->
-                                parseId ctx identifier.id
-                                // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                // this just means that the resource does not exist, which is a more helpful result.
-                                |> TaskResult.mapError (fun _ -> [
-                                    relatedResourceNotFound
-                                        identifier.``type``
-                                        identifier.id
-                                        (relsPointer + "/" + this.name + "/data")
-                                ])
-                                |> TaskResult.map (fun x -> Some(x, identifier))
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                    match! Request.getRelsAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(rels, relsPointer)) ->
+                        match rels.TryGetValue this.name with
+                        | true, (:? ToOne as rel) ->
+                            match rel with
+                            | { data = Skip } ->
+                                return Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
+                            | { data = Include identifier } ->
+                                match idParsers.TryGetValue identifier.``type`` with
+                                | false, _ ->
+                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                    let pointer = relsPointer + "/" + this.name + "/data/type"
+                                    return Error [ relInvalidType this.name identifier.``type`` allowedTypes pointer ]
+                                | true, parseId ->
+                                    return!
+                                        parseId ctx identifier.id
+                                        // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                        // this just means that the resource does not exist, which is a more helpful result.
+                                        |> TaskResult.mapError (fun _ -> [
+                                            relatedResourceNotFound
+                                                identifier.``type``
+                                                identifier.id
+                                                (relsPointer + "/" + this.name + "/data")
+                                        ])
+                                        |> TaskResult.map (fun x -> Some(x, identifier))
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOne>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
 
@@ -363,24 +371,30 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
     interface ProhibitedRequestGetter with
         member this.FieldName = Some this.name
         member this.QueryParamName = None
 
         member this.GetErrors(req, includedTypeAndId) =
-            match req.Document.Value with
-            | Error errs -> errs
-            | Ok(Some {
-                          data = Some { relationships = Include rels }
-                      }) when rels.ContainsKey this.name ->
-                let pointer = Request.pointerForMissingRel includedTypeAndId req + "/" + this.name
-                [ reqParserProhibitedRel this.name pointer ]
-            | _ -> []
+            task {
+                match! req.Document.Value with
+                | Error errs -> return errs
+                | Ok(Some {
+                              data = Some { relationships = Include rels }
+                          }) when rels.ContainsKey this.name ->
+                    let! pointerForMissingRel = Request.pointerForMissingRel includedTypeAndId req
+                    let pointer = pointerForMissingRel + "/" + this.name
+                    return [ reqParserProhibitedRel this.name pointer ]
+                | _ -> return []
+            }
 
 
     interface FieldSetter<'ctx> with
@@ -389,7 +403,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
         member this.Set ctx req entity numSetters =
             task {
-                match req.Document.Value with
+                match! req.Document.Value with
                 | Error errs -> return Error errs
                 | Ok(Some {
                               data = Some { relationships = Include rels }
@@ -689,7 +703,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                 match! this.mapSetCtx ctx (unbox<'entity> entity0) with
                                 | Error errs -> return! handleErrors errs next httpCtx
                                 | Ok setCtx ->
-                                    match req.IdentifierDocument.Value with
+                                    match! req.IdentifierDocument.Value with
                                     | Error errs -> return! handleErrors errs next httpCtx
                                     | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
                                     | Ok(Some { data = None }) ->
@@ -1467,10 +1481,13 @@ type ToOneNullableRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'rela
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
     member this.AsNonNullable =
         let nonNullIdGetter =
@@ -1521,34 +1538,37 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getRelsAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(rels, relsPointer)) ->
-                    match rels.TryGetValue this.name with
-                    | true, (:? ToOneNullable as rel) ->
-                        match rel with
-                        | { data = Skip } ->
-                            Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
-                            |> Task.result
-                        | { data = Include identifier } ->
-                            identifier
-                            |> Option.traverseTaskResult (fun id ->
-                                if not (this.allowedTypes |> List.contains id.``type``) then
-                                    let pointer = relsPointer + "/" + this.name + "/data/type"
+                task {
+                    match! Request.getRelsAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(rels, relsPointer)) ->
+                        match rels.TryGetValue this.name with
+                        | true, (:? ToOneNullable as rel) ->
+                            match rel with
+                            | { data = Skip } ->
+                                return Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
+                            | { data = Include identifier } ->
+                                return!
+                                    identifier
+                                    |> Option.traverseTaskResult (fun id ->
+                                        if not (this.allowedTypes |> List.contains id.``type``) then
+                                            let pointer = relsPointer + "/" + this.name + "/data/type"
 
-                                    Error [ relInvalidType this.name id.``type`` this.allowedTypes pointer ]
-                                    |> Task.result
-                                else
-                                    RequestParserHelper<'ctx>(ctx, req, (id.``type``, id.id))
-                                    |> this.getParser
-                                    |> fun p -> p.ParseTask()
-                            )
-                            |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                                            Error [ relInvalidType this.name id.``type`` this.allowedTypes pointer ]
+                                            |> Task.result
+                                        else
+                                            RequestParserHelper<'ctx>(ctx, req, (id.``type``, id.id))
+                                            |> this.getParser
+                                            |> fun p -> p.ParseTask()
+                                    )
+                                    |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
     interface OptionalRequestGetter<'ctx, 'relatedEntity option> with
@@ -1563,10 +1583,13 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
 
 
@@ -1649,45 +1672,52 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                let idParsers =
-                    this.idParsers
-                    |> Option.defaultWith (fun () ->
-                        failwith
-                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
-                    )
+                task {
+                    let idParsers =
+                        this.idParsers
+                        |> Option.defaultWith (fun () ->
+                            failwith
+                                $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
+                        )
 
-                match Request.getRelsAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(rels, relsPointer)) ->
-                    match rels.TryGetValue this.name with
-                    | true, (:? ToOneNullable as rel) ->
-                        match rel with
-                        | { data = Skip } -> Error [ relMissingData this.name (relsPointer + this.name) ] |> Task.result
-                        | { data = Include identifier } ->
-                            identifier
-                            |> Option.traverseTaskResult (fun id ->
-                                match idParsers.TryGetValue id.``type`` with
-                                | false, _ ->
-                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                    let pointer = relsPointer + this.name + "/data/type"
+                    match! Request.getRelsAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(rels, relsPointer)) ->
+                        match rels.TryGetValue this.name with
+                        | true, (:? ToOneNullable as rel) ->
+                            match rel with
+                            | { data = Skip } -> return Error [ relMissingData this.name (relsPointer + this.name) ]
+                            | { data = Include identifier } ->
+                                return!
+                                    identifier
+                                    |> Option.traverseTaskResult (fun id ->
+                                        match idParsers.TryGetValue id.``type`` with
+                                        | false, _ ->
+                                            let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                            let pointer = relsPointer + this.name + "/data/type"
 
-                                    Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
-                                    |> Task.result
-                                | true, parseId ->
-                                    parseId ctx id.id
-                                    |> TaskResult.map (fun x -> x, id)
-                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                    // this just means that the resource does not exist, which is a more helpful result.
-                                    |> TaskResult.mapError (fun _ -> [
-                                        relatedResourceNotFound id.``type`` id.id (relsPointer + this.name + "/data")
-                                    ])
-                            )
-                            |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                                            Error [ relInvalidType this.name id.``type`` allowedTypes pointer ]
+                                            |> Task.result
+                                        | true, parseId ->
+                                            parseId ctx id.id
+                                            |> TaskResult.map (fun x -> x, id)
+                                            // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                            // this just means that the resource does not exist, which is a more helpful result.
+                                            |> TaskResult.mapError (fun _ -> [
+                                                relatedResourceNotFound
+                                                    id.``type``
+                                                    id.id
+                                                    (relsPointer + this.name + "/data")
+                                            ])
+                                    )
+                                    |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToOneNullable>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
 
@@ -1714,24 +1744,30 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
     interface ProhibitedRequestGetter with
         member this.FieldName = Some this.name
         member this.QueryParamName = None
 
         member this.GetErrors(req, includedTypeAndId) =
-            match req.Document.Value with
-            | Error errs -> errs
-            | Ok(Some {
-                          data = Some { relationships = Include rels }
-                      }) when rels.ContainsKey this.name ->
-                let pointer = Request.pointerForMissingRel includedTypeAndId req + "/" + this.name
-                [ reqParserProhibitedRel this.name pointer ]
-            | _ -> []
+            task {
+                match! req.Document.Value with
+                | Error errs -> return errs
+                | Ok(Some {
+                              data = Some { relationships = Include rels }
+                          }) when rels.ContainsKey this.name ->
+                    let! pointerForMissingRel = Request.pointerForMissingRel includedTypeAndId req
+                    let pointer = pointerForMissingRel + "/" + this.name
+                    return [ reqParserProhibitedRel this.name pointer ]
+                | _ -> return []
+            }
 
 
     interface FieldSetter<'ctx> with
@@ -1740,7 +1776,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
         member this.Set ctx req entity numSetters =
             task {
-                match req.Document.Value with
+                match! req.Document.Value with
                 | Error errs -> return Error errs
                 | Ok(Some {
                               data = Some { relationships = Include rels }
@@ -2060,7 +2096,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                 match! this.mapSetCtx ctx (unbox<'entity> entity0) with
                                 | Error errs -> return! handleErrors errs next httpCtx
                                 | Ok setCtx ->
-                                    match req.IdentifierDocument.Value with
+                                    match! req.IdentifierDocument.Value with
                                     | Error errs -> return! handleErrors errs next httpCtx
                                     | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
                                     | Ok(Some { data = identifier }) ->
@@ -2974,10 +3010,13 @@ type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> 
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
 
 
@@ -3005,35 +3044,40 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getRelsAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(rels, relsPointer)) ->
-                    match rels.TryGetValue this.name with
-                    | true, (:? ToMany as rel) ->
-                        match rel with
-                        | { data = Skip } ->
-                            Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
-                            |> Task.result
-                        | { data = Include list } ->
-                            list
-                            |> List.indexed
-                            |> List.traverseTaskResultA (fun (i, identifier) ->
-                                if not (this.allowedTypes |> List.contains identifier.``type``) then
-                                    let pointer = relsPointer + "/" + this.name + "/data/" + string i + "/type"
+                task {
+                    match! Request.getRelsAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(rels, relsPointer)) ->
+                        match rels.TryGetValue this.name with
+                        | true, (:? ToMany as rel) ->
+                            match rel with
+                            | { data = Skip } ->
+                                return Error [ relMissingData this.name (relsPointer + "/" + this.name) ]
+                            | { data = Include list } ->
+                                return!
+                                    list
+                                    |> List.indexed
+                                    |> List.traverseTaskResultA (fun (i, identifier) ->
+                                        if not (this.allowedTypes |> List.contains identifier.``type``) then
+                                            let pointer = relsPointer + "/" + this.name + "/data/" + string i + "/type"
 
-                                    Error [ relInvalidType this.name identifier.``type`` this.allowedTypes pointer ]
-                                    |> Task.result
-                                else
-                                    RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
-                                    |> this.getParser
-                                    |> fun p -> p.ParseTask()
-                            )
-                            |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                                            Error [
+                                                relInvalidType this.name identifier.``type`` this.allowedTypes pointer
+                                            ]
+                                            |> Task.result
+                                        else
+                                            RequestParserHelper<'ctx>(ctx, req, (identifier.``type``, identifier.id))
+                                            |> this.getParser
+                                            |> fun p -> p.ParseTask()
+                                    )
+                                    |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
     interface OptionalRequestGetter<'ctx, 'relatedEntity list> with
@@ -3048,10 +3092,13 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
 
 
@@ -3175,49 +3222,53 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                let idParsers =
-                    this.idParsers
-                    |> Option.defaultWith (fun () ->
-                        failwith
-                            $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
-                    )
+                task {
+                    let idParsers =
+                        this.idParsers
+                        |> Option.defaultWith (fun () ->
+                            failwith
+                                $"Attempted to parse resource ID for polymorphic relationship '%s{this.name}', but no ID parsers have been specified."
+                        )
 
-                match Request.getRelsAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(rels, relsPointer)) ->
-                    match rels.TryGetValue this.name with
-                    | true, (:? ToMany as rel) ->
-                        match rel with
-                        | { data = Skip } -> Error [ relMissingData this.name (relsPointer + this.name) ] |> Task.result
-                        | { data = Include list } ->
-                            list
-                            |> List.indexed
-                            |> List.traverseTaskResultA (fun (i, identifier) ->
-                                match idParsers.TryGetValue identifier.``type`` with
-                                | false, _ ->
-                                    let allowedTypes = idParsers |> Map.toList |> List.map fst
-                                    let pointer = relsPointer + this.name + "/data/" + string i + "/type"
+                    match! Request.getRelsAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(rels, relsPointer)) ->
+                        match rels.TryGetValue this.name with
+                        | true, (:? ToMany as rel) ->
+                            match rel with
+                            | { data = Skip } -> return Error [ relMissingData this.name (relsPointer + this.name) ]
+                            | { data = Include list } ->
+                                return!
+                                    list
+                                    |> List.indexed
+                                    |> List.traverseTaskResultA (fun (i, identifier) ->
+                                        match idParsers.TryGetValue identifier.``type`` with
+                                        | false, _ ->
+                                            let allowedTypes = idParsers |> Map.toList |> List.map fst
+                                            let pointer = relsPointer + this.name + "/data/" + string i + "/type"
 
-                                    Error [ relInvalidType this.name identifier.``type`` allowedTypes pointer ]
-                                    |> Task.result
-                                | true, parseId ->
-                                    parseId ctx identifier.id
-                                    |> TaskResult.map (fun x -> x, identifier)
-                                    // Ignore ID parsing errors; in the context of fetching a related resource by ID,
-                                    // this just means that the resource does not exist, which is a more helpful result.
-                                    |> TaskResult.mapError (fun _ -> [
-                                        relatedResourceNotFound
-                                            identifier.``type``
-                                            identifier.id
-                                            (relsPointer + this.name + "/data/" + string i)
-                                    ])
-                            )
-                            |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                                            Error [ relInvalidType this.name identifier.``type`` allowedTypes pointer ]
+                                            |> Task.result
+                                        | true, parseId ->
+                                            parseId ctx identifier.id
+                                            |> TaskResult.map (fun x -> x, identifier)
+                                            // Ignore ID parsing errors; in the context of fetching a related resource by ID,
+                                            // this just means that the resource does not exist, which is a more helpful result.
+                                            |> TaskResult.mapError (fun _ -> [
+                                                relatedResourceNotFound
+                                                    identifier.``type``
+                                                    identifier.id
+                                                    (relsPointer + this.name + "/data/" + string i)
+                                            ])
+                                    )
+                                    |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected relationship '%s{this.name}' to be deserialized to %s{typeof<ToMany>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
 
@@ -3244,24 +3295,30 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingRel includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingRel includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredRel this.name pointer ]
+            }
 
     interface ProhibitedRequestGetter with
         member this.FieldName = Some this.name
         member this.QueryParamName = None
 
         member this.GetErrors(req, includedTypeAndId) =
-            match req.Document.Value with
-            | Error errs -> errs
-            | Ok(Some {
-                          data = Some { relationships = Include rels }
-                      }) when rels.ContainsKey this.name ->
-                let pointer = Request.pointerForMissingRel includedTypeAndId req + "/" + this.name
-                [ reqParserProhibitedRel this.name pointer ]
-            | _ -> []
+            task {
+                match! req.Document.Value with
+                | Error errs -> return errs
+                | Ok(Some {
+                              data = Some { relationships = Include rels }
+                          }) when rels.ContainsKey this.name ->
+                    let! pointerForMissingRel = Request.pointerForMissingRel includedTypeAndId req
+                    let pointer = pointerForMissingRel + "/" + this.name
+                    return [ reqParserProhibitedRel this.name pointer ]
+                | _ -> return []
+            }
 
 
     interface FieldSetter<'ctx> with
@@ -3270,7 +3327,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
         member this.Set ctx req entity numSetters =
             task {
-                match req.Document.Value with
+                match! req.Document.Value with
                 | Error errs -> return Error errs
                 | Ok(Some {
                               data = Some {
@@ -3468,7 +3525,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                             match! this.mapSetCtx ctx (unbox<'entity> entity0) with
                             | Error errs -> return! handleErrors errs next httpCtx
                             | Ok setCtx ->
-                                match req.IdentifierCollectionDocument.Value with
+                                match! req.IdentifierCollectionDocument.Value with
                                 | Error errs -> return! handleErrors errs next httpCtx
                                 | Ok None -> return! handleErrors [ modifyRelSelfMissingData "" ] next httpCtx
                                 | Ok(Some { data = ids }) ->

@@ -72,7 +72,7 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
 
         member this.Set ctx req entity numSetters =
             task {
-                match req.Document.Value with
+                match! req.Document.Value with
                 | Error errs -> return Error errs
                 | Ok(Some {
                               data = Some { attributes = Include attrVals }
@@ -140,25 +140,31 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getAttrAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(attrVals, attrsPointer)) ->
-                    match attrVals.TryGetValue this.name with
-                    | true, (:? 'serialized as attr) ->
-                        let getValueInfo value =
-                            FromBodyAttribute {
-                                Name = this.name
-                                StringValue = string<'serialized> value
-                            }
+                task {
+                    match! Request.getAttrAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(attrVals, attrsPointer)) ->
+                        match attrVals.TryGetValue this.name with
+                        | true, (:? 'serialized as attr) ->
+                            let getValueInfo value =
+                                FromBodyAttribute {
+                                    Name = this.name
+                                    StringValue = string<'serialized> value
+                                }
 
-                        this.toDomain ctx getValueInfo attr
-                        |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
-                        |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                            return!
+                                this.toDomain ctx getValueInfo attr
+                                |> TaskResult.mapError (
+                                    List.map (Error.setSourcePointer (attrsPointer + "/" + this.name))
+                                )
+                                |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
     interface OptionalRequestGetter<'ctx, 'attr> with
@@ -173,24 +179,30 @@ type NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingAttr includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingAttr includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredAttr this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredAttr this.name pointer ]
+            }
 
     interface ProhibitedRequestGetter with
         member this.FieldName = Some this.name
         member this.QueryParamName = None
 
         member this.GetErrors(req, includedTypeAndId) =
-            match req.Document.Value with
-            | Error errs -> errs
-            | Ok(Some {
-                          data = Some { attributes = Include attrVals }
-                      }) when attrVals.ContainsKey this.name ->
-                let pointer = Request.pointerForMissingAttr includedTypeAndId req + "/" + this.name
-                [ reqParserProhibitedAttr this.name pointer ]
-            | _ -> []
+            task {
+                match! req.Document.Value with
+                | Error errs -> return errs
+                | Ok(Some {
+                              data = Some { attributes = Include attrVals }
+                          }) when attrVals.ContainsKey this.name ->
+                    let! pointerForMissingAttr = Request.pointerForMissingAttr includedTypeAndId req
+                    let pointer = pointerForMissingAttr + "/" + this.name
+                    return [ reqParserProhibitedAttr this.name pointer ]
+                | _ -> return []
+            }
 
     interface FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> with
         member this.Name = this.name
@@ -359,7 +371,7 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
 
         member this.Set ctx req entity numSetters =
             task {
-                match req.Document.Value with
+                match! req.Document.Value with
                 | Error errs -> return Error errs
                 | Ok(Some {
                               data = Some { attributes = Include attrVals }
@@ -427,26 +439,32 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getAttrAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(attrVals, attrsPointer)) ->
-                    match attrVals.TryGetValue this.name with
-                    | true, (:? ('serialized option) as attr) ->
-                        let getValueInfo value =
-                            FromBodyAttribute {
-                                Name = this.name
-                                StringValue = string<'serialized> value
-                            }
+                task {
+                    match! Request.getAttrAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(attrVals, attrsPointer)) ->
+                        match attrVals.TryGetValue this.name with
+                        | true, (:? ('serialized option) as attr) ->
+                            let getValueInfo value =
+                                FromBodyAttribute {
+                                    Name = this.name
+                                    StringValue = string<'serialized> value
+                                }
 
-                        attr
-                        |> Option.traverseTaskResult (this.toDomain ctx getValueInfo)
-                        |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
-                        |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                            return!
+                                attr
+                                |> Option.traverseTaskResult (this.toDomain ctx getValueInfo)
+                                |> TaskResult.mapError (
+                                    List.map (Error.setSourcePointer (attrsPointer + "/" + this.name))
+                                )
+                                |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
     member this.AsNonNullableOptional =
@@ -455,34 +473,40 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getAttrAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(attrVals, attrsPointer)) ->
-                    match attrVals.TryGetValue this.name with
-                    | true, (:? ('serialized option) as attr) ->
-                        match attr with
-                        | None ->
-                            Error [
-                                setAttrNullNotAllowed this.name
-                                |> Error.setSourcePointer (attrsPointer + "/" + this.name)
-                            ]
-                            |> Task.result
-                        | Some attr ->
-                            let getValueInfo value =
-                                FromBodyAttribute {
-                                    Name = this.name
-                                    StringValue = string<'serialized> value
-                                }
+                task {
+                    match! Request.getAttrAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(attrVals, attrsPointer)) ->
+                        match attrVals.TryGetValue this.name with
+                        | true, (:? ('serialized option) as attr) ->
+                            match attr with
+                            | None ->
+                                return
+                                    Error [
+                                        setAttrNullNotAllowed this.name
+                                        |> Error.setSourcePointer (attrsPointer + "/" + this.name)
+                                    ]
+                            | Some attr ->
+                                let getValueInfo value =
+                                    FromBodyAttribute {
+                                        Name = this.name
+                                        StringValue = string<'serialized> value
+                                    }
 
-                            attr
-                            |> this.toDomain ctx getValueInfo
-                            |> TaskResult.mapError (List.map (Error.setSourcePointer (attrsPointer + "/" + this.name)))
-                            |> TaskResult.map Some
-                    | true, x ->
-                        failwith
-                            $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
-                    | false, _ -> None |> Ok |> Task.result
+                                return!
+                                    attr
+                                    |> this.toDomain ctx getValueInfo
+                                    |> TaskResult.mapError (
+                                        List.map (Error.setSourcePointer (attrsPointer + "/" + this.name))
+                                    )
+                                    |> TaskResult.map Some
+                        | true, x ->
+                            return
+                                failwith
+                                    $"Framework bug: Expected attribute '%s{this.name}' to be deserialized to %s{typeof<'serialized option>.FullName}, but was %s{x.GetType().FullName}"
+                        | false, _ -> return Ok None
+                }
         }
 
     member this.AsNonNullable =
@@ -491,10 +515,13 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                let pointer = Request.pointerForMissingAttr includedTypeAndId req
+                task {
+                    let! pointer = Request.pointerForMissingAttr includedTypeAndId req
 
-                this.AsNonNullableOptional.Get(ctx, req, includedTypeAndId)
-                |> TaskResult.requireSome [ reqParserMissingRequiredAttr this.name pointer ]
+                    return!
+                        this.AsNonNullableOptional.Get(ctx, req, includedTypeAndId)
+                        |> TaskResult.requireSome [ reqParserMissingRequiredAttr this.name pointer ]
+                }
         }
 
     interface OptionalRequestGetter<'ctx, 'attr option> with
@@ -509,24 +536,31 @@ type NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> = internal {
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingAttr includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingAttr includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredAttr this.name pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredAttr this.name pointer ]
+            }
 
     interface ProhibitedRequestGetter with
         member this.FieldName = Some this.name
         member this.QueryParamName = None
 
         member this.GetErrors(req, includedTypeAndId) =
-            match req.Document.Value with
-            | Error errs -> errs
-            | Ok(Some {
-                          data = Some { attributes = Include attrVals }
-                      }) when attrVals.ContainsKey this.name ->
-                let pointer = Request.pointerForMissingAttr includedTypeAndId req + "/" + this.name
-                [ reqParserProhibitedAttr this.name pointer ]
-            | _ -> []
+            task {
+                match! req.Document.Value with
+                | Error errs -> return errs
+                | Ok(Some {
+                              data = Some { attributes = Include attrVals }
+                          }) when attrVals.ContainsKey this.name ->
+                    let! pointerForMissingAttr = Request.pointerForMissingAttr includedTypeAndId req
+                    let pointer = pointerForMissingAttr + "/" + this.name
+                    return [ reqParserProhibitedAttr this.name pointer ]
+                | _ -> return []
+
+            }
 
     interface FieldQueryParser<'ctx, 'entity, 'attr, 'serialized> with
         member this.Name = this.name

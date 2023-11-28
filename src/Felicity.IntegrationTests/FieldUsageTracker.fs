@@ -97,10 +97,13 @@ module D =
             async {
                 let parser = parser.For((fun _ _ -> D "1"), resId, c)
 
-                helper.ValidateRequest(parser)
-                |> function
-                    | Ok x -> x
-                    | Error _ -> failwith "Should not happen"
+                do!
+                    helper.ValidateRequestAsync(parser)
+                    |> Async.map (
+                        function
+                        | Ok x -> x
+                        | Error _ -> failwith "Should not happen"
+                    )
 
                 let! d =
                     parser.ParseAsync()
@@ -142,10 +145,13 @@ module B =
             async {
                 let parser = parser.For((fun _ -> B "1"), b)
 
-                helper.ValidateRequest(parser)
-                |> function
-                    | Ok x -> x
-                    | Error _ -> failwith "Should not happen"
+                do!
+                    helper.ValidateRequestAsync(parser)
+                    |> Async.map (
+                        function
+                        | Ok x -> x
+                        | Error _ -> failwith "Should not happen"
+                    )
 
                 let! b =
                     parser.ParseAsync()

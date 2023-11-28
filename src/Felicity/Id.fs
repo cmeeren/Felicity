@@ -28,15 +28,20 @@ type Id<'ctx, 'entity, 'id> = internal {
             member _.QueryParamName = None
 
             member _.Get(ctx, req, includedTypeAndId) =
-                match Request.getIdAndPointer includedTypeAndId req with
-                | Error errs -> Error errs |> Task.result
-                | Ok None -> None |> Ok |> Task.result
-                | Ok(Some(resId, pointer)) ->
-                    let valueInfo = FromBodyId { Value = resId }
+                task {
+                    match! Request.getIdAndPointer includedTypeAndId req with
+                    | Error errs -> return Error errs
+                    | Ok None -> return Ok None
+                    | Ok(Some(resId, pointer)) ->
+                        let valueInfo = FromBodyId { Value = resId }
 
-                    this.toDomain ctx resId
-                    |> TaskResult.mapError (List.map (fun getErr -> getErr valueInfo |> Error.setSourcePointer pointer))
-                    |> TaskResult.map Some
+                        return!
+                            this.toDomain ctx resId
+                            |> TaskResult.mapError (
+                                List.map (fun getErr -> getErr valueInfo |> Error.setSourcePointer pointer)
+                            )
+                            |> TaskResult.map Some
+                }
         }
 
     interface OptionalRequestGetter<'ctx, 'id> with
@@ -51,10 +56,13 @@ type Id<'ctx, 'entity, 'id> = internal {
         member this.QueryParamName = None
 
         member this.Get(ctx, req, includedTypeAndId) =
-            let pointer = Request.pointerForMissingId includedTypeAndId req
+            task {
+                let! pointer = Request.pointerForMissingId includedTypeAndId req
 
-            this.Optional.Get(ctx, req, includedTypeAndId)
-            |> TaskResult.requireSome [ reqParserMissingRequiredId pointer ]
+                return!
+                    this.Optional.Get(ctx, req, includedTypeAndId)
+                    |> TaskResult.requireSome [ reqParserMissingRequiredId pointer ]
+            }
 
 
 type IdHelper<'ctx, 'entity, 'id> internal () =

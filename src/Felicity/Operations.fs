@@ -552,7 +552,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
                             with
                             | Error errors -> return! handleErrors errors next httpCtx
                             | Ok(ns, queryNames, entity0) ->
-                                match req.Document.Value with
+                                match! req.Document.Value with
                                 | Ok(Some { data = Some { id = Include _ } }) when not <| ns.Contains "id" ->
                                     return!
                                         handleErrors [ collPostClientIdNotAllowed collName rDef.TypeName ] next httpCtx
@@ -748,23 +748,28 @@ type PostCustomHelper<'ctx, 'entity>
     member val internal ConsumedFieldNames: Set<ConsumedFieldName> = Set.empty with get, set
     member val internal ConsumedQueryParams: Set<ConsumedQueryParamName> = Set.empty with get, set
 
-    member this.ValidateRequest(?parser: RequestParser<'originalCtx, 'a>) =
-        parser
-        |> Option.iter (fun p ->
-            this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames (Set.ofSeq p.consumedFields)
-            this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams)
-        )
-
-        let idParsed =
+    member this.ValidateRequestTask(?parser: RequestParser<'originalCtx, 'a>) =
+        task {
             parser
-            |> Option.map (fun p -> Set.ofSeq p.consumedFields)
-            |> Option.defaultValue Set.empty
-            |> Set.contains "id"
+            |> Option.iter (fun p ->
+                this.ConsumedFieldNames <- Set.union this.ConsumedFieldNames (Set.ofSeq p.consumedFields)
+                this.ConsumedQueryParams <- Set.union this.ConsumedQueryParams (Set.ofSeq p.consumedParams)
+            )
 
-        match req.Document.Value with
-        | Ok(Some { data = Some { id = Include _ } }) when not idParsed ->
-            Error [ collPostClientIdNotAllowed collName rDef.TypeName ]
-        | _ -> Ok()
+            let idParsed =
+                parser
+                |> Option.map (fun p -> Set.ofSeq p.consumedFields)
+                |> Option.defaultValue Set.empty
+                |> Set.contains "id"
+
+            match! req.Document.Value with
+            | Ok(Some { data = Some { id = Include _ } }) when not idParsed ->
+                return Error [ collPostClientIdNotAllowed collName rDef.TypeName ]
+            | _ -> return Ok()
+        }
+
+    member this.ValidateRequestAsync(?parser: RequestParser<'originalCtx, 'a>) =
+        this.ValidateRequestTask(?parser = parser) |> Async.AwaitTask
 
     member this.RunSettersTask(entity: 'entity, ?parser: RequestParser<'originalCtx, 'a>) =
         parser
@@ -955,23 +960,28 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
             fun next httpCtx ->
                 task {
-                    let errs = [
-                        match req.Document.Value with
-                        | Error errs -> yield! errs
-                        | Ok None -> resPatchMissingResourceObject ""
-                        | Ok(Some { data = None }) -> resPatchMissingResourceObject "/data"
-                        | Ok(Some { data = Some res }) ->
-                            if res.``type`` <> rDef.TypeName then
-                                resPatchTypeMismatch res.``type`` rDef.TypeName
-                                |> Error.setSourcePointer "/data/type"
+                    let! errs =
+                        task {
+                            let! doc = req.Document.Value
 
-                            match res.id with
-                            | Skip -> resPatchMissingResourceId "/data"
-                            | Include id when id <> rDef.GetIdBoxed entity0 ->
-                                resPatchIdMismatch id (rDef.GetIdBoxed entity0)
-                                |> Error.setSourcePointer "/data/id"
-                            | Include _ -> ()
-                    ]
+                            return [
+                                match doc with
+                                | Error errs -> yield! errs
+                                | Ok None -> resPatchMissingResourceObject ""
+                                | Ok(Some { data = None }) -> resPatchMissingResourceObject "/data"
+                                | Ok(Some { data = Some res }) ->
+                                    if res.``type`` <> rDef.TypeName then
+                                        resPatchTypeMismatch res.``type`` rDef.TypeName
+                                        |> Error.setSourcePointer "/data/type"
+
+                                    match res.id with
+                                    | Skip -> resPatchMissingResourceId "/data"
+                                    | Include id when id <> rDef.GetIdBoxed entity0 ->
+                                        resPatchIdMismatch id (rDef.GetIdBoxed entity0)
+                                        |> Error.setSourcePointer "/data/id"
+                                    | Include _ -> ()
+                            ]
+                        }
 
                     if not errs.IsEmpty then
                         return! handleErrors errs next httpCtx
@@ -996,10 +1006,12 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
                                         with
                                         | Error errs -> return! handleErrors errs next httpCtx
                                         | Ok() ->
+                                            let! doc = req.Document.Value
+
                                             let setFns =
                                                 fns
                                                 |> Set.filter (fun fn ->
-                                                    match req.Document.Value with
+                                                    match doc with
                                                     | Ok(Some {
                                                                   data = Some { attributes = Include attrVals }
                                                               }) -> attrVals.ContainsKey fn

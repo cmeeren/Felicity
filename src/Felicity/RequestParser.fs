@@ -47,10 +47,12 @@ type RequestParser<'ctx, 'a> = internal {
         ()
         : Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'a, Error list>> =
         task {
-            let prohibitedErrs =
+            let! prohibitedErrs =
                 this.prohibited
-                |> List.collect (fun p -> p.GetErrors(this.request, this.includedTypeAndId))
-                |> List.rev
+                |> Task.mapWhenAllWithCount
+                    this.prohibited.Length
+                    (fun p -> p.GetErrors(this.request, this.includedTypeAndId))
+                |> Task.map (Array.toList >> List.collect id >> List.rev)
 
             if prohibitedErrs.IsEmpty then
                 return!
@@ -181,13 +183,16 @@ type RequestParser<'ctx, 'a> = internal {
         this with
             parse =
                 fun ctx req ->
-                    match req.Document.Value with
-                    | Error errs -> Error errs |> Task.result
-                    | Ok None -> Error [ reqParserMissingData "" ] |> Task.result
-                    | Ok(Some { data = None }) -> Error [ reqParserMissingData "/data" ] |> Task.result
-                    | Ok(Some { data = Some { ``type`` = t } }) when t <> typeName ->
-                        Error [ reqParserInvalidType typeName t "/data/type" ] |> Task.result
-                    | Ok(Some { data = Some _ }) -> this.parse ctx req
+                    task {
+                        match! req.Document.Value with
+                        | Error errs -> return Error errs
+                        | Ok None -> return Error [ reqParserMissingData "" ]
+                        | Ok(Some { data = None }) -> return Error [ reqParserMissingData "/data" ]
+                        | Ok(Some { data = Some { ``type`` = t } }) when t <> typeName ->
+                            return Error [ reqParserInvalidType typeName t "/data/type" ]
+                        | Ok(Some { data = Some _ }) -> return! this.parse ctx req
+
+                    }
     }
 
     member this.Prohibit(getter: ProhibitedRequestGetter) =

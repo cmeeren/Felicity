@@ -135,8 +135,8 @@ type ListFilter<'ctx, 'a>
 
         member _.GetErrors(req, _) =
             match req.Query.TryGetValue queryParamName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ] |> Task.result
 
 
     member _.Operator(operator) : ListFilter<'ctx, 'a> =
@@ -209,8 +209,8 @@ type SingleFilter<'ctx, 'a>
 
         member _.GetErrors(req, _) =
             match req.Query.TryGetValue queryParamName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ] |> Task.result
 
     member _.Operator(operator) : SingleFilter<'ctx, 'a> =
         SingleFilter<'ctx, 'a>(fieldName, parse, operator)
@@ -294,8 +294,8 @@ type ListSort<'ctx, 'a>
 
         member _.GetErrors(req, _) =
             match req.Query.TryGetValue queryParamName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ] |> Task.result
 
 
 
@@ -354,8 +354,8 @@ type SingleSort<'ctx, 'a>
 
         member _.GetErrors(req, _) =
             match req.Query.TryGetValue queryParamName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ] |> Task.result
 
     member _.List: ListSort<'ctx, 'a> = ListSort<'ctx, 'a>(parse)
 
@@ -426,8 +426,8 @@ type PageParam<'ctx> internal (pageName: string, ?min: int, ?max: int) =
 
         member _.GetErrors(req, _) =
             match req.Query.TryGetValue queryParamName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ] |> Task.result
 
     member _.Min(minValue: int) : PageParam<'ctx> =
         PageParam<'ctx>(pageName, min = minValue, ?max = max)
@@ -480,8 +480,8 @@ type CustomQueryParam<'ctx, 'a>
 
         member _.GetErrors(req, _) =
             match req.Query.TryGetValue queryParamName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedQueryParam queryParamName ] |> Task.result
 
 
 type Header<'ctx, 'a>
@@ -523,8 +523,8 @@ type Header<'ctx, 'a>
 
         member _.GetErrors(req, _) =
             match req.Headers.TryGetValue headerName with
-            | false, _ -> []
-            | true, _ -> [ reqParserProhibitedHeader headerName ]
+            | false, _ -> [] |> Task.result
+            | true, _ -> [ reqParserProhibitedHeader headerName ] |> Task.result
 
 
 

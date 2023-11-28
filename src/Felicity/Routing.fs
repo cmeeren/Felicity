@@ -98,13 +98,28 @@ let internal jsonApiEndpoints
                         |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString())
                         |> Map.ofSeq
 
-                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                    // For some reason, we get FS3511 error without this line
+                    let! _ = ValueTask.FromResult ""
 
                     let req = {
-                        Document = lazy (serializer.DeserializeResourceDocument json)
-                        IdentifierDocument = lazy (serializer.DeserializeResourceIdentifierDocument json)
+                        Document =
+                            lazy
+                                (task {
+                                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                                    return serializer.DeserializeResourceDocument json
+                                })
+                        IdentifierDocument =
+                            lazy
+                                (task {
+                                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                                    return serializer.DeserializeResourceIdentifierDocument json
+                                })
                         IdentifierCollectionDocument =
-                            lazy (serializer.DeserializeResourceIdentifierCollectionDocument json)
+                            lazy
+                                (task {
+                                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                                    return serializer.DeserializeResourceIdentifierCollectionDocument json
+                                })
                         Headers =
                             httpCtx.Request.Headers
                             |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString())

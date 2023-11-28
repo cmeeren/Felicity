@@ -1,6 +1,13 @@
 Release notes
 ==============
 
+### Unreleased
+
+* The request body is no longer read until it is needed. This has necessitated the following breaking changes:
+  * The synchronous `PostCustomHelper.ValidateRequest` is replaced with `ValidateRequestAsync` and `ValidateRequestTask`
+  * `ProhibitedRequestGetter.GetErrors` now returns `Task`. This is unlikely to be breaking in practice, since this
+    method is not intended to be used outside of Felicity itself.
+
 ### 0.21.12 (2023-08-30)
 
 * Updated FSharp.SystemTextJson from 1.1.34 to 1.2.42
