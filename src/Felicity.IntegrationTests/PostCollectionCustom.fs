@@ -2,6 +2,7 @@
 
 open System
 open Expecto
+open Microsoft.AspNetCore.Http
 open Microsoft.Net.Http.Headers
 open HttpFs.Client
 open Swensen.Unquote
@@ -141,6 +142,30 @@ module E =
         )
 
 
+type HttpCtx = HttpCtx of HttpContext
+
+
+module F =
+
+    let define = Define<HttpCtx, unit, string>()
+    let resId = define.Id.Simple(fun () -> "someId")
+    let resDef = define.Resource("f", resId).CollectionName("fs")
+
+    let post =
+        define.Operation
+            .PostCustomAsync(fun (HttpCtx ctx) parser helper ->
+                async {
+                    let! content = ctx.ReadBodyFromRequestAsync() |> Async.AwaitTask
+
+                    if content = "foobar" then
+                        return Ok(helper.ReturnCreatedEntity(()))
+                    else
+                        return Ok(setStatusCode 400)
+                }
+            )
+            .AllowReadingBody()
+
+
 [<Tests>]
 let tests =
     testList "POST collection custom" [
@@ -195,6 +220,15 @@ let tests =
             let! json = response |> Response.readBodyAsString
             test <@ json = "" @>
             test <@ response.headers.ContainsKey Location = false @>
+        }
+
+        testJob "Can read body" {
+            let! response = Request.postWith HttpCtx "/fs" |> Request.bodyString "foobar" |> getResponse
+
+            response |> testStatusCode 201
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "data.type" = "f" @>
+            test <@ json |> getPath "data.id" = "someId" @>
         }
 
         testJob "Returns 403 when read-only" {

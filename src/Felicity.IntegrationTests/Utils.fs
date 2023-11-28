@@ -4,6 +4,7 @@ module Utils
 open System
 open MELT
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.TestHost
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
@@ -35,7 +36,7 @@ let hasPath (path: string) (json: string) =
 type SecondCtx = SecondCtx
 
 
-let private startTestServer' useStrictMode (ctx: 'ctx) =
+let private startTestServer' useStrictMode (getCtx: HttpContext -> 'ctx) =
     let testLoggerFactory = TestLoggerFactory.Create()
 
     let server =
@@ -47,7 +48,7 @@ let private startTestServer' useStrictMode (ctx: 'ctx) =
                         .AddGiraffe()
                         .AddRouting()
                         .AddJsonApi()
-                        .GetCtx(fun _ -> ctx)
+                        .GetCtx(getCtx)
                     |> fun x ->
                         if useStrictMode then
                             x.EnableUnknownFieldStrictMode().EnableUnknownQueryParamStrictMode()
@@ -69,9 +70,10 @@ let private startTestServer' useStrictMode (ctx: 'ctx) =
     server.CreateClient(), testLoggerFactory.Sink
 
 
-let startTestServer ctx = startTestServer' true ctx |> fst
+let startTestServer ctx =
+    startTestServer' true (fun _ -> ctx) |> fst
 
-let startTestServerWithLogSink ctx = startTestServer' true ctx
+let startTestServerWithLogSink ctx = startTestServer' true (fun _ -> ctx)
 
 
 
@@ -85,39 +87,44 @@ module Request =
     let bodySerialized (body: 'a) req =
         req |> Request.bodyString (JsonConvert.SerializeObject body)
 
-    let private get' useStrictMode ctx path =
-        let testClient = startTestServer' useStrictMode ctx |> fst
+    let private get' useStrictMode getCtx path =
+        let testClient = startTestServer' useStrictMode getCtx |> fst
 
         Request.createWithClient testClient Get (Uri("http://example.com" + path))
         |> jsonApiHeaders
 
-    let private post' useStrictMode ctx path =
-        let testClient = startTestServer' useStrictMode ctx |> fst
+    let private post' useStrictMode getCtx path =
+        let testClient = startTestServer' useStrictMode getCtx |> fst
 
         Request.createWithClient testClient Post (Uri("http://example.com" + path))
         |> jsonApiHeaders
 
-    let private patch' useStrictMode ctx path =
-        let testClient = startTestServer' useStrictMode ctx |> fst
+    let private patch' useStrictMode getCtx path =
+        let testClient = startTestServer' useStrictMode getCtx |> fst
 
         Request.createWithClient testClient Patch (Uri("http://example.com" + path))
         |> jsonApiHeaders
 
-    let private delete' useStrictMode ctx path =
-        let testClient = startTestServer' useStrictMode ctx |> fst
+    let private delete' useStrictMode getCtx path =
+        let testClient = startTestServer' useStrictMode getCtx |> fst
 
         Request.createWithClient testClient Delete (Uri("http://example.com" + path))
         |> jsonApiHeaders
 
-    let get ctx path = get' true ctx path
-    let post ctx path = post' true ctx path
-    let patch ctx path = patch' true ctx path
-    let delete ctx path = delete' true ctx path
+    let get ctx path = get' true (fun _ -> ctx) path
+    let post ctx path = post' true (fun _ -> ctx) path
+    let patch ctx path = patch' true (fun _ -> ctx) path
+    let delete ctx path = delete' true (fun _ -> ctx) path
 
-    let getWithoutStrictMode ctx path = get' false ctx path
-    let postWithoutStrictMode ctx path = post' false ctx path
-    let patchWithoutStrictMode ctx path = patch' false ctx path
-    let deleteWithoutStrictMode ctx path = delete' false ctx path
+    let getWith getCtx path = get' true getCtx path
+    let postWith getCtx path = post' true getCtx path
+    let patchWith getCtx path = patch' true getCtx path
+    let deleteWith getCtx path = delete' true getCtx path
+
+    let getWithoutStrictMode ctx path = get' false (fun _ -> ctx) path
+    let postWithoutStrictMode ctx path = post' false (fun _ -> ctx) path
+    let patchWithoutStrictMode ctx path = patch' false (fun _ -> ctx) path
+    let deleteWithoutStrictMode ctx path = delete' false (fun _ -> ctx) path
 
 
 /// Fails the test if the response is not 2XX. If failed, prints the response and the

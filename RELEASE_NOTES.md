@@ -3,10 +3,16 @@ Release notes
 
 ### Unreleased
 
-* The request body is no longer read until it is needed. This has necessitated the following breaking changes:
+* Added `AllowReadingBody()` to custom POST operations (after calling `PostCustomAsync`). If called, it is possible to
+  read the request body manually for this operation. This lets you for example create a POST collection operation for
+  uploading files, and still return a valid JSON:API response. Such an endpoint is not a valid JSON:API endpoint, but
+  can still be useful. This prevents Felicity from reading the request body, and therefore means that there must be no
+  other POST collection operations for the same collection, since Felicity can't use the resource `type` inb the request
+  body to determine which POST collection operation to use.
+* In order to support the above, the request body is no longer eagerly read at the start of all requests. This has
+  necessitated the following breaking changes:
   * The synchronous `PostCustomHelper.ValidateRequest` is replaced with `ValidateRequestAsync` and `ValidateRequestTask`
-  * `ProhibitedRequestGetter.GetErrors` now returns `Task`. This is unlikely to be breaking in practice, since this
-    method is not intended to be used outside of Felicity itself.
+  * `ProhibitedRequestGetter.GetErrors` now returns `Task<_>`
 
 ### 0.21.12 (2023-08-30)
 

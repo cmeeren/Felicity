@@ -482,6 +482,7 @@ type internal PostOperation<'ctx> =
             HttpHandler
 
     abstract HasPersist: bool
+    abstract AllowReadingBody: bool
 
 
 type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
@@ -514,6 +515,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     interface PostOperation<'originalCtx> with
         member this.HasPersist = this.afterCreate.IsSome
+        member this.AllowReadingBody = false
 
         member this.Run collName rDef ctx req patch resp =
             fun next httpCtx ->
@@ -883,15 +885,18 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
             -> Request
             -> PostCustomHelper<'originalCtx, 'entity>
             -> Task<Result<HttpHandler, Error list>>
+    allowReadingBody: bool
 } with
 
     static member internal Create(mapCtx, operation) : CustomPostOperation<'originalCtx, 'ctx, 'createResult> = {
         mapCtx = mapCtx
         operation = operation
+        allowReadingBody = false
     }
 
     interface PostOperation<'originalCtx> with
         member _.HasPersist = true
+        member this.AllowReadingBody = this.allowReadingBody
 
         member this.Run collName rDef ctx req patch resp =
             fun next httpCtx ->
@@ -906,6 +911,11 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
                         | Ok handler -> return! handler next httpCtx
                         | Error errors -> return! handleErrors errors next httpCtx
                 }
+
+    /// Enable reading the request body manually for this operation, preventing Felicity reading the request body. This
+    /// means that there must be no other POST collection operations for the same collection, since Felicity can't use
+    /// the resource 'type' in the request body to determine which POST collection operation to use.
+    member this.AllowReadingBody() = { this with allowReadingBody = true }
 
 
 

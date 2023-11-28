@@ -762,7 +762,7 @@ module internal RoutingOperations =
                         )
                         |> boxedPatcher
 
-                    resDef.TypeName, (fun ctx req -> op.Run collName resDef ctx req patch builder)
+                    resDef.TypeName, (op, resDef, builder, patch)
                 )
                 |> dict
 
@@ -772,24 +772,34 @@ module internal RoutingOperations =
                 |> List.ofArray
                 |> List.sort
 
+            let singleOpWithAllowReadingRequestBody =
+                opLookup.Values
+                |> Seq.tryExactlyOne
+                |> Option.filter (fun (op, _, _, _) -> op.AllowReadingBody)
+
             Some
             <| fun ctx (req: Request) ->
                 fun next httpCtx ->
                     task {
-                        match! req.Document.Value with
-                        | Error errs -> return! handleErrors errs next httpCtx
-                        | Ok None -> return! handleErrors [ collPostMissingResourceObject "" ] next httpCtx
-                        | Ok(Some { data = None }) ->
-                            return! handleErrors [ collPostMissingResourceObject "/data" ] next httpCtx
-                        | Ok(Some { data = Some { ``type`` = t } }) ->
-                            match opLookup.TryGetValue t with
-                            | false, _ ->
-                                return!
-                                    handleErrors
-                                        [ collPostTypeNotAllowed collName t allowedTypes "/data/type" ]
-                                        next
-                                        httpCtx
-                            | true, run -> return! run ctx req next httpCtx
+                        match singleOpWithAllowReadingRequestBody with
+                        | Some(op, resDef, builder, patch) ->
+                            return! op.Run collName resDef ctx req patch builder next httpCtx
+                        | None ->
+                            match! req.Document.Value with
+                            | Error errs -> return! handleErrors errs next httpCtx
+                            | Ok None -> return! handleErrors [ collPostMissingResourceObject "" ] next httpCtx
+                            | Ok(Some { data = None }) ->
+                                return! handleErrors [ collPostMissingResourceObject "/data" ] next httpCtx
+                            | Ok(Some { data = Some { ``type`` = t } }) ->
+                                match opLookup.TryGetValue t with
+                                | false, _ ->
+                                    return!
+                                        handleErrors
+                                            [ collPostTypeNotAllowed collName t allowedTypes "/data/type" ]
+                                            next
+                                            httpCtx
+                                | true, (op, resDef, builder, patch) ->
+                                    return! op.Run collName resDef ctx req patch builder next httpCtx
                     }
 
 

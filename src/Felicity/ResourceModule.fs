@@ -560,6 +560,21 @@ let private ensureAtMostOneLockSpecPerCollection<'ctx> ms =
     |> Array.iter (lockSpec<'ctx> >> ignore)
 
 
+let private ensureCollectionsWithAllowReadingBodyHasOnlyOnePostCollOp<'ctx> ms =
+    ms
+    |> Array.groupBy (fun m -> (resourceDefinition<'ctx> m).CollectionName)
+    |> Array.choose (fun (collName, ms) -> collName |> Option.map (fun n -> n, ms))
+    |> Array.iter (fun (collName, ms) ->
+        let postOps = ms |> Array.choose postOperation<'ctx>
+
+        let hasAllowReadingBody = postOps |> Array.exists (fun op -> op.AllowReadingBody)
+
+        if hasAllowReadingBody && postOps.Length > 1 then
+            failwith
+                $"Collection name '%s{collName}' contains %i{postOps.Length} resources with POST collection operations where one or more has AllowReadingBody enabled; only one POST collection operation per collection is allowed is AllowReadingBody is enabled"
+    )
+
+
 let validateAll<'ctx> ms =
     ms |> Array.iter ensureValidAndUniqueFieldNames<'ctx>
     ms |> Array.iter ensureCollectionNameIfNeeded<'ctx>
@@ -573,3 +588,4 @@ let validateAll<'ctx> ms =
     ms |> ensureNoDuplicateTypeNames<'ctx>
     ms |> ensureHasLookupIfNeeded<'ctx>
     ms |> ensureAtMostOneLockSpecPerCollection<'ctx>
+    ms |> ensureCollectionsWithAllowReadingBodyHasOnlyOnePostCollOp<'ctx>

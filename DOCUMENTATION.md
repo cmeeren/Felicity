@@ -1031,6 +1031,14 @@ sparse fieldsets and includes as usual), or `helper.Return202Accepted()` to retu
 The helper shown in the examples above contains methods for checking preconditions (using `ETag`/`Last-Modified`
 and `If-Match`/`If-Unmodified-Since`). See section TODO for more details on precondition validation for POST requests.
 
+### Reading the request body manually
+
+After `.PostCustomAsync`, call `.AllowReadingBody()` to enable reading the request body manually for this operation,
+preventing Felicity reading the request body. This lets you for example create a POST collection operation for uploading
+files, and still return a valid JSON:API response. Such an endpoint is not a valid JSON:API endpoint, but can still be
+useful. Using `AllowReadingBody` means that there must be no other POST collection operations for the same collection,
+since Felicity can't use the resource's `type` in the request body to determine which POST collection operation to use.
+
 ### Execution order
 
 1. Get the context
