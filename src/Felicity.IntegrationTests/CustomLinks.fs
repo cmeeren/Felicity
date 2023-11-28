@@ -3,6 +3,7 @@
 open System
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.TestHost
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Net.Http.Headers
@@ -459,6 +460,36 @@ module A12 =
                         | Some statusCode -> setStatusCode statusCode >=> respond.WithNoEntity()
 
                     return Ok handler
+                }
+            )
+
+
+type HttpCtx = HttpCtx of HttpContext
+
+
+module A13 =
+
+    let define = Define<HttpCtx, unit, string>()
+    let resId = define.Id.Simple(fun () -> "someId")
+    let resDef = define.Resource("a", resId).CollectionName("as")
+
+    let lookup = define.Operation.Lookup(fun _ -> Some())
+
+    let get = define.Operation.GetResource()
+
+    let customOp =
+        define.Operation
+            .CustomLink()
+            .ValidateStrictModeQueryParams()
+            .SkipLink()
+            .PostAsync(fun (HttpCtx ctx) parser respond _ ->
+                async {
+                    let! content = ctx.ReadBodyFromRequestAsync() |> Async.AwaitTask
+
+                    if content = "foobar" then
+                        return Ok(respond.WithEntity(resDef, ()))
+                    else
+                        return Ok(setStatusCode 400)
                 }
             )
 
@@ -1037,6 +1068,15 @@ let tests =
 
             test <@ response.headers.ContainsKey LastModified = false @>
             response |> testStatusCode 200
+        }
+
+        testJob "POST can read body" {
+            let! response =
+                Request.postWith HttpCtx "/as/ignoredId/customOp"
+                |> Request.bodyString "foobar"
+                |> getResponse
+
+            response |> testSuccessStatusCode
         }
 
         testJob "GET returns 404 when resource is not found" {
