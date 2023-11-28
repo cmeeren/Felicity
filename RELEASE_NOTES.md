@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.22.0 (2023-11-28)
 
 * Added `AllowReadingBody()` to custom POST operations (after calling `PostCustomAsync`). If called, it is possible to
   read the request body manually for this operation. This lets you for example create a POST collection operation for
