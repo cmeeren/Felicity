@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.22.1 (2023-12-18)
 
 * Added `SkipStandardAcceptValidation`, `SkipStandardContentTypeValidation`, and `SkipStandardQueryParamNameValidation`
   to `PostCustom`, just like already exists on `CustomLink`.
