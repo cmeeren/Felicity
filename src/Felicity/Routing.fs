@@ -241,9 +241,9 @@ let internal jsonApiEndpoints
                              | None -> handleErrors [ collPostNotAllowed collName ]
                              | Some postColl ->
                                  verifyPathCase expectedCollPath
-                                 >=> validateRequest
                                  >=> getCtx (fun ctx req ->
-                                     lockResourceForModification ctx req collName None >=> postColl ctx req
+                                     lockResourceForModification ctx req collName None
+                                     >=> postColl validateRequestWithOverrides ctx req
                                  ))
                     ]
 

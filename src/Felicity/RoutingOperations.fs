@@ -63,7 +63,7 @@ type internal ResourceOperations<'ctx> = {
 
 type internal CollectionOperations<'ctx> = {
     getCollection: ('ctx -> Request -> HttpHandler) option
-    postCollection: ('ctx -> Request -> HttpHandler) option
+    postCollection: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> HttpHandler) option
     resourceOperations: ResourceOperations<'ctx>
 }
 
@@ -778,12 +778,12 @@ module internal RoutingOperations =
                 |> Option.filter (fun (op, _, _, _) -> op.AllowReadingBody)
 
             Some
-            <| fun ctx (req: Request) ->
+            <| fun validationHandler ctx (req: Request) ->
                 fun next httpCtx ->
                     task {
                         match singleOpWithAllowReadingRequestBody with
                         | Some(op, resDef, builder, patch) ->
-                            return! op.Run collName resDef ctx req patch builder next httpCtx
+                            return! op.Run validationHandler collName resDef ctx req patch builder next httpCtx
                         | None ->
                             match! req.Document.Value with
                             | Error errs -> return! handleErrors errs next httpCtx
@@ -799,7 +799,7 @@ module internal RoutingOperations =
                                             next
                                             httpCtx
                                 | true, (op, resDef, builder, patch) ->
-                                    return! op.Run collName resDef ctx req patch builder next httpCtx
+                                    return! op.Run validationHandler collName resDef ctx req patch builder next httpCtx
                     }
 
 

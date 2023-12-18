@@ -166,6 +166,52 @@ module F =
             .AllowReadingBody()
 
 
+module G =
+
+    let define = Define<Ctx, unit, string>()
+    let resId = define.Id.Simple(fun () -> "notUsed")
+    let resDef = define.Resource("g", resId).CollectionName("gs")
+
+    let post =
+        define.Operation
+            .PostCustomAsync(fun ctx parser helper -> async.Return(Ok(setStatusCode 200)))
+            .SkipStandardAcceptValidation()
+
+
+module H =
+
+    let define = Define<Ctx, unit, string>()
+    let resId = define.Id.Simple(fun () -> "notUsed")
+    let resDef = define.Resource("h", resId).CollectionName("hs")
+
+    let post =
+        define.Operation
+            .PostCustomAsync(fun ctx parser helper -> async.Return(Ok(setStatusCode 200)))
+            .SkipStandardContentTypeValidation()
+
+
+module I =
+
+    let define = Define<Ctx, unit, string>()
+    let resId = define.Id.Simple(fun () -> "notUsed")
+    let resDef = define.Resource("i", resId).CollectionName("is")
+
+    let post =
+        define.Operation
+            .PostCustomAsync(fun ctx parser helper -> async.Return(Ok(setStatusCode 200)))
+            .SkipStandardQueryParamNameValidation()
+
+
+module J =
+
+    let define = Define<Ctx, unit, string>()
+    let resId = define.Id.Simple(fun () -> "notUsed")
+    let resDef = define.Resource("j", resId).CollectionName("js")
+
+    let post =
+        define.Operation.PostCustomAsync(fun ctx parser helper -> async.Return(Ok(setStatusCode 200)))
+
+
 [<Tests>]
 let tests =
     testList "POST collection custom" [
@@ -229,6 +275,94 @@ let tests =
             let! json = response |> Response.readBodyAsString
             test <@ json |> getPath "data.type" = "f" @>
             test <@ json |> getPath "data.id" = "someId" @>
+        }
+
+        testJob "Returns 406 if Accept is not */* or application/vnd.api+json" {
+            let! response =
+                Request.post Ctx "/js"
+                |> Request.bodySerialized {| data = {| ``type`` = "j" |} |}
+                |> Request.setHeader (Accept "application/json")
+                |> getResponse
+
+            response |> testStatusCode 406
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "errors[0].status" = "406" @>
+
+            test
+                <@
+                    json |> getPath "errors[0].detail" = "The client must accept the JSON:API media type (application/vnd.api+json)"
+                @>
+
+            test <@ json |> hasNoPath "errors[0].source" @>
+            test <@ json |> hasNoPath "errors[1]" @>
+        }
+
+        testJob "Does not check Accept header if configured to skip this validation" {
+            let! response =
+                Request.post Ctx "/gs"
+                |> Request.bodySerialized {| data = {| ``type`` = "g" |} |}
+                |> Request.setHeader (Accept "application/json")
+                |> getResponse
+
+            response |> testStatusCode 200
+        }
+
+        testJob "Returns 415 if Content-Type is not application/vnd.api+json" {
+            let! response =
+                Request.post Ctx "/js"
+                |> Request.bodySerialized {| data = {| ``type`` = "j" |} |}
+                |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+                |> getResponse
+
+            response |> testStatusCode 415
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "errors[0].status" = "415" @>
+
+            test
+                <@
+                    json |> getPath "errors[0].detail" = "Request content must be sent with Content-Type set to the JSON:API media type (application/vnd.api+json)"
+                @>
+
+            test <@ json |> hasNoPath "errors[0].source" @>
+            test <@ json |> hasNoPath "errors[1]" @>
+        }
+
+        testJob "Does not check Content-Type header if configured to skip this validation" {
+            let! response =
+                Request.post Ctx "/hs"
+                |> Request.bodySerialized {| data = {| ``type`` = "h" |} |}
+                |> Request.setHeader (ContentType (ContentType.parse "application/json").Value)
+                |> getResponse
+
+            response |> testStatusCode 200
+        }
+
+        testJob "Returns 400 if a query parameter name is invalid" {
+            let! response =
+                Request.post Ctx "/js?invalid"
+                |> Request.bodySerialized {| data = {| ``type`` = "j" |} |}
+                |> getResponse
+
+            response |> testStatusCode 400
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "errors[0].status" = "400" @>
+            test <@ json |> getPath "errors[0].source.parameter" = "invalid" @>
+
+            test
+                <@
+                    json |> getPath "errors[0].detail" = "'invalid' is not an allowed query parameter name according to the JSON:API specification"
+                @>
+
+            test <@ json |> hasNoPath "errors[1]" @>
+        }
+
+        testJob "Does not check query parameter names if configured to skip this validation" {
+            let! response =
+                Request.post Ctx "/is?invalid"
+                |> Request.bodySerialized {| data = {| ``type`` = "i" |} |}
+                |> getResponse
+
+            response |> testStatusCode 200
         }
 
         testJob "Returns 403 when read-only" {

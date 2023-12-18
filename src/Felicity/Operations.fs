@@ -471,8 +471,17 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
     }
 
 
+
+type internal RequestValidationConfig = {
+    ValidateAccept: bool
+    ValidateContentType: bool
+    ValidateQueryParams: bool
+}
+
+
 type internal PostOperation<'ctx> =
     abstract Run:
+        (RequestValidationConfig -> HttpHandler) ->
         CollectionName ->
         ResourceDefinition<'ctx> ->
         'ctx ->
@@ -517,8 +526,15 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
         member this.HasPersist = this.afterCreate.IsSome
         member this.AllowReadingBody = false
 
-        member this.Run collName rDef ctx req patch resp =
-            fun next httpCtx ->
+        member this.Run validateRequest collName rDef ctx req patch resp =
+            let validationConfig = {
+                ValidateAccept = true
+                ValidateContentType = true
+                ValidateQueryParams = true
+            }
+
+            validateRequest validationConfig
+            >=> fun next httpCtx ->
                 let afterCreate =
                     this.afterCreate
                     |> Option.defaultWith (fun () ->
@@ -886,20 +902,27 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
             -> PostCustomHelper<'originalCtx, 'entity>
             -> Task<Result<HttpHandler, Error list>>
     allowReadingBody: bool
+    validationConfig: RequestValidationConfig
 } with
 
     static member internal Create(mapCtx, operation) : CustomPostOperation<'originalCtx, 'ctx, 'createResult> = {
         mapCtx = mapCtx
         operation = operation
         allowReadingBody = false
+        validationConfig = {
+            ValidateAccept = true
+            ValidateContentType = true
+            ValidateQueryParams = true
+        }
     }
 
     interface PostOperation<'originalCtx> with
         member _.HasPersist = true
         member this.AllowReadingBody = this.allowReadingBody
 
-        member this.Run collName rDef ctx req patch resp =
-            fun next httpCtx ->
+        member this.Run validateRequest collName rDef ctx req patch resp =
+            validateRequest this.validationConfig
+            >=> fun next httpCtx ->
                 task {
                     match! this.mapCtx ctx with
                     | Error errors -> return! handleErrors errors next httpCtx
@@ -916,6 +939,40 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
     /// means that there must be no other POST collection operations for the same collection, since Felicity can't use
     /// the resource 'type' in the request body to determine which POST collection operation to use.
     member this.AllowReadingBody() = { this with allowReadingBody = true }
+
+
+    /// Skips the requirement and validation of the JSON:API media type in the Accept request header for this custom operation
+    /// (for all HTTP verbs if multiple are defined).
+    member this.SkipStandardAcceptValidation() = {
+        this with
+            validationConfig = {
+                this.validationConfig with
+                    ValidateAccept = false
+            }
+    }
+
+    /// Skips the requirement and validation of the JSON:API media type in the Content-Type request header for this custom
+    /// operation (for all HTTP verbs if multiple are defined).
+    member this.SkipStandardContentTypeValidation() = {
+        this with
+            validationConfig = {
+                this.validationConfig with
+                    ValidateContentType = false
+            }
+    }
+
+    /// Skips the validation of query parameter names that requires them to conform to the requirements in the JSON:API
+    /// specification.
+    ///
+    /// This also skips the validation of any "skip links" query parameters set up using SkipStandardLinksQueryParamName
+    /// and SkipCustomLinksQueryParamName when configuring JSON:API.
+    member this.SkipStandardQueryParamNameValidation() = {
+        this with
+            validationConfig = {
+                this.validationConfig with
+                    ValidateQueryParams = false
+            }
+    }
 
 
 
@@ -1521,14 +1578,6 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ -> handler)
 
     member this.Return202Accepted() = { this with return202Accepted = true }
-
-
-
-type internal RequestValidationConfig = {
-    ValidateAccept: bool
-    ValidateContentType: bool
-    ValidateQueryParams: bool
-}
 
 
 

@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Added `SkipStandardAcceptValidation`, `SkipStandardContentTypeValidation`, and `SkipStandardQueryParamNameValidation`
+  to `PostCustom`, just like already exists on `CustomLink`.
+
 ### 0.22.0 (2023-11-28)
 
 * Added `AllowReadingBody()` to custom POST operations (after calling `PostCustomAsync`). If called, it is possible to
