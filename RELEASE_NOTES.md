@@ -5,6 +5,8 @@ Release notes
 
 * Added `SkipStandardAcceptValidation`, `SkipStandardContentTypeValidation`, and `SkipStandardQueryParamNameValidation`
   to `PostCustom`, just like already exists on `CustomLink`.
+* If a resource has a `self` link that is skipped using the query parameter specified in
+  `SkipStandardLinksQueryParamName`, the `Location` header will still be set when creating the resource.
 
 ### 0.22.0 (2023-11-28)
 
