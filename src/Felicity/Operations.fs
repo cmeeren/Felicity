@@ -257,7 +257,7 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                         match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req Set.empty with
                         | Error errs -> return! handleErrors errs next httpCtx
                         | Ok() ->
-                            let! doc = resp.Write httpCtx ctx req (resDef, entity)
+                            let! doc, _ = resp.Write httpCtx ctx req (resDef, entity)
 
                             let! fieldTrackerHandler =
                                 httpCtx.RequestServices
@@ -1104,7 +1104,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
                                                         return! handler next httpCtx
                                                     else
-                                                        let! doc = resp.Write httpCtx ctx req (rDef, entity4)
+                                                        let! doc, _ = resp.Write httpCtx ctx req (rDef, entity4)
 
                                                         let! fieldTrackerHandler =
                                                             httpCtx.RequestServices

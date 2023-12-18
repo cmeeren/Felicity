@@ -578,7 +578,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                 | Skip -> return! handleErrors [ getRelWhileSkip () ] next httpCtx
                                 | Include relatedEntity ->
                                     let b = resolveEntity relatedEntity
-                                    let! doc = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
+                                    let! doc, _ = resp.Write httpCtx ctx req (b.resourceDef, b.entity)
 
                                     let! fieldTrackerHandler =
                                         match this.idParsers with

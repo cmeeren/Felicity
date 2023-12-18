@@ -21,7 +21,7 @@ type Responder<'ctx> internal (builder: ResponseBuilder<'ctx>, ctx, req) =
     member _.WithEntity(resourceDef: ResourceDefinition<'ctx, 'entity, 'id>, entity: 'entity) : HttpHandler =
         fun next httpCtx ->
             task {
-                let! doc = builder.Write httpCtx ctx req (upcast resourceDef, entity)
+                let! doc, _ = builder.Write httpCtx ctx req (upcast resourceDef, entity)
 
                 let primaryResourceTypes =
                     primaryResourceTypesForFieldTracking |> Option.defaultValue [ resourceDef.name ]
