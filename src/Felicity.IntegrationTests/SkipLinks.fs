@@ -30,7 +30,7 @@ module A =
 
     let toMany = define.Relationship.ToMany(resDef).Get(fun _ -> [])
 
-    let post = define.Operation.Post(fun () -> A)
+    let post = define.Operation.Post(fun () -> A).AfterCreate(ignore)
 
     let get = define.Operation.GetResource()
 
