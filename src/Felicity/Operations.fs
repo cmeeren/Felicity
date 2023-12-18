@@ -604,17 +604,11 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
 
                                                 return! handler next httpCtx
                                             else
-                                                let! doc = resp.Write httpCtx ctx req (rDef, entity1)
+                                                let! doc, selfUrlOpt = resp.Write httpCtx ctx req (rDef, entity1)
 
                                                 let setLocationHeader =
-                                                    match doc with
-                                                    | {
-                                                          data = Some { links = Include links }
-                                                      } ->
-                                                        match links.TryGetValue "self" with
-                                                        | true, { href = Some url } ->
-                                                            setHttpHeader "Location" (url.ToString())
-                                                        | _ -> fun next ctx -> next ctx
+                                                    match selfUrlOpt with
+                                                    | Some url -> setHttpHeader "Location" (url.ToString())
                                                     | _ -> fun next ctx -> next ctx
 
                                                 let! fieldTrackerHandler =
@@ -832,16 +826,11 @@ type PostCustomHelper<'ctx, 'entity>
     member this.ReturnCreatedEntity(entity: 'entity) : HttpHandler =
         fun next httpCtx ->
             task {
-                let! doc = builder.Write httpCtx ctx req (rDef, entity)
+                let! doc, selfUrlOpt = builder.Write httpCtx ctx req (rDef, entity)
 
                 let setLocationHeader =
-                    match doc with
-                    | {
-                          data = Some { links = Include links }
-                      } ->
-                        match links.TryGetValue "self" with
-                        | true, { href = Some url } -> setHttpHeader "Location" (url.ToString())
-                        | _ -> fun next ctx -> next ctx
+                    match selfUrlOpt with
+                    | Some url -> setHttpHeader "Location" (url.ToString())
                     | _ -> fun next ctx -> next ctx
 
                 let! fieldTrackerHandler =

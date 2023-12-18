@@ -34,7 +34,7 @@ module private RelationshipHelpers =
         }
 
         resp.Write httpCtx ctx reqForIncluded (parentResDef, parentEntity)
-        |> Task.map (fun doc -> doc.included)
+        |> Task.map (fun (doc, _) -> doc.included)
 
 
 

@@ -10,6 +10,14 @@ let private emptyMetaDictNeverModify = Dictionary(0)
 let emptyLinkArrayNeverModify = [||]
 
 
+let getSelfUrlOpt<'ctx> resourceModule baseUrl (resDef: ResourceDefinition<'ctx>) resId =
+    if ResourceModule.hasGetResourceOperation<'ctx> resourceModule then
+        resDef.CollectionName
+        |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + resId)
+    else
+        None
+
+
 type ResourceBuilder<'ctx>
     (
         resourceModuleMap: Map<ResourceTypeName, Type>,
@@ -51,11 +59,7 @@ type ResourceBuilder<'ctx>
                 $"Framework bug: Attempted to build resource '%s{resourceDef.TypeName}', but no resource module was found"
 
     let selfUrlOpt =
-        if ResourceModule.hasGetResourceOperation<'ctx> resourceModule then
-            resourceDef.CollectionName
-            |> Option.map (fun collName -> baseUrl + "/" + collName + "/" + identifier.id)
-        else
-            None
+        getSelfUrlOpt<'ctx> resourceModule baseUrl resourceDef identifier.id
 
     let constrainedFields = ResourceModule.constrainedFields<'ctx> resourceModule
 

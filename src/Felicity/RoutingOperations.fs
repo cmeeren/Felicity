@@ -114,20 +114,26 @@ module internal RoutingOperations =
                         )
                         |> ResourceBuilder.buildOne (httpCtx.GetService<ILoggerFactory>())
 
-                    return {
-                        ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
-                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
-                        meta =
-                            httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
-                            |> Include
-                            |> Skippable.filter (fun x -> x.Count > 0)
-                        data = Some main
-                        included =
-                            if req.Query.ContainsKey "include" then
-                                Include included
-                            else
-                                Skip
-                    }
+                    return
+                        {
+                            ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
+                            links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                            meta =
+                                httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
+                                |> Include
+                                |> Skippable.filter (fun x -> x.Count > 0)
+                            data = Some main
+                            included =
+                                if req.Query.ContainsKey "include" then
+                                    Include included
+                                else
+                                    Skip
+                        },
+                        ResourceBuilder.getSelfUrlOpt<'ctx>
+                            resourceModuleMap[resourceDef.TypeName]
+                            baseUrl
+                            resourceDef
+                            (resourceDef.GetIdBoxed e)
                 }
 
             member _.WriteList httpCtx ctx req rDefsEntities =
