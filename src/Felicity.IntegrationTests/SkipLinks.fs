@@ -30,6 +30,8 @@ module A =
 
     let toMany = define.Relationship.ToMany(resDef).Get(fun _ -> [])
 
+    let post = define.Operation.Post(fun () -> A)
+
     let get = define.Operation.GetResource()
 
     let customOp =
@@ -206,6 +208,21 @@ let tests =
 
             Expect.equal (json |> getPath "errors[1].source.parameter") "skipCustomLinks" ""
             Expect.isTrue (json |> hasNoPath "errors[2]") ""
+        }
+
+        testJob "Has Location header in POST response even if resource link is skipped" {
+            let client = getClient ()
+
+            let! response =
+                Request.createWithClient client Post (Uri("http://example.com/as?skipAllLinks"))
+                |> Request.jsonApiHeaders
+                |> Request.bodySerialized {| data = {| ``type`` = "a" |} |}
+                |> getResponse
+
+            response |> testSuccessStatusCode
+            let! json = response |> Response.readBodyAsString
+            Expect.isFalse (json |> hasPath "data.links") ""
+            Expect.isTrue (response.headers.TryFind Location = Some "http://example.com/as/1") ""
         }
 
     ]
