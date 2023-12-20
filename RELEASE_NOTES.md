@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### Unreleased
+
+* **Breaking:** Removed the unneeded explicit type parameters on `EnableUnknownFieldStrictMode`,
+  `EnableUnknownQueryParamStrictMode`, and `LogInvalidJsonRequestBodies`
+
 ### 0.22.1 (2023-12-18)
 
 * Added `SkipStandardAcceptValidation`, `SkipStandardContentTypeValidation`, and `SkipStandardQueryParamNameValidation`

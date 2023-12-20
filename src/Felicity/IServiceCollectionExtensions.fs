@@ -177,7 +177,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
 
     /// Returns an error if an unknown field is encountered in a request body. If warnOnly (default false) is true, log a
     /// warning instead of returning an error. The default log level is Warning.
-    member this.EnableUnknownFieldStrictMode<'ctx>(?warnOnly, ?warnLogLevel) =
+    member this.EnableUnknownFieldStrictMode(?warnOnly, ?warnLogLevel) =
         let warnOnly = defaultArg warnOnly false
         let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
 
@@ -193,7 +193,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     /// Returns an error if an unknown query parameter is encountered in a request. Query parameters are only considered
     /// "known" if they are parsed using RequestParserHelper/RequestParser. If warnOnly (default false) is true, log a
     /// warning instead of returning an error. The default log level is Warning.
-    member this.EnableUnknownQueryParamStrictMode<'ctx>(?warnOnly, ?warnLogLevel) =
+    member this.EnableUnknownQueryParamStrictMode(?warnOnly, ?warnLogLevel) =
         let warnOnly = defaultArg warnOnly false
         let warnLogLevel = defaultArg warnLogLevel LogLevel.Warning
 
@@ -215,7 +215,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     /// sufficient details to debug invalid requests. Request body logging as enabled by this method is intended to aid
     /// debugging request bodies with invalid JSON (i.e., where a JsonException was thrown when deserializing), where the
     /// returned error is fairly generic (to avoid leaking server implementation details).
-    member this.LogInvalidJsonRequestBodies<'ctx>(?logLevel, ?maxSize) =
+    member this.LogInvalidJsonRequestBodies(?logLevel, ?maxSize) =
         let logLevel = defaultArg logLevel LogLevel.Trace
 
         {
