@@ -323,7 +323,7 @@ let invalidParsedErrMsg (info: ParsedValueInfo) errMsg =
 let invalidEnum (info: ParsedValueInfo) allowedValues =
     let expectedStr =
         match allowedValues with
-        | [ x ] -> x
+        | [ x ] -> $"'%s{x}'"
         | xs -> "one of " + (xs |> List.map (sprintf "'%s'") |> String.concat ", ")
 
     match info with
