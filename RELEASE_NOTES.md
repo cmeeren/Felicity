@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-### Unreleased
+### 0.23.0 (2024-07-29)
 
 * **Breaking:** Removed the unneeded explicit type parameters on `EnableUnknownFieldStrictMode`,
   `EnableUnknownQueryParamStrictMode`, and `LogInvalidJsonRequestBodies`
