@@ -5,6 +5,7 @@ Release notes
 
 * **Breaking:** Removed the unneeded explicit type parameters on `EnableUnknownFieldStrictMode`,
   `EnableUnknownQueryParamStrictMode`, and `LogInvalidJsonRequestBodies`
+* Updated FSharp.SystemTextJson from 1.2.42 to 1.3.13
 
 ### 0.22.1 (2023-12-18)
 
