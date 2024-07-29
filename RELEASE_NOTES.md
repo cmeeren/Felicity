@@ -5,6 +5,8 @@ Release notes
 
 * **Breaking:** Removed the unneeded explicit type parameters on `EnableUnknownFieldStrictMode`,
   `EnableUnknownQueryParamStrictMode`, and `LogInvalidJsonRequestBodies`
+* **Breaking:** Update Giraffe from 6.2.0 to 7.0.0.
+  See [this page](https://github.com/giraffe-fsharp/Giraffe/releases/tag/v7.0.0-alpha-001) for breaking changes.
 * Updated FSharp.SystemTextJson from 1.2.42 to 1.3.13
 
 ### 0.22.1 (2023-12-18)
