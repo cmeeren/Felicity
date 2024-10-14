@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Updated Giraffe from 7.0.0 to 7.0.1
+
 ### 0.23.0 (2024-07-29)
 
 * **Breaking:** Removed the unneeded explicit type parameters on `EnableUnknownFieldStrictMode`,
