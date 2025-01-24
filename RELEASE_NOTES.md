@@ -54,8 +54,8 @@ Release notes
 
 ### 0.21.8 (2023-02-22)
 
-* Fixed `ArgumentOutOfRangeException` when logging request body after deserialization fails
-  and `LogInvalidJsonRequestBodies` is used with `maxSize` set
+* Fixed `ArgumentOutOfRangeException` when logging request body after deserialization fails and
+  `LogInvalidJsonRequestBodies` is used with `maxSize` set
 
 ### 0.21.7 (2023-01-24)
 
@@ -83,8 +83,8 @@ Release notes
 * The invalid value is now included in the error message for attribute parse errors. The value is limited to 200
   characters.
 * Parse error messages for attributes defined with overloads that return user-defined error messages (
-  e.g. `Result<_, string>`) are generally of the
-  form `Attribute 'name' got invalid value 'invalidValue': <User-defined error message>`
+  e.g. `Result<_, string>`) are generally of the form
+  `Attribute 'name' got invalid value 'invalidValue': <User-defined error message>`
 
 ### 0.21.2 (2022-10-28)
 
@@ -95,8 +95,8 @@ Release notes
 
 * Updated FSharp.SystemTextJson from 0.19.13 to 1.0.6. There is no change in behavior in Felicity, but note that this
   comes with a breaking change if you use it in other places: When deserializing missing fields of type `option`
-  or `voption`, an error will now be returned instead of deserializing to `null`. Either wrap such fields
-  in `Skippable`, or enable the option `IgnoreNullValues = true`. You can
+  or `voption`, an error will now be returned instead of deserializing to `null`. Either wrap such fields in
+  `Skippable`, or enable the option `IgnoreNullValues = true`. You can
   find [more details here](https://tarmil.fr/article/2022/9/25/systemtextjson-v1.0).
 
 ### 0.20.12 (2022-09-18)
@@ -130,8 +130,8 @@ Release notes
   * Parse errors for query parameters, headers, and resource IDs (not attributes) always have an error message that
     includes the invalid value
   * Parse error messages for query parameters, headers, and resource IDs defined with overloads that return user-defined
-    error messages (e.g. `Result<_, string>`) are generally of the
-    form `Query parameter 'name' got invalid value 'invalidValue': <User-defined error message>`
+    error messages (e.g. `Result<_, string>`) are generally of the form
+    `Query parameter 'name' got invalid value 'invalidValue': <User-defined error message>`
 * Added overloads of attribute and relationship `Get...Skip` methods without `'ctx`
 
 ### 0.20.8 (2022-08-24)
@@ -175,8 +175,8 @@ Release notes
 
 ### 0.20.0 (2022-05-02)
 
-* Removed Hopac dependency in favor of native tasks. The primary reason is that Hopac doesn't play nice
-  with `System.Diagnostics.Activity`'s call context flowing, breaking e.g. distributed tracing.
+* Removed Hopac dependency in favor of native tasks. The primary reason is that Hopac doesn't play nice with
+  `System.Diagnostics.Activity`'s call context flowing, breaking e.g. distributed tracing.
 * Removed previously deprecated methods
 
 ### 0.19.0 (2022-04-19)
@@ -187,9 +187,8 @@ Release notes
 
 * Added context transformation overloads (`ForContext` and `MapSetContext`) accepting the current entity for all
   entity-specific operations (GET, PATCH, DELETE, custom operations, attribute/relationship setters, and `Set2`).
-* Added `Filter` convenience methods to parse known types (similar to `Query`, but wraps the name
-  in `filter[...]`): `String`, `Bool`, `Int`, `Float`, `DateTime`, `DateTimeOffset`,
-  and `DateTimeOffsetAllowMissingOffset`
+* Added `Filter` convenience methods to parse known types (similar to `Query`, but wraps the name in `filter[...]`):
+  `String`, `Bool`, `Int`, `Float`, `DateTime`, `DateTimeOffset`, and `DateTimeOffsetAllowMissingOffset`
 
 ### 0.18.2 (2022-02-11)
 
@@ -321,8 +320,8 @@ Release notes
 
 ### 0.14.13 (2021-05-31)
 
-* Added missing method `define.Resource.Polymorphic().ResolveId()`, which is required when
-  using `GetLinkageIfNotIncluded` with a polymorphic relationship.
+* Added missing method `define.Resource.Polymorphic().ResolveId()`, which is required when using
+  `GetLinkageIfNotIncluded` with a polymorphic relationship.
 
 ### 0.14.12 (2021-05-31)
 
@@ -418,8 +417,8 @@ Release notes
 
 ### 0.12.0 (2020-09-25)
 
-* **Breaking:** Renamed `define.Attribute.Simple` to `SimpleUnsafe` and added variants for well-known types such
-  as `SimpleString`, `SimpleDateTimeOffset`, etc.
+* **Breaking:** Renamed `define.Attribute.Simple` to `SimpleUnsafe` and added variants for well-known types such as
+  `SimpleString`, `SimpleDateTimeOffset`, etc.
 * Added `DateTime` and `DateTimeOffset` as built-in query parser target types
 
 ### 0.11.2 (2020-09-05)
@@ -522,9 +521,9 @@ Release notes
 
 ### 0.7.0 (2020-04-03)
 
-* Breaking bugfix: For operations with transformed context (`.ForContext(...)`),
-  the `ResourceParserHelper`/`ResourceParser` is now typed to the original context, not the mapped context, so that it
-  actually can parse the resource’s fields (which are typed to the original context)
+* Breaking bugfix: For operations with transformed context (`.ForContext(...)`), the `ResourceParserHelper`/
+  `ResourceParser` is now typed to the original context, not the mapped context, so that it actually can parse the
+  resource’s fields (which are typed to the original context)
 
 ### 0.6.0 (2020-04-03)
 
@@ -532,8 +531,8 @@ Release notes
 * Breaking: Removed the “related setter” versions of `ToManyRelationship.Remove`. These violated the JSON:API spec; they
   returned errors when the related resources were not found, but the spec requires a success response even if the
   members are already removed from the relationship.
-* Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the
-  normal `Post` operation doesn’t work
+* Added `PostCustom` operation for use-cases where the strict “create entity → persist entity” workflow of the normal
+  `Post` operation doesn’t work
 * Fixed error for undefined resource-specific operations when the resource is not found
 
 ### 0.5.4 (2020-03-24)
@@ -574,8 +573,8 @@ Release notes
 ### 0.4.0 (2020-03-12)
 
 * Updated dependency FSharp.SystemTextJson
-* Removed own `Skippable` implementation in favor of the one from FSharp.SystemTextJson (in
-  namespace `System.Text.Json.Serialization`)
+* Removed own `Skippable` implementation in favor of the one from FSharp.SystemTextJson (in namespace
+  `System.Text.Json.Serialization`)
 * Fail on startup if operations are missing required persistence functions
 * Added support for optional precondition validation
 
@@ -600,8 +599,8 @@ Release notes
 
 ### 0.2.0 (2020-02-28)
 
-* Added entity-returning overloads for PATCH's `BeforeUpdate`, DELETE's `BeforeDelete`, and
-  relationships' `BeforeModifySelf`
+* Added entity-returning overloads for PATCH's `BeforeUpdate`, DELETE's `BeforeDelete`, and relationships'
+  `BeforeModifySelf`
 
 - Breaking: Made `BeforeModifySelf` use `Func`
 
