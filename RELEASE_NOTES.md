@@ -3,6 +3,7 @@ Release notes
 
 ### Unreleased
 
+* Fixed `returnUnknownError` always using the same error ID
 * Updated Giraffe from 7.0.0 to 7.0.1
 
 ### 0.23.0 (2024-07-29)
