@@ -151,7 +151,7 @@ let customGlobalLock =
 
     fun () ->
         async {
-            let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5) |> Async.AwaitTask
+            let! success = semaphore.WaitAsync(TimeSpan.FromSeconds 5L) |> Async.AwaitTask
 
             if success then
                 return
@@ -372,7 +372,7 @@ module H =
             .CustomLock(multiLock1)
             .CustomLock(multiLock2)
             .CustomLock(multiLock3)
-            .MultiLockTotalTimeout(TimeSpan.FromSeconds 1)
+            .MultiLockTotalTimeout(TimeSpan.FromSeconds 1L)
 
     let lookup = define.Operation.Lookup(ResourceId.value >> Some)
 
