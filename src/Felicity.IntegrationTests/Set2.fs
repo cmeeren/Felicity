@@ -253,7 +253,7 @@ let tests =
             test <@ json |> hasNoPath "errors[1]" @>
         }
 
-        testJob "Set2SameNull returns error if first is missing" {
+        testJob "Set2SameNull returns error if second is missing" {
             let ctx = Ctx.Default
 
             let! response =
@@ -280,7 +280,7 @@ let tests =
             test <@ json |> hasNoPath "errors[1]" @>
         }
 
-        testJob "Set2SameNull returns error if second is missing" {
+        testJob "Set2SameNull returns error if first is missing" {
             let ctx = Ctx.Default
 
             let! response =
