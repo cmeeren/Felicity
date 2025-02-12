@@ -433,6 +433,18 @@ let set2DifferentNull field1Name field2Name =
     |> Error.setTitle "Invalid value combination"
     |> Error.setDetail $"The fields '%s{field1Name}' and '%s{field2Name}' must both be either null or non-null"
 
+let set3FieldsMissing field1Name field2Name field3Name =
+    Error.create 400
+    |> Error.setTitle "Missing required field"
+    |> Error.setDetail
+        $"Fields '%s{field1Name}', '%s{field2Name}', and '%s{field3Name}' must be set together, but one or more fields were missing"
+
+let set3DifferentNull field1Name field2Name field3Name =
+    Error.create 400
+    |> Error.setTitle "Invalid value combination"
+    |> Error.setDetail
+        $"Fields '%s{field1Name}', '%s{field2Name}', and '%s{field3Name}' must all be either null or non-null"
+
 
 (*
 * GET collection

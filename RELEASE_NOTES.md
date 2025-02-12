@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### Unreleased
+
+* Added `define.Operation.Set3` and `define.Operation.Set3SameNull` to set three fields at the same time. Use this as a
+  better alternative to `CustomSetter` if the only thing you want is to set three fields simultaneously.
+
 ### 0.23.1 (2025-01-24)
 
 * Fixed `returnUnknownError` always using the same error ID

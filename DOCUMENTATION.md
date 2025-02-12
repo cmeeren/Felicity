@@ -1120,10 +1120,11 @@ requires a function to persist the changes:
 let patch = define.Operation.Patch().AfterUpdateAsync(Db.Article.save)
 ```
 
-### Setting two fields together
+### Setting multiple fields together
 
-You may need to set two fields together. For this, you can use `define.Operation.Set2`. Alternatively, if both fields
-are nullable and you require that both fields must be either null or non-null, use `Set2SameNull`. Example:
+You may need to set multiple fields together. For this, you can use `define.Operation.Set2` or `Set3`. Alternatively, if
+both fields are nullable and you require that both fields must be either null or non-null, use `Set2SameNull`
+or `Set3SameNull`. Example:
 
 ```f#
 // Illustration purposes only; you'd probably want to constrain valid lat/lon values
@@ -1137,16 +1138,16 @@ let setLatitudeLongitude =
 
 In the example above, `MyDomain.setLatLon` has type `(decimal * decimal) option -> MyEntity -> MyEntity`.
 
-If only one of the fields are present, an error will be returned. For `Set2SameNull`, an error will also be returned if
-one of the fields is `null` and the other is not.
+If only one of the fields are present, an error will be returned. For `Set2SameNull` and `Set3SameNull`, an error will
+also be returned if one of the fields is `null` and the other is not.
 
 As with other setters, there are overloads that allow you to return errors and/or use `Async`, and the setters are run
 for both PATCH and POST requests.
 
 Important:
 
-* Only use fields without their own setters. If the fields you use in `Set2`/`Set2SameNull` have separate setters, the
-  behavior is undefined.
+* Only use fields without their own setters. If the fields you use in `Set2`/`Set2SameNull`/`Set3`/`Set3SameNull` have
+  separate setters, the behavior is undefined.
 * Only fields (attributes and relationships) are supported. If you use query parameters or headers, an exception will be
   thrown at startup.
 

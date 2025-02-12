@@ -2467,6 +2467,218 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
             ?setOrder = setOrder
         )
 
+    member _.Set3TaskRes
+        (
+            set: 'ctx -> 'field1 * 'field2 * 'field3 -> 'entity -> Task<Result<'entity, Error list>>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3>,
+            ?setOrder
+        ) =
+        match field1.FieldName, field2.FieldName, field3.FieldName with
+        | Some fn1, Some fn2, Some fn3 ->
+            { new FieldSetter<'originalCtx> with
+                member _.Names = Set.ofList [ fn1; fn2; fn3 ]
+                member _.SetOrder = defaultArg setOrder 0
+
+                member _.Set ctx req entity _ =
+                    task {
+                        let! f1 = field1.Get(ctx, req, None)
+                        let! f2 = field2.Get(ctx, req, None)
+                        let! f3 = field3.Get(ctx, req, None)
+
+                        match f1, f2, f3 with
+                        | Error errs1, Error errs2, Error errs3 -> return Error(errs1 @ errs2 @ errs3)
+                        | Ok _, Error errs1, Error errs2 -> return Error(errs1 @ errs2)
+                        | Error errs1, Ok _, Error errs2 -> return Error(errs1 @ errs2)
+                        | Error errs1, Error errs2, Ok _ -> return Error(errs1 @ errs2)
+                        | Error errs, Ok _, Ok _
+                        | Ok _, Error errs, Ok _
+                        | Ok _, Ok _, Error errs -> return Error errs
+                        | Ok None, Ok None, Ok None -> return Ok(entity, false)
+                        | Ok(Some val1), Ok(Some val2), Ok(Some val3) ->
+                            match! mapCtx ctx (unbox<'entity> entity) with
+                            | Error errs -> return Error errs
+                            | Ok ctx ->
+                                return!
+                                    set ctx (val1, val2, val3) (unbox<'entity> entity)
+                                    |> TaskResult.map (fun e -> box e, true)
+                        | _ -> return Error [ set3FieldsMissing fn1 fn2 fn3 ]
+                    }
+            }
+        | _ -> failwith "Can only be called with fields, not query parameters or headers"
+
+    member this.Set3AsyncRes
+        (
+            set: 'ctx -> 'field1 * 'field2 * 'field3 -> 'entity -> Async<Result<'entity, Error list>>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3>,
+            ?setOrder
+        ) =
+        this.Set3TaskRes(Task.liftAsync3 set, field1, field2, field3, ?setOrder = setOrder)
+
+    member this.Set3Task
+        (
+            set: 'ctx -> 'field1 * 'field2 * 'field3 -> 'entity -> Task<'entity>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3>,
+            ?setOrder
+        ) =
+        this.Set3TaskRes((fun ctx v e -> set ctx v e |> Task.map Ok), field1, field2, field3, ?setOrder = setOrder)
+
+    member this.Set3Async
+        (
+            set: 'ctx -> 'field1 * 'field2 * 'field3 -> 'entity -> Async<'entity>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3>,
+            ?setOrder
+        ) =
+        this.Set3Task(Task.liftAsync3 set, field1, field2, field3, ?setOrder = setOrder)
+
+    member this.Set3Res
+        (
+            set: 'ctx -> 'field1 * 'field2 * 'field3 -> 'entity -> Result<'entity, Error list>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3>,
+            ?setOrder
+        ) =
+        this.Set3TaskRes((fun ctx v e -> set ctx v e |> Task.result), field1, field2, field3, ?setOrder = setOrder)
+
+    member this.Set3
+        (
+            set: 'ctx -> 'field1 * 'field2 * 'field3 -> 'entity -> 'entity,
+            field1: OptionalRequestGetter<'originalCtx, 'field1>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3>,
+            ?setOrder
+        ) =
+        this.Set3TaskRes(
+            (fun ctx v e -> set ctx v e |> Ok |> Task.result),
+            field1,
+            field2,
+            field3,
+            ?setOrder = setOrder
+        )
+
+    member _.Set3SameNullTaskRes
+        (
+            set: 'ctx -> ('field1 * 'field2 * 'field3) option -> 'entity -> Task<Result<'entity, Error list>>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1 option>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2 option>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3 option>,
+            ?setOrder
+        ) =
+        match field1.FieldName, field2.FieldName, field3.FieldName with
+        | Some fn1, Some fn2, Some fn3 ->
+            { new FieldSetter<'originalCtx> with
+                member _.Names = Set.ofList [ fn1; fn2; fn3 ]
+                member _.SetOrder = defaultArg setOrder 0
+
+                member _.Set ctx req entity _ =
+                    task {
+                        let! f1 = field1.Get(ctx, req, None)
+                        let! f2 = field2.Get(ctx, req, None)
+                        let! f3 = field3.Get(ctx, req, None)
+
+                        match f1, f2, f3 with
+                        | Error errs1, Error errs2, Error errs3 -> return Error(errs1 @ errs2 @ errs3)
+                        | Ok _, Error errs1, Error errs2 -> return Error(errs1 @ errs2)
+                        | Error errs1, Ok _, Error errs2 -> return Error(errs1 @ errs2)
+                        | Error errs1, Error errs2, Ok _ -> return Error(errs1 @ errs2)
+                        | Error errs, Ok _, Ok _
+                        | Ok _, Error errs, Ok _
+                        | Ok _, Ok _, Error errs -> return Error errs
+                        | Ok None, Ok None, Ok None -> return Ok(entity, false)
+                        | Ok(Some None), Ok(Some None), Ok(Some None) ->
+                            match! mapCtx ctx (unbox<'entity> entity) with
+                            | Error errs -> return Error errs
+                            | Ok ctx ->
+                                return! set ctx None (unbox<'entity> entity) |> TaskResult.map (fun e -> box e, true)
+                        | Ok(Some(Some val1)), Ok(Some(Some val2)), Ok(Some(Some val3)) ->
+                            match! mapCtx ctx (unbox<'entity> entity) with
+                            | Error errs -> return Error errs
+                            | Ok ctx ->
+                                return!
+                                    set ctx (Some(val1, val2, val3)) (unbox<'entity> entity)
+                                    |> TaskResult.map (fun e -> box e, true)
+                        | Ok(Some _), Ok(Some _), Ok(Some _) -> return Error [ set3DifferentNull fn1 fn2 fn3 ]
+                        | _ -> return Error [ set3FieldsMissing fn1 fn2 fn3 ]
+                    }
+            }
+        | _ -> failwith "Can only be called with fields, not query parameters or headers"
+
+    member this.Set3SameNullAsyncRes
+        (
+            set: 'ctx -> ('field1 * 'field2 * 'field3) option -> 'entity -> Async<Result<'entity, Error list>>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1 option>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2 option>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3 option>,
+            ?setOrder
+        ) =
+        this.Set3SameNullTaskRes(Task.liftAsync3 set, field1, field2, field3, ?setOrder = setOrder)
+
+    member this.Set3SameNullTask
+        (
+            set: 'ctx -> ('field1 * 'field2 * 'field3) option -> 'entity -> Task<'entity>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1 option>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2 option>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3 option>,
+            ?setOrder
+        ) =
+        this.Set3SameNullTaskRes(
+            (fun ctx v e -> set ctx v e |> Task.map Ok),
+            field1,
+            field2,
+            field3,
+            ?setOrder = setOrder
+        )
+
+    member this.Set3SameNullAsync
+        (
+            set: 'ctx -> ('field1 * 'field2 * 'field3) option -> 'entity -> Async<'entity>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1 option>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2 option>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3 option>,
+            ?setOrder
+        ) =
+        this.Set3SameNullTask(Task.liftAsync3 set, field1, field2, field3, ?setOrder = setOrder)
+
+    member this.Set3SameNullRes
+        (
+            set: 'ctx -> ('field1 * 'field2 * 'field3) option -> 'entity -> Result<'entity, Error list>,
+            field1: OptionalRequestGetter<'originalCtx, 'field1 option>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2 option>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3 option>,
+            ?setOrder
+        ) =
+        this.Set3SameNullTaskRes(
+            (fun ctx v e -> set ctx v e |> Task.result),
+            field1,
+            field2,
+            field3,
+            ?setOrder = setOrder
+        )
+
+    member this.Set3SameNull
+        (
+            set: 'ctx -> ('field1 * 'field2 * 'field3) option -> 'entity -> 'entity,
+            field1: OptionalRequestGetter<'originalCtx, 'field1 option>,
+            field2: OptionalRequestGetter<'originalCtx, 'field2 option>,
+            field3: OptionalRequestGetter<'originalCtx, 'field3 option>,
+            ?setOrder
+        ) =
+        this.Set3SameNullTaskRes(
+            (fun ctx v e -> set ctx v e |> Ok |> Task.result),
+            field1,
+            field2,
+            field3,
+            ?setOrder = setOrder
+        )
+
 
 
 type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'originalCtx -> Task<Result<'ctx, Error list>>)

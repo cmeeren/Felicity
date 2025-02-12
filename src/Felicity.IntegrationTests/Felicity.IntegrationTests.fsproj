@@ -40,6 +40,7 @@
     <Compile Include="ToManyRelationshipPostSelf.fs" />
     <Compile Include="ToManyRelationshipDeleteSelf.fs" />
     <Compile Include="Set2.fs" />
+    <Compile Include="Set3.fs" />
     <Compile Include="Set order.fs" />
     <Compile Include="CustomLinks.fs" />
     <Compile Include="ResourceLocking.fs" />
