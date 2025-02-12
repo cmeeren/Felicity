@@ -2315,7 +2315,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
                         | Error errs1, Error errs2 -> return Error(errs1 @ errs2)
                         | Error errs, Ok _
                         | Ok _, Error errs -> return Error errs
-                        | Ok None, Ok None -> return (Ok(entity, false))
+                        | Ok None, Ok None -> return Ok(entity, false)
                         | Ok(Some _), Ok None -> return Error [ set2OneFieldMissing fn1 fn2 ]
                         | Ok None, Ok(Some _) -> return Error [ set2OneFieldMissing fn2 fn1 ]
                         | Ok(Some val1), Ok(Some val2) ->
@@ -2396,7 +2396,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
                         | Error errs1, Error errs2 -> return Error(errs1 @ errs2)
                         | Error errs, Ok _
                         | Ok _, Error errs -> return Error errs
-                        | Ok None, Ok None -> return (Ok(entity, false))
+                        | Ok None, Ok None -> return Ok(entity, false)
                         | Ok(Some _), Ok None -> return Error [ set2OneFieldMissing fn1 fn2 ]
                         | Ok None, Ok(Some _) -> return Error [ set2OneFieldMissing fn2 fn1 ]
                         | Ok(Some None), Ok(Some(Some _))
