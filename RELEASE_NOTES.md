@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.24.0 (2025-08-18)
+
+* Fixed headers only being parsed case sensitively (this could be a breaking bugfix, though it seems unlikely)
+
 ### 0.23.2 (2025-02-12)
 
 * Added `define.Operation.Set3` and `define.Operation.Set3SameNull` to set three fields at the same time. Use this as a

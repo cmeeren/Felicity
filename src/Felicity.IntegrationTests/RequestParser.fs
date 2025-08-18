@@ -1176,7 +1176,7 @@ let tests =
             test <@ calledWith' = Some(NonEmptyString "val") @>
         }
 
-        testJob "Can parse headers" {
+        testJob "Can parse headers case insensitively" {
             let mutable calledWith = None
 
             let ctx =
@@ -1186,7 +1186,7 @@ let tests =
 
             let! response =
                 Request.get ctx "/xs"
-                |> Request.setHeader (Custom("HeaderName", "val"))
+                |> Request.setHeader (Custom("headerNAME", "val"))
                 |> getResponse
 
             response |> testSuccessStatusCode

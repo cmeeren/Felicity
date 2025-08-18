@@ -14,7 +14,7 @@ type Request = internal {
     Document: Lazy<Task<Result<ResourceDocument option, Error list>>>
     IdentifierDocument: Lazy<Task<Result<ResourceIdentifierDocument option, Error list>>>
     IdentifierCollectionDocument: Lazy<Task<Result<ResourceIdentifierCollectionDocument option, Error list>>>
-    Headers: Map<string, string>
+    Headers: IHeaderDictionary
     Query: Map<string, string>
     Fieldsets: Map<ResourceTypeName, Set<FieldName>>
     Includes: RelationshipName list list

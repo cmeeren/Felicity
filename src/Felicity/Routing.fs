@@ -120,10 +120,7 @@ let internal jsonApiEndpoints
                                     let! json = httpCtx.ReadBodyFromRequestAsync()
                                     return serializer.DeserializeResourceIdentifierCollectionDocument json
                                 })
-                        Headers =
-                            httpCtx.Request.Headers
-                            |> Seq.map (fun kvp -> kvp.Key, kvp.Value.ToString())
-                            |> Map.ofSeq
+                        Headers = httpCtx.Request.Headers
                         Query = query
                         Fieldsets =
                             query

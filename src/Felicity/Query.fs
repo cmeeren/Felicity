@@ -499,7 +499,7 @@ type Header<'ctx, 'a>
                 | false, _ -> Ok None |> Task.result
                 | true, value ->
                     let valueData value : ParsedValueFromHeaderData = { Name = headerName; Value = value }
-                    parse ctx valueData value |> TaskResult.map Some
+                    parse ctx valueData (string value) |> TaskResult.map Some
         }
 
     interface OptionalRequestGetter<'ctx, 'a> with
