@@ -91,7 +91,7 @@ type internal ToOneRelationship<'ctx> =
     abstract AllowedTypes: ICollection<ResourceTypeName> option
     abstract BoxedGetRelated: ('ctx -> BoxedEntity -> Task<Skippable<ResourceDefinition<'ctx> * BoxedEntity>>) option
     abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier>>
-    abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
+    abstract SkipRelationship: 'ctx -> BoxedEntity -> Task<bool>
 
 
 type ToOneRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -245,7 +245,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     set:
         ('ctx -> 'setCtx -> Pointer -> 'relatedId * ResourceIdentifier -> 'entity -> Task<Result<'entity, Error list>>) option
     getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier Skippable>
-    skipRelationship: 'ctx -> 'entity -> bool
+    skipRelationship: 'ctx -> 'entity -> Task<bool>
     hasConstraints: bool
     getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
     beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
@@ -275,7 +275,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             get = None
             set = None
             getLinkageIfNotIncluded = fun _ _ -> Task.result Skip
-            skipRelationship = fun _ _ -> false
+            skipRelationship = fun _ _ -> Task.result false
             hasConstraints = false
             getConstraints = fun _ _ -> Task.result []
             beforeModifySelf = fun _ e -> Ok e |> Task.result
@@ -934,7 +934,7 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+    member this.SkipRelationshipIfTask(predicate: 'ctx -> 'entity -> Task<bool>) = {
         this with
             skipRelationship = predicate
     }
@@ -942,9 +942,41 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+    member this.SkipRelationshipIfTask(predicate: 'entity -> Task<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIfAsync(predicate: 'ctx -> 'entity -> Async<bool>) = {
+        this with
+            skipRelationship = fun ctx e -> predicate ctx e |> Task.fromAsync
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIfAsync(predicate: 'entity -> Async<bool>) = {
+        this with
+            skipRelationship = fun _ e -> predicate e |> Task.fromAsync
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+        this with
+            skipRelationship = fun ctx e -> predicate ctx e |> Task.result
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+        this with
+            skipRelationship = fun _ e -> predicate e |> Task.result
     }
 
     member private this.SetTaskRes
@@ -1422,7 +1454,7 @@ type internal ToOneNullableRelationship<'ctx> =
         ('ctx -> BoxedEntity -> Task<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) option>>) option
 
     abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier option>>
-    abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
+    abstract SkipRelationship: 'ctx -> BoxedEntity -> Task<bool>
 
 
 
@@ -1610,7 +1642,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             -> 'entity
             -> Task<Result<'entity, Error list>>) option
     getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier option Skippable>
-    skipRelationship: 'ctx -> 'entity -> bool
+    skipRelationship: 'ctx -> 'entity -> Task<bool>
     hasConstraints: bool
     getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
     beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
@@ -1640,7 +1672,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             get = None
             set = None
             getLinkageIfNotIncluded = fun _ _ -> Task.result Skip
-            skipRelationship = fun _ _ -> false
+            skipRelationship = fun _ _ -> Task.result false
             hasConstraints = false
             getConstraints = fun _ _ -> Task.result []
             beforeModifySelf = fun _ e -> Ok e |> Task.result
@@ -2327,7 +2359,7 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+    member this.SkipRelationshipIfTask(predicate: 'ctx -> 'entity -> Task<bool>) = {
         this with
             skipRelationship = predicate
     }
@@ -2335,9 +2367,41 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+    member this.SkipRelationshipIfTask(predicate: 'entity -> Task<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIfAsync(predicate: 'ctx -> 'entity -> Async<bool>) = {
+        this with
+            skipRelationship = fun ctx e -> predicate ctx e |> Task.fromAsync
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIfAsync(predicate: 'entity -> Async<bool>) = {
+        this with
+            skipRelationship = fun _ e -> predicate e |> Task.fromAsync
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+        this with
+            skipRelationship = fun ctx e -> predicate ctx e |> Task.result
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+        this with
+            skipRelationship = fun _ e -> predicate e |> Task.result
     }
 
     member private this.SetTaskRes
@@ -2949,7 +3013,7 @@ type internal ToManyRelationship<'ctx> =
         ('ctx -> BoxedEntity -> Task<Skippable<(ResourceDefinition<'ctx> * BoxedEntity) list>>) option
 
     abstract GetLinkageIfNotIncluded: 'ctx -> BoxedEntity -> Task<Skippable<ResourceIdentifier list>>
-    abstract SkipRelationship: 'ctx -> BoxedEntity -> bool
+    abstract SkipRelationship: 'ctx -> BoxedEntity -> Task<bool>
 
 
 type ToManyRelationshipRelatedGetter<'ctx, 'entity, 'relatedEntity, 'relatedId> = internal {
@@ -3133,7 +3197,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             -> 'entity
             -> Task<Result<'entity, Error list>>) option
     getLinkageIfNotIncluded: 'ctx -> 'entity -> Task<ResourceIdentifier list Skippable>
-    skipRelationship: 'ctx -> 'entity -> bool
+    skipRelationship: 'ctx -> 'entity -> Task<bool>
     hasConstraints: bool
     getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>
     beforeModifySelf: 'setCtx -> 'entity -> Task<Result<'entity, Error list>>
@@ -3169,7 +3233,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             add = None
             remove = None
             getLinkageIfNotIncluded = fun _ _ -> Task.result Skip
-            skipRelationship = fun _ _ -> false
+            skipRelationship = fun _ _ -> Task.result false
             hasConstraints = false
             getConstraints = fun _ _ -> Task.result []
             beforeModifySelf = fun _ e -> Ok e |> Task.result
@@ -3926,7 +3990,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+    member this.SkipRelationshipIfTask(predicate: 'ctx -> 'entity -> Task<bool>) = {
         this with
             skipRelationship = predicate
     }
@@ -3934,9 +3998,41 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
     /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
     /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
-    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+    member this.SkipRelationshipIfTask(predicate: 'entity -> Task<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIfAsync(predicate: 'ctx -> 'entity -> Async<bool>) = {
+        this with
+            skipRelationship = fun ctx e -> predicate ctx e |> Task.fromAsync
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIfAsync(predicate: 'entity -> Async<bool>) = {
+        this with
+            skipRelationship = fun _ e -> predicate e |> Task.fromAsync
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
+        this with
+            skipRelationship = fun ctx e -> predicate ctx e |> Task.result
+    }
+
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
+    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
+    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
+        this with
+            skipRelationship = fun _ e -> predicate e |> Task.result
     }
 
     member private this.SetAllTaskRes

@@ -134,237 +134,58 @@ type ResourceBuilder<'ctx>
             let toOneRelsTask =
                 ResourceModule.toOneRels<'ctx> resourceModule
                 |> Task.mapWhenAllIgnore (fun r ->
-                    if
-                        not (r.SkipRelationship ctx entity)
-                        && (shouldUseField r.Name false || shouldIncludeRelationship r.Name)
-                    then
+                    if shouldUseField r.Name false || shouldIncludeRelationship r.Name then
                         task {
-                            let links: Skippable<IDictionary<_, _>> =
-                                match selfUrlOpt with
-                                | Some u when not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink) ->
-                                    let links = Dictionary()
+                            match! r.SkipRelationship ctx entity with
+                            | true -> return ()
+                            | false ->
+                                let links: Skippable<IDictionary<_, _>> =
+                                    match selfUrlOpt with
+                                    | Some u when
+                                        not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink)
+                                        ->
+                                        let links = Dictionary()
 
-                                    if r.SelfLink then
-                                        links["self"] <- {
-                                            href = Some(u + "/relationships/" + r.Name)
-                                            meta = Skip
-                                        }
+                                        if r.SelfLink then
+                                            links["self"] <- {
+                                                href = Some(u + "/relationships/" + r.Name)
+                                                meta = Skip
+                                            }
 
-                                    if r.RelatedLink then
-                                        links["related"] <- {
-                                            href = Some(u + "/" + r.Name)
-                                            meta = Skip
-                                        }
+                                        if r.RelatedLink then
+                                            links["related"] <- {
+                                                href = Some(u + "/" + r.Name)
+                                                meta = Skip
+                                            }
 
-                                    Include links
-                                | _ -> Skip
+                                        Include links
+                                    | _ -> Skip
 
-                            let meta = Skip // support later when valid use-cases arrive
+                                let meta = Skip // support later when valid use-cases arrive
 
-                            match shouldIncludeRelationship r.Name, r.BoxedGetRelated with
-                            | true, Some get ->
-                                match! get ctx entity with
-                                | Skip ->
-                                    if shouldUseField r.Name false then
-                                        addRelationship r.Name {
-                                            ToOne.links = links
-                                            data = Skip
-                                            meta = meta
-                                        }
-                                | Include(rDef, e) ->
-                                    if shouldUseField r.Name false then
-                                        let id = {
-                                            ``type`` = rDef.TypeName
-                                            id = rDef.GetIdBoxed e
-                                        }
-
-                                        addRelationship r.Name {
-                                            ToOne.links = links
-                                            data = Include id
-                                            meta = meta
-                                        }
-
-                                    addBuilder (
-                                        ResourceBuilder<'ctx>(
-                                            resourceModuleMap,
-                                            baseUrl,
-                                            currentIncludePath @ [ r.Name ],
-                                            shouldUseStandardLinks,
-                                            shouldUseCustomLinks,
-                                            httpCtx,
-                                            ctx,
-                                            req,
-                                            rDef,
-                                            e
-                                        )
-                                    )
-
-                            | true, None
-                            | false, Some _
-                            | false, None ->
-                                if shouldUseField r.Name false then
-                                    let! data = r.GetLinkageIfNotIncluded ctx entity
-
-                                    addRelationship r.Name {
-                                        ToOne.links = links
-                                        data = data
-                                        meta = meta
-                                    }
-                        }
-                        :> Task
-                    else
-                        Task.CompletedTask
-                )
-
-            let toOneNullableRelsTask =
-                ResourceModule.toOneNullableRels<'ctx> resourceModule
-                |> Task.mapWhenAllIgnore (fun r ->
-                    if
-                        not (r.SkipRelationship ctx entity)
-                        && (shouldUseField r.Name false || shouldIncludeRelationship r.Name)
-                    then
-                        task {
-                            let links: Skippable<IDictionary<_, _>> =
-                                match selfUrlOpt with
-                                | Some u when not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink) ->
-                                    let links = Dictionary()
-
-                                    if r.SelfLink then
-                                        links["self"] <- {
-                                            href = Some(u + "/relationships/" + r.Name)
-                                            meta = Skip
-                                        }
-
-                                    if r.RelatedLink then
-                                        links["related"] <- {
-                                            href = Some(u + "/" + r.Name)
-                                            meta = Skip
-                                        }
-
-                                    Include links
-                                | _ -> Skip
-
-                            let meta = Skip // support later when valid use-cases arrive
-
-                            match shouldIncludeRelationship r.Name, r.BoxedGetRelated with
-                            | true, Some get ->
-                                match! get ctx entity with
-                                | Skip ->
-                                    if shouldUseField r.Name false then
-                                        addRelationship r.Name {
-                                            ToOneNullable.links = links
-                                            data = Skip
-                                            meta = meta
-                                        }
-                                | Include None ->
-                                    if shouldUseField r.Name false then
-                                        addRelationship r.Name {
-                                            ToOneNullable.links = links
-                                            data = Include None
-                                            meta = meta
-                                        }
-                                | Include(Some(rDef, e)) ->
-                                    if shouldUseField r.Name false then
-                                        let id = {
-                                            ``type`` = rDef.TypeName
-                                            id = rDef.GetIdBoxed e
-                                        }
-
-                                        addRelationship r.Name {
-                                            ToOneNullable.links = links
-                                            data = Include(Some id)
-                                            meta = meta
-                                        }
-
-                                    addBuilder (
-                                        ResourceBuilder<'ctx>(
-                                            resourceModuleMap,
-                                            baseUrl,
-                                            currentIncludePath @ [ r.Name ],
-                                            shouldUseStandardLinks,
-                                            shouldUseCustomLinks,
-                                            httpCtx,
-                                            ctx,
-                                            req,
-                                            rDef,
-                                            e
-                                        )
-                                    )
-
-                            | true, None
-                            | false, Some _
-                            | false, None ->
-                                if shouldUseField r.Name false then
-                                    let! data = r.GetLinkageIfNotIncluded ctx entity
-
-                                    addRelationship r.Name {
-                                        ToOneNullable.links = links
-                                        data = data
-                                        meta = meta
-                                    }
-                        }
-                        :> Task
-                    else
-                        Task.CompletedTask
-                )
-
-            let toManyRelsTask =
-                ResourceModule.toManyRels<'ctx> resourceModule
-                |> Task.mapWhenAllIgnore (fun r ->
-                    if
-                        not (r.SkipRelationship ctx entity)
-                        && (shouldUseField r.Name false || shouldIncludeRelationship r.Name)
-                    then
-                        task {
-                            let links: Skippable<IDictionary<_, _>> =
-                                match selfUrlOpt with
-                                | Some u when not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink) ->
-                                    let links = Dictionary()
-
-                                    if r.SelfLink then
-                                        links["self"] <- {
-                                            href = Some(u + "/relationships/" + r.Name)
-                                            meta = Skip
-                                        }
-
-                                    if r.RelatedLink then
-                                        links["related"] <- {
-                                            href = Some(u + "/" + r.Name)
-                                            meta = Skip
-                                        }
-
-                                    Include links
-                                | _ -> Skip
-
-                            let meta = Skip // support later when valid use-cases arrive
-
-                            match shouldIncludeRelationship r.Name, r.BoxedGetRelated with
-                            | true, Some get ->
-                                match! get ctx entity with
-                                | Skip ->
-                                    if shouldUseField r.Name false then
-                                        addRelationship r.Name {
-                                            ToMany.links = links
-                                            data = Skip
-                                            meta = meta
-                                        }
-                                | Include xs ->
-                                    if shouldUseField r.Name false then
-                                        let data =
-                                            xs
-                                            |> List.map (fun (rDef, e) -> {
+                                match shouldIncludeRelationship r.Name, r.BoxedGetRelated with
+                                | true, Some get ->
+                                    match! get ctx entity with
+                                    | Skip ->
+                                        if shouldUseField r.Name false then
+                                            addRelationship r.Name {
+                                                ToOne.links = links
+                                                data = Skip
+                                                meta = meta
+                                            }
+                                    | Include(rDef, e) ->
+                                        if shouldUseField r.Name false then
+                                            let id = {
                                                 ``type`` = rDef.TypeName
                                                 id = rDef.GetIdBoxed e
-                                            })
+                                            }
 
-                                        addRelationship r.Name {
-                                            ToMany.links = links
-                                            data = Include data
-                                            meta = meta
-                                        }
+                                            addRelationship r.Name {
+                                                ToOne.links = links
+                                                data = Include id
+                                                meta = meta
+                                            }
 
-                                    xs
-                                    |> List.iter (fun (rDef, e) ->
                                         addBuilder (
                                             ResourceBuilder<'ctx>(
                                                 resourceModuleMap,
@@ -379,19 +200,204 @@ type ResourceBuilder<'ctx>
                                                 e
                                             )
                                         )
-                                    )
 
-                            | true, None
-                            | false, Some _
-                            | false, None ->
-                                if shouldUseField r.Name false then
-                                    let! data = r.GetLinkageIfNotIncluded ctx entity
+                                | true, None
+                                | false, Some _
+                                | false, None ->
+                                    if shouldUseField r.Name false then
+                                        let! data = r.GetLinkageIfNotIncluded ctx entity
 
-                                    addRelationship r.Name {
-                                        ToMany.links = links
-                                        data = data
-                                        meta = meta
-                                    }
+                                        addRelationship r.Name {
+                                            ToOne.links = links
+                                            data = data
+                                            meta = meta
+                                        }
+                        }
+                        :> Task
+                    else
+                        Task.CompletedTask
+                )
+
+            let toOneNullableRelsTask =
+                ResourceModule.toOneNullableRels<'ctx> resourceModule
+                |> Task.mapWhenAllIgnore (fun r ->
+                    if shouldUseField r.Name false || shouldIncludeRelationship r.Name then
+                        task {
+                            match! r.SkipRelationship ctx entity with
+                            | true -> return ()
+                            | false ->
+                                let links: Skippable<IDictionary<_, _>> =
+                                    match selfUrlOpt with
+                                    | Some u when
+                                        not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink)
+                                        ->
+                                        let links = Dictionary()
+
+                                        if r.SelfLink then
+                                            links["self"] <- {
+                                                href = Some(u + "/relationships/" + r.Name)
+                                                meta = Skip
+                                            }
+
+                                        if r.RelatedLink then
+                                            links["related"] <- {
+                                                href = Some(u + "/" + r.Name)
+                                                meta = Skip
+                                            }
+
+                                        Include links
+                                    | _ -> Skip
+
+                                let meta = Skip // support later when valid use-cases arrive
+
+                                match shouldIncludeRelationship r.Name, r.BoxedGetRelated with
+                                | true, Some get ->
+                                    match! get ctx entity with
+                                    | Skip ->
+                                        if shouldUseField r.Name false then
+                                            addRelationship r.Name {
+                                                ToOneNullable.links = links
+                                                data = Skip
+                                                meta = meta
+                                            }
+                                    | Include None ->
+                                        if shouldUseField r.Name false then
+                                            addRelationship r.Name {
+                                                ToOneNullable.links = links
+                                                data = Include None
+                                                meta = meta
+                                            }
+                                    | Include(Some(rDef, e)) ->
+                                        if shouldUseField r.Name false then
+                                            let id = {
+                                                ``type`` = rDef.TypeName
+                                                id = rDef.GetIdBoxed e
+                                            }
+
+                                            addRelationship r.Name {
+                                                ToOneNullable.links = links
+                                                data = Include(Some id)
+                                                meta = meta
+                                            }
+
+                                        addBuilder (
+                                            ResourceBuilder<'ctx>(
+                                                resourceModuleMap,
+                                                baseUrl,
+                                                currentIncludePath @ [ r.Name ],
+                                                shouldUseStandardLinks,
+                                                shouldUseCustomLinks,
+                                                httpCtx,
+                                                ctx,
+                                                req,
+                                                rDef,
+                                                e
+                                            )
+                                        )
+
+                                | true, None
+                                | false, Some _
+                                | false, None ->
+                                    if shouldUseField r.Name false then
+                                        let! data = r.GetLinkageIfNotIncluded ctx entity
+
+                                        addRelationship r.Name {
+                                            ToOneNullable.links = links
+                                            data = data
+                                            meta = meta
+                                        }
+                        }
+                        :> Task
+                    else
+                        Task.CompletedTask
+                )
+
+            let toManyRelsTask =
+                ResourceModule.toManyRels<'ctx> resourceModule
+                |> Task.mapWhenAllIgnore (fun r ->
+                    if shouldUseField r.Name false || shouldIncludeRelationship r.Name then
+                        task {
+                            match! r.SkipRelationship ctx entity with
+                            | true -> return ()
+                            | false ->
+                                let links: Skippable<IDictionary<_, _>> =
+                                    match selfUrlOpt with
+                                    | Some u when
+                                        not onlyData && shouldUseStandardLinks && (r.SelfLink || r.RelatedLink)
+                                        ->
+                                        let links = Dictionary()
+
+                                        if r.SelfLink then
+                                            links["self"] <- {
+                                                href = Some(u + "/relationships/" + r.Name)
+                                                meta = Skip
+                                            }
+
+                                        if r.RelatedLink then
+                                            links["related"] <- {
+                                                href = Some(u + "/" + r.Name)
+                                                meta = Skip
+                                            }
+
+                                        Include links
+                                    | _ -> Skip
+
+                                let meta = Skip // support later when valid use-cases arrive
+
+                                match shouldIncludeRelationship r.Name, r.BoxedGetRelated with
+                                | true, Some get ->
+                                    match! get ctx entity with
+                                    | Skip ->
+                                        if shouldUseField r.Name false then
+                                            addRelationship r.Name {
+                                                ToMany.links = links
+                                                data = Skip
+                                                meta = meta
+                                            }
+                                    | Include xs ->
+                                        if shouldUseField r.Name false then
+                                            let data =
+                                                xs
+                                                |> List.map (fun (rDef, e) -> {
+                                                    ``type`` = rDef.TypeName
+                                                    id = rDef.GetIdBoxed e
+                                                })
+
+                                            addRelationship r.Name {
+                                                ToMany.links = links
+                                                data = Include data
+                                                meta = meta
+                                            }
+
+                                        xs
+                                        |> List.iter (fun (rDef, e) ->
+                                            addBuilder (
+                                                ResourceBuilder<'ctx>(
+                                                    resourceModuleMap,
+                                                    baseUrl,
+                                                    currentIncludePath @ [ r.Name ],
+                                                    shouldUseStandardLinks,
+                                                    shouldUseCustomLinks,
+                                                    httpCtx,
+                                                    ctx,
+                                                    req,
+                                                    rDef,
+                                                    e
+                                                )
+                                            )
+                                        )
+
+                                | true, None
+                                | false, Some _
+                                | false, None ->
+                                    if shouldUseField r.Name false then
+                                        let! data = r.GetLinkageIfNotIncluded ctx entity
+
+                                        addRelationship r.Name {
+                                            ToMany.links = links
+                                            data = data
+                                            meta = meta
+                                        }
                         }
                         :> Task
                     else

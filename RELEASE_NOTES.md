@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+### 0.24.1 (2025-08-21)
+
+* Added `SkipRelationshipIfAsync` and `SkipRelationshipIfTask` overloads
+
 ### 0.24.0 (2025-08-18)
 
 * Fixed headers only being parsed case sensitively (this could be a breaking bugfix, though it seems unlikely)
