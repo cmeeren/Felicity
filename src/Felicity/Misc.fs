@@ -133,6 +133,12 @@ type internal MetaGetter<'ctx>(getMeta: 'ctx -> IDictionary<string, obj>) =
 
 
 
+type internal TopLevelLinksGetter<'ctx>
+    (getTopLevelLinks: 'ctx -> IDictionary<string, string * IDictionary<string, obj>>) =
+    member _.GetTopLevelLinks ctx = getTopLevelLinks ctx
+
+
+
 type internal LinkConfig<'ctx>(skipStandardLinksQueryParamNames: string[], skipCustomLinksQueryParamNames: string[]) =
 
     member _.QueryParamNames =

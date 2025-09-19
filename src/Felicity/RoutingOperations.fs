@@ -1,8 +1,10 @@
 ﻿namespace Felicity
 
 open System
+open System.Collections.Generic
 open System.Reflection
 open System.Text.Json.Serialization
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Errors
@@ -71,6 +73,32 @@ type internal CollectionOperations<'ctx> = {
 
 module internal RoutingOperations =
 
+
+    let private standardLinkKeys =
+        HashSet [ "self"; "related"; "describedby"; "first"; "last"; "prev"; "next" ]
+
+
+    let private getToplevelLinks (ctx: 'ctx) (httpCtx: HttpContext) =
+        let linkConfig = httpCtx.GetService<LinkConfig<'ctx>>()
+
+        httpCtx.GetService<TopLevelLinksGetter<'ctx>>().GetTopLevelLinks ctx
+        |> Seq.map (fun kvp ->
+            kvp.Key,
+            {
+                Link.href = Some(fst kvp.Value)
+                meta = snd kvp.Value |> Include |> Skippable.filter (fun x -> x.Count > 0)
+            }
+        )
+        |> Seq.filter (fun (k, _) ->
+            match standardLinkKeys.Contains k with
+            | true -> linkConfig.ShouldUseStandardLinks(httpCtx)
+            | false -> linkConfig.ShouldUseCustomLinks(httpCtx)
+        )
+        |> dict
+        |> Include
+        |> Skippable.filter (fun x -> x.Count > 0)
+
+
     let responseBuilder resourceModuleMap getBaseUrl : ResponseBuilder<'ctx> =
 
         { new ResponseBuilder<'ctx> with
@@ -78,7 +106,7 @@ module internal RoutingOperations =
                 task {
                     let doc = {
                         jsonapi = Skip // support later when valid use-cases arrive
-                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        links = getToplevelLinks ctx httpCtx
                         meta =
                             httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
                             |> Include
@@ -117,7 +145,7 @@ module internal RoutingOperations =
                     return
                         {
                             ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
-                            links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                            links = getToplevelLinks ctx httpCtx
                             meta =
                                 httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
                                 |> Include
@@ -163,7 +191,7 @@ module internal RoutingOperations =
 
                     return {
                         ResourceCollectionDocument.jsonapi = Skip // support later when valid use-cases arrive
-                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        links = getToplevelLinks ctx httpCtx
                         meta =
                             httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
                             |> Include
@@ -206,7 +234,7 @@ module internal RoutingOperations =
 
                     return {
                         ResourceDocument.jsonapi = Skip // support later when valid use-cases arrive
-                        links = Skip // support later when valid use-cases arrive; remember to check LinkConfig
+                        links = getToplevelLinks ctx httpCtx
                         meta =
                             httpCtx.GetService<MetaGetter<'ctx>>().GetMeta ctx
                             |> Include

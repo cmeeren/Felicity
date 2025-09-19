@@ -154,9 +154,9 @@ module Article =
 
 ### Context
 
-All parts of Felicity’s API gives you optional access to a globally defined context type you define (often
-abbreviated `'ctx` in the API). This context type may, for example, authentication information, as demonstrated below.
-Felicity also needs to know how to create your context type from the ASP.NET Core `HttpContext`.
+All parts of Felicity’s API gives you optional access to a globally defined context type you define (often abbreviated
+`'ctx` in the API). This context type may, for example, authentication information, as demonstrated below. Felicity also
+needs to know how to create your context type from the ASP.NET Core `HttpContext`.
 
 ```f#
 type Principal =
@@ -229,6 +229,19 @@ and your function is called before writing the response to add `meta` to the doc
 
 Meta is only returned for success responses. If the map is empty, `meta` is omitted from the response.
 
+#### Top-level links
+
+You can return top-level links for any response. To enable this, use the `.GetTopLevelLinks` or
+`.GetTopLevelLinksWithMeta` method after `.AddJsonApi()`. This lets you specify a function
+`'ctx -> IDictionary<string, string>` (without link meta) or
+`IDictionary<string, string * IDictionary<string, obj>>` (with link meta).
+
+This implies that `'ctx` should be mutable. You set the appropriate field(s) on `'ctx` during the request processing,
+and your function is called before writing the response to add `links` to the document.
+
+Links are only returned for success responses. If the map is empty, `links` is omitted from the response. If a link's
+meta is empty, the link will be a string instead of an object with a `href` property.
+
 #### Omitting links from the response
 
 If there are API clients that do not make use of the links in the response, omitting links from the response may
@@ -265,8 +278,8 @@ boolean attributes.)
 
 #### Placing the JSON:API routes in a subroute
 
-If you want your JSON:API endpoints available within a sub-route, e.g. `myapi.com/foo/bar/articles`, you can
-use `RelativeJsonApiRoot` (leading/trailing slashes don’t matter):
+If you want your JSON:API endpoints available within a sub-route, e.g. `myapi.com/foo/bar/articles`, you can use
+`RelativeJsonApiRoot` (leading/trailing slashes don’t matter):
 
 ```f#
 member _.ConfigureServices(services: IServiceCollection) : unit =
@@ -284,9 +297,9 @@ The subroute can also be configured using `BaseUrl` as described below.
 #### Custom base URL
 
 JSON:API responses contain resource/relationship links. By default, Felicity infers these links from the HTTP request.
-For example, if your API is available both on `https://example.com` and `https://something-else.com`,
-then `GET https://example.com/articles` will return resources with `example.com` in their links, and
-for `GET https://something-else.com/articles` the resources will have `something-else.com` in their links.
+For example, if your API is available both on `https://example.com` and `https://something-else.com`, then
+`GET https://example.com/articles` will return resources with `example.com` in their links, and for
+`GET https://something-else.com/articles` the resources will have `something-else.com` in their links.
 
 If you want, you can use the `.BaseUrl` method to specify the base URL that will be used for all links (trailing slashes
 don’t matter):
@@ -358,16 +371,15 @@ API routes and return an error if the casing in the request is incorrect.
 
 #### Combining with other non-JSON:API routes
 
-You may trivially add other non-Felicity routes in `Configure`. For example, you can add a Giraffe HttpHandler
-using `UseGiraffe(...)`, Giraffe.EndpointRouting routes using `UseEndpoints(fun e -> e.MapGiraffeEndpoints ...)`, or any
-other routing method supported by ASP.NET Core. Simply add the routes to your pipeline as you normally do.
+You may trivially add other non-Felicity routes in `Configure`. For example, you can add a Giraffe HttpHandler using
+`UseGiraffe(...)`, Giraffe.EndpointRouting routes using `UseEndpoints(fun e -> e.MapGiraffeEndpoints ...)`, or any other
+routing method supported by ASP.NET Core. Simply add the routes to your pipeline as you normally do.
 
 #### Enforce case sensitive custom routes
 
-If you use Giraffe.EndpointRouting for non-Felicity routes, you may find `verifyPathCase` useful. It is available in
-the  `Routing` module. It takes a single argument, which is the expected path (case sensitive), and returns
-an `HttpHandler` that will return an error if the request path does not match the expected path. Use this inside your
-endpoints:
+If you use Giraffe.EndpointRouting for non-Felicity routes, you may find `verifyPathCase` useful. It is available in the
+`Routing` module. It takes a single argument, which is the expected path (case sensitive), and returns an `HttpHandler`
+that will return an error if the request path does not match the expected path. Use this inside your endpoints:
 
 ```f#
 let myEndpoints : Endpoint list = [
@@ -541,9 +553,9 @@ You should then define the how the resource ID is converted to/from a string, an
 let resId = define.Id.ParsedOpt(ArticleId.toString, ArticleId.fromString, fun a -> a.Id)
 ```
 
-Above, we use `ParsedOpt` because (implied in this example) `ArticleId.fromString` returns `ArticleId option`. There
-are `Parsed*` methods that allow you to use a function that returns a raw string, async, result, option, or a
-combination of these. In the event that your ID type is a simple `string`, you can use `define.Id.Simple`.
+Above, we use `ParsedOpt` because (implied in this example) `ArticleId.fromString` returns `ArticleId option`. There are
+`Parsed*` methods that allow you to use a function that returns a raw string, async, result, option, or a combination of
+these. In the event that your ID type is a simple `string`, you can use `define.Id.Simple`.
 
 The final core definition is called the “resource definition”, and it is where you specify the resource type name and,
 optionally, a collection name:
@@ -572,16 +584,16 @@ directly using `GET /persons`, because there is no such collection.
 
 The following table describes the definitions supported and not supported for modules without a collection name:
 
-|     | Definition                                          | Supported |
-|-----|-----------------------------------------------------|-----------|
-| ❌   | GET collection                                      | No        |
-| ❌   | POST collection                                     | No        |
-| ❌   | GET resource                                        | No        |
-| ❌   | PATCH resource                                      | No        |
-| ❌   | DELETE resource                                     | No        |
-| ❌   | Custom links                                        | No        |
-| ✅   | Relationship getters                                | Yes       |
-| ❌   | Relationship setters (including to-many add/remove) | No        |
+|   | Definition                                          | Supported |
+|---|-----------------------------------------------------|-----------|
+| ❌ | GET collection                                      | No        |
+| ❌ | POST collection                                     | No        |
+| ❌ | GET resource                                        | No        |
+| ❌ | PATCH resource                                      | No        |
+| ❌ | DELETE resource                                     | No        |
+| ❌ | Custom links                                        | No        |
+| ✅ | Relationship getters                                | Yes       |
+| ❌ | Relationship setters (including to-many add/remove) | No        |
 
 Attributes
 ----------
@@ -596,12 +608,12 @@ let title =
     .Set(Article.setTitle)
 ```
 
-Here, we have defined an attribute with the domain type `ArticleTitle` which uses the
-functions `ArticleTitle.toString : ArticleTitle -> string` and `ArticleTitle.fromString : string -> ArticleTitle` to
-convert between `ArticleTitle` and `string`.
+Here, we have defined an attribute with the domain type `ArticleTitle` which uses the functions
+`ArticleTitle.toString : ArticleTitle -> string` and `ArticleTitle.fromString : string -> ArticleTitle` to convert
+between `ArticleTitle` and `string`.
 
-The attribute above is defined with a getter of type `Article -> ArticleTitle`, and a
-setter `Article.setTitle : ArticleTitle -> Article -> Article`.
+The attribute above is defined with a getter of type `Article -> ArticleTitle`, and a setter
+`Article.setTitle : ArticleTitle -> Article -> Article`.
 
 `Parsed` and `Set` has overloads accepting returning `Async` and/or `Result`.
 
@@ -612,8 +624,8 @@ because a getter fails.
 ### Domain vs. serialized types
 
 There are two important type when defining attributes: The domain type, e.g. a DU wrapper, and the “raw” type that is
-used for serializing and deserializing, for example primitives like `string` and `int`, or non-JSON types
-like `DateTimeOffset` if you’re happy with the default serialization of these or are otherwise willing to configure it.
+used for serializing and deserializing, for example primitives like `string` and `int`, or non-JSON types like
+`DateTimeOffset` if you’re happy with the default serialization of these or are otherwise willing to configure it.
 Remember that you can always explicitly convert e.g. a `DateTimeOffset` to and from `string` manually to have full
 control over the serialized representation.
 
@@ -718,9 +730,9 @@ a setter accepting the full entity:
 .Set(Article.lookup, Article.setAuthor)
 ```
 
-The setter above accepts a lookup operation (see section TODO) and a setter with
-signature `Author -> Article -> Article`. Even if you don’t need more than the ID, using this variant provides the
-benefit that Felicity will return a suitable error if the resource is not found.
+The setter above accepts a lookup operation (see section TODO) and a setter with signature
+`Author -> Article -> Article`. Even if you don’t need more than the ID, using this variant provides the benefit that
+Felicity will return a suitable error if the resource is not found.
 
 If you instead use an ID setter as shown first, you yourself have to ensure that `Article.setAuthor` checks if the ID
 actually corresponds to an existing resource (including, if relevant, whether the requesting user has access to it,
@@ -750,9 +762,9 @@ will be logged and an embarrassing 500 error will be returned to the client.
 
 There may be situations where the resource linkage itself (the relationship’s `data` member) provides valuable
 information even when the resource itself is not included using the `include` query parameter, and where it is much
-cheaper to display the linkage than the included resource. For example, for the `author` relationship above, the
-main `article` entity may have a “foreign key” property (in .NET, not in the API) that contains the author ID.
-Displaying the resource linkage alone does therefore not require an extra trip to the DB.
+cheaper to display the linkage than the included resource. For example, for the `author` relationship above, the main
+`article` entity may have a “foreign key” property (in .NET, not in the API) that contains the author ID. Displaying the
+resource linkage alone does therefore not require an extra trip to the DB.
 
 If you want to always display resource linkage, simply use one of the `GetLinkageIfNotIncluded` overloads. For example:
 
@@ -771,8 +783,8 @@ When you do this, you must ensure that the linkage is correct. It is possible to
 present if the resource is included using `include`. This would be a bug in your API. (For the record, if the resource
 is included, the linkage specified in `GetLinkageIfNotIncluded` is ignored.)
 
-In order to use `GetLinkageIfNotIncluded` with polymorphic relationships, you must specify an ID resolver
-using `ResolveId` after `.Polymorphic()`.
+In order to use `GetLinkageIfNotIncluded` with polymorphic relationships, you must specify an ID resolver using
+`ResolveId` after `.Polymorphic()`.
 
 ### GET/PATCH/POST/DELETE relationship self
 
@@ -1062,16 +1074,16 @@ A lookup operation is required for any operations against the resource’s `self
 
 The following table describes the definitions supported and not supported for modules without a lookup operation:
 
-|     | Definition                                          | Supported |
-|-----|-----------------------------------------------------|-----------|
-| ✅   | GET collection                                      | Yes       |
-| ✅   | POST collection                                     | Yes       |
-| ❌   | GET resource                                        | No        |
-| ❌   | PATCH resource                                      | No        |
-| ❌   | DELETE resource                                     | No        |
-| ❌   | Custom links                                        | No        |
-| ✅   | Relationship getters                                | Yes       |
-| ❌   | Relationship setters (including to-many add/remove) | No        |
+|   | Definition                                          | Supported |
+|---|-----------------------------------------------------|-----------|
+| ✅ | GET collection                                      | Yes       |
+| ✅ | POST collection                                     | Yes       |
+| ❌ | GET resource                                        | No        |
+| ❌ | PATCH resource                                      | No        |
+| ❌ | DELETE resource                                     | No        |
+| ❌ | Custom links                                        | No        |
+| ✅ | Relationship getters                                | Yes       |
+| ❌ | Relationship setters (including to-many add/remove) | No        |
 
 GET resource operation
 ----------------------
@@ -1087,15 +1099,15 @@ operations against the resource’s `self` link or its relationships’ `self` l
 
 The following table describes the definitions supported and not supported for modules without a GET resource operation:
 
-|     | Definition                                          | Supported |
-|-----|-----------------------------------------------------|-----------|
-| ✅   | GET collection                                      | Yes       |
-| ✅   | POST collection                                     | Yes       |
-| ❌   | PATCH resource                                      | No        |
-| ❌   | DELETE resource                                     | No        |
-| ❌   | Custom links                                        | No        |
-| ✅   | Relationship getters                                | Yes       |
-| ❌   | Relationship setters (including to-many add/remove) | No        |
+|   | Definition                                          | Supported |
+|---|-----------------------------------------------------|-----------|
+| ✅ | GET collection                                      | Yes       |
+| ✅ | POST collection                                     | Yes       |
+| ❌ | PATCH resource                                      | No        |
+| ❌ | DELETE resource                                     | No        |
+| ❌ | Custom links                                        | No        |
+| ✅ | Relationship getters                                | Yes       |
+| ❌ | Relationship setters (including to-many add/remove) | No        |
 
 ### Modifying the response
 
@@ -1162,8 +1174,8 @@ code and use that directly.
 
 You can use `AddCustomSetter` to create a custom setter where you can parse anything from the request (see section TODO
 for details about the request parser and its capabilities). For example, let’s say you have a resource with two
-attributes, `protectedValue` and `authorizationCode`, and if you want to set `protectedValue`, you have to
-supply `authorizationCode`, too. You could add a custom setter like this:
+attributes, `protectedValue` and `authorizationCode`, and if you want to set `protectedValue`, you have to supply
+`authorizationCode`, too. You could add a custom setter like this:
 
 ```f#
 let patch =
@@ -1369,9 +1381,9 @@ type Context = { Principal: Principal }
 type AdminContext = { Admin: Administrator }
 ```
 
-If you have resources/collections that are in their entirety only accessible by administrators, you can simply
-use `AdminContext` as the context for these resources (remember to separately register it in `Startup.cs` and insert it
-in your routes, as mentioned previously).
+If you have resources/collections that are in their entirety only accessible by administrators, you can simply use
+`AdminContext` as the context for these resources (remember to separately register it in `Startup.cs` and insert it in
+your routes, as mentioned previously).
 
 However, you may have a resource that is available to all users of your API, but where some operations, say PATCH, are
 only available to administrators.
@@ -1475,13 +1487,12 @@ You use `parser.For` to specify either an empty object or a function that create
 parameters that you then also supply in the call to `For`.
 
 In the GET collection example above, we specify `ArticleSearchArgs.empty`, which does not require any parameters. We
-then add a series of optional parameters using “immutable setters” for the values parsed on the right. Finally,
-because `GetCollection ` requires us to supply a request parser for `Article list` and not for `ArticleSearchArgs`, we
-transform using `.BindAsync(Db.Article.search)`, where `Db.Article.search` has
-signature `ArticleSearchArgs -> Article list`.
+then add a series of optional parameters using “immutable setters” for the values parsed on the right. Finally, because
+`GetCollection ` requires us to supply a request parser for `Article list` and not for `ArticleSearchArgs`, we transform
+using `.BindAsync(Db.Article.search)`, where `Db.Article.search` has signature `ArticleSearchArgs -> Article list`.
 
-In the POST collection example, we create a parser for the function `Article.create`, which has
-signature `PersonId -> ArticleTitle -> ArticleBody -> Article`. We then supply parsers for the three required arguments:
+In the POST collection example, we create a parser for the function `Article.create`, which has signature
+`PersonId -> ArticleTitle -> ArticleBody -> Article`. We then supply parsers for the three required arguments:
 The `author` relationship parses the corresponding relationship ID (a `PersonId`), `title` is an attribute that parses
 to `ArticleTitle`, and `body` is an attribute that parses to `ArticleBody`. In the POST request, we must return a parse
 for `Author`, and since `Article.create` returns `Author`, we don’t need to transform the returned value as we did with
@@ -1555,9 +1566,9 @@ This demonstrates one possible way of using the parser in custom operations: The
 single required parameter. There are also `GetOptional` overloads that returns an `Option`-wrapped value which is `None`
 if the parameter was not present.
 
-The other possible way to use the parser in custom operation is to use it exactly like in the standard operations,
-i.e. `parser.For(…).Add(…)`, but end with `.ParseAsync()`. This returns `Async<Result<'a, Error list>>`, meaning you can
-bind it using `let!` in a custom operation. For example:
+The other possible way to use the parser in custom operation is to use it exactly like in the standard operations, i.e.
+`parser.For(…).Add(…)`, but end with `.ParseAsync()`. This returns `Async<Result<'a, Error list>>`, meaning you can bind
+it using `let!` in a custom operation. For example:
 
 ```f#
 let linkName =
@@ -1606,8 +1617,8 @@ parser.For(Article.create, author.Related(Person.lookup))
 
 Here, `Article.create` accepts a `Person` parameter instead of a `PersonId`.
 
-But what if `Article.create` doesn’t need the whole `Person` entity, only a subset of it? Or what if it only needs
-the `PersonId`, but you still want Felicity to ensure that the resource exists? Then you simply define another lookup
+But what if `Article.create` doesn’t need the whole `Person` entity, only a subset of it? Or what if it only needs the
+`PersonId`, but you still want Felicity to ensure that the resource exists? Then you simply define another lookup
 operation just for the entity projection you want, and use that instead:
 
 ```f#
@@ -1616,10 +1627,10 @@ let customLookup =
     .Operation.LookupAsync(myProjectionLookup)
 ```
 
-Above, `myProjectionLookup` has signature `PersonId -> MyPersonProjection option`. This `customLookup` is then used
-in `author.Related` just like `Person.lookup`. `Article.create` can then accept `MyPersonProjection` instead
-of `Person`. Note that you have to create a new `Define` instance because the `define` value you already have in the
-resource module is a different generic instantiation (has different generic parameters).
+Above, `myProjectionLookup` has signature `PersonId -> MyPersonProjection option`. This `customLookup` is then used in
+`author.Related` just like `Person.lookup`. `Article.create` can then accept `MyPersonProjection` instead of `Person`.
+Note that you have to create a new `Define` instance because the `define` value you already have in the resource module
+is a different generic instantiation (has different generic parameters).
 
 ### Parsing filter query parameters
 
@@ -1670,13 +1681,13 @@ instead use the parser’s `.Add` methods to add optional parameters using “im
 
 #### Operators
 
-If you want to add an “operator” to the filter parameter name, e.g. `filter[firstName][contains]`, you can
-use `.Operator("contains")`. This is just a parameter name change; it has no effect on the parsing.
+If you want to add an “operator” to the filter parameter name, e.g. `filter[firstName][contains]`, you can use
+`.Operator("contains")`. This is just a parameter name change; it has no effect on the parsing.
 
 If you use an operator that indicates the query parameter should accept a boolean value, you can append `.Bool` and the
 parser will be replaced with a `bool` parser. In other words, the field(s) you specify in `Filter.Field()` are then only
-used to construct the filter parameter’s name, not for parsing. For example, the following will parse a query
-parameter `filter[firstName][isNull]` which may be `true` or `false`.
+used to construct the filter parameter’s name, not for parsing. For example, the following will parse a query parameter
+`filter[firstName][isNull]` which may be `true` or `false`.
 
 ```f#
 Filter.Field(firstName).Operator("isNull").Bool
@@ -1685,8 +1696,8 @@ Filter.Field(firstName).Operator("isNull").Bool
 #### Filtering on nullable attributes and relationships
 
 Query strings have no standard representation of `null` which can be used unambiguously. Therefore, Felicity only allows
-you to filter on non-`null` values of nullable attributes and relationships. The parsed attribute value will then not
-be `Option`-wrapped.
+you to filter on non-`null` values of nullable attributes and relationships. The parsed attribute value will then not be
+`Option`-wrapped.
 
 If you need a filter for whether the value is null, you can use e.g.
 
@@ -1705,8 +1716,8 @@ case (AND, OR, contains, identical, ordered/unordered, etc.).
 
 #### Custom filter parameters
 
-You can use `Filter.Parsed(...)` to specify fully custom names and parsing behavior. You may find it useful to use
-the `.Name` property of the resource fields to create the filter parameter name. For example:
+You can use `Filter.Parsed(...)` to specify fully custom names and parsing behavior. You may find it useful to use the
+`.Name` property of the resource fields to create the filter parameter name. For example:
 
 ```f#
 Filter.ParsedRes(firstName.Name, myResultReturningParseFunction)
@@ -1754,9 +1765,9 @@ Possible options include:
   )
   ```
 
-  This will accept a query like `?filter[myPolyRel]=someId&filter[myPolyRel.type]=someTypeName` where the string
-  values `"someId"` and `"someTypeName"` are passed to `myArgsSetter`. This removes all ambiguity, but is more verbose
-  for the API client.
+  This will accept a query like `?filter[myPolyRel]=someId&filter[myPolyRel.type]=someTypeName` where the string values
+  `"someId"` and `"someTypeName"` are passed to `myArgsSetter`. This removes all ambiguity, but is more verbose for the
+  API client.
 
   Here is a more sophisticated example the uses `Query.Enum`  so that Felicity handles the case when the type is not
   valid:
@@ -1790,17 +1801,17 @@ The static `Sort` class is the entry point for parsing the JSON:API `sort` param
 Usually there would be a limited set of sorting options available. Use `Sort.Enum` for this. Section TODO contains
 relevant notes about enum parsing. You can also use `Sort.Parsed` to specify custom parsing behavior.
 
-When parsed, you get a tuple with the parsed sort value and a boolean that indicates the sort direction. The boolean
-is `false` for ascending and `true` for descending. In other words, the boolean indicates whether the JSON:API `-`
+When parsed, you get a tuple with the parsed sort value and a boolean that indicates the sort direction. The boolean is
+`false` for ascending and `true` for descending. In other words, the boolean indicates whether the JSON:API `-`
 prefix was present on the sort column.
 
 #### Page
 
 The static `Page` class is the entry point for parsing the JSON:API `page[]` parameter family.
 
-There are predefined parsers for `page[offset]`, `page[limit]`, `page[number]`, and `page[size]`. They are set up
-as `int` parsers with sensible limits, e.g. `offset` must be non-negative, `limit` must be positive, etc. To override
-the limits, append e.g. `.Min(10)` and `.Max(20)`.
+There are predefined parsers for `page[offset]`, `page[limit]`, `page[number]`, and `page[size]`. They are set up as
+`int` parsers with sensible limits, e.g. `offset` must be non-negative, `limit` must be positive, etc. To override the
+limits, append e.g. `.Min(10)` and `.Max(20)`.
 
 #### Custom query parameters
 
@@ -1968,8 +1979,8 @@ request will fail anyway).
 
 ### Multiple locks
 
-In certain cases, you may need to take multiple locks. You are able to specify as many locks as you want
-using `CustomLock` or `LockOther` (`Lock` may only be called once per resource). The locks will be taken sequentially (
+In certain cases, you may need to take multiple locks. You are able to specify as many locks as you want using
+`CustomLock` or `LockOther` (`Lock` may only be called once per resource). The locks will be taken sequentially (
 to avoid deadlocks) in the order they are specified.
 
 Note that if you take multiple locks, you will probably want to also call `MultiLockTotalTimeout` to set the total
@@ -2062,8 +2073,8 @@ of type `carTrailer` and `truckTrailer`, respectively, then fields for all four 
 which resources are actually returned).
 
 For other operations to resources in polymorphic collections, only fields on the targeted resource (and any included
-resources) are tracked. For example, `PATCH /vehicles/car1?include=trailer` (assuming `car1` is the ID of a `car`, not
-a `truck`) will only track fields for `car` and `carTrailer`.
+resources) are tracked. For example, `PATCH /vehicles/car1?include=trailer` (assuming `car1` is the ID of a `car`, not a
+`truck`) will only track fields for `car` and `carTrailer`.
 
 For polymorphic GET collection operations, if at least one of the resource types that can be returned by the collection
 belongs to another collection (i.e., does not have the same collection name as the resource definition the GET
@@ -2099,8 +2110,8 @@ let customOp =
     )
 ```
 
-A similar point applies to polymorphic relationships, where you have to add a suitable number of calls
-to `AddIdParser` (if not already done) to let Felicity know which resources the relationship may contain. For example:
+A similar point applies to polymorphic relationships, where you have to add a suitable number of calls to
+`AddIdParser` (if not already done) to let Felicity know which resources the relationship may contain. For example:
 
 ```f#
 let polymorphicRel =
@@ -2203,8 +2214,8 @@ and it will be caught by strict mode.
 
 #### Limited query parameter validation for custom operations
 
-To enable strict mode query parameter validation for custom operations (`define.Operation.CustomLink`), use
-the `ValidateStrictModeQueryParams` method and supply all allowed query parameters. For example:
+To enable strict mode query parameter validation for custom operations (`define.Operation.CustomLink`), use the
+`ValidateStrictModeQueryParams` method and supply all allowed query parameters. For example:
 
 ```f#
 let linkName =
@@ -2230,11 +2241,10 @@ Sparse fieldsets and include paths are not checked for validity, since this may 
   sparse fieldsets, that would be a breaking change.
 * **Example 2:** Consider an operation `GET /vehicles` that returns two types, `truck` and `car`. A `truck` has a
   relationship `trailers`, and a `car` does not. Clients send requests to `GET /vehicles?include=trailers` to search for
-  both trucks and cars, including the trailer of any truck that happens to be returned. If the API changes so
-  that `GET /vehicles` no longer return trucks, that in itself may not be a breaking change (from the client's
-  perspective, the only change is that no trucks turn up when searching). However, if include paths were validated, the
-  API would suddenly start returning errors since the include path `trailers` no longer exists for any resource in the
-  collection.
+  both trucks and cars, including the trailer of any truck that happens to be returned. If the API changes so that
+  `GET /vehicles` no longer return trucks, that in itself may not be a breaking change (from the client's perspective,
+  the only change is that no trucks turn up when searching). However, if include paths were validated, the API would
+  suddenly start returning errors since the include path `trailers` no longer exists for any resource in the collection.
 
 Polymorphism
 ------------
@@ -2358,8 +2368,8 @@ TODO
 * In `Define` (and everywhere else), make `'entity` be a tuple containing both the parent and sub-entity
 * Have a domain function `Parent.withChild: 'childId -> 'parent -> 'parent * 'child` that looks up a known child in the
   parent (and throws if not found)
-* If needed, use `define.Operation.PostBackRef` instead of `Post` to get access to the (pre-create) parent entity
-  in `AfterCreate`
+* If needed, use `define.Operation.PostBackRef` instead of `Post` to get access to the (pre-create) parent entity in
+  `AfterCreate`
 
 Current limitations
 -------------------

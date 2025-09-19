@@ -20,6 +20,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     relativeJsonApiRoot: string option
     getCtx: (HttpContext -> Task<Result<'ctx, Error list>>) option
     getMeta: 'ctx -> IDictionary<string, obj>
+    getTopLevelLinksWithMeta: 'ctx -> IDictionary<string, string * IDictionary<string, obj>>
     configureSerializerOptions: (JsonSerializerOptions -> unit) option
     skipStandardLinksQueryParamNames: string[]
     skipCustomLinksQueryParamNames: string[]
@@ -36,6 +37,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
         relativeJsonApiRoot = None
         getCtx = None
         getMeta = fun _ -> Map.empty
+        getTopLevelLinksWithMeta = fun _ -> Map.empty
         configureSerializerOptions = None
         skipStandardLinksQueryParamNames = [||]
         skipCustomLinksQueryParamNames = [||]
@@ -106,6 +108,38 @@ type JsonApiConfigBuilder<'ctx> = internal {
     member this.GetMeta(getMeta: 'ctx -> Map<string, obj>) : JsonApiConfigBuilder<'ctx> = {
         this with
             getMeta = getMeta >> Map.toSeq >> dict
+    }
+
+    member this.GetTopLevelLinksWithMeta
+        (getTopLevelLinksWithMeta: 'ctx -> IDictionary<string, string * IDictionary<string, obj>>)
+        : JsonApiConfigBuilder<'ctx> =
+        {
+            this with
+                getTopLevelLinksWithMeta = getTopLevelLinksWithMeta
+        }
+
+    member this.GetTopLevelLinksWithMeta
+        (getTopLevelLinksWithMeta: 'ctx -> Map<string, string * Map<string, obj>>)
+        : JsonApiConfigBuilder<'ctx> =
+        {
+            this with
+                getTopLevelLinksWithMeta =
+                    getTopLevelLinksWithMeta
+                    >> Map.toSeq
+                    >> Seq.map (fun (k, (link, map)) -> k, (link, map |> Map.toSeq |> dict))
+                    >> dict
+        }
+
+    member this.GetTopLevelLinks(getTopLevelLinks: 'ctx -> IDictionary<string, string>) : JsonApiConfigBuilder<'ctx> = {
+        this with
+            getTopLevelLinksWithMeta =
+                fun ctx ->
+                    getTopLevelLinks ctx
+                    |> Seq.map (
+                        function
+                        | KeyValue(k, v) -> k, (v, dict [])
+                    )
+                    |> dict
     }
 
     member this.ConfigureSerializerOptions(configure: JsonSerializerOptions -> unit) : JsonApiConfigBuilder<'ctx> = {
@@ -413,6 +447,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
             )
             .AddSingleton<SemaphoreQueueFactory<'ctx>>(SemaphoreQueueFactory<'ctx>())
             .AddSingleton<MetaGetter<'ctx>>(MetaGetter<'ctx>(this.getMeta))
+            .AddSingleton<TopLevelLinksGetter<'ctx>>(TopLevelLinksGetter<'ctx>(this.getTopLevelLinksWithMeta))
             .AddSingleton<LinkConfig<'ctx>>(
                 LinkConfig<'ctx>(this.skipStandardLinksQueryParamNames, this.skipCustomLinksQueryParamNames)
             )

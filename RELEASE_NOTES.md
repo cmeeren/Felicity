@@ -1,6 +1,14 @@
 Release notes
 ==============
 
+### 0.24.2 (2025-09-19)
+
+* Added possibility of supplying top-level links (with or without link `meta`) by using `GetTopLevelLinks` or
+  `GetTopLevelLinksWithMeta`  in `AddJsonApi` in startup code. This lets you specify a function
+  `'ctx -> IDictionary<string, string>` (without link meta) or
+  `IDictionary<string, string * IDictionary<string, obj>>` (with link meta), with the implication that `'ctx` should be
+  mutable and the meta added during the request processing.
+
 ### 0.24.1 (2025-08-21)
 
 * Added `SkipRelationshipIfAsync` and `SkipRelationshipIfTask` overloads
@@ -343,7 +351,7 @@ Release notes
 ### 0.14.11 (2021-04-09)
 
 * Added possibility of supplying response-level meta by using `GetMeta` in `AddJsonApi` in startup code. This lets you
-  specify a function `'ctx -> Map<obj, string>`, with the implication that `'ctx` should be mutable and the meta added
+  specify a function `'ctx -> Map<string, obj>`, with the implication that `'ctx` should be mutable and the meta added
   during the request processing.
 
 ### 0.14.10 (2021-03-23)
