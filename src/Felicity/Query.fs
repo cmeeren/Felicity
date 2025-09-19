@@ -565,10 +565,8 @@ type Filter =
         )
 
     static member Field
-        (
-            field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>,
-            toSerialized: string -> 'serialized option
-        ) =
+        (field: FieldQueryParser<'ctx, 'entity, 'attr, 'serialized>, toSerialized: string -> 'serialized option)
+        =
         SingleFilter<'ctx, 'attr>(
             field.Name,
             fun ctx getData v ->
@@ -906,10 +904,8 @@ type Filter =
         Filter.ParsedTaskRes(name, (fun _ s -> parse s))
 
     static member ParsedAsyncRes
-        (
-            name,
-            parse: 'ctx -> string -> Async<Result<'a, Error list>>
-        ) : SingleFilter<'ctx, 'a> =
+        (name, parse: 'ctx -> string -> Async<Result<'a, Error list>>)
+        : SingleFilter<'ctx, 'a> =
         Filter.ParsedTaskRes(name, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, Error list>>) : SingleFilter<'ctx, 'a> =
@@ -922,10 +918,8 @@ type Filter =
         Filter.ParsedTaskRes(name, Task.liftAsync parse)
 
     static member ParsedAsyncRes
-        (
-            name,
-            parse: 'ctx -> string -> Async<Result<'a, string list>>
-        ) : SingleFilter<'ctx, 'a> =
+        (name, parse: 'ctx -> string -> Async<Result<'a, string list>>)
+        : SingleFilter<'ctx, 'a> =
         Filter.ParsedTaskRes(name, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes(name, parse: string -> Async<Result<'a, string list>>) : SingleFilter<'ctx, 'a> =
@@ -1299,24 +1293,18 @@ type Page<'ctx> =
 type Query =
 
     static member ParsedTaskRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Task<Result<'a, Error list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Task<Result<'a, Error list>>)
+        : CustomQueryParam<'ctx, 'a> =
         CustomQueryParam<'ctx, 'a>(queryParamName, (fun ctx _ v -> parse ctx v))
 
     static member ParsedTaskRes
-        (
-            queryParamName,
-            parse: string -> Task<Result<'a, Error list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: string -> Task<Result<'a, Error list>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, (fun _ s -> parse s))
 
     static member ParsedTaskRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Task<Result<'a, string>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Task<Result<'a, string>>)
+        : CustomQueryParam<'ctx, 'a> =
         CustomQueryParam<'ctx, 'a>(
             queryParamName,
             fun ctx getData v ->
@@ -1325,17 +1313,13 @@ type Query =
         )
 
     static member ParsedTaskRes
-        (
-            queryParamName,
-            parse: string -> Task<Result<'a, string>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: string -> Task<Result<'a, string>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, (fun _ s -> parse s))
 
     static member ParsedTaskRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Task<Result<'a, string list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Task<Result<'a, string list>>)
+        : CustomQueryParam<'ctx, 'a> =
         CustomQueryParam<'ctx, 'a>(
             queryParamName,
             fun ctx getData v ->
@@ -1344,52 +1328,38 @@ type Query =
         )
 
     static member ParsedTaskRes
-        (
-            queryParamName,
-            parse: string -> Task<Result<'a, string list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: string -> Task<Result<'a, string list>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, (fun _ s -> parse s))
 
     static member ParsedAsyncRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Async<Result<'a, Error list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Async<Result<'a, Error list>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes
-        (
-            queryParamName,
-            parse: string -> Async<Result<'a, Error list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: string -> Async<Result<'a, Error list>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
     static member ParsedAsyncRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Async<Result<'a, string>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Async<Result<'a, string>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes
-        (
-            queryParamName,
-            parse: string -> Async<Result<'a, string>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: string -> Async<Result<'a, string>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
     static member ParsedAsyncRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Async<Result<'a, string list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Async<Result<'a, string list>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes
-        (
-            queryParamName,
-            parse: string -> Async<Result<'a, string list>>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: string -> Async<Result<'a, string list>>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.liftAsync parse)
 
     static member ParsedTaskOpt(queryParamName, parse: 'ctx -> string -> Task<'a option>) : CustomQueryParam<'ctx, 'a> =
@@ -1404,10 +1374,8 @@ type Query =
         Query.ParsedTaskOpt(queryParamName, (fun _ s -> parse s))
 
     static member ParsedAsyncOpt
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Async<'a option>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Async<'a option>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskOpt(queryParamName, Task.liftAsync2 parse)
 
     static member ParsedAsyncOpt(queryParamName, parse: string -> Async<'a option>) : CustomQueryParam<'ctx, 'a> =
@@ -1426,10 +1394,8 @@ type Query =
         Query.ParsedTask(queryParamName, Task.liftAsync parse)
 
     static member ParsedRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Result<'a, Error list>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Result<'a, Error list>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.lift2 parse)
 
     static member ParsedRes(queryParamName, parse: string -> Result<'a, Error list>) : CustomQueryParam<'ctx, 'a> =
@@ -1442,10 +1408,8 @@ type Query =
         Query.ParsedTaskRes(queryParamName, Task.lift parse)
 
     static member ParsedRes
-        (
-            queryParamName,
-            parse: 'ctx -> string -> Result<'a, string list>
-        ) : CustomQueryParam<'ctx, 'a> =
+        (queryParamName, parse: 'ctx -> string -> Result<'a, string list>)
+        : CustomQueryParam<'ctx, 'a> =
         Query.ParsedTaskRes(queryParamName, Task.lift2 parse)
 
     static member ParsedRes(queryParamName, parse: string -> Result<'a, string list>) : CustomQueryParam<'ctx, 'a> =
@@ -1549,10 +1513,8 @@ type Header =
         Header.ParsedTaskRes(headerName, (fun _ s -> parse s))
 
     static member ParsedAsyncRes
-        (
-            headerName,
-            parse: 'ctx -> string -> Async<Result<'a, Error list>>
-        ) : Header<'ctx, 'a> =
+        (headerName, parse: 'ctx -> string -> Async<Result<'a, Error list>>)
+        : Header<'ctx, 'a> =
         Header.ParsedTaskRes(headerName, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, Error list>>) : Header<'ctx, 'a> =
@@ -1565,10 +1527,8 @@ type Header =
         Header.ParsedTaskRes(headerName, Task.liftAsync parse)
 
     static member ParsedAsyncRes
-        (
-            headerName,
-            parse: 'ctx -> string -> Async<Result<'a, string list>>
-        ) : Header<'ctx, 'a> =
+        (headerName, parse: 'ctx -> string -> Async<Result<'a, string list>>)
+        : Header<'ctx, 'a> =
         Header.ParsedTaskRes(headerName, Task.liftAsync2 parse)
 
     static member ParsedAsyncRes(headerName, parse: string -> Async<Result<'a, string list>>) : Header<'ctx, 'a> =

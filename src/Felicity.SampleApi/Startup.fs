@@ -55,12 +55,7 @@ module Setup =
 module Startup =
 
     let configureServices (services: IServiceCollection) : unit =
-        services
-            .AddGiraffe()
-            .AddRouting()
-            .AddJsonApi()
-            .GetCtxAsyncRes(Context.getCtx)
-            .Add()
+        services.AddGiraffe().AddRouting().AddJsonApi().GetCtxAsyncRes(Context.getCtx).Add()
         |> ignore
 
     let configure (app: IApplicationBuilder) : unit =

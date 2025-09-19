@@ -33,41 +33,30 @@ module A =
                 |> Map.add
                     "self"
                     ("http://foo.bar", Map.empty.Add("someMeta", box {| test1 = 123; test2 = "some value" |}))
-                |> Map.add
-                    "related"
-                    ("a", Map.empty)
-                |> Map.add
-                    "describedby"
-                    ("b", Map.empty)
-                |> Map.add
-                    "first"
-                    ("c", Map.empty)
-                |> Map.add
-                    "last"
-                    ("d", Map.empty)
-                |> Map.add
-                    "prev"
-                    ("e", Map.empty)
-                |> Map.add
-                    "next"
-                    ("f", Map.empty)
+                |> Map.add "related" ("a", Map.empty)
+                |> Map.add "describedby" ("b", Map.empty)
+                |> Map.add "first" ("c", Map.empty)
+                |> Map.add "last" ("d", Map.empty)
+                |> Map.add "prev" ("e", Map.empty)
+                |> Map.add "next" ("f", Map.empty)
                 |> Map.add
                     "custom"
-                    ("http://foo2.bar", Map.empty.Add("otherMeta", box {|
-                            test3 = 456
-                            test4 = "another value"
-                        |}))
+                    ("http://foo2.bar",
+                     Map.empty.Add(
+                         "otherMeta",
+                         box {|
+                             test3 = 456
+                             test4 = "another value"
+                         |}
+                     ))
+
             [ A ]
         )
 
     let post =
         define.Operation
             .Post(fun (ctx: Ctx1) ->
-                ctx.Links <-
-                    Map.empty.Add(
-                        "bar",
-                        ("http://foo3.bar", Map.empty)
-                    )
+                ctx.Links <- Map.empty.Add("bar", ("http://foo3.bar", Map.empty))
 
                 A
             )

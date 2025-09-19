@@ -344,9 +344,7 @@ module Parent9 = // LastModified optional precondition
     let get = define.Operation.GetResource()
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
     let child =
         define.Relationship

@@ -15,9 +15,7 @@ module A =
     let resDef = define.Resource("a", resId).CollectionName("as")
 
     let a =
-        define.Attribute
-            .SimpleBool()
-            .SetRes(fun _ _ _ -> Error [ Error.create 400 |> Error.appendPointer "/foo/bar" ])
+        define.Attribute.SimpleBool().SetRes(fun _ _ _ -> Error [ Error.create 400 |> Error.appendPointer "/foo/bar" ])
 
     let lookup = define.Operation.Lookup(Some)
     let get = define.Operation.GetResource()

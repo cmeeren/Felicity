@@ -181,10 +181,7 @@ module A =
     let x = define.Attribute.SimpleString().Get(fun a -> a.X).Set(ADomain.setX)
 
     let nullable =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun a -> a.Nullable)
-            .Set(ADomain.setNullable)
+        define.Attribute.Nullable.SimpleString().Get(fun a -> a.Nullable).Set(ADomain.setNullable)
 
     let nullableMapped =
         define.Attribute.Nullable
@@ -398,9 +395,7 @@ module A6 =
     let patch = define.Operation.Patch().AfterUpdate(ignore)
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
 
 type Ctx7 = Ctx7 of Db
@@ -414,10 +409,7 @@ module A7 =
     let readonly = define.Attribute.SimpleString().Get(fun (a: A) -> a.ReadOnly)
 
     let x =
-        define.Attribute
-            .SimpleString()
-            .Get(fun a -> a.X)
-            .Set(fun _ _ -> failwith<A> "not used")
+        define.Attribute.SimpleString().Get(fun a -> a.X).Set(fun _ _ -> failwith<A> "not used")
 
     let y = define.Attribute.SimpleString().Get(fun _ -> "test")
 
@@ -475,10 +467,7 @@ module A8 =
     let lookup = define.Operation.Lookup(fun (Ctx8 d) _ -> Some !d)
 
     let nonNullable =
-        define.Attribute
-            .SimpleDateTimeOffset()
-            .Get(fun d -> d.NonNullable)
-            .Set(fun v d -> { d with NonNullable = v })
+        define.Attribute.SimpleDateTimeOffset().Get(fun d -> d.NonNullable).Set(fun v d -> { d with NonNullable = v })
 
     let nonNullableAllowMissingOffset =
         define.Attribute

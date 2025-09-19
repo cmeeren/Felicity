@@ -57,10 +57,7 @@ module X =
     let relToOneGet = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> A)
 
     let relToOneSet =
-        define.Relationship
-            .ToOne(A.resDef)
-            .Set(fun _ _ _ -> failwith "not used")
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOne(A.resDef).Set(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
     let relToOneGetSet =
         define.Relationship
@@ -75,10 +72,7 @@ module X =
         define.Relationship.ToOneNullable(A.resDef).Get(fun _ _ -> failwith "not used")
 
     let relToOneNullableSet =
-        define.Relationship
-            .ToOneNullable(A.resDef)
-            .Set(fun _ _ _ -> failwith "not used")
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOneNullable(A.resDef).Set(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
     let relToOneNullableGetSet =
         define.Relationship
@@ -93,10 +87,7 @@ module X =
         define.Relationship.ToMany(A.resDef).Get(fun _ _ -> failwith "not used")
 
     let relToManySet =
-        define.Relationship
-            .ToMany(A.resDef)
-            .SetAll(fun _ _ _ -> failwith "not used")
-            .AfterModifySelf(ignore)
+        define.Relationship.ToMany(A.resDef).SetAll(fun _ _ _ -> failwith "not used").AfterModifySelf(ignore)
 
     let relToManyGetSet =
         define.Relationship

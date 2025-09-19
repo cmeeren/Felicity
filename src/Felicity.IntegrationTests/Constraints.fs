@@ -74,28 +74,16 @@ module X =
         define.Attribute.SimpleBool().AddConstraint("a", true).Get(fun _ -> true)
 
     let bSkip =
-        define.Attribute.Nullable
-            .SimpleBool()
-            .AddConstraint("a", true)
-            .GetSkip(fun _ _ -> Skip)
+        define.Attribute.Nullable.SimpleBool().AddConstraint("a", true).GetSkip(fun _ _ -> Skip)
 
     let toOneSkip =
-        define.Relationship
-            .ToOne(resDef)
-            .AddConstraint("a", true)
-            .GetSkip(fun _ _ -> Skip)
+        define.Relationship.ToOne(resDef).AddConstraint("a", true).GetSkip(fun _ _ -> Skip)
 
     let toOneNullableSkip =
-        define.Relationship
-            .ToOneNullable(resDef)
-            .AddConstraint("a", true)
-            .GetSkip(fun _ _ -> Skip)
+        define.Relationship.ToOneNullable(resDef).AddConstraint("a", true).GetSkip(fun _ _ -> Skip)
 
     let toManySkip =
-        define.Relationship
-            .ToMany(resDef)
-            .AddConstraint("a", true)
-            .GetSkip(fun _ _ -> Skip)
+        define.Relationship.ToMany(resDef).AddConstraint("a", true).GetSkip(fun _ _ -> Skip)
 
     let lookup = define.Operation.Lookup(fun _ -> Some X)
 

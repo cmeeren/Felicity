@@ -99,10 +99,7 @@ module C2 =
     let bNullable = define.Relationship.ToOneNullable(B.resDef)
 
     let resDef =
-        define
-            .Resource("c2", resId)
-            .CollectionName("c2s")
-            .LockOtherForResourceCreation(B.resDef, bNullable)
+        define.Resource("c2", resId).CollectionName("c2s").LockOtherForResourceCreation(B.resDef, bNullable)
 
     let post =
         define.Operation
@@ -119,10 +116,7 @@ module D =
     let resId = define.Id.Simple(id)
 
     let resDef =
-        define
-            .Resource("d", resId)
-            .CollectionName("ds")
-            .Lock(TimeSpan.FromMilliseconds 10)
+        define.Resource("d", resId).CollectionName("ds").Lock(TimeSpan.FromMilliseconds 10)
 
     let lookup = define.Operation.Lookup(Some)
 
@@ -466,9 +460,7 @@ module L =
             .LockOtherForModification(K.resDef, id)
 
     let post =
-        define.Operation
-            .Post(fun _ parser -> parser.For((fun _ -> ""), j))
-            .AfterCreate(ignore)
+        define.Operation.Post(fun _ parser -> parser.For((fun _ -> ""), j)).AfterCreate(ignore)
 
 
 module M =
@@ -560,10 +552,7 @@ module P =
         define.Id.ParsedRes(ResourceId.value, (fun _ -> Error "Invalid ID"), ResourceId)
 
     let resDef =
-        define
-            .Resource("p", resId)
-            .CollectionName("ps")
-            .LockOtherForModification(K.resDef, id)
+        define.Resource("p", resId).CollectionName("ps").LockOtherForModification(K.resDef, id)
 
     let lookup = define.Operation.Lookup(ResourceId.value >> Some)
 
@@ -587,15 +576,10 @@ module Q =
     let k = define.Relationship.ToOneNullable(K.resDef)
 
     let resDef =
-        define
-            .Resource("q", resId)
-            .CollectionName("qs")
-            .LockOtherForResourceCreation(K.resDef, k)
+        define.Resource("q", resId).CollectionName("qs").LockOtherForResourceCreation(K.resDef, k)
 
     let post =
-        define.Operation
-            .Post(fun _ parser -> parser.For((fun _ -> ""), k))
-            .AfterCreate(ignore)
+        define.Operation.Post(fun _ parser -> parser.For((fun _ -> ""), k)).AfterCreate(ignore)
 
 
 

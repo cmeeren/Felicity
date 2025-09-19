@@ -373,11 +373,7 @@ module Parent7 = // ETag precondition
         define.Preconditions.ETag(fun _ -> EntityTagHeaderValue.FromString false "valid-etag")
 
     let children =
-        define.Relationship
-            .ToMany(resDef)
-            .Get(fun ctx -> [])
-            .SetAll(fun ctx e -> e)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToMany(resDef).Get(fun ctx -> []).SetAll(fun ctx e -> e).AfterModifySelf(ignore)
 
 
 type Ctx5 = Ctx5
@@ -394,11 +390,7 @@ module Parent8 = // LastModified precondition
         define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
 
     let children =
-        define.Relationship
-            .ToMany(resDef)
-            .Get(fun ctx -> [])
-            .SetAll(fun ctx e -> e)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToMany(resDef).Get(fun ctx -> []).SetAll(fun ctx e -> e).AfterModifySelf(ignore)
 
 
 type Ctx6 = Ctx6
@@ -412,16 +404,10 @@ module Parent9 = // Optional precondition
     let get = define.Operation.GetResource()
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
     let children =
-        define.Relationship
-            .ToMany(resDef)
-            .Get(fun ctx -> [])
-            .SetAll(fun ctx e -> e)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToMany(resDef).Get(fun ctx -> []).SetAll(fun ctx e -> e).AfterModifySelf(ignore)
 
 
 type Ctx7 = Ctx7

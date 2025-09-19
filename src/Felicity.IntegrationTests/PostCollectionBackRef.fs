@@ -100,9 +100,7 @@ module rec ResourceModules =
         let get = define.Operation.GetResource()
 
         let ``as`` =
-            define.Relationship
-                .ToMany(Child.resDef)
-                .Get(fun b -> b.Children |> List.map (fun a -> b, a))
+            define.Relationship.ToMany(Child.resDef).Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
 
 type Ctx2 = {
@@ -152,9 +150,7 @@ module rec ResourceModules2 =
         let get = define.Operation.GetResource()
 
         let ``as`` =
-            define.Relationship
-                .ToMany(Child2.resDef)
-                .Get(fun b -> b.Children |> List.map (fun a -> b, a))
+            define.Relationship.ToMany(Child2.resDef).Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
 
 type Ctx3 = Ctx3
@@ -193,9 +189,7 @@ module rec ResourceModulesPreconditions =
         let get = define.Operation.GetResource()
 
         let children =
-            define.Relationship
-                .ToMany(Child.resDef)
-                .Get(fun b -> b.Children |> List.map (fun a -> b, a))
+            define.Relationship.ToMany(Child.resDef).Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
 
 type Ctx4 = Ctx4
@@ -234,9 +228,7 @@ module rec ResourceModulesPreconditionsOptional =
         let get = define.Operation.GetResource()
 
         let children =
-            define.Relationship
-                .ToMany(Child.resDef)
-                .Get(fun b -> b.Children |> List.map (fun a -> b, a))
+            define.Relationship.ToMany(Child.resDef).Get(fun b -> b.Children |> List.map (fun a -> b, a))
 
 
 [<Tests>]

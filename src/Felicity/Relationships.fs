@@ -166,11 +166,8 @@ type ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 } with
 
     static member internal Create
-        (
-            name,
-            getParser,
-            allowedTypes
-        ) : ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> =
+        (name, getParser, allowedTypes)
+        : ToOneRelationshipIncludedGetter<'ctx, 'relatedEntity> =
         {
             name = name
             getParser = getParser
@@ -258,13 +255,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 } with
 
     static member internal Create
-        (
-            name: string,
-            mapSetCtx,
-            resolveEntity,
-            resolveId,
-            idParsers
-        ) : ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
+        (name: string, mapSetCtx, resolveEntity, resolveId, idParsers)
+        : ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         {
             name = name
             setOrder = 0
@@ -765,8 +757,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                                                 let handler =
                                                                     setStatusCode 202
                                                                     >=> this.modifyPatchSelfAcceptedResponse
-                                                                        setCtx
-                                                                        (unbox<'entity> entity2)
+                                                                            setCtx
+                                                                            (unbox<'entity> entity2)
 
                                                                 return! handler next httpCtx
                                                             else
@@ -824,9 +816,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
                                                                     let handler =
                                                                         setStatusCode 200
                                                                         >=> this.modifyPatchSelfOkResponse
-                                                                            setCtx
-                                                                            (unbox<'entity> entity3)
-                                                                            relatedEntity
+                                                                                setCtx
+                                                                                (unbox<'entity> entity3)
+                                                                                relatedEntity
                                                                         >=> fieldTrackerHandler
                                                                         >=> jsonApiWithETag<'ctx> doc
 
@@ -1050,10 +1042,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.SetTaskRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Task.map Ok))
 
     member this.SetTask
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType, 'entity, Task<'entity>>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Task<'entity>>)
+        =
         this.SetTaskRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Task.map Ok))
 
     member this.SetAsync(set: Func<'setCtx, 'relatedId, 'entity, Async<'entity>>) =
@@ -1069,10 +1059,8 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.SetTask(getRelated, Task.liftAsyncFunc3 set)
 
     member this.SetAsync
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType, 'entity, Async<'entity>>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<'entity>>)
+        =
         this.SetTask(getRelated, Task.liftAsyncFunc2 set)
 
     member this.SetRes(set: Func<'setCtx, 'relatedId, 'entity, Result<'entity, Error list>>) =
@@ -1102,17 +1090,13 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
         this.SetTaskRes(TaskResult.liftFunc2 set)
 
     member this.Set
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'setCtx, 'lookupType, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, 'entity>)
+        =
         this.SetTaskRes(getRelated, TaskResult.liftFunc3 set)
 
     member this.Set
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, 'entity>)
+        =
         this.SetTaskRes(getRelated, TaskResult.liftFunc2 set)
 
     member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
@@ -1553,11 +1537,8 @@ type ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 } with
 
     static member internal Create
-        (
-            name,
-            getParser,
-            allowedTypes
-        ) : ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
+        (name, getParser, allowedTypes)
+        : ToOneNullableRelationshipIncludedGetter<'ctx, 'relatedEntity> =
         {
             name = name
             getParser = getParser
@@ -1655,13 +1636,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 } with
 
     static member internal Create
-        (
-            name: string,
-            mapSetCtx,
-            resolveEntity,
-            resolveId,
-            idParsers
-        ) : ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
+        (name: string, mapSetCtx, resolveEntity, resolveId, idParsers)
+        : ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         {
             name = name
             setOrder = 0
@@ -2185,8 +2161,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                             let handler =
                                                                 setStatusCode 202
                                                                 >=> this.modifyPatchSelfAcceptedResponse
-                                                                    setCtx
-                                                                    (unbox<'entity> entity3)
+                                                                        setCtx
+                                                                        (unbox<'entity> entity3)
 
                                                             return! handler next httpCtx
                                                         else
@@ -2247,9 +2223,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
                                                                 let handler =
                                                                     setStatusCode 200
                                                                     >=> this.modifyPatchSelfOkResponse
-                                                                        setCtx
-                                                                        (unbox<'entity> entity3)
-                                                                        relatedEntity
+                                                                            setCtx
+                                                                            (unbox<'entity> entity3)
+                                                                            relatedEntity
                                                                     >=> fieldTrackerHandler
                                                                     >=> jsonApiWithETag<'ctx> doc
 
@@ -2406,7 +2382,14 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
     member private this.SetTaskRes
         (set:
-            Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) option, 'entity, Task<Result<'entity, Error list>>>)
+            Func<
+                'ctx,
+                'setCtx,
+                Pointer,
+                ('relatedId * ResourceIdentifier) option,
+                'entity,
+                Task<Result<'entity, Error list>>
+             >)
         =
         if this.idParsers.IsNone then
             failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
@@ -2532,10 +2515,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.SetTaskRes(getRelated, TaskResult.liftFunc3 set)
 
     member this.Set
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType option, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType option, 'entity, 'entity>)
+        =
         this.SetTaskRes(getRelated, TaskResult.liftFunc2 set)
 
     member this.SetNonNullTaskRes(set: Func<'setCtx, 'relatedId, 'entity, Task<Result<'entity, Error list>>>) =
@@ -2604,10 +2585,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.SetNonNullTaskRes(getRelated, (fun ctx related entity -> set.Invoke(ctx, related, entity) |> Task.map Ok))
 
     member this.SetNonNullTask
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType, 'entity, Task<'entity>>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Task<'entity>>)
+        =
         this.SetNonNullTaskRes(getRelated, (fun _ related entity -> set.Invoke(related, entity) |> Task.map Ok))
 
     member this.SetNonNullAsync(set: Func<'setCtx, 'relatedId, 'entity, Async<'entity>>) =
@@ -2624,10 +2603,8 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.SetNonNullTask(getRelated, Task.liftAsyncFunc3 set)
 
     member this.SetNonNullAsync
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType, 'entity, Async<'entity>>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, Async<'entity>>)
+        =
         this.SetNonNullTask(getRelated, Task.liftAsyncFunc2 set)
 
     member this.SetNonNullRes(set: Func<'setCtx, 'relatedId, 'entity, Result<'entity, Error list>>) =
@@ -2657,17 +2634,13 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
         this.SetNonNullTaskRes(TaskResult.liftFunc2 set)
 
     member this.SetNonNull
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'setCtx, 'lookupType, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'setCtx, 'lookupType, 'entity, 'entity>)
+        =
         this.SetNonNullTaskRes(getRelated, TaskResult.liftFunc3 set)
 
     member this.SetNonNull
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            set: Func<'lookupType, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, set: Func<'lookupType, 'entity, 'entity>)
+        =
         this.SetNonNullTaskRes(getRelated, TaskResult.liftFunc2 set)
 
     member this.AddConstraintsTask(getConstraints: 'ctx -> 'entity -> Task<(string * obj) list>) = {
@@ -3091,11 +3064,8 @@ type ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> = internal {
 } with
 
     static member internal Create
-        (
-            name,
-            getParser,
-            allowedTypes
-        ) : ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> =
+        (name, getParser, allowedTypes)
+        : ToManyRelationshipIncludedGetter<'ctx, 'relatedEntity> =
         {
             name = name
             getParser = getParser
@@ -3214,13 +3184,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 } with
 
     static member internal Create
-        (
-            name: string,
-            mapSetCtx,
-            resolveEntity,
-            resolveId,
-            idParsers
-        ) : ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
+        (name: string, mapSetCtx, resolveEntity, resolveId, idParsers)
+        : ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> =
         {
             name = name
             setOrder = 0
@@ -3702,9 +3667,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
                                                             let handler =
                                                                 setStatusCode 200
                                                                 >=> modifyOkResponse
-                                                                    setCtx
-                                                                    (unbox<'entity> entity3)
-                                                                    relatedEntities
+                                                                        setCtx
+                                                                        (unbox<'entity> entity3)
+                                                                        relatedEntities
                                                                 >=> fieldTrackerHandler
                                                                 >=> jsonApiWithETag<'ctx> doc
 
@@ -4037,7 +4002,14 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
     member private this.SetAllTaskRes
         (setAll:
-            Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>)
+            Func<
+                'ctx,
+                'setCtx,
+                Pointer,
+                ('relatedId * ResourceIdentifier) list,
+                'entity,
+                Task<Result<'entity, Error list>>
+             >)
         =
         if this.idParsers.IsNone then
             failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
@@ -4164,15 +4136,20 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.SetAllTaskRes(getRelated, TaskResult.liftFunc3 setAll)
 
     member this.SetAll
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            setAll: Func<'lookupType list, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, setAll: Func<'lookupType list, 'entity, 'entity>)
+        =
         this.SetAllTaskRes(getRelated, TaskResult.liftFunc2 setAll)
 
     member private this.AddTaskRes
         (add:
-            Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>)
+            Func<
+                'ctx,
+                'setCtx,
+                Pointer,
+                ('relatedId * ResourceIdentifier) list,
+                'entity,
+                Task<Result<'entity, Error list>>
+             >)
         =
         if this.idParsers.IsNone then
             failwith "Can only add setter if the polymorphic resource definition contains ID parsers."
@@ -4242,10 +4219,8 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.AddTaskRes(getRelated, (fun ctx related entity -> add.Invoke(ctx, related, entity) |> Task.map Ok))
 
     member this.AddTask
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            add: Func<'lookupType list, 'entity, Task<'entity>>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Task<'entity>>)
+        =
         this.AddTaskRes(getRelated, (fun _ related entity -> add.Invoke(related, entity) |> Task.map Ok))
 
     member this.AddAsync(add: Func<'setCtx, 'relatedId list, 'entity, Async<'entity>>) =
@@ -4261,10 +4236,7 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.AddTask(getRelated, Task.liftAsyncFunc3 add)
 
     member this.AddAsync
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            add: Func<'lookupType list, 'entity, Async<'entity>>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, Async<'entity>>) =
         this.AddTask(getRelated, Task.liftAsyncFunc2 add)
 
     member this.AddRes(add: Func<'setCtx, 'relatedId list, 'entity, Result<'entity, Error list>>) =
@@ -4301,15 +4273,20 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
         this.AddTaskRes(getRelated, TaskResult.liftFunc3 add)
 
     member this.Add
-        (
-            getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>,
-            add: Func<'lookupType list, 'entity, 'entity>
-        ) =
+        (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>, add: Func<'lookupType list, 'entity, 'entity>)
+        =
         this.AddTaskRes(getRelated, TaskResult.liftFunc2 add)
 
     member private this.RemoveTaskRes
         (remove:
-            Func<'ctx, 'setCtx, Pointer, ('relatedId * ResourceIdentifier) list, 'entity, Task<Result<'entity, Error list>>>)
+            Func<
+                'ctx,
+                'setCtx,
+                Pointer,
+                ('relatedId * ResourceIdentifier) list,
+                'entity,
+                Task<Result<'entity, Error list>>
+             >)
         =
         if this.idParsers.IsNone then
             failwithf "Can only add setter if the polymorphic resource definition contains ID parsers."
@@ -4844,8 +4821,7 @@ type RelationshipHelper<'ctx, 'setCtx, 'entity>
     internal (mapSetCtx: 'ctx -> 'entity -> Task<Result<'setCtx, Error list>>) =
 
     member _.Polymorphic() =
-        PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>
-            .Create(mapSetCtx)
+        PolymorphicRelationshipHelper<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId>.Create(mapSetCtx)
 
     member _.MapSetContextTaskRes(mapSetCtx: 'ctx -> 'entity -> Task<Result<'mappedSetCtx, Error list>>) =
         RelationshipHelper<'ctx, 'mappedSetCtx, 'entity>(mapSetCtx)

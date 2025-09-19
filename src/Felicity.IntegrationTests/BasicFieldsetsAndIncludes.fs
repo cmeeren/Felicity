@@ -54,22 +54,13 @@ module Person =
         define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(false)
 
     let nullableRequiresExplicitInclude =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun _ -> None)
-            .RequireExplicitInclude()
+        define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude()
 
     let nullableRequiresExplicitIncludeTrue =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun _ -> None)
-            .RequireExplicitInclude(true)
+        define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(true)
 
     let nullableRequiresExplicitIncludeFalse =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun _ -> None)
-            .RequireExplicitInclude(false)
+        define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(false)
 
     let friends = define.Relationship.ToMany(resDef).Get(fun _ -> [ bob; jane ])
     let bestFriend = define.Relationship.ToMany(resDef).Get(fun _ -> [ bob ])
@@ -77,10 +68,7 @@ module Person =
 
 
     let toOneWithLinkage =
-        define.Relationship
-            .ToOne(resDef)
-            .GetLinkageIfNotIncluded(fun _ _ -> bob.Id)
-            .Get(fun _ -> jane)
+        define.Relationship.ToOne(resDef).GetLinkageIfNotIncluded(fun _ _ -> bob.Id).Get(fun _ -> jane)
 
     let toOneNullableWithLinkage =
         define.Relationship
@@ -89,29 +77,19 @@ module Person =
             .Get(fun _ -> Some jane)
 
     let toManyWithLinkage =
-        define.Relationship
-            .ToMany(resDef)
-            .GetLinkageIfNotIncluded(fun _ _ -> [ bob.Id ])
-            .Get(fun _ -> [ jane ])
+        define.Relationship.ToMany(resDef).GetLinkageIfNotIncluded(fun _ _ -> [ bob.Id ]).Get(fun _ -> [ jane ])
 
     let toOneWithLinkageWithoutGet =
         define.Relationship.ToOne(resDef).GetLinkageIfNotIncluded(fun _ _ -> bob.Id)
 
     let toOneNullableWithLinkageWithoutGet =
-        define.Relationship
-            .ToOneNullable(resDef)
-            .GetLinkageIfNotIncluded(fun _ _ -> Some bob.Id)
+        define.Relationship.ToOneNullable(resDef).GetLinkageIfNotIncluded(fun _ _ -> Some bob.Id)
 
     let toManyWithLinkageWithoutGet =
-        define.Relationship
-            .ToMany(resDef)
-            .GetLinkageIfNotIncluded(fun _ _ -> [ bob.Id ])
+        define.Relationship.ToMany(resDef).GetLinkageIfNotIncluded(fun _ _ -> [ bob.Id ])
 
     let toOneSkipped =
-        define.Relationship
-            .ToOne(resDef)
-            .SkipRelationshipIf(fun _ -> true)
-            .Get(fun _ _ -> failwith "Not called")
+        define.Relationship.ToOne(resDef).SkipRelationshipIf(fun _ -> true).Get(fun _ _ -> failwith "Not called")
 
     let toOneNullableSkipped =
         define.Relationship
@@ -120,10 +98,7 @@ module Person =
             .Get(fun _ _ -> failwith "Not called")
 
     let toManySkipped =
-        define.Relationship
-            .ToMany(resDef)
-            .SkipRelationshipIf(fun _ -> true)
-            .Get(fun _ _ -> failwith "Not called")
+        define.Relationship.ToMany(resDef).SkipRelationshipIf(fun _ -> true).Get(fun _ _ -> failwith "Not called")
 
     let lookup = define.Operation.Lookup(fun _ -> Some alice)
     let get = define.Operation.GetResource()

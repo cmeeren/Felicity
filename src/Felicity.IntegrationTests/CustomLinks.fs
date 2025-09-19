@@ -291,9 +291,7 @@ module A7 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
@@ -317,9 +315,7 @@ module A8 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
@@ -345,9 +341,7 @@ module A9 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 
@@ -373,9 +367,7 @@ module A10 =
     let resDef = define.Resource("a", resId).CollectionName("entities")
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
     let lookup = define.Operation.Lookup(fun _ -> Some { A.Id = "someId" })
 

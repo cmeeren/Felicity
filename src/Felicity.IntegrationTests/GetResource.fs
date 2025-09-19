@@ -50,9 +50,7 @@ module A =
     let resDef = define.Resource("a", resId).CollectionName("as")
 
     let lookup =
-        define.Operation
-            .ForContextRes(fun ctx -> ctx.MapCtx ctx)
-            .LookupRes(fun ctx id -> ctx.GetById id)
+        define.Operation.ForContextRes(fun ctx -> ctx.MapCtx ctx).LookupRes(fun ctx id -> ctx.GetById id)
 
     let get =
         define.Operation
@@ -68,9 +66,7 @@ module AWithEntityCtxMap =
     let resDef = define.Resource("b", resId).CollectionName("bs")
 
     let lookup =
-        define.Operation
-            .ForContextRes(fun ctx -> ctx.MapCtx ctx)
-            .LookupRes(fun ctx id -> ctx.GetById id)
+        define.Operation.ForContextRes(fun ctx -> ctx.MapCtx ctx).LookupRes(fun ctx id -> ctx.GetById id)
 
     let get =
         define.Operation

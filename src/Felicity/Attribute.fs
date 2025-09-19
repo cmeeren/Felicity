@@ -875,8 +875,7 @@ type NullableAttributeHelper<'ctx, 'setCtx, 'entity>
             toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>,
             [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string
         ) : NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
-        NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>
-            .Create(name, mapSetCtx, fromDomain, toDomain)
+        NullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create(name, mapSetCtx, fromDomain, toDomain)
 
     member this.ParsedTaskRes
         (
@@ -1358,8 +1357,7 @@ type AttributeHelper<'ctx, 'setCtx, 'entity> internal (mapSetCtx: 'ctx -> 'entit
             toDomain: 'ctx -> ('serialized -> ParsedValueInfo) -> 'serialized -> Task<Result<'attr, Error list>>,
             [<CallerMemberName; Optional; DefaultParameterValue("")>] name: string
         ) : NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized> =
-        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>
-            .Create(name, mapSetCtx, fromDomain, toDomain)
+        NonNullableAttribute<'ctx, 'setCtx, 'entity, 'attr, 'serialized>.Create(name, mapSetCtx, fromDomain, toDomain)
 
     member this.ParsedTaskRes
         (

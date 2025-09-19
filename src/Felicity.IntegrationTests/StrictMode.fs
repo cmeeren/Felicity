@@ -49,18 +49,10 @@ module A =
     let get = define.Operation.GetResource()
 
     let toOne =
-        define.Relationship
-            .ToOne(resDef)
-            .Get(id)
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOne(resDef).Get(id).Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let toOneNullable =
-        define.Relationship
-            .ToOneNullable(resDef)
-            .Get(Some)
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOneNullable(resDef).Get(Some).Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let toMany =
         define.Relationship

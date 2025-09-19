@@ -22,9 +22,7 @@ module X =
         define.Attribute.SimpleBool("nonNullableCustomName").Get(fun _ -> true)
 
     let nullable =
-        define.Attribute.Nullable
-            .SimpleBool("nullableCustomName")
-            .Get(fun _ -> Some true)
+        define.Attribute.Nullable.SimpleBool("nullableCustomName").Get(fun _ -> Some true)
 
     let toOne = define.Relationship.ToOne(resDef, "toOneCustomName").Get(fun _ _ -> X)
 

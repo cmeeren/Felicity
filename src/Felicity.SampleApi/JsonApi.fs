@@ -100,20 +100,14 @@ module Article =
             .Set(Article.setTitle)
 
     let body =
-        define.Attribute
-            .Parsed(ArticleBody.toString, ArticleBody.fromString)
-            .Get(fun a -> a.Body)
-            .Set(Article.setBody)
+        define.Attribute.Parsed(ArticleBody.toString, ArticleBody.fromString).Get(fun a -> a.Body).Set(Article.setBody)
 
     // .Enum can be used to automatically return a useful error message with allowed values
     // if an invalid value is received. The second parameter isn't a function, but a list
     // containing string-domain pairs.
 
     let articleType =
-        define.Attribute
-            .Enum(ArticleType.toString, ArticleType.fromStringMap)
-            .Get(fun a -> a.Type)
-            .Set(Article.setType)
+        define.Attribute.Enum(ArticleType.toString, ArticleType.fromStringMap).Get(fun a -> a.Type).Set(Article.setType)
 
     // By not defining a setter, the attribute is read-only in PATCH requests (and in POST
     // requests unless explicitly used).
@@ -267,10 +261,7 @@ module Person =
             .Set(Person.setFirstName)
 
     let lastName =
-        define.Attribute
-            .Parsed(LastName.toString, LastName.fromString)
-            .Get(fun p -> p.LastName)
-            .Set(Person.setLastName)
+        define.Attribute.Parsed(LastName.toString, LastName.fromString).Get(fun p -> p.LastName).Set(Person.setLastName)
 
     let twitter =
         define.Attribute.Nullable
@@ -335,10 +326,7 @@ module Comment =
     let resourceDef = define.Resource("comment", id).CollectionName("comments")
 
     let body =
-        define.Attribute
-            .Parsed(CommentBody.toString, CommentBody.fromString)
-            .Get(fun c -> c.Body)
-            .Set(Comment.setBody)
+        define.Attribute.Parsed(CommentBody.toString, CommentBody.fromString).Get(fun c -> c.Body).Set(Comment.setBody)
 
     let createdAt = define.Attribute.SimpleDateTimeOffset().Get(fun c -> c.CreatedAt)
 
@@ -346,9 +334,7 @@ module Comment =
         define.Attribute.Nullable.SimpleDateTimeOffset().Get(fun c -> c.UpdatedAt)
 
     let author =
-        define.Relationship
-            .ToOne(Person.resourceDef)
-            .GetAsync(Db.Person.authorForComment)
+        define.Relationship.ToOne(Person.resourceDef).GetAsync(Db.Person.authorForComment)
 
     let article =
         define.Relationship.ToOne(Article.resourceDef).GetAsync(Db.Article.forComment)

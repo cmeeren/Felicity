@@ -106,9 +106,7 @@ type Error = internal {
 type internal ResourceIdentifier = { ``type``: string; id: string }
 
 
-type internal IRelationship =
-    interface
-    end
+type internal IRelationship = interface end
 
 
 [<CLIMutable>]
@@ -684,11 +682,8 @@ module internal Json =
             failwith "Framework bug: Attempted to use ResourceIdentifierCollectionDocumentConverter when deserializing"
 
         override _.Write
-            (
-                writer: Utf8JsonWriter,
-                doc: ResourceIdentifierCollectionDocument,
-                options: JsonSerializerOptions
-            ) =
+            (writer: Utf8JsonWriter, doc: ResourceIdentifierCollectionDocument, options: JsonSerializerOptions)
+            =
             writer.WriteStartObject()
 
             doc.jsonapi

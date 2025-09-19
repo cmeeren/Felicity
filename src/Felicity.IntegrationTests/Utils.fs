@@ -59,10 +59,7 @@ let private startTestServer' useStrictMode (getCtx: HttpContext -> 'ctx) =
                     |> ignore
                 )
                 .Configure(fun app ->
-                    app
-                        .UseGiraffeErrorHandler(fun _ _ -> returnUnknownError)
-                        .UseRouting()
-                        .UseJsonApiEndpoints<'ctx>()
+                    app.UseGiraffeErrorHandler(fun _ _ -> returnUnknownError).UseRouting().UseJsonApiEndpoints<'ctx>()
                     |> ignore
                 )
         )

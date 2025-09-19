@@ -113,10 +113,7 @@ module A =
     let x = define.Attribute.SimpleString().Get(fun a -> a.X).Set(ADomain.setX)
 
     let nullable =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun a -> a.Nullable)
-            .Set(ADomain.setNullable)
+        define.Attribute.Nullable.SimpleString().Get(fun a -> a.Nullable).Set(ADomain.setNullable)
 
     let nullableNotNullWhenSet =
         define.Attribute.Nullable

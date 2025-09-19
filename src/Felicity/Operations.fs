@@ -194,11 +194,8 @@ type PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
 } with
 
     static member internal Create
-        (
-            mapCtx,
-            getById,
-            getPolyBuilder
-        ) : PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> =
+        (mapCtx, getById, getPolyBuilder)
+        : PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> =
         {
             mapCtx = mapCtx
             getById = getById
@@ -381,11 +378,8 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
 } with
 
     static member internal Create
-        (
-            mapCtx,
-            getCollection,
-            getPolyBuilder
-        ) : PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> =
+        (mapCtx, getCollection, getPolyBuilder)
+        : PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> =
         {
             mapCtx = mapCtx
             getCollection = getCollection
@@ -1203,7 +1197,12 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.AddCustomSetterTaskRes
         (getRequestParser:
-            Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>>)
+            Func<
+                'ctx,
+                'entity,
+                RequestParserHelper<'originalCtx>,
+                Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>
+             >)
         =
         {
             this with
@@ -1219,7 +1218,12 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.AddCustomSetterAsyncRes
         (getRequestParser:
-            Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>)
+            Func<
+                'ctx,
+                'entity,
+                RequestParserHelper<'originalCtx>,
+                Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>
+             >)
         =
         this.AddCustomSetterTaskRes(Task.liftAsyncFunc3 getRequestParser)
 
@@ -1237,7 +1241,12 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.AddCustomSetterRes
         (getRequestParser:
-            Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>)
+            Func<
+                'ctx,
+                'entity,
+                RequestParserHelper<'originalCtx>,
+                Result<RequestParser<'originalCtx, 'entity>, Error list>
+             >)
         =
         this.AddCustomSetterTaskRes(Task.liftFunc3 getRequestParser)
 
@@ -1849,7 +1858,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.GetTask
         (get:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Task<Result<HttpHandler, Error list>>
+             >)
         =
         {
             this with
@@ -1861,7 +1876,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.PostTask
         (post:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Task<Result<HttpHandler, Error list>>
+             >)
         =
         {
             this with
@@ -1873,7 +1894,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.PatchTask
         (patch:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Task<Result<HttpHandler, Error list>>
+             >)
         =
         {
             this with
@@ -1885,7 +1912,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.DeleteTask
         (delete:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Task<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Task<Result<HttpHandler, Error list>>
+             >)
         =
         {
             this with
@@ -1897,25 +1930,49 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.GetAsync
         (get:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Async<Result<HttpHandler, Error list>>
+             >)
         =
         this.GetTask(Task.liftAsyncFunc4 get)
 
     member this.PostAsync
         (post:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Async<Result<HttpHandler, Error list>>
+             >)
         =
         this.PostTask(Task.liftAsyncFunc4 post)
 
     member this.PatchAsync
         (patch:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Async<Result<HttpHandler, Error list>>
+             >)
         =
         this.PatchTask(Task.liftAsyncFunc4 patch)
 
     member this.DeleteAsync
         (delete:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Responder<'originalCtx>, 'entity, Async<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Responder<'originalCtx>,
+                'entity,
+                Async<Result<HttpHandler, Error list>>
+             >)
         =
         this.DeleteTask(Task.liftAsyncFunc4 delete)
 
@@ -1967,31 +2024,23 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
         this.LookupTaskRes(Task.liftAsyncFunc getById, getPolyBuilder)
 
     member this.LookupTask
-        (
-            getById: Func<'ctx, 'id, Task<'entity option>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getById: Func<'ctx, 'id, Task<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.LookupTaskRes((fun ctx id -> getById.Invoke(ctx, id) |> Task.map Ok), getPolyBuilder)
 
     member this.LookupTask
-        (
-            getById: Func<'id, Task<'entity option>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getById: Func<'id, Task<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.LookupTaskRes((fun _ id -> getById.Invoke id |> Task.map Ok), getPolyBuilder)
 
     member this.LookupAsync
-        (
-            getById: Func<'ctx, 'id, Async<'entity option>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getById: Func<'ctx, 'id, Async<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.LookupTask(Task.liftAsyncFunc2 getById, getPolyBuilder)
 
     member this.LookupAsync
-        (
-            getById: Func<'id, Async<'entity option>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getById: Func<'id, Async<'entity option>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.LookupTask(Task.liftAsyncFunc getById, getPolyBuilder)
 
     member this.LookupRes
@@ -2009,17 +2058,13 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
         this.LookupTaskRes(Task.liftFunc getById, getPolyBuilder)
 
     member this.Lookup
-        (
-            getById: Func<'ctx, 'id, 'entity option>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getById: Func<'ctx, 'id, 'entity option>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.LookupTaskRes(TaskResult.liftFunc2 getById, getPolyBuilder)
 
     member this.Lookup
-        (
-            getById: Func<'id, 'entity option>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getById: Func<'id, 'entity option>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.LookupTaskRes(TaskResult.liftFunc getById, getPolyBuilder)
 
     member _.GetCollectionTaskRes
@@ -2046,7 +2091,11 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
     member _.GetCollectionTaskRes
         (
             getRequestParser:
-                Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>,
+                Func<
+                    'ctx,
+                    RequestParserHelper<'originalCtx>,
+                    Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>
+                 >,
             getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
         ) =
         PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>
@@ -2076,23 +2125,23 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
     member this.GetCollectionAsyncRes
         (
             getRequestParser:
-                Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>,
+                Func<
+                    'ctx,
+                    RequestParserHelper<'originalCtx>,
+                    Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>
+                 >,
             getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
         ) =
         this.GetCollectionTaskRes(Task.liftAsyncFunc2 getRequestParser, getPolyBuilder)
 
     member this.GetCollectionTask
-        (
-            getCollection: Func<'ctx, Task<'entity list>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getCollection: Func<'ctx, Task<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.GetCollectionTaskRes(getCollection.Invoke >> Task.map Ok, getPolyBuilder)
 
     member this.GetCollectionTask
-        (
-            getCollection: Func<unit, Task<'entity list>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getCollection: Func<unit, Task<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.GetCollectionTaskRes(getCollection.Invoke >> Task.map Ok, getPolyBuilder)
 
     member this.GetCollectionTask
@@ -2104,17 +2153,13 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
         this.GetCollectionTaskRes((fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Task.map Ok), getPolyBuilder)
 
     member this.GetCollectionAsync
-        (
-            getCollection: Func<'ctx, Async<'entity list>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getCollection: Func<'ctx, Async<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.GetCollectionTask(Task.liftAsyncFunc getCollection, getPolyBuilder)
 
     member this.GetCollectionAsync
-        (
-            getCollection: Func<unit, Async<'entity list>>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getCollection: Func<unit, Async<'entity list>>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.GetCollectionTask(Task.liftAsyncFunc getCollection, getPolyBuilder)
 
     member this.GetCollectionAsync
@@ -2142,23 +2187,23 @@ type PolymorphicOperationHelper<'originalCtx, 'ctx, 'entity, 'id>
     member this.GetCollectionRes
         (
             getRequestParser:
-                Func<'ctx, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity list>, Error list>>,
+                Func<
+                    'ctx,
+                    RequestParserHelper<'originalCtx>,
+                    Result<RequestParser<'originalCtx, 'entity list>, Error list>
+                 >,
             getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
         ) =
         this.GetCollectionTaskRes(Task.liftFunc2 getRequestParser, getPolyBuilder)
 
     member this.GetCollection
-        (
-            getCollection: Func<'ctx, 'entity list>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getCollection: Func<'ctx, 'entity list>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.GetCollectionTaskRes(TaskResult.liftFunc getCollection, getPolyBuilder)
 
     member this.GetCollection
-        (
-            getCollection: Func<unit, 'entity list>,
-            getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
-        ) =
+        (getCollection: Func<unit, 'entity list>, getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>)
+        =
         this.GetCollectionTaskRes(TaskResult.liftFunc getCollection, getPolyBuilder)
 
     member this.GetCollection
@@ -2188,7 +2233,12 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
 
     member _.DeleteTaskRes
         (getRequestParser:
-            Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, unit>, Error list>>>)
+            Func<
+                'ctx,
+                'entity,
+                RequestParserHelper<'originalCtx>,
+                Task<Result<RequestParser<'originalCtx, unit>, Error list>>
+             >)
         =
         DeleteOperation<'originalCtx, 'ctx, 'entity>
             .Create(
@@ -2212,13 +2262,22 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
 
     member this.DeleteAsyncRes
         (getRequestParser:
-            Func<'ctx, 'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>)
+            Func<
+                'ctx,
+                'entity,
+                RequestParserHelper<'originalCtx>,
+                Async<Result<RequestParser<'originalCtx, unit>, Error list>>
+             >)
         =
         this.DeleteTaskRes(Task.liftAsyncFunc3 getRequestParser)
 
     member this.DeleteAsyncRes
         (getRequestParser:
-            Func<'entity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, unit>, Error list>>>)
+            Func<
+                'entity,
+                RequestParserHelper<'originalCtx>,
+                Async<Result<RequestParser<'originalCtx, unit>, Error list>>
+             >)
         =
         this.DeleteTaskRes(Task.liftAsyncFunc2 getRequestParser)
 
@@ -2716,8 +2775,7 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         this.ForContextTaskRes(TaskResult.lift2 mapCtx)
 
     member _.LookupTaskRes(getById: Func<'ctx, 'id, Task<Result<'entity option, Error list>>>) =
-        ResourceLookup<'originalCtx, 'ctx, 'entity, 'id>
-            .Create(mapCtx, (fun ctx id -> getById.Invoke(ctx, id)))
+        ResourceLookup<'originalCtx, 'ctx, 'entity, 'id>.Create(mapCtx, (fun ctx id -> getById.Invoke(ctx, id)))
 
     member this.LookupTaskRes(getById: Func<'id, Task<Result<'entity option, Error list>>>) =
         this.LookupTaskRes(fun _ id -> getById.Invoke id)
@@ -2764,7 +2822,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
     member _.GetCollectionTaskRes
         (getRequestParser:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Task<Result<RequestParser<'originalCtx, 'entity list>, Error list>>
+             >)
         =
         GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id>
             .Create(
@@ -2782,7 +2844,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
     member this.GetCollectionAsyncRes
         (getRequestParser:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Async<Result<RequestParser<'originalCtx, 'entity list>, Error list>>
+             >)
         =
         this.GetCollectionTaskRes(Task.liftAsyncFunc2 getRequestParser)
 
@@ -2863,7 +2929,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
     member this.PostAsyncRes
         (getRequestParser:
-            Func<'ctx, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>
+             >)
         =
         this.PostTaskRes(Task.liftAsyncFunc2 getRequestParser)
 
@@ -2945,7 +3015,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         (
             backRef: RequestGetter<'originalCtx, 'backRefEntity>,
             getRequestParser:
-                Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>>
+                Func<
+                    'ctx * 'backRefEntity,
+                    RequestParserHelper<'originalCtx>,
+                    Task<Result<RequestParser<'originalCtx, 'entity>, Error list>>
+                 >
         ) =
         let mapCtxWithBackRef ctx req =
             mapCtx ctx
@@ -2983,51 +3057,54 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         (
             backRef: RequestGetter<'originalCtx, 'backRefEntity>,
             getRequestParser:
-                Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>>
+                Func<
+                    'ctx * 'backRefEntity,
+                    RequestParserHelper<'originalCtx>,
+                    Async<Result<RequestParser<'originalCtx, 'entity>, Error list>>
+                 >
         ) =
         this.PostBackRefTaskRes(backRef, Task.liftAsyncFunc2 getRequestParser)
 
     member this.PostBackRefTask
-        (
-            backRef: RequestGetter<'originalCtx, 'backRefEntity>,
-            createEntity: Func<'ctx * 'backRefEntity, Task<'entity>>
-        ) =
+        (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Task<'entity>>)
+        =
         this.PostBackRefTaskRes(backRef, createEntity.Invoke >> Task.map Ok)
 
     member this.PostBackRefTask
-        (
-            backRef: RequestGetter<'originalCtx, 'backRefEntity>,
-            createEntity: Func<unit, Task<'entity>>
-        ) =
+        (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Task<'entity>>)
+        =
         this.PostBackRefTaskRes(backRef, createEntity.Invoke >> Task.map Ok)
 
     member this.PostBackRefTask
         (
             backRef: RequestGetter<'originalCtx, 'backRefEntity>,
             getRequestParser:
-                Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Task<RequestParser<'originalCtx, 'entity>>>
+                Func<
+                    'ctx * 'backRefEntity,
+                    RequestParserHelper<'originalCtx>,
+                    Task<RequestParser<'originalCtx, 'entity>>
+                 >
         ) =
         this.PostBackRefTaskRes(backRef, (fun ctx parse -> getRequestParser.Invoke(ctx, parse) |> Task.map Ok))
 
     member this.PostBackRefAsync
-        (
-            backRef: RequestGetter<'originalCtx, 'backRefEntity>,
-            createEntity: Func<'ctx * 'backRefEntity, Async<'entity>>
-        ) =
+        (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, Async<'entity>>) =
         this.PostBackRefTask(backRef, Task.liftAsyncFunc createEntity)
 
     member this.PostBackRefAsync
-        (
-            backRef: RequestGetter<'originalCtx, 'backRefEntity>,
-            createEntity: Func<unit, Async<'entity>>
-        ) =
+        (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Async<'entity>>)
+        =
         this.PostBackRefTask(backRef, Task.liftAsyncFunc createEntity)
 
     member this.PostBackRefAsync
         (
             backRef: RequestGetter<'originalCtx, 'backRefEntity>,
             getRequestParser:
-                Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Async<RequestParser<'originalCtx, 'entity>>>
+                Func<
+                    'ctx * 'backRefEntity,
+                    RequestParserHelper<'originalCtx>,
+                    Async<RequestParser<'originalCtx, 'entity>>
+                 >
         ) =
         this.PostBackRefTask(backRef, Task.liftAsyncFunc2 getRequestParser)
 
@@ -3039,25 +3116,25 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
         this.PostBackRefTaskRes(backRef, Task.liftFunc createEntity)
 
     member this.PostBackRefRes
-        (
-            backRef: RequestGetter<'originalCtx, 'backRefEntity>,
-            createEntity: Func<unit, Result<'entity, Error list>>
-        ) =
+        (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, Result<'entity, Error list>>)
+        =
         this.PostBackRefTaskRes(backRef, Task.liftFunc createEntity)
 
     member this.PostBackRefRes
         (
             backRef: RequestGetter<'originalCtx, 'backRefEntity>,
             getRequestParser:
-                Func<'ctx * 'backRefEntity, RequestParserHelper<'originalCtx>, Result<RequestParser<'originalCtx, 'entity>, Error list>>
+                Func<
+                    'ctx * 'backRefEntity,
+                    RequestParserHelper<'originalCtx>,
+                    Result<RequestParser<'originalCtx, 'entity>, Error list>
+                 >
         ) =
         this.PostBackRefTaskRes(backRef, Task.liftFunc2 getRequestParser)
 
     member this.PostBackRef
-        (
-            backRef: RequestGetter<'originalCtx, 'backRefEntity>,
-            createEntity: Func<'ctx * 'backRefEntity, 'entity>
-        ) =
+        (backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<'ctx * 'backRefEntity, 'entity>)
+        =
         this.PostBackRefTaskRes(backRef, TaskResult.liftFunc createEntity)
 
     member this.PostBackRef(backRef: RequestGetter<'originalCtx, 'backRefEntity>, createEntity: Func<unit, 'entity>) =
@@ -3073,7 +3150,12 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
     member _.PostCustomTask
         (operation:
-            Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Task<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                PostCustomHelper<'originalCtx, 'entity>,
+                Task<Result<HttpHandler, Error list>>
+             >)
         =
         CustomPostOperation<'originalCtx, 'ctx, 'entity>
             .Create(
@@ -3084,6 +3166,11 @@ type OperationHelper<'originalCtx, 'ctx, 'entity, 'id> internal (mapCtx: 'origin
 
     member this.PostCustomAsync
         (operation:
-            Func<'ctx, RequestParserHelper<'originalCtx>, PostCustomHelper<'originalCtx, 'entity>, Async<Result<HttpHandler, Error list>>>)
+            Func<
+                'ctx,
+                RequestParserHelper<'originalCtx>,
+                PostCustomHelper<'originalCtx, 'entity>,
+                Async<Result<HttpHandler, Error list>>
+             >)
         =
         this.PostCustomTask(Task.liftAsyncFunc3 operation)

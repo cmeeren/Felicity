@@ -102,29 +102,19 @@ module X =
     let resDef = define.Resource("x", resId).CollectionName("xs")
 
     let nonEmptyString =
-        define.Attribute
-            .ParsedOpt(NonEmptyString.value, NonEmptyString.create)
-            .Get(fun _ -> NonEmptyString "foo")
+        define.Attribute.ParsedOpt(NonEmptyString.value, NonEmptyString.create).Get(fun _ -> NonEmptyString "foo")
 
     let nonNegativeInt =
-        define.Attribute
-            .ParsedOpt(NonNegativeInt.value, NonNegativeInt.create)
-            .Get(fun _ -> NonNegativeInt 1)
+        define.Attribute.ParsedOpt(NonNegativeInt.value, NonNegativeInt.create).Get(fun _ -> NonNegativeInt 1)
 
     let nonNegativeFloat =
-        define.Attribute
-            .ParsedOpt(NonNegativeFloat.value, NonNegativeFloat.create)
-            .Get(fun _ -> NonNegativeFloat 1)
+        define.Attribute.ParsedOpt(NonNegativeFloat.value, NonNegativeFloat.create).Get(fun _ -> NonNegativeFloat 1)
 
     let trueBool =
-        define.Attribute
-            .ParsedOpt(TrueBool.value, TrueBool.create)
-            .Get(fun _ -> TrueBool true)
+        define.Attribute.ParsedOpt(TrueBool.value, TrueBool.create).Get(fun _ -> TrueBool true)
 
     let nullableNonEmptyString =
-        define.Attribute.Nullable
-            .ParsedOpt(NonEmptyString.value, NonEmptyString.create)
-            .Get(fun _ -> None)
+        define.Attribute.Nullable.ParsedOpt(NonEmptyString.value, NonEmptyString.create).Get(fun _ -> None)
 
     let dateTimeOffset = define.Attribute.SimpleDateTimeOffset()
 
@@ -132,8 +122,7 @@ module X =
         define.Attribute.SimpleDateTimeOffsetAllowMissingOffset()
 
     let alternativeALookup =
-        Define<Ctx, string, NonEmptyString>()
-            .Operation.Lookup(fun (NonEmptyString id) -> Some id)
+        Define<Ctx, string, NonEmptyString>().Operation.Lookup(fun (NonEmptyString id) -> Some id)
 
     let a = define.Relationship.ToOne(A.resDef).Get(fun _ _ -> A)
 
@@ -141,9 +130,7 @@ module X =
         define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
 
     let post =
-        define.Operation
-            .Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X))
-            .AfterCreate(ignore)
+        define.Operation.Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X)).AfterCreate(ignore)
 
 
 type XSearchArgs = {
@@ -208,10 +195,7 @@ module Y =
         define.Attribute.Nullable.ParsedOpt((fun _ -> ""), (fun _ _ -> (None: string option)))
 
     let nullableRes =
-        define.Attribute.Nullable.ParsedRes(
-            (fun _ -> ""),
-            fun _ _ -> (Error "Custom message": Result<string, string>)
-        )
+        define.Attribute.Nullable.ParsedRes((fun _ -> ""), fun _ _ -> (Error "Custom message": Result<string, string>))
 
     let nullableEnum = define.Attribute.Nullable.Enum((fun _ -> ""), [ "a", 1; "b", 2 ])
     let nullableBool = define.Attribute.Nullable.SimpleBool()
@@ -237,9 +221,7 @@ module Y =
         define.Operation.GetCollection(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> []))
 
     let post =
-        define.Operation
-            .Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X))
-            .AfterCreate(ignore)
+        define.Operation.Post(fun ctx parser -> (ctx.GetReqParser parser).Map(fun () -> X)).AfterCreate(ignore)
 
 
 

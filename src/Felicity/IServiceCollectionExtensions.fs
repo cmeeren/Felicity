@@ -299,7 +299,9 @@ type JsonApiConfigBuilder<'ctx> = internal {
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<NonNullableAttribute<_, _, _, _, _>>
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<
+                                NonNullableAttribute<_, _, _, _, _>
+                                                                             >
                         )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> Attribute<'ctx>).Name, pi.PropertyType.GetGenericArguments()[4]
@@ -331,7 +333,9 @@ type JsonApiConfigBuilder<'ctx> = internal {
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToOneNullableRelationship<_, _, _, _, _>>
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<
+                                ToOneNullableRelationship<_, _, _, _, _>
+                                                                             >
                         )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> ToOneNullableRelationship<'ctx>).Name,
@@ -342,7 +346,9 @@ type JsonApiConfigBuilder<'ctx> = internal {
                         m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
                         |> Array.filter (fun pi ->
                             pi.PropertyType.IsGenericType
-                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<ToManyRelationship<_, _, _, _, _>>
+                            && pi.PropertyType.GetGenericTypeDefinition() = typedefof<
+                                ToManyRelationship<_, _, _, _, _>
+                                                                             >
                         )
                         |> Array.map (fun pi ->
                             (pi.GetValue(null) :?> ToManyRelationship<'ctx>).Name,

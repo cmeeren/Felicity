@@ -79,11 +79,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         Id<'ctx, 'entity, 'id>.Create(fromDomain, toDomain, getId)
 
     member _.ParsedTaskRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Task<Result<'id, Error list>>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<Result<'id, Error list>>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         Id<'ctx, 'entity, 'id>
             .Create(
                 fromDomain,
@@ -92,19 +89,13 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
             )
 
     member this.ParsedAsyncRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Async<Result<'id, Error list>>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Async<Result<'id, Error list>>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes(fromDomain, Task.liftAsync2 toDomain, getId)
 
     member this.ParsedTaskOpt
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Task<'id option>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<'id option>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun ctx -> toDomain ctx >> Task.map (Result.requireSome [ invalidParsedNone ])),
@@ -112,11 +103,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedTaskOpt
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> Task<'id option>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> Task<'id option>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun _ctx -> toDomain >> Task.map (Result.requireSome [ invalidParsedNone ])),
@@ -124,11 +112,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedAsyncOpt
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Async<'id option>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Async<'id option>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun ctx ->
@@ -140,11 +125,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedAsyncOpt
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> Async<'id option>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> Async<'id option>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun _ctx ->
@@ -156,43 +138,28 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedTask
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Task<'id>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Task<'id>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Task.map Ok), getId)
 
     member this.ParsedAsync
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Async<'id>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Async<'id>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Task.fromAsync >> Task.map Ok), getId)
 
     member this.ParsedRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Result<'id, Error list>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Result<'id, Error list>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes(fromDomain, (fun ctx -> toDomain ctx >> Task.result), getId)
 
     member this.ParsedRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> Result<'id, Error list>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> Result<'id, Error list>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes(fromDomain, (fun _ctx -> toDomain >> Task.result), getId)
 
     member this.ParsedRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Result<'id, string>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Result<'id, string>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun ctx ->
@@ -204,11 +171,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> Result<'id, string>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> Result<'id, string>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun _ctx ->
@@ -220,11 +184,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> Result<'id, string list>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> Result<'id, string list>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun ctx ->
@@ -236,11 +197,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedRes
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> Result<'id, string list>,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> Result<'id, string list>, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun _ctx -> toDomain >> Result.mapError (List.map (flip invalidParsedErrMsg)) >> Task.result),
@@ -248,11 +206,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedOpt
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> 'id option,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> 'id option, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun ctx -> toDomain ctx >> Result.requireSome [ invalidParsedNone ] >> Task.result),
@@ -260,11 +215,8 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.ParsedOpt
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> 'id option,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> 'id option, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(
             fromDomain,
             (fun _ctx -> toDomain >> Result.requireSome [ invalidParsedNone ] >> Task.result),
@@ -272,17 +224,11 @@ type IdHelper<'ctx, 'entity, 'id> internal () =
         )
 
     member this.Parsed
-        (
-            fromDomain: 'id -> string,
-            toDomain: 'ctx -> string -> 'id,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: 'ctx -> string -> 'id, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(fromDomain, (fun ctx -> toDomain ctx >> Ok >> Task.result), getId)
 
     member this.Parsed
-        (
-            fromDomain: 'id -> string,
-            toDomain: string -> 'id,
-            getId: 'entity -> 'id
-        ) : Id<'ctx, 'entity, 'id> =
+        (fromDomain: 'id -> string, toDomain: string -> 'id, getId: 'entity -> 'id)
+        : Id<'ctx, 'entity, 'id> =
         this.ParsedTaskRes'(fromDomain, (fun _ctx -> toDomain >> Ok >> Task.result), getId)

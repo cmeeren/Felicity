@@ -216,9 +216,7 @@ module A6 =
     let delete = define.Operation.Delete(ignore)
 
     let preconditions =
-        define.Preconditions
-            .LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero))
-            .Optional
+        define.Preconditions.LastModified(fun _ -> DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)).Optional
 
 
 type MetaCtx = { mutable Meta: Map<string, obj> }

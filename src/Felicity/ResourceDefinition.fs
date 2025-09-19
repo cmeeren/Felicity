@@ -518,10 +518,8 @@ type ResourceDefinition<'ctx, 'entity, 'id> = internal {
     /// Lock another (e.g. parent) resource for the entirety of all modification operations
     /// on this resource to ensure there are no concurrent updates to the other resource.
     member this.LockOtherForModification
-        (
-            resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>,
-            getOtherIdForResourceOperation: 'id -> 'otherId
-        ) =
+        (resDef: ResourceDefinition<'ctx, 'otherEntity, 'otherId>, getOtherIdForResourceOperation: 'id -> 'otherId)
+        =
         this.LockOtherForModification(resDef, Task.lift2 (fun _ id -> getOtherIdForResourceOperation id |> Some))
 
     /// Lock another (e.g. parent) resource for the entirety of all POST (resource creation)

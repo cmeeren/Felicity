@@ -33,18 +33,10 @@ module C =
     let c = define.Attribute.SimpleString().Get(fun _ -> "")
 
     let relToOne =
-        define.Relationship
-            .ToOne(resDef)
-            .Get(fun _ -> C "1")
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOne(resDef).Get(fun _ -> C "1").Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let relToOneNullable =
-        define.Relationship
-            .ToOneNullable(resDef)
-            .Get(fun _ -> None)
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOneNullable(resDef).Get(fun _ -> None).Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let relToMany =
         define.Relationship
@@ -70,18 +62,10 @@ module D =
     let c = define.Attribute.SimpleString().Get(fun _ -> "")
 
     let relToOne =
-        define.Relationship
-            .ToOne(C.resDef)
-            .Get(fun _ -> C "1")
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOne(C.resDef).Get(fun _ -> C "1").Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let relToOneNullable =
-        define.Relationship
-            .ToOneNullable(C.resDef)
-            .Get(fun _ -> None)
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOneNullable(C.resDef).Get(fun _ -> None).Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let relToMany =
         define.Relationship
@@ -181,11 +165,7 @@ module A =
     let resDef = define.Resource("a", resId).CollectionName("as")
 
     let attrA =
-        define.Attribute
-            .SimpleString()
-            .Get(fun _ -> "")
-            .Set(fun _ a -> a)
-            .AddConstraint("foo", (fun _ _ -> ""))
+        define.Attribute.SimpleString().Get(fun _ -> "").Set(fun _ a -> a).AddConstraint("foo", (fun _ _ -> ""))
 
     let attrB = define.Attribute.Nullable.SimpleString()
 
@@ -196,18 +176,10 @@ module A =
     let attrCAndDSetter = define.Operation.Set2((fun _ _ a -> a), attrC, attrD)
 
     let relB =
-        define.Relationship
-            .ToOne(B.resDef)
-            .Get(fun _ -> B "1")
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOne(B.resDef).Get(fun _ -> B "1").Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let relBNone =
-        define.Relationship
-            .ToOneNullable(B.resDef)
-            .Get(fun _ -> None)
-            .Set(fun _ a -> a)
-            .AfterModifySelf(ignore)
+        define.Relationship.ToOneNullable(B.resDef).Get(fun _ -> None).Set(fun _ a -> a).AfterModifySelf(ignore)
 
     let relBEmpty =
         define.Relationship
@@ -291,10 +263,7 @@ module A =
             .PostAsync(fun _ _ respond _ -> respond.WithOptEntity(B.resDef, None) |> Ok |> async.Return)
             .PatchAsync(fun _ _ respond _ -> respond.WithEntities(B.resDef, []) |> Ok |> async.Return)
             .DeleteAsync(fun _ _ respond _ ->
-                respond
-                    .RegisterResourceType(resDef)
-                    .RegisterResourceType(B.resDef)
-                    .WithPolymorphicEntities([])
+                respond.RegisterResourceType(resDef).RegisterResourceType(B.resDef).WithPolymorphicEntities([])
                 |> Ok
                 |> async.Return
             )
@@ -371,9 +340,7 @@ module F =
     let r = define.Relationship.ToOneNullable(resDef)
 
     let postBackRefParser =
-        define.Operation
-            .PostBackRef(r, (fun (_, _) parser -> parser.For("1")))
-            .AfterCreate(ignore)
+        define.Operation.PostBackRef(r, (fun (_, _) parser -> parser.For("1"))).AfterCreate(ignore)
 
 
 
@@ -507,22 +474,13 @@ module X =
         define.Attribute.SimpleString().Get(fun _ -> "").RequireExplicitInclude(false)
 
     let nullableRequiresExplicitInclude =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun _ -> None)
-            .RequireExplicitInclude()
+        define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude()
 
     let nullableRequiresExplicitIncludeTrue =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun _ -> None)
-            .RequireExplicitInclude(true)
+        define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(true)
 
     let nullableRequiresExplicitIncludeFalse =
-        define.Attribute.Nullable
-            .SimpleString()
-            .Get(fun _ -> None)
-            .RequireExplicitInclude(false)
+        define.Attribute.Nullable.SimpleString().Get(fun _ -> None).RequireExplicitInclude(false)
 
     let getColl = define.Operation.GetCollection(fun () -> [])
 

@@ -83,10 +83,8 @@ type RequestParser<'ctx, 'a> = internal {
         this
 
     member private this.AddTaskRes
-        (
-            set: 'ctx -> Request -> 'b -> 'a -> Task<Result<'a, Error list>>,
-            getter: OptionalRequestGetter<'ctx, 'b>
-        ) =
+        (set: 'ctx -> Request -> 'b -> 'a -> Task<Result<'a, Error list>>, getter: OptionalRequestGetter<'ctx, 'b>)
+        =
         {
             this with
                 parse =
@@ -144,22 +142,16 @@ type RequestParser<'ctx, 'a> = internal {
         this.AddTaskRes((fun b a -> set b a |> Task.map Ok), getter)
 
     member this.AddTask
-        (
-            set: 'b -> 'c -> 'a -> Task<'a>,
-            getter: OptionalRequestGetter<'ctx, 'b>,
-            getC: RequestGetter<'ctx, 'c>
-        ) =
+        (set: 'b -> 'c -> 'a -> Task<'a>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>)
+        =
         this.AddTaskRes((fun b c a -> set b c a |> Task.map Ok), getter, getC)
 
     member this.AddAsync(set: 'b -> 'a -> Async<'a>, getter: OptionalRequestGetter<'ctx, 'b>) =
         this.AddTask(Task.liftAsync2 set, getter)
 
     member this.AddAsync
-        (
-            set: 'b -> 'c -> 'a -> Async<'a>,
-            getter: OptionalRequestGetter<'ctx, 'b>,
-            getC: RequestGetter<'ctx, 'c>
-        ) =
+        (set: 'b -> 'c -> 'a -> Async<'a>, getter: OptionalRequestGetter<'ctx, 'b>, getC: RequestGetter<'ctx, 'c>)
+        =
         this.AddTask(Task.liftAsync3 set, getter, getC)
 
     member this.AddRes
@@ -320,8 +312,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
     // Arity 0
 
     member _.ForTaskRes(create: Task<Result<'a, Error list>>) =
-        RequestParser<'ctx, 'a>
-            .Create(consumedFields, consumedParams, includedTypeAndId, ctx, req, (fun _ _ -> create))
+        RequestParser<'ctx, 'a>.Create(consumedFields, consumedParams, includedTypeAndId, ctx, req, (fun _ _ -> create))
 
     member _.ForAsyncRes(create: Async<Result<'a, Error list>>) =
         RequestParser<'ctx, 'a>
@@ -372,11 +363,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
     // Arity 2
 
     member _.ForTaskRes
-        (
-            create: 'p1 -> 'p2 -> Task<Result<'a, Error list>>,
-            p1: RequestGetter<'ctx, 'p1>,
-            p2: RequestGetter<'ctx, 'p2>
-        ) =
+        (create: 'p1 -> 'p2 -> Task<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>)
+        =
         [| p1.FieldName; p2.FieldName |]
         |> Array.iter (Option.iter (consumedFields.Add >> ignore))
 
@@ -396,11 +384,7 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
             )
 
     member this.ForAsyncRes
-        (
-            create: 'p1 -> 'p2 -> Async<Result<'a, Error list>>,
-            p1: RequestGetter<'ctx, 'p1>,
-            p2: RequestGetter<'ctx, 'p2>
-        ) =
+        (create: 'p1 -> 'p2 -> Async<Result<'a, Error list>>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
         this.ForTaskRes(Task.liftAsync2 create, p1, p2)
 
     member this.ForTask(create: 'p1 -> 'p2 -> Task<'a>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
@@ -410,11 +394,8 @@ type RequestParserHelper<'ctx> internal (ctx: 'ctx, req: Request, ?includedTypeA
         this.ForTask(Task.liftAsync2 create, p1, p2)
 
     member this.ForRes
-        (
-            create: 'p1 -> 'p2 -> Result<'a, Error list>,
-            p1: RequestGetter<'ctx, 'p1>,
-            p2: RequestGetter<'ctx, 'p2>
-        ) =
+        (create: 'p1 -> 'p2 -> Result<'a, Error list>, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>)
+        =
         this.ForTaskRes(Task.lift2 create, p1, p2)
 
     member this.For(create: 'p1 -> 'p2 -> 'a, p1: RequestGetter<'ctx, 'p1>, p2: RequestGetter<'ctx, 'p2>) =
