@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### 0.24.3 (2025-10-03)
+
+* Lowered the default minimum `page[limit]` and `page[size]` values from 1 to 0, since this can be useful if clients
+  want only `meta` (such as total count).
+
 ### 0.24.2 (2025-09-19)
 
 * Added possibility of supplying top-level links (with or without link `meta`) by using `GetTopLevelLinks` or

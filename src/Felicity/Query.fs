@@ -1282,11 +1282,11 @@ type Page<'ctx> =
 
     static member Offset: PageParam<'ctx> = PageParam<'ctx>("offset", min = 0)
 
-    static member Limit: PageParam<'ctx> = PageParam<'ctx>("limit", min = 1)
+    static member Limit: PageParam<'ctx> = PageParam<'ctx>("limit", min = 0)
 
     static member Number: PageParam<'ctx> = PageParam<'ctx>("number", min = 0)
 
-    static member Size: PageParam<'ctx> = PageParam<'ctx>("size", min = 1)
+    static member Size: PageParam<'ctx> = PageParam<'ctx>("size", min = 0)
 
 
 

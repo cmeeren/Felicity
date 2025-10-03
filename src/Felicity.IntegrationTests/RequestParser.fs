@@ -1036,7 +1036,7 @@ let tests =
             let! response = Request.get ctx "/xs?page[limit]=2147483647" |> getResponse
             response |> testSuccessStatusCode
 
-            let! response = Request.get ctx "/xs?page[limit]=0" |> getResponse
+            let! response = Request.get ctx "/xs?page[limit]=-1" |> getResponse
             response |> testStatusCode 400
         }
 
@@ -1056,13 +1056,13 @@ let tests =
         testJob "page[size] has correct default min/max values" {
             let ctx = Ctx.Create(fun parser -> parser.For(ignore, Page.Size))
 
-            let! response = Request.get ctx "/xs?page[size]=1" |> getResponse
+            let! response = Request.get ctx "/xs?page[size]=0" |> getResponse
             response |> testSuccessStatusCode
 
             let! response = Request.get ctx "/xs?page[size]=2147483647" |> getResponse
             response |> testSuccessStatusCode
 
-            let! response = Request.get ctx "/xs?page[size]=0" |> getResponse
+            let! response = Request.get ctx "/xs?page[size]=-1" |> getResponse
             response |> testStatusCode 400
         }
 
