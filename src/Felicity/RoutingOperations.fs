@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Reflection
 open System.Text.Json.Serialization
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
@@ -13,10 +14,15 @@ open Microsoft.Extensions.Logging
 
 type internal RelationshipOperations<'ctx> = {
     getRelated: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configureGetRelated: IEndpointConventionBuilder -> IEndpointConventionBuilder
     getSelf: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configureGetSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
     postSelf: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configurePostSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
     patchSelf: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configurePatchSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
     deleteSelf: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configureDeleteSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 }
 
 
@@ -28,6 +34,7 @@ type internal LinkOperations<'ctx> = {
             -> ResourceDefinition<'ctx>
             -> BoxedEntity
             -> HttpHandler) option
+    configureGet: IEndpointConventionBuilder -> IEndpointConventionBuilder
     post:
         ((RequestValidationConfig -> HttpHandler)
             -> 'ctx
@@ -35,6 +42,7 @@ type internal LinkOperations<'ctx> = {
             -> ResourceDefinition<'ctx>
             -> BoxedEntity
             -> HttpHandler) option
+    configurePost: IEndpointConventionBuilder -> IEndpointConventionBuilder
     patch:
         ((RequestValidationConfig -> HttpHandler)
             -> 'ctx
@@ -42,6 +50,7 @@ type internal LinkOperations<'ctx> = {
             -> ResourceDefinition<'ctx>
             -> BoxedEntity
             -> HttpHandler) option
+    configurePatch: IEndpointConventionBuilder -> IEndpointConventionBuilder
     delete:
         ((RequestValidationConfig -> HttpHandler)
             -> 'ctx
@@ -49,6 +58,7 @@ type internal LinkOperations<'ctx> = {
             -> ResourceDefinition<'ctx>
             -> BoxedEntity
             -> HttpHandler) option
+    configureDelete: IEndpointConventionBuilder -> IEndpointConventionBuilder
 }
 
 
@@ -56,8 +66,11 @@ type internal ResourceOperations<'ctx> = {
     getByIdBoxedHandler:
         ('ctx -> ResourceId -> (ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) -> HttpHandler) option
     get: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configureGet: IEndpointConventionBuilder -> IEndpointConventionBuilder
     patch: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configurePatch: IEndpointConventionBuilder -> IEndpointConventionBuilder
     delete: ('ctx -> Request -> ResourceDefinition<'ctx> -> BoxedEntity -> HttpHandler) option
+    configureDelete: IEndpointConventionBuilder -> IEndpointConventionBuilder
     relationships: Map<RelationshipName, RelationshipOperations<'ctx>>
     links: Map<LinkName, LinkOperations<'ctx>>
 }
@@ -65,7 +78,9 @@ type internal ResourceOperations<'ctx> = {
 
 type internal CollectionOperations<'ctx> = {
     getCollection: ('ctx -> Request -> HttpHandler) option
+    configureGetCollection: IEndpointConventionBuilder -> IEndpointConventionBuilder
     postCollection: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> HttpHandler) option
+    configurePostCollection: IEndpointConventionBuilder -> IEndpointConventionBuilder
     resourceOperations: ResourceOperations<'ctx>
 }
 
@@ -307,7 +322,7 @@ module internal RoutingOperations =
             )
 
         if opsAndResourceDefs.Length = 0 then
-            None
+            id, None
         else
             let opLookup =
                 opsAndResourceDefs
@@ -317,6 +332,11 @@ module internal RoutingOperations =
                 )
                 |> dict
 
+            let configure builder =
+                (builder, opsAndResourceDefs)
+                ||> Array.fold (fun builder (op, _) -> op.Configure builder)
+
+            configure,
             Some
             <| fun ctx (req: Request) (resDef: ResourceDefinition<'ctx>) entity ->
                 fun next httpCtx ->
@@ -346,7 +366,7 @@ module internal RoutingOperations =
             )
 
         if opsAndResourceDefs.Length = 0 then
-            None
+            id, None
         else
             let opLookup =
                 opsAndResourceDefs
@@ -367,6 +387,11 @@ module internal RoutingOperations =
                 )
                 |> dict
 
+            let configure builder =
+                (builder, opsAndResourceDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.Configure builder)
+
+            configure,
             Some
             <| fun ctx (req: Request) (resDef: ResourceDefinition<'ctx>) entity ->
                 fun next httpCtx ->
@@ -396,7 +421,7 @@ module internal RoutingOperations =
             )
 
         if opsAndResourceDefs.Length = 0 then
-            None
+            id, None
         else
             let opLookup =
                 opsAndResourceDefs
@@ -407,6 +432,11 @@ module internal RoutingOperations =
                 )
                 |> dict
 
+            let configure builder =
+                (builder, opsAndResourceDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.Configure builder)
+
+            configure,
             Some
             <| fun ctx (req: Request) (resDef: ResourceDefinition<'ctx>) entity ->
                 fun next httpCtx ->
@@ -455,6 +485,26 @@ module internal RoutingOperations =
             let hasDeleteSelf =
                 opsAndResDefs |> Array.exists (fun (op, _, _) -> op.DeleteSelf.IsSome)
 
+            let configureGetRelated builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigureGetRelated builder)
+
+            let configureGetSelf builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigureGetSelf builder)
+
+            let configurePostSelf builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigurePostSelf builder)
+
+            let configurePatchSelf builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigurePatchSelf builder)
+
+            let configureDeleteSelf builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigureDeleteSelf builder)
+
             relName,
             {
                 getRelated =
@@ -469,6 +519,7 @@ module internal RoutingOperations =
                                 match op.GetRelated with
                                 | None -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
                                 | Some getRel -> getRel ctx req entity resDef builder
+                configureGetRelated = configureGetRelated
                 getSelf =
                     if not hasGetSelf then
                         None
@@ -481,6 +532,7 @@ module internal RoutingOperations =
                                 match op.GetSelf with
                                 | None -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
                                 | Some getSelf -> getSelf ctx req entity resDef builder
+                configureGetSelf = configureGetSelf
                 postSelf =
                     if not hasPostSelf then
                         None
@@ -501,6 +553,7 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some postSelf -> postSelf ctx req preconditions entity resDef builder
+                configurePostSelf = configurePostSelf
                 patchSelf =
                     if not hasPatchSelf then
                         None
@@ -542,6 +595,7 @@ module internal RoutingOperations =
                                         handleErrors [ modifyRelSelfReadOnly relName resDef.TypeName ]
                                 | Some patchSelf ->
                                     patchSelf ctx req resDef.TypeName preconditions entity resDef builder
+                configurePatchSelf = configurePatchSelf
                 deleteSelf =
                     if not hasDeleteSelf then
                         None
@@ -562,6 +616,7 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some deleteSelf -> deleteSelf ctx req preconditions entity resDef builder
+                configureDeleteSelf = configureDeleteSelf
             }
         )
         |> Map.ofArray
@@ -600,6 +655,22 @@ module internal RoutingOperations =
             let hasPatch = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.Patch.IsSome)
             let hasDelete = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.Delete.IsSome)
 
+            let configureGet builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigureGet builder)
+
+            let configurePost builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigurePost builder)
+
+            let configurePatch builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigurePatch builder)
+
+            let configureDelete builder =
+                (builder, opsAndResDefs)
+                ||> Array.fold (fun builder (op, _, _) -> op.ConfigureDelete builder)
+
             let getAllowHeader (op: CustomOperation<'ctx>) =
                 [
                     if op.Get.IsSome then
@@ -637,6 +708,7 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some get -> get getValidationHandler ctx req (getResponder ctx req) entity
+                configureGet = configureGet
                 post =
                     if not hasPost then
                         None
@@ -658,6 +730,7 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some post -> post getValidationHandler ctx req (getResponder ctx req) prec entity
+                configurePost = configurePost
                 patch =
                     if not hasPatch then
                         None
@@ -679,6 +752,7 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some patch -> patch getValidationHandler ctx req (getResponder ctx req) prec entity
+                configurePatch = configurePatch
                 delete =
                     if not hasDelete then
                         None
@@ -700,31 +774,45 @@ module internal RoutingOperations =
                                             collName
                                     ]
                                 | Some delete -> delete getValidationHandler ctx req (getResponder ctx req) prec entity
+                configureDelete = configureDelete
             }
         )
         |> Map.ofArray
 
 
 
-    let resourceOperations resourceModuleMap getBaseUrl collName (resourceModules: Type[]) : ResourceOperations<'ctx> = {
-        getByIdBoxedHandler =
-            ResourceModule.resourceLookup<'ctx> collName resourceModules
-            |> Option.map (fun op ->
-                fun ctx rawId handler ->
-                    fun next httpCtx ->
-                        task {
-                            match! op.GetByIdBoxed ctx rawId with
-                            | Error errs -> return! handleErrors errs next httpCtx
-                            | Ok None -> return! handleErrors [ resourceNotFound collName rawId ] next httpCtx
-                            | Ok(Some(resDef, entity)) -> return! handler resDef entity next httpCtx
-                        }
-            )
-        get = getResource resourceModuleMap getBaseUrl collName resourceModules
-        patch = patchResource resourceModuleMap getBaseUrl collName resourceModules
-        delete = deleteResource resourceModuleMap getBaseUrl collName resourceModules
-        relationships = relationshipOperations resourceModuleMap getBaseUrl collName resourceModules
-        links = linkOperations resourceModuleMap getBaseUrl collName resourceModules
-    }
+    let resourceOperations resourceModuleMap getBaseUrl collName (resourceModules: Type[]) : ResourceOperations<'ctx> =
+        let configureGet, get =
+            getResource resourceModuleMap getBaseUrl collName resourceModules
+
+        let configurePatch, patch =
+            patchResource resourceModuleMap getBaseUrl collName resourceModules
+
+        let configureDelete, delete =
+            deleteResource resourceModuleMap getBaseUrl collName resourceModules
+
+        {
+            getByIdBoxedHandler =
+                ResourceModule.resourceLookup<'ctx> collName resourceModules
+                |> Option.map (fun op ->
+                    fun ctx rawId handler ->
+                        fun next httpCtx ->
+                            task {
+                                match! op.GetByIdBoxed ctx rawId with
+                                | Error errs -> return! handleErrors errs next httpCtx
+                                | Ok None -> return! handleErrors [ resourceNotFound collName rawId ] next httpCtx
+                                | Ok(Some(resDef, entity)) -> return! handler resDef entity next httpCtx
+                            }
+                )
+            get = get
+            configureGet = configureGet
+            patch = patch
+            configurePatch = configurePatch
+            delete = delete
+            configureDelete = configureDelete
+            relationships = relationshipOperations resourceModuleMap getBaseUrl collName resourceModules
+            links = linkOperations resourceModuleMap getBaseUrl collName resourceModules
+        }
 
 
     let getCollection<'ctx> resourceModuleMap getBaseUrl collName (resourceModules: Type[]) =
@@ -737,7 +825,7 @@ module internal RoutingOperations =
                 |> Option.map (fun op ->
                     let rDef = ResourceModule.resourceDefinition<'ctx> m
                     let builder = responseBuilder resourceModuleMap getBaseUrl
-                    fun ctx req -> op.Run rDef ctx req builder
+                    op.Configure, fun ctx req -> op.Run rDef ctx req builder
                 )
             )
 
@@ -758,14 +846,14 @@ module internal RoutingOperations =
                         |> Array.toList
 
                     let builder = responseBuilder resourceModuleMap getBaseUrl
-                    fun ctx req -> op.Run collectionResTypes ctx req builder
+                    op.Configure, fun ctx req -> op.Run collectionResTypes ctx req builder
                 )
             )
 
         Array.concat [ nonPolymorphicOperations; polymorphicOperations ]
         |> function
-            | [||] -> None
-            | [| x |] -> Some x
+            | [||] -> id, None
+            | [| configure, x |] -> configure, Some x
             | xs ->
                 failwith
                     $"%i{xs.Length} public GET resource operations specified for collection name %s{collName}; only one is allowed"
@@ -780,7 +868,7 @@ module internal RoutingOperations =
             )
 
         if opsAndResourceDefs.Length = 0 then
-            None
+            id, None
         else
             let opLookup =
                 opsAndResourceDefs
@@ -811,6 +899,11 @@ module internal RoutingOperations =
                 |> Seq.tryExactlyOne
                 |> Option.filter (fun (op, _, _, _) -> op.AllowReadingBody)
 
+            let configure builder =
+                (builder, opsAndResourceDefs)
+                ||> Array.fold (fun builder (op, _) -> op.Configure builder)
+
+            configure,
             Some
             <| fun validationHandler ctx (req: Request) ->
                 fun next httpCtx ->
@@ -843,8 +936,17 @@ module internal RoutingOperations =
         collName
         (resourceModules: Type[])
         : CollectionOperations<'ctx> =
+
+        let configureGetCollection, getCollection =
+            getCollection resourceModuleMap getBaseUrl collName resourceModules
+
+        let configurePostCollection, postCollection =
+            postCollection resourceModuleMap getBaseUrl collName resourceModules
+
         {
-            getCollection = getCollection resourceModuleMap getBaseUrl collName resourceModules
-            postCollection = postCollection resourceModuleMap getBaseUrl collName resourceModules
+            getCollection = getCollection
+            configureGetCollection = configureGetCollection
+            postCollection = postCollection
+            configurePostCollection = configurePostCollection
             resourceOperations = resourceOperations resourceModuleMap getBaseUrl collName resourceModules
         }

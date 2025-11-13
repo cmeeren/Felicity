@@ -881,6 +881,10 @@ let getCollection =
 If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify
 the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
+### Configuring the ASP.NET Core endpoint
+
+Use `ConfigureEndpoint` to configure the ASP.NET Core endpoint.
+
 ### Execution order
 
 1. Get the context
@@ -940,6 +944,10 @@ If you need the operation to return `202 Accepted`, simply add `Return202Accepte
 
 See section TODO for how to do precondition validation (using `ETag`/`Last-Modified`
 and `If-Match`/`If-Unmodified-Since`) for POST requests.
+
+### Configuring the ASP.NET Core endpoint
+
+Use `ConfigureEndpoint` to configure the ASP.NET Core endpoint.
 
 ### Execution order
 
@@ -1114,6 +1122,11 @@ The following table describes the definitions supported and not supported for mo
 If you need to modify the response, e.g. to add cache headers, use `ModifyResponse`. This function allows you to modify
 the `HttpContext`, either directly or by using a Giraffe `HttpHandler`.
 
+### Configuring the ASP.NET Core endpoint
+
+Use `ConfigureEndpoint` to configure the ASP.NET Core endpoint. Note that for polymorphic collections (i.e., collections
+with multiple resource types), the `ConfigureEndpoint` for all resource modules are called in an arbitrary order.
+
 ### Execution order
 
 1. Get the context
@@ -1228,6 +1241,11 @@ this work must not cause observable state changes; the request may still fail af
 See section TODO for how to do precondition validation (using `ETag`/`Last-Modified`
 and `If-Match`/`If-Unmodified-Since`) for PATCH requests.
 
+### Configuring the ASP.NET Core endpoint
+
+Use `ConfigureEndpoint` to configure the ASP.NET Core endpoint. Note that for polymorphic collections (i.e., collections
+with multiple resource types), the `ConfigureEndpoint` for all resource modules are called in an arbitrary order.
+
 ### Execution order
 
 1. Get the context
@@ -1272,6 +1290,11 @@ this work must not cause observable state changes; the request may still fail af
 
 See section TODO for how to do precondition validation (using `ETag`/`Last-Modified`
 and `If-Match`/`If-Unmodified-Since`) for PATCH requests.
+
+### Configuring the ASP.NET Core endpoint
+
+Use `ConfigureEndpoint` to configure the ASP.NET Core endpoint. Note that for polymorphic collections (i.e., collections
+with multiple resource types), the `ConfigureEndpoint` for all resource modules are called in an arbitrary order.
 
 ### Execution order
 
@@ -1350,6 +1373,12 @@ meta, the resource’s `links` member does not contain the link at all.
 
 See section TODO for how to do precondition validation (using `ETag`/`Last-Modified`
 and `If-Match`/`If-Unmodified-Since`). This applies to POST/PATCH/DELETE requests (not GET).
+
+### Configuring the ASP.NET Core endpoint
+
+Use `ConfigureGetEndpoint`, `ConfigurePostEndpoint`, `ConfigurePatchEndpoint`, and `ConfigureDeleteEndpoint` to
+configure the ASP.NET Core endpoints. Note that for polymorphic collections (i.e., collections with multiple resource
+types), the `Configure...Endpoint` for all resource modules are called in an arbitrary order.
 
 ### Execution order
 

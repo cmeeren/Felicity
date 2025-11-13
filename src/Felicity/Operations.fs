@@ -5,6 +5,7 @@ open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Text.Json.Serialization
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
@@ -233,15 +234,19 @@ type PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
 type internal GetResourceOperation<'ctx> =
     abstract Run: ResourceDefinition<'ctx> -> 'ctx -> Request -> BoxedEntity -> ResponseBuilder<'ctx> -> HttpHandler
 
+    abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
 
 type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
     mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
     modifyResponse: 'ctx -> 'entity -> HttpHandler
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create(mapCtx) : GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = {
         mapCtx = mapCtx
         modifyResponse = fun _ _ -> fun next ctx -> next ctx
+        configure = id
     }
 
     interface GetResourceOperation<'originalCtx> with
@@ -270,6 +275,8 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                             return! handler next httpCtx
                 }
 
+        member this.Configure(builder) = this.configure builder
+
     member this.ModifyResponse(getHandler: 'ctx -> 'entity -> HttpHandler) = {
         this with
             modifyResponse = getHandler
@@ -285,10 +292,17 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
+    }
+
 
 
 type internal GetCollectionOperation<'ctx> =
     abstract Run: ResourceDefinition<'ctx> -> 'ctx -> Request -> ResponseBuilder<'ctx> -> HttpHandler
+
+    abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
 
 type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
@@ -299,12 +313,14 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
             -> Request
             -> Task<Result<Set<ConsumedFieldName> * Set<ConsumedQueryParamName> * 'entity list, Error list>>
     modifyResponse: 'ctx -> 'entity list -> HttpHandler
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create(mapCtx, getCollection) : GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = {
         mapCtx = mapCtx
         getCollection = getCollection
         modifyResponse = fun _ _ -> fun next ctx -> next ctx
+        configure = id
     }
 
     interface GetCollectionOperation<'originalCtx> with
@@ -345,6 +361,8 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
                                     return! handler next httpCtx
                 }
 
+        member this.Configure(builder) = this.configure builder
+
     member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) = {
         this with
             modifyResponse = getHandler
@@ -360,9 +378,16 @@ type GetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
+    }
+
 
 type internal PolymorphicGetCollectionOperation<'ctx> =
     abstract Run: ResourceTypeName list -> 'ctx -> Request -> ResponseBuilder<'ctx> -> HttpHandler
+
+    abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
 
 type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
@@ -375,6 +400,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
     getPolyBuilder: 'entity -> PolymorphicBuilder<'originalCtx>
     modifyResponse: 'ctx -> 'entity list -> HttpHandler
     polymorphicResourceTypesForFieldTracking: ResourceTypeName list
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create
@@ -386,6 +412,7 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
             getPolyBuilder = getPolyBuilder
             modifyResponse = fun _ _ -> fun next ctx -> next ctx
             polymorphicResourceTypesForFieldTracking = []
+            configure = id
         }
 
     interface PolymorphicGetCollectionOperation<'originalCtx> with
@@ -438,6 +465,8 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
                                     return! handler next httpCtx
                 }
 
+        member this.Configure(builder) = this.configure builder
+
     member this.ModifyResponse(getHandler: 'ctx -> 'entity list -> HttpHandler) = {
         this with
             modifyResponse = getHandler
@@ -464,6 +493,11 @@ type PolymorphicGetCollectionOperation<'originalCtx, 'ctx, 'entity, 'id> = inter
                 |> List.distinct
     }
 
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
+    }
+
 
 
 type internal RequestValidationConfig = {
@@ -486,6 +520,7 @@ type internal PostOperation<'ctx> =
 
     abstract HasPersist: bool
     abstract AllowReadingBody: bool
+    abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
 
 type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
@@ -502,6 +537,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
     preconditionsOptional: bool
     getETag: 'ctx -> EntityTagHeaderValue option
     getLastModified: 'ctx -> DateTimeOffset option
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create(mapCtx, create) : PostOperation<'originalCtx, 'ctx, 'entity> = {
@@ -514,6 +550,7 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
         preconditionsOptional = false
         getETag = fun _ -> None
         getLastModified = fun _ -> None
+        configure = id
     }
 
     interface PostOperation<'originalCtx> with
@@ -624,6 +661,8 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
 
                                                 return! handler next httpCtx
                 }
+
+        member this.Configure(builder) = this.configure builder
 
     member this.AfterCreateTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) = {
         this with
@@ -737,6 +776,11 @@ type PostOperation<'originalCtx, 'ctx, 'entity> = internal {
     member this.PreconditionsOptional = {
         this with
             preconditionsOptional = true
+    }
+
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
     }
 
 type PostCustomHelper<'ctx, 'entity>
@@ -886,6 +930,7 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
             -> Task<Result<HttpHandler, Error list>>
     allowReadingBody: bool
     validationConfig: RequestValidationConfig
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create(mapCtx, operation) : CustomPostOperation<'originalCtx, 'ctx, 'createResult> = {
@@ -897,6 +942,7 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
             ValidateContentType = true
             ValidateQueryParams = true
         }
+        configure = id
     }
 
     interface PostOperation<'originalCtx> with
@@ -917,6 +963,8 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
                         | Ok handler -> return! handler next httpCtx
                         | Error errors -> return! handleErrors errors next httpCtx
                 }
+
+        member this.Configure(builder) = this.configure builder
 
     /// Enable reading the request body manually for this operation, preventing Felicity reading the request body. This
     /// means that there must be no other POST collection operations for the same collection, since Felicity can't use
@@ -957,6 +1005,11 @@ type CustomPostOperation<'originalCtx, 'ctx, 'entity> = internal {
             }
     }
 
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
+    }
+
 
 
 type internal PatchOperation<'ctx> =
@@ -972,6 +1025,8 @@ type internal PatchOperation<'ctx> =
         ResponseBuilder<'ctx> ->
             HttpHandler
 
+    abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
 
 type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
@@ -985,6 +1040,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
     afterUpdate: ('ctx -> 'entity -> 'entity -> Task<Result<'entity, Error list>>) option
     modifyResponse: 'ctx -> 'entity -> HttpHandler
     return202Accepted: bool
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create mapCtx : PatchOperation<'originalCtx, 'ctx, 'entity> = {
@@ -994,6 +1050,7 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
         afterUpdate = None
         modifyResponse = fun _ _ -> fun next ctx -> next ctx
         return202Accepted = false
+        configure = id
     }
 
 
@@ -1119,6 +1176,8 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
                                                         return! handler next httpCtx
                 }
+
+        member this.Configure(builder) = this.configure builder
 
 
     member this.BeforeUpdateTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) = {
@@ -1418,6 +1477,11 @@ type PatchOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.ModifyResponse(handler: HttpHandler) = this.ModifyResponse(fun _ _ -> handler)
 
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
+    }
+
 
 
 type internal DeleteOperation<'ctx> =
@@ -1430,6 +1494,8 @@ type internal DeleteOperation<'ctx> =
         ResponseBuilder<'ctx> ->
             HttpHandler
 
+    abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
 
 
 type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
@@ -1438,6 +1504,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
     delete: 'originalCtx -> 'ctx -> Request -> 'entity -> Task<Result<unit, Error list>>
     modifyResponse: 'ctx -> HttpHandler
     return202Accepted: bool
+    configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create(mapCtx, delete) : DeleteOperation<'originalCtx, 'ctx, 'entity> = {
@@ -1446,6 +1513,7 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
         delete = delete
         modifyResponse = fun _ -> fun next ctx -> next ctx
         return202Accepted = false
+        configure = id
     }
 
 
@@ -1484,6 +1552,8 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
                                                 return! handler next httpCtx
                 }
+
+        member this.Configure(builder) = this.configure builder
 
 
     member this.BeforeDeleteTaskRes(f: Func<'ctx, 'entity, Task<Result<'entity, Error list>>>) = {
@@ -1577,6 +1647,11 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
 
     member this.Return202Accepted() = { this with return202Accepted = true }
 
+    member this.ConfigureEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configure = configure
+    }
+
 
 
 type internal CustomOperation<'ctx> =
@@ -1587,6 +1662,8 @@ type internal CustomOperation<'ctx> =
     abstract Get:
         ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> Responder<'ctx> -> BoxedEntity -> HttpHandler) option
 
+    abstract ConfigureGet: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
     abstract Post:
         ((RequestValidationConfig -> HttpHandler)
             -> 'ctx
@@ -1595,6 +1672,8 @@ type internal CustomOperation<'ctx> =
             -> Preconditions<'ctx>
             -> BoxedEntity
             -> HttpHandler) option
+
+    abstract ConfigurePost: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
     abstract Patch:
         ((RequestValidationConfig -> HttpHandler)
@@ -1605,6 +1684,8 @@ type internal CustomOperation<'ctx> =
             -> BoxedEntity
             -> HttpHandler) option
 
+    abstract ConfigurePatch: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
     abstract Delete:
         ((RequestValidationConfig -> HttpHandler)
             -> 'ctx
@@ -1613,6 +1694,8 @@ type internal CustomOperation<'ctx> =
             -> Preconditions<'ctx>
             -> BoxedEntity
             -> HttpHandler) option
+
+    abstract ConfigureDelete: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
 
 
@@ -1626,12 +1709,16 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     skipLink: bool
     get:
         ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+    configureGet: IEndpointConventionBuilder -> IEndpointConventionBuilder
     post:
         ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+    configurePost: IEndpointConventionBuilder -> IEndpointConventionBuilder
     patch:
         ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+    configurePatch: IEndpointConventionBuilder -> IEndpointConventionBuilder
     delete:
         ('originalCtx -> 'ctx -> Request -> Responder<'originalCtx> -> 'entity -> Task<Result<HttpHandler, Error list>>) option
+    configureDelete: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create(mapCtx, name) : CustomOperation<'originalCtx, 'ctx, 'entity> = {
@@ -1647,9 +1734,13 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
         validateStrictModeAllowedQueryParams = None
         skipLink = false
         get = None
+        configureGet = id
         post = None
+        configurePost = id
         patch = None
+        configurePatch = id
         delete = None
+        configureDelete = id
     }
 
 
@@ -1730,12 +1821,16 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                 fun getValidationHandler ctx req resp e -> this.handler getValidationHandler get ctx req resp prec e
             )
 
+        member this.ConfigureGet(builder) = this.configureGet builder
+
         member this.Post =
             this.post
             |> Option.map (fun post ->
                 fun getValidationHandler ctx req resp prec e ->
                     this.handler getValidationHandler post ctx req resp prec e
             )
+
+        member this.ConfigurePost(builder) = this.configurePost builder
 
         member this.Patch =
             this.patch
@@ -1744,12 +1839,16 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
                     this.handler getValidationHandler patch ctx req resp prec e
             )
 
+        member this.ConfigurePatch(builder) = this.configurePatch builder
+
         member this.Delete =
             this.delete
             |> Option.map (fun delete ->
                 fun getValidationHandler ctx req resp prec e ->
                     this.handler getValidationHandler delete ctx req resp prec e
             )
+
+        member this.ConfigureDelete(builder) = this.configureDelete builder
 
 
     /// Skips the requirement and validation of the JSON:API media type in the Accept request header for this custom operation
@@ -1988,6 +2087,30 @@ type CustomOperation<'originalCtx, 'ctx, 'entity> = internal {
     ///
     /// For more information, see https://github.com/json-api/json-api/issues/1656
     member this.SkipLink() = { this with skipLink = true }
+
+    /// Applies endpoint configuration to the GET endpoint.
+    member this.ConfigureGetEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGet = configure
+    }
+
+    /// Applies endpoint configuration to the POST endpoint.
+    member this.ConfigurePostEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configurePost = configure
+    }
+
+    /// Applies endpoint configuration to the PATCH endpoint.
+    member this.ConfigurePatchEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configurePatch = configure
+    }
+
+    /// Applies endpoint configuration to the DELETE endpoint.
+    member this.ConfigureDeleteEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureDelete = configure
+    }
 
 
 

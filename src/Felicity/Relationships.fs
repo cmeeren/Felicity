@@ -6,6 +6,7 @@ open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Text.Json.Serialization
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
@@ -52,8 +53,12 @@ type internal RelationshipHandlers<'ctx> =
     abstract GetRelated:
         ('ctx -> Request -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
 
+    abstract ConfigureGetRelated: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
     abstract GetSelf:
         ('ctx -> Request -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
+
+    abstract ConfigureGetSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
     abstract PostSelf:
         ('ctx
@@ -63,6 +68,8 @@ type internal RelationshipHandlers<'ctx> =
             -> ResourceDefinition<'ctx>
             -> ResponseBuilder<'ctx>
             -> HttpHandler) option
+
+    abstract ConfigurePostSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
     abstract PatchSelf:
         ('ctx
@@ -74,6 +81,8 @@ type internal RelationshipHandlers<'ctx> =
             -> ResponseBuilder<'ctx>
             -> HttpHandler) option
 
+    abstract ConfigurePatchSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
+
     abstract DeleteSelf:
         ('ctx
             -> Request
@@ -82,6 +91,8 @@ type internal RelationshipHandlers<'ctx> =
             -> ResourceDefinition<'ctx>
             -> ResponseBuilder<'ctx>
             -> HttpHandler) option
+
+    abstract ConfigureDeleteSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
 
 type internal ToOneRelationship<'ctx> =
@@ -252,6 +263,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity -> HttpHandler
     modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
     patchSelfReturn202Accepted: bool
+    configureGetRelated: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configureGetSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configurePatchSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create
@@ -277,6 +291,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             modifyPatchSelfOkResponse = fun _ _ _ -> fun next ctx -> next ctx
             modifyPatchSelfAcceptedResponse = fun _ _ -> fun next ctx -> next ctx
             patchSelfReturn202Accepted = false
+            configureGetRelated = id
+            configureGetSelf = id
+            configurePatchSelf = id
         }
 
     member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
@@ -827,6 +844,11 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
             )
 
         member _.DeleteSelf = None
+        member this.ConfigureGetRelated(builder) = this.configureGetRelated builder
+        member this.ConfigureGetSelf(builder) = this.configureGetSelf builder
+        member this.ConfigurePatchSelf(builder) = this.configurePatchSelf builder
+        member this.ConfigurePostSelf(builder) = builder
+        member this.ConfigureDeleteSelf(builder) = builder
 
 
     member this.Name = this.name
@@ -1416,6 +1438,21 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
 
+    member this.ConfigureGetRelatedEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGetRelated = configure
+    }
+
+    member this.ConfigureGetSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGetSelf = configure
+    }
+
+    member this.ConfigurePatchSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configurePatchSelf = configure
+    }
+
 
 
 [<AutoOpen>]
@@ -1633,6 +1670,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     modifyPatchSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity option -> HttpHandler
     modifyPatchSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
     patchSelfReturn202Accepted: bool
+    configureGetRelated: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configureGetSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configurePatchSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create
@@ -1658,6 +1698,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             modifyPatchSelfOkResponse = fun _ _ _ -> fun next ctx -> next ctx
             modifyPatchSelfAcceptedResponse = fun _ _ -> fun next ctx -> next ctx
             patchSelfReturn202Accepted = false
+            configureGetRelated = id
+            configureGetSelf = id
+            configurePatchSelf = id
         }
 
     member private _.toIdSetter (getRelated: ResourceLookup<'ctx, 'lookupType, 'relatedId>) entitySetter =
@@ -2234,6 +2277,11 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
             )
 
         member _.DeleteSelf = None
+        member this.ConfigureGetRelated(builder) = this.configureGetRelated builder
+        member this.ConfigureGetSelf(builder) = this.configureGetSelf builder
+        member this.ConfigurePatchSelf(builder) = this.configurePatchSelf builder
+        member this.ConfigurePostSelf(builder) = builder
+        member this.ConfigureDeleteSelf(builder) = builder
 
 
     member this.Name = this.name
@@ -2964,6 +3012,21 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.ModifyPatchSelfAcceptedResponse(handler: HttpHandler) =
         this.ModifyPatchSelfAcceptedResponse(fun _ _ -> handler)
 
+    member this.ConfigureGetRelatedEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGetRelated = configure
+    }
+
+    member this.ConfigureGetSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGetSelf = configure
+    }
+
+    member this.ConfigurePatchSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configurePatchSelf = configure
+    }
+
 
 
 [<AutoOpen>]
@@ -3181,6 +3244,11 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     modifyDeleteSelfOkResponse: 'setCtx -> 'entity -> 'relatedEntity list -> HttpHandler
     modifyDeleteSelfAcceptedResponse: 'setCtx -> 'entity -> HttpHandler
     modifySelfReturn202Accepted: bool
+    configureGetRelated: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configureGetSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configurePatchSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configurePostSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    configureDeleteSelf: IEndpointConventionBuilder -> IEndpointConventionBuilder
 } with
 
     static member internal Create
@@ -3212,6 +3280,11 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
             modifyDeleteSelfOkResponse = fun _ _ _ -> fun next ctx -> next ctx
             modifyDeleteSelfAcceptedResponse = fun _ _ -> fun next ctx -> next ctx
             modifySelfReturn202Accepted = false
+            configureGetRelated = id
+            configureGetSelf = id
+            configurePatchSelf = id
+            configurePostSelf = id
+            configureDeleteSelf = id
         }
 
     member private _.toIdSetter
@@ -3856,6 +3929,12 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
         member this.DeleteSelf =
             this.ModifySelfHandler this.remove this.modifyDeleteSelfOkResponse this.modifyDeleteSelfAcceptedResponse
+
+        member this.ConfigureGetRelated(builder) = this.configureGetRelated builder
+        member this.ConfigureGetSelf(builder) = this.configureGetSelf builder
+        member this.ConfigurePatchSelf(builder) = this.configurePatchSelf builder
+        member this.ConfigurePostSelf(builder) = this.configurePostSelf builder
+        member this.ConfigureDeleteSelf(builder) = this.configureDeleteSelf builder
 
 
     member this.Name = this.name
@@ -4721,6 +4800,31 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.ModifySelfReturn202Accepted() = {
         this with
             modifySelfReturn202Accepted = true
+    }
+
+    member this.ConfigureGetRelatedEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGetRelated = configure
+    }
+
+    member this.ConfigureGetSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureGetSelf = configure
+    }
+
+    member this.ConfigurePatchSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configurePatchSelf = configure
+    }
+
+    member this.ConfigurePostSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configurePostSelf = configure
+    }
+
+    member this.ConfigureDeleteSelfEndpoint(configure: IEndpointConventionBuilder -> IEndpointConventionBuilder) = {
+        this with
+            configureDeleteSelf = configure
     }
 
 

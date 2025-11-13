@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### 0.24.4 (2025-11-13)
+
+* Added support for configuring all ASP.NET Core endpoints using `ConfigureEndpoint` or similar when defining operations
+  and relationships.
+
 ### 0.24.3 (2025-10-03)
 
 * Lowered the default minimum `page[limit]` and `page[size]` values from 1 to 0, since this can be useful if clients

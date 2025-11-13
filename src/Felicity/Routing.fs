@@ -229,6 +229,7 @@ let internal jsonApiEndpoints
                             (match ops.getCollection with
                              | None -> handleErrors [ collGetNotAllowed collName ]
                              | Some getColl -> verifyPathCase expectedCollPath >=> validateRequest >=> getCtx getColl)
+                        |> configureEndpoint ops.configureGetCollection
                     ]
 
                     POST [
@@ -242,6 +243,7 @@ let internal jsonApiEndpoints
                                      lockResourceForModification ctx req collName None
                                      >=> postColl validateRequestWithOverrides ctx req
                                  ))
+                        |> configureEndpoint ops.configurePostCollection
                     ]
 
                     route
@@ -289,6 +291,7 @@ let internal jsonApiEndpoints
                                         >=> validateRequest
                                         >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
                                 )
+                            |> configureEndpoint ops.resourceOperations.configureGet
                         ]
 
                         PATCH [
@@ -308,6 +311,7 @@ let internal jsonApiEndpoints
                                             >=> getById ctx resId (patch ctx req)
                                         )
                                 )
+                            |> configureEndpoint ops.resourceOperations.configurePatch
                         ]
 
                         DELETE [
@@ -327,6 +331,7 @@ let internal jsonApiEndpoints
                                             >=> getById ctx resId (delete ctx req)
                                         )
                                 )
+                            |> configureEndpoint ops.resourceOperations.configureDelete
                         ]
 
                         route1
@@ -373,6 +378,7 @@ let internal jsonApiEndpoints
                                             >=> validateRequest
                                             >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
                                     )
+                                |> configureEndpoint rel.configureGetRelated
                             ]
 
                             route1
@@ -415,6 +421,7 @@ let internal jsonApiEndpoints
                                             >=> validateRequest
                                             >=> getCtx (fun ctx req -> getById ctx resId (get ctx req))
                                     )
+                                |> configureEndpoint rel.configureGetSelf
                             ]
 
                             PATCH [
@@ -441,6 +448,7 @@ let internal jsonApiEndpoints
                                                 >=> getById ctx resId (patch ctx req)
                                             )
                                     )
+                                |> configureEndpoint rel.configurePatchSelf
                             ]
 
                             POST [
@@ -467,6 +475,7 @@ let internal jsonApiEndpoints
                                                 >=> getById ctx resId (post ctx req)
                                             )
                                     )
+                                |> configureEndpoint rel.configurePostSelf
                             ]
 
                             DELETE [
@@ -493,6 +502,7 @@ let internal jsonApiEndpoints
                                                 >=> getById ctx resId (delete ctx req)
                                             )
                                     )
+                                |> configureEndpoint rel.configureDeleteSelf
                             ]
 
                             route1
@@ -568,6 +578,7 @@ let internal jsonApiEndpoints
                                                 getById ctx resId (get validateRequestWithOverrides ctx req)
                                             )
                                     )
+                                |> configureEndpoint link.configureGet
                             ]
 
                             POST [
@@ -597,6 +608,7 @@ let internal jsonApiEndpoints
                                                 >=> getById ctx resId (post validateRequestWithOverrides ctx req)
                                             )
                                     )
+                                |> configureEndpoint link.configurePost
                             ]
 
                             PATCH [
@@ -626,6 +638,7 @@ let internal jsonApiEndpoints
                                                 >=> getById ctx resId (patch validateRequestWithOverrides ctx req)
                                             )
                                     )
+                                |> configureEndpoint link.configurePatch
                             ]
 
                             DELETE [
@@ -655,6 +668,7 @@ let internal jsonApiEndpoints
                                                 >=> getById ctx resId (delete validateRequestWithOverrides ctx req)
                                             )
                                     )
+                                |> configureEndpoint link.configureDelete
                             ]
 
                             route1
