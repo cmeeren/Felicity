@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="DOCUMENTATION.md" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
+    <File Path="README.md" />
+    <File Path="RELEASE_NOTES.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.config/">
+    <File Path=".config/dotnet-tools.json" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/">
+    <File Path=".github/CONTRIBUTING.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/workflows/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="src/Felicity.Benchmarks/Felicity.Benchmarks.fsproj" />
+    <Project Path="src/Felicity.IntegrationTests/Felicity.IntegrationTests.fsproj" />
+  </Folder>
+  <Project Path="src/Felicity.SampleApi/Felicity.SampleApi.fsproj" />
+  <Project Path="src/Felicity/Felicity.fsproj" />
+</Solution>
