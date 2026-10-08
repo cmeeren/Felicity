@@ -113,8 +113,8 @@ Release notes
 
 * The invalid value is now included in the error message for attribute parse errors. The value is limited to 200
   characters.
-* Parse error messages for attributes defined with overloads that return user-defined error messages (
-  e.g. `Result<_, string>`) are generally of the form
+* Parse error messages for attributes defined with overloads that return user-defined error messages (e.g.
+  `Result<_, string>`) are generally of the form
   `Attribute 'name' got invalid value 'invalidValue': <User-defined error message>`
 
 ### 0.21.2 (2022-10-28)
@@ -140,8 +140,8 @@ Release notes
 * Added `SkipLink` to custom operations, which will make Felicity not add the link to the resource's `links` object.
   Using this is [required in order to be JSON:API compliant](https://github.com/json-api/json-api/issues/1656), but it
   is not enabled by default for backward compatibility reasons.
-* Now supports strict mode validation of query parameters in custom operations using `ValidateStrictModeQueryParams` (
-  search the documentation for details)
+* Now supports strict mode validation of query parameters in custom operations using `ValidateStrictModeQueryParams`
+  (search the documentation for details)
 
 ### 0.20.10 (2022-09-16)
 
@@ -442,8 +442,8 @@ Release notes
 
 ### 0.12.1 (2020-09-29)
 
-* Enabled lookup of arbitrary types in relationship `Set`, `SetAll`, and `Add` overloads accepting a resource lookup (
-  was previously restricted to the relationship’s related entity type, now allows lookups of e.g. simpler resource
+* Enabled lookup of arbitrary types in relationship `Set`, `SetAll`, and `Add` overloads accepting a resource lookup
+  (was previously restricted to the relationship’s related entity type, now allows lookups of e.g. simpler resource
   projections, or simple existence checks for the related IDs)
 
 ### 0.12.0 (2020-09-25)
