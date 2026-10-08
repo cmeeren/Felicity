@@ -446,12 +446,32 @@ module internal RoutingOperations =
                     | true, run -> run ctx req entity next httpCtx
 
 
+    let private requireGetContext (getOp: GetResourceOperation<'ctx>) ctx entity : HttpHandler =
+        fun next httpCtx ->
+            task {
+                match! getOp.CheckContext ctx entity with
+                | Error errs -> return! handleErrors errs next httpCtx
+                | Ok() -> return! next httpCtx
+            }
+
+
     let relationshipOperations
         (resourceModuleMap: Map<_, _>)
         getBaseUrl
         collName
         (resourceModules: Type[])
         : Map<RelationshipName, RelationshipOperations<'ctx>> =
+        // Relationship GET routes read the parent resource, so like GET /{collection}/{id}, they require the parent
+        // resource's GET resource operation and its context. Relationships of resources without a GET resource
+        // operation can still be read through includes.
+        let getResourceOps =
+            resourceModules
+            |> Array.choose (fun m ->
+                ResourceModule.getResourceOperation<'ctx> m
+                |> Option.map (fun op -> (ResourceModule.resourceDefinition<'ctx> m).TypeName, op)
+            )
+            |> dict
+
         resourceModules
         |> Array.collect (fun m ->
             m.GetProperties(BindingFlags.Public ||| BindingFlags.Static)
@@ -472,9 +492,12 @@ module internal RoutingOperations =
             let builder = responseBuilder resourceModuleMap getBaseUrl
 
             let hasGetRelated =
-                opsAndResDefs |> Array.exists (fun (op, _, _) -> op.GetRelated.IsSome)
+                opsAndResDefs
+                |> Array.exists (fun (op, _, rDef) -> op.GetRelated.IsSome && getResourceOps.ContainsKey rDef.TypeName)
 
-            let hasGetSelf = opsAndResDefs |> Array.exists (fun (op, _, _) -> op.GetSelf.IsSome)
+            let hasGetSelf =
+                opsAndResDefs
+                |> Array.exists (fun (op, _, rDef) -> op.GetSelf.IsSome && getResourceOps.ContainsKey rDef.TypeName)
 
             let hasPostSelf =
                 opsAndResDefs |> Array.exists (fun (op, _, _) -> op.PostSelf.IsSome)
@@ -516,9 +539,10 @@ module internal RoutingOperations =
                             match opsMap.TryGetValue resDef.TypeName with
                             | false, _ -> handleErrors [ relNotDefinedPolymorphic relName resDef.TypeName collName ]
                             | true, (op, _) ->
-                                match op.GetRelated with
-                                | None -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
-                                | Some getRel -> getRel ctx req entity resDef builder
+                                match op.GetRelated, getResourceOps.TryGetValue resDef.TypeName with
+                                | Some getRel, (true, getOp) ->
+                                    requireGetContext getOp ctx entity >=> getRel ctx req entity resDef builder
+                                | _ -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
                 configureGetRelated = configureGetRelated
                 getSelf =
                     if not hasGetSelf then
@@ -529,9 +553,10 @@ module internal RoutingOperations =
                             match opsMap.TryGetValue resDef.TypeName with
                             | false, _ -> handleErrors [ relNotDefinedPolymorphic relName resDef.TypeName collName ]
                             | true, (op, _) ->
-                                match op.GetSelf with
-                                | None -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
-                                | Some getSelf -> getSelf ctx req entity resDef builder
+                                match op.GetSelf, getResourceOps.TryGetValue resDef.TypeName with
+                                | Some getSelf, (true, getOp) ->
+                                    requireGetContext getOp ctx entity >=> getSelf ctx req entity resDef builder
+                                | _ -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
                 configureGetSelf = configureGetSelf
                 postSelf =
                     if not hasPostSelf then

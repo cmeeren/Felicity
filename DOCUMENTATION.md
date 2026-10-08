@@ -1105,6 +1105,10 @@ let get = define.Operation.GetResource()
 Like the lookup operation, a GET resource operation is a fundamental operation that is required for any all other
 operations against the resource’s `self` link or its relationships’ `self` links.
 
+GET requests to a resource’s relationship links (e.g. `GET /articles/123/author` and
+`GET /articles/123/relationships/author`) read the resource, so they also apply the GET resource operation’s context
+transformation (see `ForContext` in the section *Operation-specific authorization*) and return its errors.
+
 The following table describes the definitions supported and not supported for modules without a GET resource operation:
 
 |   | Definition                                          | Supported |
@@ -1116,6 +1120,9 @@ The following table describes the definitions supported and not supported for mo
 | ❌ | Custom links                                        | No        |
 | ✅ | Relationship getters                                | Yes       |
 | ❌ | Relationship setters (including to-many add/remove) | No        |
+
+Relationship getters of such resources are only used for `include`; GET requests to their relationship links return an
+error.
 
 ### Modifying the response
 
@@ -1443,6 +1450,10 @@ let patch =
 
 `ForContext` has several variants, including one allowing you to return an `Option`-wrapped value, where Felicity will
 return a generic “operation not available” error message if it returns None.
+
+Note that neither the PATCH nor the GET resource operation’s transformation applies to PATCH, POST, or DELETE requests
+to a relationship’s `self` link. To restrict those, use `MapSetContext` on the relationship (see below). The GET
+resource operation’s transformation does apply to GET requests to the resource’s relationship links.
 
 Field-specific modification authorization
 -----------------------------------------

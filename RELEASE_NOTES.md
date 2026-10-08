@@ -1,6 +1,15 @@
 Release notes
 ==============
 
+### 0.25.0 (2026-10-08)
+
+* **Breaking:** GET requests to a resource’s relationship links (`/{collection}/{id}/{relationship}` and
+  `/{collection}/{id}/relationships/{relationship}`) now apply the context transformation of the resource’s GET resource
+  operation (e.g. `ForContextRes`) and return its errors. Previously, they only used the lookup operation, so access
+  checks defined only on the GET resource operation did not apply to them.
+* **Breaking:** Relationship links of resources without a GET resource operation are no longer readable. GET requests
+  to them return 403. Such relationships can still be included.
+
 ### 0.24.4 (2025-11-13)
 
 * Added support for configuring all ASP.NET Core endpoints using `ConfigureEndpoint` or similar when defining operations

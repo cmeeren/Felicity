@@ -234,6 +234,10 @@ type PolymorphicResourceLookup<'originalCtx, 'ctx, 'entity, 'id> = internal {
 type internal GetResourceOperation<'ctx> =
     abstract Run: ResourceDefinition<'ctx> -> 'ctx -> Request -> BoxedEntity -> ResponseBuilder<'ctx> -> HttpHandler
 
+    /// Applies the operation's context mapping without running the operation, so that other reads of the entity
+    /// (such as relationship routes) have the same access requirements.
+    abstract CheckContext: 'ctx -> BoxedEntity -> Task<Result<unit, Error list>>
+
     abstract Configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
 
 
@@ -274,6 +278,12 @@ type GetResourceOperation<'originalCtx, 'ctx, 'entity, 'id> = internal {
 
                             return! handler next httpCtx
                 }
+
+        member this.CheckContext ctx entity =
+            task {
+                let! mappedCtx = this.mapCtx ctx (unbox<'entity> entity)
+                return mappedCtx |> Result.map ignore
+            }
 
         member this.Configure(builder) = this.configure builder
 

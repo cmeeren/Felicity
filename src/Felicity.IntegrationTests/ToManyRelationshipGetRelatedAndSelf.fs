@@ -111,6 +111,7 @@ module Parent1 =
     let define = Define<Ctx, Parent1, string>()
     let resId = define.Id.Simple(fun (p: Parent1) -> p.Id)
     let resDef = define.Resource("parent1", resId).CollectionName("parents")
+    let get = define.Operation.GetResource()
 
     let children =
         define.Relationship
@@ -135,6 +136,7 @@ module Parent2 =
     let define = Define<Ctx, Parent2, string>()
     let resId = define.Id.Simple(fun (p: Parent2) -> p.Id)
     let resDef = define.Resource("parent2", resId).CollectionName("parents")
+    let get = define.Operation.GetResource()
 
     let children =
         define.Relationship
@@ -157,6 +159,7 @@ module Parent3 =
     let define = Define<Ctx, Parent3, string>()
     let resId = define.Id.Simple(fun (p: Parent3) -> p.Id)
     let resDef = define.Resource("parent3", resId).CollectionName("parents")
+    let get = define.Operation.GetResource()
 
     let children =
         define.Relationship
@@ -176,6 +179,7 @@ module Parent4 =
     let define = Define<Ctx, Parent4, string>()
     let resId = define.Id.Simple(fun (p: Parent4) -> p.Id)
     let resDef = define.Resource("parent4", resId).CollectionName("parents")
+    let get = define.Operation.GetResource()
 
 
 module Parent =
