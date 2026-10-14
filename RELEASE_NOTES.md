@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+### 0.25.1 (2026-10-14)
+
+* Added `ConfigureRequestBodyReader` to wrap request body reading before JSON deserialization, for example to exclude
+  upload waiting time from application-specific processing budgets.
+
 ### 0.25.0 (2026-10-08)
 
 * **Breaking:** GET requests to a resource’s relationship links (`/{collection}/{id}/{relationship}` and

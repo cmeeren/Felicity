@@ -22,6 +22,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
     getMeta: 'ctx -> IDictionary<string, obj>
     getTopLevelLinksWithMeta: 'ctx -> IDictionary<string, string * IDictionary<string, obj>>
     configureSerializerOptions: (JsonSerializerOptions -> unit) option
+    readRequestBody: HttpContext -> Task<string>
     skipStandardLinksQueryParamNames: string[]
     skipCustomLinksQueryParamNames: string[]
     trackFieldUsage: (IServiceProvider -> 'ctx -> FieldUseInfo list -> Task<HttpHandler>) option
@@ -39,6 +40,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
         getMeta = fun _ -> Map.empty
         getTopLevelLinksWithMeta = fun _ -> Map.empty
         configureSerializerOptions = None
+        readRequestBody = fun ctx -> ctx.ReadBodyFromRequestAsync()
         skipStandardLinksQueryParamNames = [||]
         skipCustomLinksQueryParamNames = [||]
         trackFieldUsage = None
@@ -146,6 +148,16 @@ type JsonApiConfigBuilder<'ctx> = internal {
         this with
             configureSerializerOptions = Some configure
     }
+
+    /// Wraps the request body reader before JSON deserialization. The supplied reader preserves the default body
+    /// reading and caching behavior. Multiple calls compose in the order they are configured.
+    member this.ConfigureRequestBodyReader
+        (configure: (HttpContext -> Task<string>) -> HttpContext -> Task<string>)
+        : JsonApiConfigBuilder<'ctx> =
+        {
+            this with
+                readRequestBody = configure this.readRequestBody
+        }
 
     member this.SkipStandardLinksQueryParamName([<ParamArray>] paramNames) : JsonApiConfigBuilder<'ctx> = {
         this with
@@ -427,7 +439,7 @@ type JsonApiConfigBuilder<'ctx> = internal {
             .AddSingleton<UnknownFieldStrictMode<'ctx>>(this.unknownFieldStrictMode)
             .AddSingleton<UnknownQueryParamStrictMode<'ctx>>(this.unknownQueryParamStrictMode)
             .AddSingleton<JsonApiEndpoints<'ctx>>(
-                JsonApiEndpoints(jsonApiEndpoints relativeRootWithLeadingSlash getCtx collections)
+                JsonApiEndpoints(jsonApiEndpoints relativeRootWithLeadingSlash getCtx this.readRequestBody collections)
             )
             .AddSingleton<Serializer<'ctx>>(fun sp ->
                 Serializer<'ctx>(

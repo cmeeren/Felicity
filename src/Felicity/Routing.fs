@@ -82,6 +82,7 @@ let internal route3
 let internal jsonApiEndpoints
     relativeRootWithLeadingSlash
     (getCtx: HttpContext -> Task<Result<'ctx, Error list>>)
+    (readRequestBody: HttpContext -> Task<string>)
     collections
     : Endpoint list =
 
@@ -105,19 +106,19 @@ let internal jsonApiEndpoints
                         Document =
                             lazy
                                 (task {
-                                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                                    let! json = readRequestBody httpCtx
                                     return serializer.DeserializeResourceDocument json
                                 })
                         IdentifierDocument =
                             lazy
                                 (task {
-                                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                                    let! json = readRequestBody httpCtx
                                     return serializer.DeserializeResourceIdentifierDocument json
                                 })
                         IdentifierCollectionDocument =
                             lazy
                                 (task {
-                                    let! json = httpCtx.ReadBodyFromRequestAsync()
+                                    let! json = readRequestBody httpCtx
                                     return serializer.DeserializeResourceIdentifierCollectionDocument json
                                 })
                         Headers = httpCtx.Request.Headers

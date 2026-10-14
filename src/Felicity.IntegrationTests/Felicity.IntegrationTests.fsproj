@@ -14,6 +14,7 @@
     <Compile Include="TopLevelLinks.fs" />
     <Compile Include="SkipLinks.fs" />
     <Compile Include="Routing.fs" />
+    <Compile Include="RequestBodyReader.fs" />
     <Compile Include="Validation.fs" />
     <Compile Include="ResourceLinks.fs" />
     <Compile Include="NameOverrides.fs" />

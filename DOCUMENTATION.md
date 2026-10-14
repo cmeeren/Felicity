@@ -361,6 +361,10 @@ Felicity uses System.Text.Json and [FSharp.SystemTextJson](https://github.com/Ta
 serialization. If you need to configure the serialization options, you can add `.ConfigureSerializerOptions` to the
 chain shown above, which accepts a parameter of type `JsonSerializerOptions -> unit`.
 
+### Request body reading
+
+Call `.ConfigureRequestBodyReader` after `.AddJsonApi()` to wrap request body reading before JSON deserialization. It accepts a function `(HttpContext -> Task<string>) -> HttpContext -> Task<string>`; invoke the supplied reader to preserve the default reading and caching behavior. This can be used to measure body reception separately or pause an application-specific processing budget while the body is received. Multiple wrappers compose in configuration order, with the last configured wrapper outermost.
+
 ### Routing
 
 Felicity uses ASP.NET Core’s endpoint routing. The startup sample above shows how to configure and add Felicity to your
