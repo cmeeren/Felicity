@@ -1,6 +1,13 @@
 Release notes
 ==============
 
+### 0.25.2 (2026-11-05)
+
+* Resource locks no longer cover receiving the request body. Felicity now reads the whole body before taking locks for
+  POST collection, PATCH resource and relationship PATCH/POST/DELETE requests, so a slow or large upload no longer
+  blocks other writes to the same resource while it is received. Custom link operations and POST collection operations
+  using `AllowReadingBody` still take their locks before the body is read.
+
 ### 0.25.1 (2026-10-14)
 
 * Added `ConfigureRequestBodyReader` to wrap request body reading before JSON deserialization, for example to exclude

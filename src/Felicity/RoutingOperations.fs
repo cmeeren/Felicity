@@ -81,6 +81,7 @@ type internal CollectionOperations<'ctx> = {
     configureGetCollection: IEndpointConventionBuilder -> IEndpointConventionBuilder
     postCollection: ((RequestValidationConfig -> HttpHandler) -> 'ctx -> Request -> HttpHandler) option
     configurePostCollection: IEndpointConventionBuilder -> IEndpointConventionBuilder
+    postCollectionReadsBodyManually: bool
     resourceOperations: ResourceOperations<'ctx>
 }
 
@@ -893,7 +894,7 @@ module internal RoutingOperations =
             )
 
         if opsAndResourceDefs.Length = 0 then
-            id, None
+            id, false, None
         else
             let opLookup =
                 opsAndResourceDefs
@@ -929,6 +930,7 @@ module internal RoutingOperations =
                 ||> Array.fold (fun builder (op, _) -> op.Configure builder)
 
             configure,
+            singleOpWithAllowReadingRequestBody.IsSome,
             Some
             <| fun validationHandler ctx (req: Request) ->
                 fun next httpCtx ->
@@ -965,7 +967,7 @@ module internal RoutingOperations =
         let configureGetCollection, getCollection =
             getCollection resourceModuleMap getBaseUrl collName resourceModules
 
-        let configurePostCollection, postCollection =
+        let configurePostCollection, postCollectionReadsBodyManually, postCollection =
             postCollection resourceModuleMap getBaseUrl collName resourceModules
 
         {
@@ -973,5 +975,6 @@ module internal RoutingOperations =
             configureGetCollection = configureGetCollection
             postCollection = postCollection
             configurePostCollection = configurePostCollection
+            postCollectionReadsBodyManually = postCollectionReadsBodyManually
             resourceOperations = resourceOperations resourceModuleMap getBaseUrl collName resourceModules
         }

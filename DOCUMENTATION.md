@@ -1969,6 +1969,10 @@ To combat this problem, Felicity can easily take care of locking all write acces
 POST/PATCH/DELETE) request will be allowed at a time for any given resource; other requests must wait and will get a 503
 error if the lock times out.
 
+Felicity receives the whole request body before taking the lock, so a slow or large upload does not block other
+requests to the same resource. The exceptions are custom link operations and POST collection operations using
+`AllowReadingBody`: they take their locks before the body is received, so the locks are held during the upload.
+
 In the simplest case, simply append `.Lock()` to your resource definition:
 
 ```f#

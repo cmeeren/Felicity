@@ -86,7 +86,9 @@ let internal jsonApiEndpoints
     collections
     : Endpoint list =
 
-    let getCtx (handler: 'ctx -> Request -> HttpHandler) : HttpHandler =
+    /// If readBodyFirst is true, receives the whole request body before calling the handler, so that
+    /// locks taken by the handler are not held while a slow or large body is uploading.
+    let getCtxWith readBodyFirst (handler: 'ctx -> Request -> HttpHandler) : HttpHandler =
         fun next (httpCtx: HttpContext) ->
             task {
                 let serializer = httpCtx.GetService<Serializer<'ctx>>()
@@ -102,23 +104,25 @@ let internal jsonApiEndpoints
                     // For some reason, we get FS3511 error without this line
                     let! _ = ValueTask.FromResult ""
 
+                    let body = lazy (readRequestBody httpCtx)
+
                     let req = {
                         Document =
                             lazy
                                 (task {
-                                    let! json = readRequestBody httpCtx
+                                    let! json = body.Value
                                     return serializer.DeserializeResourceDocument json
                                 })
                         IdentifierDocument =
                             lazy
                                 (task {
-                                    let! json = readRequestBody httpCtx
+                                    let! json = body.Value
                                     return serializer.DeserializeResourceIdentifierDocument json
                                 })
                         IdentifierCollectionDocument =
                             lazy
                                 (task {
-                                    let! json = readRequestBody httpCtx
+                                    let! json = body.Value
                                     return serializer.DeserializeResourceIdentifierCollectionDocument json
                                 })
                         Headers = httpCtx.Request.Headers
@@ -144,8 +148,15 @@ let internal jsonApiEndpoints
                             |> Option.defaultValue []
                     }
 
+                    if readBodyFirst then
+                        let! _ = body.Value
+                        ()
+
                     return! handler ctx req next httpCtx
             }
+
+
+    let getCtx handler = getCtxWith false handler
 
 
     let validateRequestWithOverrides (cfg: RequestValidationConfig) : HttpHandler =
@@ -218,6 +229,12 @@ let internal jsonApiEndpoints
     [
         for collName, ops in collections |> Map.toSeq do
 
+            let readBodyBeforeLock = (ResourceModule.lockSpec<'ctx> collName).IsSome
+
+            // Write operations that read a request body, other than custom links, receive it before
+            // taking locks, so that the locks are not held during the upload.
+            let getCtxForWrite = getCtxWith readBodyBeforeLock
+
             subRoute relativeRootWithLeadingSlash [
                 subRoute ("/" + collName) [
                     let expectedCollPath = relativeRootWithLeadingSlash + "/" + collName
@@ -239,8 +256,11 @@ let internal jsonApiEndpoints
                             (match ops.postCollection with
                              | None -> handleErrors [ collPostNotAllowed collName ]
                              | Some postColl ->
+                                 let getCtxForPost =
+                                     getCtxWith (readBodyBeforeLock && not ops.postCollectionReadsBodyManually)
+
                                  verifyPathCase expectedCollPath
-                                 >=> getCtx (fun ctx req ->
+                                 >=> getCtxForPost (fun ctx req ->
                                      lockResourceForModification ctx req collName None
                                      >=> postColl validateRequestWithOverrides ctx req
                                  ))
@@ -307,7 +327,7 @@ let internal jsonApiEndpoints
                                     | Some patch ->
                                         verifyPathCase expectedPath
                                         >=> validateRequest
-                                        >=> getCtx (fun ctx req ->
+                                        >=> getCtxForWrite (fun ctx req ->
                                             lockResourceForModification ctx req collName (Some resId)
                                             >=> getById ctx resId (patch ctx req)
                                         )
@@ -444,7 +464,7 @@ let internal jsonApiEndpoints
                                         | Some patch ->
                                             verifyPathCase expectedPath
                                             >=> validateRequest
-                                            >=> getCtx (fun ctx req ->
+                                            >=> getCtxForWrite (fun ctx req ->
                                                 lockResourceForModification ctx req collName (Some resId)
                                                 >=> getById ctx resId (patch ctx req)
                                             )
@@ -471,7 +491,7 @@ let internal jsonApiEndpoints
                                         | Some post ->
                                             verifyPathCase expectedPath
                                             >=> validateRequest
-                                            >=> getCtx (fun ctx req ->
+                                            >=> getCtxForWrite (fun ctx req ->
                                                 lockResourceForModification ctx req collName (Some resId)
                                                 >=> getById ctx resId (post ctx req)
                                             )
@@ -498,7 +518,7 @@ let internal jsonApiEndpoints
                                         | Some delete ->
                                             verifyPathCase expectedPath
                                             >=> validateRequest
-                                            >=> getCtx (fun ctx req ->
+                                            >=> getCtxForWrite (fun ctx req ->
                                                 lockResourceForModification ctx req collName (Some resId)
                                                 >=> getById ctx resId (delete ctx req)
                                             )
