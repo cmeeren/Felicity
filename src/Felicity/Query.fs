@@ -1,6 +1,7 @@
 ﻿namespace Felicity
 
 open System
+open System.Globalization
 open System.Threading.Tasks
 open Errors
 
@@ -17,7 +18,7 @@ module private QueryParseHelpers =
         | invalid -> Error [ invalidEnum (FromQuery(getData value)) [ "true"; "false" ] ]
 
     let parseInt getData (value: string) =
-        match Int32.TryParse value with
+        match Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture) with
         | true, x -> Ok x
         | false, _ ->
             Error [
@@ -25,7 +26,7 @@ module private QueryParseHelpers =
             ]
 
     let parseFloat getData (value: string) =
-        match Double.TryParse value with
+        match Double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture) with
         | true, x -> Ok x
         | false, _ ->
             Error [
@@ -380,7 +381,7 @@ type PageParam<'ctx> internal (pageName: string, ?min: int, ?max: int) =
                         ValueIndex = 0
                     }
 
-                    match Int32.TryParse value with
+                    match Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture) with
                     | false, _ ->
                         Error [
                             invalidParsedErrMsg (FromQuery valueData) "The value must be a valid integer"

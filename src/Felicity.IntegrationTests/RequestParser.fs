@@ -1,6 +1,7 @@
 ﻿module RequestParser
 
 open System
+open System.Globalization
 open Expecto
 open HttpFs.Client
 open Swensen.Unquote
@@ -1715,6 +1716,106 @@ let tests =
                 test <@ json |> getPath "errors[0].source.parameter" = paramName @>
                 test <@ json |> hasNoPath "errors[1]" @>
             }
+
+        let getWithCulture (culture: string) ctx path =
+            Request.getWith
+                (fun _ ->
+                    CultureInfo.CurrentCulture <- CultureInfo.GetCultureInfo culture
+                    ctx
+                )
+                path
+
+        for suffix, paramName, ctx in intTestData do
+            testJob $"Parses int query parameters independently of the current culture: {suffix}" {
+                // In ar-EG, the negative sign is U+061C ARABIC LETTER MARK followed by '-'
+                let! response = getWithCulture "ar-EG" ctx $"/ys?{paramName}=-2" |> getResponse
+                response |> testSuccessStatusCode
+            }
+
+        for suffix, paramName, ctx in floatTestData do
+            testJob $"Parses float query parameters independently of the current culture: {suffix}" {
+                let! response = getWithCulture "nb-NO" ctx $"/ys?{paramName}=-7.5" |> getResponse
+                response |> testSuccessStatusCode
+            }
+
+        testJob "Parses int query parameter value independently of the current culture" {
+            let mutable calledWith = None
+
+            let ctx =
+                Ctx.Create(fun parser ->
+                    parser.For(
+                        (fun x -> calledWith <- Some(x, CultureInfo.CurrentCulture.Name)),
+                        Query.Int("customQueryParam")
+                    )
+                )
+
+            let! response = getWithCulture "ar-EG" ctx "/ys?customQueryParam=-2" |> getResponse
+
+            response |> testSuccessStatusCode
+            let calledWith' = calledWith
+            test <@ calledWith' = Some(-2, "ar-EG") @>
+        }
+
+        testJob "Parses float query parameter value independently of the current culture" {
+            let mutable calledWith = None
+
+            let ctx =
+                Ctx.Create(fun parser ->
+                    parser.For(
+                        (fun x -> calledWith <- Some(x, CultureInfo.CurrentCulture.Name)),
+                        Query.Float("customQueryParam")
+                    )
+                )
+
+            let! response = getWithCulture "nb-NO" ctx "/ys?customQueryParam=7.5" |> getResponse
+
+            response |> testSuccessStatusCode
+            let calledWith' = calledWith
+            test <@ calledWith' = Some(7.5, "nb-NO") @>
+        }
+
+        testJob "Rejects culture-specific decimal separators in float query parameters" {
+            let ctx =
+                Ctx.Create(fun parser -> parser.For(ignore, Query.Float("customQueryParam")))
+
+            let! response = getWithCulture "nb-NO" ctx "/ys?customQueryParam=7,5" |> getResponse
+            response |> testStatusCode 400
+            let! json = response |> Response.readBodyAsString
+
+            test
+                <@
+                    json |> getPath "errors[0].detail" = "Query parameter 'customQueryParam' got invalid value '7,5': The value must be a valid number"
+                @>
+        }
+
+        testJob "Rejects thousands separators in float query parameters" {
+            let ctx =
+                Ctx.Create(fun parser -> parser.For(ignore, Query.Float("customQueryParam")))
+
+            let! response = getWithCulture "en-US" ctx "/ys?customQueryParam=1,000" |> getResponse
+            response |> testStatusCode 400
+            let! json = response |> Response.readBodyAsString
+
+            test
+                <@
+                    json |> getPath "errors[0].detail" = "Query parameter 'customQueryParam' got invalid value '1,000': The value must be a valid number"
+                @>
+        }
+
+        testJob "Parses page parameters independently of the current culture" {
+            let mutable calledWith = None
+
+            let ctx =
+                Ctx.Create(fun parser ->
+                    parser.For((fun x -> calledWith <- Some(x, CultureInfo.CurrentCulture.Name)), Page.Offset.Min(-10))
+                )
+
+            let! response = getWithCulture "ar-EG" ctx "/ys?page[offset]=-2" |> getResponse
+
+            response |> testSuccessStatusCode
+            let calledWith' = calledWith
+            test <@ calledWith' = Some(-2, "ar-EG") @>
+        }
 
         let dateTimeOffsetAllowMissingOffsetTestData = [
             "Non-nullable attribute filter",

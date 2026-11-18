@@ -1,6 +1,13 @@
 Release notes
 ==============
 
+### 0.25.3 (2026-11-18)
+
+* Numeric query parameters (`Query.Int`/`Float`, `Filter.Int`/`Float`, `Filter.Field` for int and float attributes,
+  and `page[...]`) are now parsed using the invariant culture instead of the server's current culture. For example,
+  `7.5` is now accepted on servers with a comma-decimal culture such as nb-NO, and `7,5` and thousands separators such
+  as `1,000` are now rejected.
+
 ### 0.25.2 (2026-11-05)
 
 * Resource locks no longer cover receiving the request body. Felicity now reads the whole body before taking locks for
