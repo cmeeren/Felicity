@@ -2260,6 +2260,18 @@ Only query parameters parsed with RequestParser/RequestParserHelper (as shown in
 known/used. If you only read them manually from ASP.Net Core's `HttpContext`, Felicity does not know that they are used,
 and it will be caught by strict mode.
 
+#### DELETE checks query parameters before running the request parser
+
+For DELETE operations that use a request parser, Felicity checks query parameters after your function has returned the
+parser, but before the parser runs. To make sure nothing is deleted when the check fails, delete inside the parser (in
+the function you pass to `For`, `ForAsync`, `ForAsyncRes` etc. or to `Bind*`), not in the body of your function or in a
+task you pass to `ForTask`/`ForTaskRes`, which has already started.
+
+Query parameters that the parser reads (or exempts using `IgnoreStrictMode`), and those you read using
+`parser.GetRequiredAsync` etc. before returning the parser, are known. Query parameters read only while the parser runs,
+such as in the `parser.ForAsyncRes(asyncResult { let! a = parser.GetRequiredAsync ... })` workaround for higher arities,
+are considered unknown.
+
 #### Limited query parameter validation for custom operations
 
 To enable strict mode query parameter validation for custom operations (`define.Operation.CustomLink`), use the

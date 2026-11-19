@@ -1,6 +1,7 @@
 ﻿module ``Strict mode``
 
 open System
+open System.Collections.Concurrent
 open Expecto
 open Swensen.Unquote
 open HttpFs.Client
@@ -73,7 +74,14 @@ module A =
             )
             .AfterUpdate(ignore)
 
-    let delete = define.Operation.Delete(fun _ -> ())
+    let deletedIds = ConcurrentDictionary<string, unit>()
+
+    let delete =
+        define.Operation.Delete(fun (A id) (parser: RequestParserHelper<Ctx>) ->
+            parser
+                .For((fun _ -> deletedIds.TryAdd(id, ()) |> ignore), Query.String("customQueryParam"))
+                .IgnoreStrictMode(Query.String("ignoredQueryParam"))
+        )
 
     let customOpWithoutValidation =
         define.Operation
@@ -91,6 +99,25 @@ module A =
             .PostAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
             .PatchAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
             .DeleteAsync(fun _ _ _ _ -> setStatusCode 200 |> Ok |> async.Return)
+
+
+type B = B of string
+
+
+module B =
+
+    let define = Define<Ctx, B, string>()
+    let resId = define.Id.Simple(fun (B id) -> id)
+    let resDef = define.Resource("b", resId).CollectionName("bs")
+
+    let lookup = define.Operation.Lookup(B >> Some)
+
+    let get = define.Operation.GetResource()
+
+    let deletedIds = ConcurrentDictionary<string, unit>()
+
+    let delete =
+        define.Operation.Delete(fun (B id) -> deletedIds.TryAdd(id, ()) |> ignore)
 
 
 
@@ -360,14 +387,16 @@ let tests =
         }
 
 
-        testJob "DELETE resource: Returns errors for each unknown query parameter" {
+        testJob "DELETE resource: Returns errors for each unknown query parameter without deleting" {
             let client = createServerAndGetClient false
 
             let! response =
                 Request.createWithClient
                     client
                     Delete
-                    (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
+                    (Uri(
+                        "http://example.com/as/deleteRejected?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"
+                    ))
                 |> Request.jsonApiHeaders
                 |> getResponse
 
@@ -380,6 +409,46 @@ let tests =
             test <@ json |> getPath "errors[1].detail" = "Query parameter 'a2' is not recognized for this operation" @>
             test <@ json |> getPath "errors[1].source.parameter" = "a2" @>
             test <@ json |> hasNoPath "errors[2]" @>
+            test <@ not (A.deletedIds.ContainsKey "deleteRejected") @>
+        }
+
+
+        testJob "DELETE resource: Accepts query parameters consumed or ignored by the request parser" {
+            let client = createServerAndGetClient false
+
+            let! response =
+                Request.createWithClient
+                    client
+                    Delete
+                    (Uri(
+                        "http://example.com/as/deleteAccepted?customQueryParam=foo&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"
+                    ))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 204
+            test <@ A.deletedIds.ContainsKey "deleteAccepted" @>
+        }
+
+
+        testJob
+            "DELETE resource without request parser: Returns errors for each unknown query parameter without deleting" {
+            let client = createServerAndGetClient false
+
+            let! response =
+                Request.createWithClient
+                    client
+                    Delete
+                    (Uri("http://example.com/bs/deleteRejected?a1=bar&a2=baz&fields[b]=&include=&skipLinks1&skipLinks2"))
+                |> Request.jsonApiHeaders
+                |> getResponse
+
+            response |> testStatusCode 400
+            let! json = response |> Response.readBodyAsString
+            test <@ json |> getPath "errors[0].detail" = "Query parameter 'a1' is not recognized for this operation" @>
+            test <@ json |> getPath "errors[1].detail" = "Query parameter 'a2' is not recognized for this operation" @>
+            test <@ json |> hasNoPath "errors[2]" @>
+            test <@ not (B.deletedIds.ContainsKey "deleteRejected") @>
         }
 
 
@@ -390,7 +459,9 @@ let tests =
                 Request.createWithClient
                     client
                     Delete
-                    (Uri("http://example.com/as/1?a1=bar&a2=baz&fields[a]=&include=&skipLinks1&skipLinks2"))
+                    (Uri(
+                        "http://example.com/as/1?customQueryParam=foo&a1=bar&a2=baz&ignoredQueryParam=ignored&fields[a]=&include=&skipLinks1&skipLinks2"
+                    ))
                 |> Request.jsonApiHeaders
                 |> getResponse
 

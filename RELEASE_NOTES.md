@@ -1,6 +1,13 @@
 Release notes
 ==============
 
+### 0.25.4 (2026-11-19)
+
+* Fixed unknown query parameter strict mode rejecting the query parameters that a DELETE operation's request parser
+  reads or exempts using `IgnoreStrictMode`. Unknown query parameters are still rejected, before the parser runs, so
+  nothing is deleted as long as the deletion happens inside the parser. As for PATCH, the check now runs after
+  preconditions and `BeforeDelete`. See the strict mode caveats in the documentation for details.
+
 ### 0.25.3 (2026-11-18)
 
 * Numeric query parameters (`Query.Int`/`Float`, `Filter.Int`/`Float`, `Filter.Field` for int and float attributes,

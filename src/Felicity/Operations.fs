@@ -1511,7 +1511,14 @@ type internal DeleteOperation<'ctx> =
 type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
     mapCtx: 'originalCtx -> 'entity -> Task<Result<'ctx, Error list>>
     beforeDelete: 'ctx -> 'entity -> Task<Result<'entity, Error list>>
-    delete: 'originalCtx -> 'ctx -> Request -> 'entity -> Task<Result<unit, Error list>>
+    /// Returns the query parameters that the delete function consumes, together with a function that performs the
+    /// deletion. These are separate so that strict mode can reject unknown query parameters before deleting.
+    delete:
+        'originalCtx
+            -> 'ctx
+            -> Request
+            -> 'entity
+            -> Task<Result<Set<ConsumedQueryParamName> * (unit -> Task<Result<unit, Error list>>), Error list>>
     modifyResponse: 'ctx -> HttpHandler
     return202Accepted: bool
     configure: IEndpointConventionBuilder -> IEndpointConventionBuilder
@@ -1534,33 +1541,41 @@ type DeleteOperation<'originalCtx, 'ctx, 'entity> = internal {
                     match! this.mapCtx ctx (unbox<'entity> entity0) with
                     | Error errors -> return! handleErrors errors next httpCtx
                     | Ok mappedCtx ->
-                        match StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx> httpCtx req Set.empty with
-                        | Error errs -> return! handleErrors errs next httpCtx
+                        match preconditions.Validate httpCtx ctx entity0 with
+                        | Error errors -> return! handleErrors errors next httpCtx
                         | Ok() ->
-                            match preconditions.Validate httpCtx ctx entity0 with
+                            match! this.beforeDelete mappedCtx (unbox<'entity> entity0) with
                             | Error errors -> return! handleErrors errors next httpCtx
-                            | Ok() ->
-                                match! this.beforeDelete mappedCtx (unbox<'entity> entity0) with
+                            | Ok entity1 ->
+                                match! this.delete ctx mappedCtx req (unbox<'entity> entity1) with
                                 | Error errors -> return! handleErrors errors next httpCtx
-                                | Ok entity1 ->
-                                    match! this.delete ctx mappedCtx req (unbox<'entity> entity1) with
-                                    | Error errors -> return! handleErrors errors next httpCtx
+                                | Ok(queryNames, runDelete) ->
+                                    match
+                                        StrictModeHelpers.checkForUnknownQueryParameters<'originalCtx>
+                                            httpCtx
+                                            req
+                                            queryNames
+                                    with
+                                    | Error errs -> return! handleErrors errs next httpCtx
                                     | Ok() ->
-                                        if this.return202Accepted then
-                                            let handler = setStatusCode 202 >=> this.modifyResponse mappedCtx
-                                            return! handler next httpCtx
-                                        else
-                                            match! resp.WriteNoResource httpCtx ctx req with
-                                            | None ->
-                                                let handler = setStatusCode 204 >=> this.modifyResponse mappedCtx
+                                        match! runDelete () with
+                                        | Error errors -> return! handleErrors errors next httpCtx
+                                        | Ok() ->
+                                            if this.return202Accepted then
+                                                let handler = setStatusCode 202 >=> this.modifyResponse mappedCtx
                                                 return! handler next httpCtx
-                                            | Some doc ->
-                                                let handler =
-                                                    setStatusCode 200
-                                                    >=> this.modifyResponse mappedCtx
-                                                    >=> jsonApiWithETag<'ctx> doc
+                                            else
+                                                match! resp.WriteNoResource httpCtx ctx req with
+                                                | None ->
+                                                    let handler = setStatusCode 204 >=> this.modifyResponse mappedCtx
+                                                    return! handler next httpCtx
+                                                | Some doc ->
+                                                    let handler =
+                                                        setStatusCode 200
+                                                        >=> this.modifyResponse mappedCtx
+                                                        >=> jsonApiWithETag<'ctx> doc
 
-                                                return! handler next httpCtx
+                                                    return! handler next httpCtx
                 }
 
         member this.Configure(builder) = this.configure builder
@@ -2359,7 +2374,10 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
 
     member _.DeleteTaskRes(delete: Func<'ctx, 'entity, Task<Result<unit, Error list>>>) =
         DeleteOperation<'originalCtx, 'ctx, 'entity>
-            .Create(mapCtx, (fun _origCtx ctx _ entity -> delete.Invoke(ctx, entity)))
+            .Create(
+                mapCtx,
+                fun _origCtx ctx _ entity -> Ok(Set.empty, (fun () -> delete.Invoke(ctx, entity))) |> Task.result
+            )
 
     member this.DeleteTaskRes(delete: Func<'entity, Task<Result<unit, Error list>>>) =
         this.DeleteTaskRes(fun _ e -> delete.Invoke e)
@@ -2378,7 +2396,7 @@ type OperationHelperWithEntityMapCtx<'originalCtx, 'ctx, 'entity, 'id>
                 mapCtx,
                 fun origCtx ctx req entity ->
                     getRequestParser.Invoke(ctx, entity, RequestParserHelper<'originalCtx>(origCtx, req))
-                    |> TaskResult.bind (fun p -> p.ParseTask())
+                    |> TaskResult.map (fun p -> Set.ofSeq p.consumedParams, (fun () -> p.ParseTask()))
             )
 
     member this.DeleteTaskRes
