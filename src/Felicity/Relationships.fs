@@ -49,6 +49,7 @@ type internal RelationshipHandlers<'ctx> =
     abstract IsSettable: bool
     abstract IsSettableButNotGettable: bool
     abstract IsSettableWithoutPersist: bool
+    abstract SkipRelationship: 'ctx -> BoxedEntity -> Task<bool>
 
     abstract GetRelated:
         ('ctx -> Request -> BoxedEntity -> ResourceDefinition<'ctx> -> ResponseBuilder<'ctx> -> HttpHandler) option
@@ -559,6 +560,9 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
 
         member _.IsToMany = false
 
+        member this.SkipRelationship ctx entity =
+            this.skipRelationship ctx (unbox<'entity> entity)
+
         member this.IsSettable = this.set.IsSome
 
         member this.IsSettableButNotGettable = this.set.IsSome && this.get.IsNone
@@ -945,49 +949,67 @@ type ToOneRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = int
     member this.GetLinkageIfNotIncluded(get: Func<'entity, 'relatedId>) =
         this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfTask(predicate: 'ctx -> 'entity -> Task<bool>) = {
         this with
             skipRelationship = predicate
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfTask(predicate: 'entity -> Task<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfAsync(predicate: 'ctx -> 'entity -> Async<bool>) = {
         this with
             skipRelationship = fun ctx e -> predicate ctx e |> Task.fromAsync
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfAsync(predicate: 'entity -> Async<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e |> Task.fromAsync
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
         this with
             skipRelationship = fun ctx e -> predicate ctx e |> Task.result
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
         this with
             skipRelationship = fun _ e -> predicate e |> Task.result
@@ -1982,6 +2004,9 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
 
         member _.IsToMany = false
 
+        member this.SkipRelationship ctx entity =
+            this.skipRelationship ctx (unbox<'entity> entity)
+
         member this.IsSettable = this.set.IsSome
 
         member this.IsSettableButNotGettable = this.set.IsSome && this.get.IsNone
@@ -2380,49 +2405,67 @@ type ToOneNullableRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedI
     member this.GetLinkageIfNotIncluded(get: Func<'entity, 'relatedId option>) =
         this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfTask(predicate: 'ctx -> 'entity -> Task<bool>) = {
         this with
             skipRelationship = predicate
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfTask(predicate: 'entity -> Task<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfAsync(predicate: 'ctx -> 'entity -> Async<bool>) = {
         this with
             skipRelationship = fun ctx e -> predicate ctx e |> Task.fromAsync
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfAsync(predicate: 'entity -> Async<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e |> Task.fromAsync
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
         this with
             skipRelationship = fun ctx e -> predicate ctx e |> Task.result
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
         this with
             skipRelationship = fun _ e -> predicate e |> Task.result
@@ -3757,6 +3800,9 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
 
         member _.IsToMany = true
 
+        member this.SkipRelationship ctx entity =
+            this.skipRelationship ctx (unbox<'entity> entity)
+
         member this.IsSettable = this.setAll.IsSome || this.add.IsSome || this.remove.IsSome
 
         member this.IsSettableButNotGettable = this.setAll.IsSome && this.get.IsNone
@@ -4031,49 +4077,67 @@ type ToManyRelationship<'ctx, 'setCtx, 'entity, 'relatedEntity, 'relatedId> = in
     member this.GetLinkageIfNotIncluded(get: Func<'entity, 'relatedId list>) =
         this.GetLinkageIfNotIncludedTaskSkip(fun _ r -> get.Invoke r |> Include |> Task.result)
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfTask(predicate: 'ctx -> 'entity -> Task<bool>) = {
         this with
             skipRelationship = predicate
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfTask(predicate: 'entity -> Task<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfAsync(predicate: 'ctx -> 'entity -> Async<bool>) = {
         this with
             skipRelationship = fun ctx e -> predicate ctx e |> Task.fromAsync
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIfAsync(predicate: 'entity -> Async<bool>) = {
         this with
             skipRelationship = fun _ e -> predicate e |> Task.fromAsync
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIf(predicate: 'ctx -> 'entity -> bool) = {
         this with
             skipRelationship = fun ctx e -> predicate ctx e |> Task.result
     }
 
-    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. If
-    /// using one of the Get...Skip methods, this method should also be called. Otherwise, relationship links will always
-    /// be present in the response, but GET operations against them will return an error if the getter returns Skip.
+    /// Omits the entire relationship (links, data, and meta) in the returned resource if the predicate returns true. In
+    /// that case, requests to the relationship's related and self links also return 403 Forbidden, and modification
+    /// requests to its self link do not modify it (but PATCH resource and POST collection requests may still set it;
+    /// use MapSetContext to restrict those). If using one of the Get...Skip methods, this method should also be
+    /// called. Otherwise, relationship links will be present in the response, but GET operations against them will return
+    /// an error if the getter returns Skip.
     member this.SkipRelationshipIf(predicate: 'entity -> bool) = {
         this with
             skipRelationship = fun _ e -> predicate e |> Task.result

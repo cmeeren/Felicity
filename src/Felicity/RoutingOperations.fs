@@ -456,6 +456,17 @@ module internal RoutingOperations =
             }
 
 
+    /// Refuses requests to a relationship's related and self routes if the relationship's SkipRelationshipIf predicate
+    /// hides it from the parent resource, so that the routes don't expose or modify what the resource omits.
+    let private requireNotSkipped (op: RelationshipHandlers<'ctx>) ctx entity (getErr: unit -> Error) : HttpHandler =
+        fun next httpCtx ->
+            task {
+                match! op.SkipRelationship ctx entity with
+                | true -> return! handleErrors [ getErr () ] next httpCtx
+                | false -> return! next httpCtx
+            }
+
+
     let relationshipOperations
         (resourceModuleMap: Map<_, _>)
         getBaseUrl
@@ -542,7 +553,9 @@ module internal RoutingOperations =
                             | true, (op, _) ->
                                 match op.GetRelated, getResourceOps.TryGetValue resDef.TypeName with
                                 | Some getRel, (true, getOp) ->
-                                    requireGetContext getOp ctx entity >=> getRel ctx req entity resDef builder
+                                    requireGetContext getOp ctx entity
+                                    >=> requireNotSkipped op ctx entity getRelWhileSkip
+                                    >=> getRel ctx req entity resDef builder
                                 | _ -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
                 configureGetRelated = configureGetRelated
                 getSelf =
@@ -556,7 +569,9 @@ module internal RoutingOperations =
                             | true, (op, _) ->
                                 match op.GetSelf, getResourceOps.TryGetValue resDef.TypeName with
                                 | Some getSelf, (true, getOp) ->
-                                    requireGetContext getOp ctx entity >=> getSelf ctx req entity resDef builder
+                                    requireGetContext getOp ctx entity
+                                    >=> requireNotSkipped op ctx entity getRelWhileSkip
+                                    >=> getSelf ctx req entity resDef builder
                                 | _ -> handleErrors [ getRelNotDefinedPolymorphic relName resDef.TypeName collName ]
                 configureGetSelf = configureGetSelf
                 postSelf =
@@ -578,7 +593,9 @@ module internal RoutingOperations =
                                             op.DeleteSelf.IsSome
                                             collName
                                     ]
-                                | Some postSelf -> postSelf ctx req preconditions entity resDef builder
+                                | Some postSelf ->
+                                    requireNotSkipped op ctx entity modifyRelSelfWhileSkipRelationship
+                                    >=> postSelf ctx req preconditions entity resDef builder
                 configurePostSelf = configurePostSelf
                 patchSelf =
                     if not hasPatchSelf then
@@ -620,7 +637,8 @@ module internal RoutingOperations =
                                     else
                                         handleErrors [ modifyRelSelfReadOnly relName resDef.TypeName ]
                                 | Some patchSelf ->
-                                    patchSelf ctx req resDef.TypeName preconditions entity resDef builder
+                                    requireNotSkipped op ctx entity modifyRelSelfWhileSkipRelationship
+                                    >=> patchSelf ctx req resDef.TypeName preconditions entity resDef builder
                 configurePatchSelf = configurePatchSelf
                 deleteSelf =
                     if not hasDeleteSelf then
@@ -641,7 +659,9 @@ module internal RoutingOperations =
                                             op.PostSelf.IsSome
                                             collName
                                     ]
-                                | Some deleteSelf -> deleteSelf ctx req preconditions entity resDef builder
+                                | Some deleteSelf ->
+                                    requireNotSkipped op ctx entity modifyRelSelfWhileSkipRelationship
+                                    >=> deleteSelf ctx req preconditions entity resDef builder
                 configureDeleteSelf = configureDeleteSelf
             }
         )

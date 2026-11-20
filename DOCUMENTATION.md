@@ -762,6 +762,31 @@ As with attributes, relationships getters may return `Skippable`-wrapped values.
 relationship’s `self` link, no success response can be returned to the client, as required by JSON:API. Instead an error
 will be logged and an embarrassing 500 error will be returned to the client.
 
+### Hiding relationships
+
+Use one of the `SkipRelationshipIf` overloads to hide a relationship for some requests or entities, for example from
+users who may not see it:
+
+```f#
+let author =
+  define.Relationship
+    .ToOne(Person.resourceDef)
+    .SkipRelationshipIf(fun ctx article -> not (ctx.CanSeeAuthor article))
+    .GetAsync(...)
+```
+
+When the predicate returns `true`, Felicity omits the whole relationship (links, data and meta) from the resource, does
+not include its related resources, and refuses requests to the relationship’s own links with 403 Forbidden: GET requests
+to its `related` and `self` links, and PATCH, POST and DELETE requests to its `self` link, which then do not modify the
+relationship. The predicate is not applied when the relationship is set through POST collection or PATCH resource
+requests; to restrict who may set the relationship, use `MapSetContext` on the relationship (see
+[Field-specific modification authorization](#field-specific-modification-authorization)), which applies to both PATCH
+resource requests and requests to the relationship’s `self` link. Relationship constraints (see
+[Attribute/relationship constraints](#attributerelationship-constraints)) are still returned for hidden relationships.
+
+If the getter may return `Skip`, also use `SkipRelationshipIf` with a matching predicate. Otherwise, the relationship’s
+links are present in the resource, but GET requests to them return 403 Forbidden.
+
 ### Including resource linkage by default
 
 There may be situations where the resource linkage itself (the relationship’s `data` member) provides valuable

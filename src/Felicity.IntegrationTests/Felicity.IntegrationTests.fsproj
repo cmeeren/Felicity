@@ -43,6 +43,7 @@
     <Compile Include="ToManyRelationshipPostSelf.fs" />
     <Compile Include="ToManyRelationshipDeleteSelf.fs" />
     <Compile Include="RelationshipGetParentAccess.fs" />
+    <Compile Include="SkipRelationshipRoutes.fs" />
     <Compile Include="Set2.fs" />
     <Compile Include="Set3.fs" />
     <Compile Include="Set order.fs" />

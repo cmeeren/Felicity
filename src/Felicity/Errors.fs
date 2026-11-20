@@ -798,6 +798,13 @@ let modifyRelSelfReadOnly relName resType =
     |> Error.setTitle "Relationship read-only"
     |> Error.setDetail $"Relationship '%s{relName}' on type '%s{resType}' is read-only"
 
+let modifyRelSelfWhileSkipRelationship () =
+    // "A server MUST return 403 Forbidden in response to an unsupported request to
+    // update a resource or relationship."
+    Error.create 403
+    |> Error.setTitle "Relationship not available"
+    |> Error.setDetail "The server has chosen not to disclose this relationship, so it cannot be modified"
+
 let relatedResourceNotFound resType resId pointer =
     // "A server MUST return 404 Not Found when processing a request that references a
     // related resource that does not exist."

@@ -1,6 +1,14 @@
 Release notes
 ==============
 
+### 0.26.0 (2026-11-20)
+
+* **Breaking:** `SkipRelationshipIf` now also applies to the relationship’s own links. When the predicate returns `true`,
+  GET requests to `/{collection}/{id}/{relationship}` and `/{collection}/{id}/relationships/{relationship}` return 403,
+  as when the getter returns `Skip`, and PATCH, POST and DELETE requests to the `self` link return 403 without
+  modifying the relationship. Previously, GET requests returned the relationship unless the getter returned `Skip`,
+  and modifications went through even then.
+
 ### 0.25.4 (2026-11-19)
 
 * Fixed unknown query parameter strict mode rejecting the query parameters that a DELETE operation's request parser
