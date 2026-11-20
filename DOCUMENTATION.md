@@ -2310,6 +2310,13 @@ let linkName =
     ...
 ```
 
+Custom POST operations (`PostCustomAsync`/`PostCustomTask`) are not checked automatically either. To check them, pass a
+parser to `helper.ValidateRequestAsync` or `helper.RunSettersAsync` (or their `Task` variants), then call
+`helper.ValidateStrictModeQueryParameters()` before making any changes. Query parameters read through the request parser
+helper or any parser created from it (including `parser.GetOptionalAsync` and `IgnoreStrictMode`) before the last such
+call are known; those read later count as unknown. Unknown parameters cause an error or a warning, as configured. Both
+methods read the request body, so in operations that use `AllowReadingBody`, call them only after reading it yourself.
+
 The reason Felicity can not automatically perform strict mode query parameter validation for custom operations, is
 because there is no place to perform the validation automatically and safely return an error: Before calling your code,
 query parameters have not been parsed yet, and after calling your code, the operation is complete and any changes are
